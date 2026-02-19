@@ -1,0 +1,68 @@
+import type { AxiosRequestConfig } from 'axios';
+
+import axios from 'axios';
+
+import { CONFIG } from 'src/config-global';
+
+// ----------------------------------------------------------------------
+
+const axiosInstance = axios.create({ baseURL: CONFIG.serverUrl });
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => Promise.reject((error.response && error.response.data) || 'Something went wrong!')
+);
+
+export default axiosInstance;
+
+// ----------------------------------------------------------------------
+
+export const fetcher = async (args: string | [string, AxiosRequestConfig]) => {
+  try {
+    const [url, config] = Array.isArray(args) ? args : [args];
+
+    const res = await axiosInstance.get(url, { ...config });
+
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch:', error);
+    throw error;
+  }
+};
+
+// ----------------------------------------------------------------------
+
+export const endpoints = {
+  chat: '/api/chat',
+  auth: {
+    me: '/api/auth/me',
+    signIn: '/api/auth/sign-in',
+    signUp: '/api/auth/sign-up',
+  },
+  mail: {
+    list: '/api/mail/list',
+    details: '/api/mail/details',
+    labels: '/api/mail/labels',
+  },
+  guestArea: {
+    root: '/api/guest-area',
+  },
+  designSpace: {
+    root: '/api/design-space',
+  },
+  upload: {
+    image: '/api/upload/image',
+  },
+  album: {
+    list: '/api/album/list',
+    create: '/api/album/create',
+    details: (id: string | number) => `/api/album/${id}`,
+    update: (id: string | number) => `/api/album/${id}`,
+    delete: (id: string | number) => `/api/album/${id}`,
+    images: {
+      list: (id: string | number) => `/api/album/${id}/images`,
+      upload: (id: string | number) => `/api/album/${id}/images`,
+      delete: (id: string | number, imageId: string) => `/api/album/${id}/images/${imageId}`,
+    },
+  },
+};
