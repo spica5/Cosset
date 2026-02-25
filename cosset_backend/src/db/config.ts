@@ -47,9 +47,14 @@ export const DB_CONFIG = {
  */
 export function validateDatabaseConfig(): void {
   if (!DB_CONFIG.CONNECTION_STRING) {
-    throw new Error(
-      'DATABASE_URL environment variable is not configured. '
-      + 'Please add your Neon database connection string to your environment variables.',
-    );
+    const errorMsg = 'DATABASE_URL environment variable is not configured. '
+      + 'Please add your Neon database connection string to your environment variables.';
+    console.error(errorMsg);
+    console.error('Available environment variables:', {
+      hasDATABASE_URL: !!process.env.DATABASE_URL,
+      hasNODE_ENV: !!process.env.NODE_ENV,
+      NODE_ENV: process.env.NODE_ENV,
+    });
+    throw new Error(errorMsg);
   }
 }

@@ -1,5 +1,7 @@
 import type { IDesignSpaceItem } from 'src/types/design-space';
 
+import { CONFIG } from 'src/config-global';
+
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +10,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
@@ -41,6 +44,15 @@ type Props = {
   currentArea?: IDesignSpaceItem;
 };
 
+// Template images for design space
+const templateImages = [
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`, name: 'Modern Living Room1' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template4.jpg`, name: 'Modern Living Room2' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template2.jpg`, name: 'Cozy Bedroom' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template6.jpg`, name: 'Kitchen Design' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template5.jpg`, name: 'Office Space' },
+];
+
 export function DesignSpaceForm({ currentArea }: Props) {
   const { user } = useAuthContext();
   const defaultValues = useMemo(
@@ -62,6 +74,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
     watch,
     reset,
     setValue,
+    getValues,
     handleSubmit,
     formState: { isSubmitting },
   } = methods;
@@ -72,6 +85,64 @@ export function DesignSpaceForm({ currentArea }: Props) {
 
   const values = watch();
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
+  // Helper function to add uploaded images to the gallery
+  const addUploadedImages = useCallback(
+    (uploadedKeys: string[], uploadedUrls: string[]) => {
+      setExistingImageKeys((prev) => {
+        const newKeys = uploadedKeys.filter((key) => !prev.includes(key));
+        return [...prev, ...newKeys];
+      });
+      setPreviewUrlMap((prev) => {
+        const next = { ...prev };
+        uploadedKeys.forEach((key, idx) => {
+          if (!next[key]) { // Only set if not already present
+            next[key] = uploadedUrls[idx];
+          }
+        });
+        return next;
+      });
+
+      const currentImages = getValues('images') || [];
+      const newUrls = uploadedUrls.filter((url) => !currentImages.includes(url));
+
+      setValue('images',  [...currentImages, ...newUrls], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+    [setValue]
+  );
+
+  // Helper function to add a template image to the gallery
+  const addTemplateImage = useCallback(
+    (templateUrl: string) => {
+      const publicKey = `public:${templateUrl}`;
+      setExistingImageKeys((prev) => {
+        if (!prev.includes(publicKey)) {
+          return [...prev, publicKey];
+        }
+        return prev;
+      });
+      setPreviewUrlMap((prev) => {
+        if (!prev[publicKey]) {
+          return { ...prev, [publicKey]: templateUrl };
+        }
+        return prev;
+      });
+
+      const currentImages = getValues('images') || [];
+      if (!currentImages.includes(templateUrl)) {
+        setValue('images', [...currentImages, templateUrl], {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      } else {
+        toast.info('This template image is already added to the gallery.');
+      }
+    },
+    [setValue]
+  );
 
   // Reset form fields when currentArea changes (after data is fetched)
   useEffect(() => {
@@ -109,6 +180,10 @@ export function DesignSpaceForm({ currentArea }: Props) {
       // Fetch all preview URLs in parallel (avoid loops and await-in-loop)
       const fetches = await Promise.all(
         keys.map(async (key) => {
+          if (key.startsWith('public:')) {
+            // For public keys, the URL is the key without "public:" prefix
+            return { key, url: key.substring(7) };
+          }
           try {
             const res = await axiosInstance.get(endpoints.upload.image, { params: { key } });
             return { key, url: (res.data?.url as string) || '' };
@@ -145,6 +220,22 @@ export function DesignSpaceForm({ currentArea }: Props) {
     try {
       // Start with the existing keys (those not removed by user)
       const finalKeys: string[] = [...existingImageKeys];
+
+      // const finalKeys: string[] = [];
+
+      // // Map images back to keys
+      // (values.images || []).forEach((img) => {
+      //   if (typeof img === 'string') {
+      //     // Find if it's an uploaded image
+      //     const foundKey = Object.keys(previewUrlMap).find((k) => previewUrlMap[k] === img);
+      //     if (foundKey) {
+      //       finalKeys.push(foundKey);
+      //     } else if (img.startsWith('https://')) {
+      //       // Assume it's a template or public URL
+      //       finalKeys.push(`public:${img}`);
+      //     }
+      //   }
+      // });
 
       // Persist the design space background as JSON array of keys
       const backgroundData = JSON.stringify(finalKeys);
@@ -218,8 +309,8 @@ export function DesignSpaceForm({ currentArea }: Props) {
         uploadKeys.push(imageKey);
       });
 
-      // Upload all files at once
-      const uploadRes = await axiosInstance.post(endpoints.upload.image, formData, {
+      // Upload all files at once with public=true parameter
+      const uploadRes = await axiosInstance.post(`${endpoints.upload.image}?public=false`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -235,25 +326,11 @@ export function DesignSpaceForm({ currentArea }: Props) {
 
       // Add uploaded URLs to the form images and register keys for existing images
       if (uploadedUrls.length > 0) {
-        const allImages = [...(values.images || []), ...uploadedUrls];
-        setValue('images', allImages, { shouldValidate: true });
+        addUploadedImages(uploadedKeys, uploadedUrls);
 
-        // Merge uploaded keys into existingImageKeys and update preview map
-        if (uploadedKeys.length > 0) {
-          setExistingImageKeys((prev) => [...prev, ...uploadedKeys]);
-
-          setPreviewUrlMap((prev) => {
-            const next = { ...prev } as Record<string, string>;
-            results.forEach((r) => {
-              if (r.key && r.url) next[r.key] = r.url;
-            });
-            return next;
-          });
-
-          // If no preview is set yet, use the first uploaded URL
-          if (!previewSrc && uploadedUrls.length > 0) {
-            setPreviewSrc(uploadedUrls[0]);
-          }
+        // If no preview is set yet, use the first uploaded URL
+        if (!previewSrc && uploadedUrls.length > 0) {
+          setPreviewSrc(uploadedUrls[0]);
         }
 
         setPendingFiles([]);
@@ -286,8 +363,8 @@ export function DesignSpaceForm({ currentArea }: Props) {
           />
         
           <Divider />
-          <Stack spacing={3} sx={{ p: 3 }}>
-            <Stack spacing={1.5}>
+          <Box sx={{ p: 3, display: 'flex', gap: 3 }}>
+            <Box sx={{ width: "50%", spacing: 1.5 }}>
               <Typography variant="subtitle2">Add Images</Typography>
               <Upload
                 multiple
@@ -307,8 +384,35 @@ export function DesignSpaceForm({ currentArea }: Props) {
                   handleUploadImages();
                 }}
               />
-            </Stack>
-          </Stack>
+            </Box>
+
+            <Box sx={{ width: "50%", spacing: 1.5 }}>
+              <Typography variant="subtitle2">Template Images</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
+                {templateImages.map((template) => (
+                  <Box key={template.url} sx={{ textAlign: 'center', width: 110 }}>
+                    <img
+                      src={template.url}
+                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
+                    />
+                    <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                      {template.name}
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        addTemplateImage(template.url);
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Add
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Box>
 
           <Divider />
 

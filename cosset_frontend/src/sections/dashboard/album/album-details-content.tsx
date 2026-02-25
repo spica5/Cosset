@@ -1,6 +1,6 @@
 import type { IAlbumItem } from 'src/types/album';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -9,7 +9,6 @@ import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
-import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -24,6 +23,8 @@ import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Markdown } from 'src/components/dashboard/markdown';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { AlbumImageGallery } from './album-image-gallery';
+
 import { AlbumImageUpload } from './album-image-upload';
 
 // ----------------------------------------------------------------------
@@ -39,7 +40,7 @@ export function AlbumDetailsContent({ album }: Props) {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [imageToDelete, setImageToDelete] = useState<number | null>(null);
 
-  const fetchAlbumImages = async () => {
+  const fetchAlbumImages = useCallback(async () => {
     if (!album?.id) {
       setSlides([]);
       return;
@@ -62,11 +63,11 @@ export function AlbumDetailsContent({ album }: Props) {
       console.error('Failed to fetch album images:', error);
       setSlides([]);
     }
-  };
+  }, [album?.id]);
 
   useEffect(() => {
     fetchAlbumImages();
-  }, [album?.id]);
+  }, [fetchAlbumImages]);
 
   useEffect(() => {
     const loadCoverUrl = async () => {
@@ -129,7 +130,7 @@ export function AlbumDetailsContent({ album }: Props) {
       </Stack>
 
       <Divider sx={{ borderStyle: 'dashed', my: 1 }} />
-      <Box
+      {/* <Box
         gap={1}
         display="grid"
         gridTemplateColumns={{ xs: 'repeat(1, 1fr)', md: 'repeat(2, 1fr)' }}
@@ -251,14 +252,18 @@ export function AlbumDetailsContent({ album }: Props) {
             </Box>
           </>
         )}
-      </Box>
+      </Box> 
 
       <Lightbox
         index={selectedImage}
         slides={slides}
         open={openLightbox}
         close={handleCloseLightbox}
-      />
+      /> */}
+
+      {album?.id && (
+        <AlbumImageGallery albumId={String(album.id)} onRefresh={fetchAlbumImages} />
+      )}
     </>
   );
 

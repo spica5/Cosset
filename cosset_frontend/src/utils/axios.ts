@@ -46,6 +46,7 @@ export const endpoints = {
   },
   guestArea: {
     root: '/api/guest-area',
+    details: (customerId: string | number) => `/api/guest-area/${customerId}`,
   },
   designSpace: {
     root: '/api/design-space',
@@ -65,4 +66,11 @@ export const endpoints = {
       delete: (id: string | number, imageId: string) => `/api/album/${id}/images/${imageId}`,
     },
   },
+  gift: {
+    list: '/api/gift/list',
+    add: '/api/gift/new',
+    update: (id: string | number) => `/api/gift/${id}`,
+    delete: (id: string | number) => `/api/gift/${id}`,
+    details: (id: string | number) => `/api/gift/${id}`,
+  }
 };

@@ -33,7 +33,17 @@ export const paths = {
       details: (id: string | number) => `${ROOTS.DASHBOARD}/album/${id}`,
       edit: (id: string | number) => `${ROOTS.DASHBOARD}/album/${id}/edit`,
     },
-    drawer: `${ROOTS.DASHBOARD}/drawer`,
+    drawer: {
+      root: `${ROOTS.DASHBOARD}/drawer`,
+      gift: { 
+        root: `${ROOTS.DASHBOARD}/drawer/gift`,
+        new: `${ROOTS.DASHBOARD}/drawer/gift/new`,
+        details: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}`,
+        edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}/edit`,
+      },
+      goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
+      sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
+    },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {
       root: `${ROOTS.DASHBOARD}/community`,

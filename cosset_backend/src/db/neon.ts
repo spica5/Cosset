@@ -48,9 +48,21 @@ function initializeDb(): Db {
   validateDatabaseConfig();
 
   if (!dbConnection) {
-    dbConnection = neon<false, true>(DB_CONFIG.CONNECTION_STRING, {
-      fullResults: true,
-    });
+    const connectionString = DB_CONFIG.CONNECTION_STRING;
+    try {
+      dbConnection = neon<false, true>(connectionString, {
+        fullResults: true,
+      });
+    } catch (error) {
+      console.error('Failed to initialize database connection:', {
+        error,
+        hasConnectionString: !!connectionString,
+        connectionStringLength: connectionString?.length || 0,
+      });
+      throw new Error(
+        `Failed to initialize database connection: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   return dbConnection;
@@ -101,6 +113,12 @@ export async function executeQuery<T = Record<string, unknown>>(
       command: result.command,
     };
   } catch (error) {
+    console.error('Database query failed:', {
+      queryLength: queryText.length,
+      paramCount: params.length,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : 'Unknown',
+    });
     throw handleDatabaseError(error);
   }
 }

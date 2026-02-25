@@ -1,8 +1,8 @@
+import type { IAlbumItem } from 'src/types/album';
+
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { CONFIG } from 'src/config-global';
-
-import { IAlbumItem } from 'src/types/album';
 
 import { AlbumEditView } from 'src/sections/dashboard/album/view';
 

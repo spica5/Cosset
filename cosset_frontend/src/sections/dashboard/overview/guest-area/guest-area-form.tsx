@@ -17,7 +17,7 @@ import { useRouter } from 'src/routes/hooks';
 
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { _moods } from 'src/_mock/assets';
+import { _moods, _moodIcons } from 'src/_mock/assets';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
@@ -34,7 +34,7 @@ export const NewGuestAreaSchema = zod.object({
   mood: schemaHelper.objectOrNull<string | null>({
     message: { required_error: 'Mood is required!' },
   }),
-  coverUrl: schemaHelper.file({ message: { required_error: 'Cover is required!' } }),
+  coverViewUrl: schemaHelper.file({ message: { required_error: 'Cover is required!' } }),
   // images: schemaHelper.files({ message: { required_error: 'Images is required!' } }),
   // Images gallery is optional; allow an empty array without validation errors
   images: zod.array(zod.custom<File | string>()).optional().default([]),
@@ -43,11 +43,12 @@ export const NewGuestAreaSchema = zod.object({
 // ----------------------------------------------------------------------
 
 type Props = {
+  coverViewUrl?: string;
   currentArea?: IGuestAreaItem;
   onSaveSuccess?: () => void;
 };
 
-export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
+export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
 
@@ -56,10 +57,10 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
       title: currentArea?.title || '',
       motif: currentArea?.motif || '',
       mood: currentArea?.mood || '',
-      coverUrl: currentArea?.coverUrl || null,
+      coverViewUrl: coverViewUrl || null,
       images: currentArea?.images || [],
     }),
-    [currentArea]
+    [currentArea, coverViewUrl]
   );
 
   const methods = useForm<NewGuestAreaSchemaType>({
@@ -86,24 +87,31 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
       // ------------------------------------------------------------------
       // 1) Upload representative picture to S3 via backend API
       // ------------------------------------------------------------------
-      const coverFile = data.coverUrl;
+      const coverFile = data.coverViewUrl;
+      let coverUploadKey: string = '';
+      if (coverFile instanceof File) {
+        
+        const uploadKey = `guest-area/${Date.now()}-${coverFile.name}`;
 
-      if (!(coverFile instanceof File)) {
-        toast.error('Please select a cover image to upload.');
-        return;
-      }
+        const formData = new FormData();
+        formData.append('file', coverFile);
+        formData.append('key', uploadKey);
 
-      const uploadKey = `guest-area/${Date.now()}-${coverFile.name}`;
+        const uploadRes = await axiosInstance.post(endpoints.upload.image, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
 
-      const formData = new FormData();
-      formData.append('file', coverFile);
-      formData.append('key', uploadKey);
+        const uploadJson = uploadRes.data as { key: string; url: string };
 
-      const uploadRes = await axiosInstance.post(endpoints.upload.image, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+        // Update form immediately with the new signed URL so user sees the new image right away
+        setValue('coverViewUrl', uploadJson.url, { shouldValidate: false });
 
-      const uploadJson = uploadRes.data as { key: string; url: string };
+        coverUploadKey = uploadJson.key;
+      } else if (typeof coverFile === 'string') {
+        coverUploadKey = currentArea?.coverUrl ?? ''; // already a string
+      } else {
+        coverUploadKey = '';
+      }      
 
       // ------------------------------------------------------------------
       // 2) Persist guest area metadata (including S3 key) to backend
@@ -113,7 +121,7 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
         title: data.title,
         motif: data.motif,
         mood: data.mood,
-        pictureUrl: uploadJson.key,
+        pictureUrl: coverUploadKey,
         // designSpace: can be derived from images later if needed
         designSpace: null,
       });
@@ -127,9 +135,6 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
       }
 
       toast.success('Update success!');
-
-      // Update form immediately with the new signed URL so user sees the new image right away
-      setValue('coverUrl', uploadJson.url, { shouldValidate: false });
 
       // Trigger refetch in parent component to get updated data (will update currentArea)
       if (onSaveSuccess) {
@@ -148,7 +153,7 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
   });
 
   const handleRemoveFile = useCallback(() => {
-    setValue('coverUrl', null);
+    setValue('coverViewUrl', null);
   }, [setValue]);
 
   const renderDetails = (
@@ -160,7 +165,7 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
       <Stack spacing={3} sx={{ p: 3 }}>
         <Stack spacing={1.5}>
           <Typography variant="subtitle2">Cover</Typography>
-          <Field.Upload name="coverUrl" maxSize={3145728} onDelete={handleRemoveFile} />
+          <Field.Upload name="coverViewUrl" maxSize={3145728} onDelete={handleRemoveFile} />
         </Stack>
 
         <Field.Text name="title" label="Title" />
@@ -168,15 +173,20 @@ export function GuestAreaForm({ currentArea, onSaveSuccess }: Props) {
         <Field.Text name="motif" label="Motif" multiline rows={2} />
 
         <Stack spacing={1.5}>
-          <Typography variant="subtitle2">Mood</Typography>
+          <Typography variant="subtitle2"> Mood </Typography>
           <Field.Autocomplete
             name="mood"
             autoHighlight
             options={_moods.map((option) => option)}
-            getOptionLabel={(option) => option}
+            getOptionLabel={(option) => `${_moodIcons[option]} ${(option ?? '').toString()}`}
             renderOption={(props, option) => (
               <li {...props} key={option}>
-                {option}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ mr: 1, fontSize: 20 }}>
+                    {_moodIcons[option] || '😊'}
+                  </Typography>
+                  <Typography variant="body2">{option}</Typography>
+                </Box>
               </li>
             )}
           />

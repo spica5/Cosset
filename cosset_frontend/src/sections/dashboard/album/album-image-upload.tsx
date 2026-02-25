@@ -100,7 +100,7 @@ export function AlbumImageUpload({ albumId, onUploadSuccess }: Props) {
   }, []);
 
   return (
-    <Card sx={{ p: 3 }}>
+    <Card sx={{ p: 3, overflow: 'auto' }}>
       <Stack spacing={3}>
         <Typography variant="h6">Upload Images</Typography>
 

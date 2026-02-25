@@ -158,7 +158,7 @@ export async function POST(
           fileUrl: s3Key, // Store S3 key instead of filename
           mimeType: file.type,
           bytes: file.size,
-          description: description || undefined,
+          description: description || '',
         });
 
         return newImage;

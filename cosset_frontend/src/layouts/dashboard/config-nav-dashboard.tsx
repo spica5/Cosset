@@ -4,6 +4,7 @@ import { CONFIG } from 'src/config-global';
 
 import { Label } from 'src/components/dashboard/label';
 import { SvgColor } from 'src/components/dashboard/svg-color';
+import { chip } from 'src/theme/dashboard/core/components/chip';
 
 // ----------------------------------------------------------------------
 
@@ -75,7 +76,16 @@ export const navData = [
           { title: 'Album List', path: paths.dashboard.album.root },
         ],
       },
-      { title: 'Drawers', path: paths.dashboard.drawer, icon: ICONS.drawer },
+      { 
+        title: 'Drawers', 
+        path: paths.dashboard.drawer.root, 
+        icon: ICONS.drawer,
+        children: [
+          { title: 'Gift', path: paths.dashboard.drawer.gift.root },
+          { title: 'Good memorize', path: paths.dashboard.drawer.goodMemo },          
+          { title: 'Sad memorize', path: paths.dashboard.drawer.sadMemo },
+        ],
+      },
       { title: 'Friends', path: paths.dashboard.friend, icon: ICONS.friend },
       { 
         title: 'Community', 

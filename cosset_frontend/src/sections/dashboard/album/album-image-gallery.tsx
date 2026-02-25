@@ -24,6 +24,7 @@ import { CONFIG } from 'src/config-global';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { getS3SignedUrl } from 'src/utils/helper';
 
 
 // ----------------------------------------------------------------------
@@ -44,7 +45,7 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
     .map((img) => ({
       src: img.url!,
       alt: img.imageTitle || 'Album image',
-      description: img.description,
+      description: img.imageTitle && img.description ? `${img.imageTitle}: ${img.description}` : img.imageTitle || img.description || undefined,
     }));
 
   const lightbox = useLightBox(slides);
@@ -53,12 +54,24 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
     try {
       setLoading(true);
       const response = await axios.get(endpoints.album.images.list(albumId));
-      setImages(response.data.images || []);
+      const fetched = response.data?.images || [];
+
+      // Convert file_key to signed URLs and attach to each image as `url`
+      const fetchedWithUrls = await Promise.all(
+        fetched.map(async (image: any) => {
+          const signedUrl = await getS3SignedUrl(image.fileUrl);
+          return { ...image, url: signedUrl };
+        })
+      );
+
+      setImages(fetchedWithUrls);
+
     } catch (error) {
       console.error('Failed to fetch images:', error);
     } finally {
       setLoading(false);
     }
+
   }, [albumId]);
 
   useEffect(() => {
@@ -113,7 +126,7 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
     <>
       <Grid container spacing={2}>
         {images.map((image, index) => (
-          <Grid key={image.id} xs={12} sm={6} md={4} lg={3}>
+          <Grid key={image.id} xs={12} sm={6} md={4} lg={3} sx={{ p: 1 }}>
             <Card
               sx={{
                 position: 'relative',
@@ -123,6 +136,9 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
                 '&:hover .image-overlay': {
                   opacity: 1,
                 },
+                border: '1px dashed',
+                borderColor: 'divider',
+                borderRadius: 1,
               }}
               onClick={() => handleImageClick(index)}
             >
@@ -134,7 +150,7 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
                   sx={{
                     width: 1,
                     height: 1,
-                    objectFit: 'cover',
+                    objectFit: 'cover'                    
                   }}
                 />
               )}
@@ -156,7 +172,28 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
                   gap: 1,
                 }}
               >
-                <Tooltip title="View">
+                
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 20,
+                      left: 20,
+                      right: 20,
+                     // bgcolor: 'rgba(0, 0, 0, 0.4)',
+                      display: 'flex',              // ✅ required
+                      justifyContent: 'center',
+                      alignItems: 'center',         // vertical center
+                      p: 1,
+                      textAlign: 'center',          // ensures text itself is centered
+                    }}
+                  >
+                    <Typography variant="caption" color="white" noWrap>
+                     {image.description ?? 'No description available'}
+                    </Typography>         
+                  </Box>                 
+                
+                
+                <Tooltip title= "View" placement="bottom">
                   <IconButton
                     color="primary"
                     onClick={(e) => {
@@ -168,7 +205,7 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
                     <Iconify icon="solar:eye-bold" />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Delete">
+                <Tooltip title="Delete" placement="bottom">         
                   <IconButton
                     color="error"
                     onClick={(e) => {
@@ -190,12 +227,18 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
                     left: 0,
                     right: 0,
                     bgcolor: 'rgba(0, 0, 0, 0.7)',
+                    display: 'flex',              // ✅ required
+                    justifyContent: 'center',
+                    alignItems: 'center',         // vertical center
                     p: 1,
+                    textAlign: 'center',          // ensures text itself is centered
                   }}
                 >
-                  <Typography variant="caption" color="white" noWrap>
-                    {image.imageTitle}
-                  </Typography>
+                  {image.imageTitle && (
+                    <Typography variant="caption" color="white" noWrap>
+                      {image.imageTitle}
+                    </Typography>
+                  )}                  
                 </Box>
               )}
             </Card>

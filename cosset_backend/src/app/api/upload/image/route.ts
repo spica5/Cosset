@@ -62,10 +62,38 @@ async function uploadToS3(key: string, content: Buffer, contentType: string) {
   return s3.send(command);
 }
 
-async function getSignedImageUrl(key: string, expiresInSeconds = 60 * 10) {
+async function uploadToS3Public(key: string, content: Buffer, contentType: string) {
+  if (!key) throw new Error("key is requried");
+  if (!content) throw new Error("content is requried");
+  if (!contentType) throw new Error("contentType is requried");
+
+  const bucket = requireEnv('S3_BUCKET');
+  if (!bucket) throw new Error("S3_BUCKET env var is missing");
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: content,
+    ACL: "public-read",
+    ContentType: contentType,
+  });
+
+  // console.log(`key:${key} contentType:${contentType}`);
+
+  return s3.send(command);
+}
+
+async function getSignedImageUrl(key: string, isPublic = false, expiresInSeconds = 60 * 10) {
   const bucket = requireEnv("S3_BUCKET");
   if (!bucket) throw new Error("S3_BUCKET env var is missing");
 
+  if (isPublic) {
+    // Return the public URL
+    const endpoint = requireEnv('AWS_S3_ENDPOINT');
+    return `${endpoint}/${bucket}/${key}`;
+  }
+
+  // Return signed URL for private
   const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
   return getSignedUrl(s3, cmd, { expiresIn: expiresInSeconds });
 }
@@ -74,10 +102,11 @@ async function getSignedImageUrl(key: string, expiresInSeconds = 60 * 10) {
  * Upload multiple files to S3 in parallel
  */
 async function uploadMultipleToS3(
-  files: Array<{ key: string; content: Buffer; contentType: string }>
+  files: Array<{ key: string; content: Buffer; contentType: string }>,
+  isPublic = false
 ) {
   const uploadPromises = files.map((file) =>
-    uploadToS3(file.key, file.content, file.contentType)
+    isPublic ? uploadToS3Public(file.key, file.content, file.contentType) : uploadToS3(file.key, file.content, file.contentType)
   );
 
   return Promise.all(uploadPromises);
@@ -86,26 +115,31 @@ async function uploadMultipleToS3(
 /**
  * Get signed URLs for multiple keys
  */
-async function getSignedImageUrls(keys: string[]) {
-  const urlPromises = keys.map((key) => getSignedImageUrl(key));
+async function getSignedImageUrls(keys: string[], isPublic = false) {
+  const urlPromises = keys.map((key) => getSignedImageUrl(key, isPublic));
   return Promise.all(urlPromises);
 }
 
 // ----------------------------------------------------------------------
 
-/**
- * GET: Return a signed URL for an image by key.
- * Query: key (required) - S3 object key
- */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const key = searchParams.get('key');
+    const isPublic = searchParams.get('public') === 'true';
     if (!key || !key.trim()) {
       return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
     }
-    const signedUrl = await getSignedImageUrl(key.trim());
-    return response({ url: signedUrl }, STATUS.OK);
+
+    let url: string;
+    if (key.startsWith('public:')) {
+      // Return the key except the "public:" prefix as URL
+      url = key.substring(7);
+    } else {
+      url = await getSignedImageUrl(key.trim(), isPublic);
+    }
+
+    return response({ url }, STATUS.OK);
   } catch (error) {
     return handleError('Image - Get URL', error as Error);
   }
@@ -117,6 +151,11 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    // const { searchParams } = new URL(req.url);
+    // const isPublic = searchParams.get('public') === 'true';
+
+    const isPublic = req.nextUrl.searchParams.get('public') === 'true';
+
     const formData = await req.formData();
     
     // Try to get single file first
@@ -146,12 +185,12 @@ export async function POST(req: NextRequest) {
 
       console.log(`key:${s3Key} contentType:${contentType}`);
 
-      const result = await uploadToS3(s3Key, buffer, contentType);
+      const result = await (isPublic ? uploadToS3Public(s3Key, buffer, contentType) : uploadToS3(s3Key, buffer, contentType));
       if (result.$metadata?.httpStatusCode !== 200) {
         throw new Error("Failed to upload image to S3");
       }
 
-      const signedUrl = await getSignedImageUrl(s3Key);
+      const signedUrl = await getSignedImageUrl(s3Key, isPublic);
       return response({ key: s3Key, url: signedUrl }, STATUS.OK);
     }
 
@@ -190,14 +229,14 @@ export async function POST(req: NextRequest) {
         );
 
       // Upload all files in parallel
-      const uploadResults = await uploadMultipleToS3(uploadData);
+      const uploadResults = await uploadMultipleToS3(uploadData, isPublic);
       if (uploadResults.some((r) => r.$metadata?.httpStatusCode !== 200)) {
         throw new Error("Failed to upload one or more images to S3");
       }
 
       // Get signed URLs for all uploaded files
       const s3Keys = uploadData.map((u) => u.key);
-      const signedUrls = await getSignedImageUrls(s3Keys);
+      const signedUrls = await getSignedImageUrls(s3Keys, isPublic);
 
       // Return results
       const results = s3Keys.map((key, idx) => ({

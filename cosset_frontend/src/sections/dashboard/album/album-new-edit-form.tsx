@@ -1,7 +1,7 @@
 import type { IAlbumItem } from 'src/types/album';
 
 import { z as zod } from 'zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo, useEffect, useCallback } from 'react';
 
@@ -17,13 +17,14 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
+import axiosInstance, { endpoints } from 'src/utils/axios';
+
 import { createAlbum, updateAlbum } from 'src/actions/album';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
-import axiosInstance, { endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -80,8 +81,6 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
     handleSubmit,
     formState: { isSubmitting },
   } = methods;
-
-  const values = watch();
 
   useEffect(() => {
     if (currentAlbum) {

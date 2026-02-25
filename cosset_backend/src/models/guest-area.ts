@@ -19,7 +19,7 @@ export interface GuestArea {
   title: string;
   motif: string | null;
   mood: string | null;
-  pictureUrl: string | null; // S3 object key (file key)
+  coverUrl: string | null; // S3 object key (file key)
   designSpace: string | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -57,7 +57,7 @@ export async function createGuestArea(
         data.title,
         data.motif ?? null,
         data.mood ?? null,
-        data.pictureUrl ?? null,
+        data.coverUrl ?? null,
         data.designSpace ?? null,
       ],
     );
@@ -98,7 +98,7 @@ export async function getGuestAreas(
         title,
         motif,
         mood,
-        picture_url as "pictureUrl",
+        picture_url as "coverUrl",
         design_space as "designSpace"
       FROM ${TABLE_NAME}
     `;
@@ -164,7 +164,7 @@ export async function getGuestAreaById(id: number): Promise<GuestArea | null> {
  */
 export async function updateGuestArea(
   id: number,
-  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'pictureUrl' | 'designSpace'>>,
+  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'coverUrl' | 'designSpace'>>,
 ): Promise<GuestArea | null> {
   try {
     const row = await queryOne<GuestArea>(
@@ -191,7 +191,7 @@ export async function updateGuestArea(
         data.title ?? null,
         data.motif ?? null,
         data.mood ?? null,
-        data.pictureUrl ?? null,
+        data.coverUrl ?? null,
         data.designSpace ?? null,
       ],
     );

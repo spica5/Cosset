@@ -476,6 +476,34 @@ export const _moods = [
   `Personal · Infinite`,
 ]
 
+// Mood icons mapping
+export const _moodIcons: Record<string, string> = {
+  'Calm · Reflective': '🌊',
+  'Nostalgic · Gentle': '🕰️',
+  'Fresh · Grounded': '🌱',
+  'Cozy · Unrushed': '🛋️',
+  'Dreamy · Abstract': '💭',
+  'Safe · Silent': '🛡️',
+  'Tender · Hopeful': '❤️',
+  'Melancholic · Honest': '😔',
+  'Intimate · Raw': '🤝',
+  'Optimistic · Quiet Joy': '😊',
+  'Unhurried · Warm': '☕',
+  'Light · Spacious': '☀️',
+  'Thoughtful · Intimate': '🤔',
+  'Reflective · Open': '🪞',
+  'Vulnerable · Still': '🕊️',
+  'Fresh · Awake': '🌅',
+  'Honest · Clear': '💎',
+  'Sleepy · Surreal': '😴',
+  'Sentimental · Safe': '📖',
+  'Hopeful · Gentle': '🌈',
+  'Protected · Quiet': '🏠',
+  'Familiar · Comforting': '🐶',
+  'Cleansed · Calm': '🧼',
+  'Personal · Infinite': '♾️',
+};
+
 // ----------------------------------------------------------------------
 
 export const _motifs = [

@@ -1,7 +1,5 @@
 'use client';
 
-import type { IGuestAreaItem } from 'src/types/guestarea';
-
 import { useState, useEffect } from 'react';
 
 import { paths } from 'src/routes/paths';
@@ -14,85 +12,56 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { useGetGuestArea } from 'src/actions/guestarea';
+
 import { GuestAreaForm } from '../guest-area-form';
 
 // ----------------------------------------------------------------------
 
 export function OverviewGuestAreaView() {
-  const [currentArea, setCurrentArea] = useState<IGuestAreaItem | undefined>(undefined);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [coverViewUrl, setCoverViewUrl] = useState<string | undefined>(undefined);
   const { user } = useAuthContext();
+
+  const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchGuestArea = async () => {
-      try {
-        const res = await axiosInstance.get(endpoints.guestArea.root, {
-          params: user?.id ? { customerId: user.id } : undefined,
-        });
+    const loadGuestArea = async () => {
+      if (!guestarea) return;
 
-        const data = res.data as {
-          guestAreas?: Array<{
-            id: number;
-            title: string;
-            motif: string | null;
-            mood: string | null;
-            pictureUrl: string | null;
-            designSpace: string | null;
-          }>;
-        };
+      let coverUrl: string | '' = '';
 
-        const first = data.guestAreas?.[0];
-        if (!first) return;
+      if (guestarea.coverUrl) {
+        try {
+          const imageRes = await axiosInstance.get(endpoints.upload.image, {
+            params: { key: guestarea.coverUrl },
+          });
 
-        let coverUrl: string | '' = '';
-
-        if (first.pictureUrl) {
-          try {
-            const imageRes = await axiosInstance.get(endpoints.upload.image, {
-              params: { key: first.pictureUrl },
-            });
-
-            const imageData = imageRes.data as { url?: string };
-            if (imageData.url) {
-              coverUrl = imageData.url;
-            }
-          } catch (imageError) {
-            console.error('Failed to resolve guest area image URL', imageError);
+          const imageData = imageRes.data as { url?: string };
+          if (imageData.url) {
+            coverUrl = imageData.url;
           }
+        } catch (imageError) {
+          console.error('Failed to resolve guest area image URL', imageError);
         }
-
-        if (!isMounted) return;
-
-        const area: IGuestAreaItem = {
-          id: String(first.id),
-          title: first.title,
-          motif: first.motif ?? '',
-          mood: first.mood ?? '',
-          coverUrl,
-          images: [],
-          createdAt: null,
-        };
-
-        setCurrentArea(area);
-      } catch (error) {
-        console.error('Failed to fetch guest area', error);
       }
+
+      if (!isMounted) return;
+
+      setCoverViewUrl(coverUrl);
     };
 
-    // Only fetch once the user is known (or if unauthenticated, fall back to global)
-    if (user || user === null) {
-      fetchGuestArea();
-    }
+    loadGuestArea();
 
     return () => {
       isMounted = false;
     };
-  }, [user, refreshKey]);
+  }, [guestarea]);
 
   const handleSaveSuccess = () => {
-    setRefreshKey((prev) => prev + 1);
+    // Refresh guest area data - this would typically trigger a SWR revalidation
+    // setCoverViewUrl(undefined);
   };
 
   return (
@@ -106,7 +75,7 @@ export function OverviewGuestAreaView() {
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 
-      <GuestAreaForm currentArea={currentArea} onSaveSuccess={handleSaveSuccess} />
+      <GuestAreaForm currentArea={guestarea} coverViewUrl={coverViewUrl} onSaveSuccess={handleSaveSuccess} />
     </DashboardContent>
   );
 }

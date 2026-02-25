@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
           title: title.trim(),
           motif: motif != null ? String(motif).trim() : null,
           mood: mood != null ? String(mood).trim() : null,
-          pictureUrl: pictureUrl.trim(),
+          coverUrl: pictureUrl.trim(),
           designSpace: designSpace != null ? String(designSpace).trim() : null,
         });
       }
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         title: title.trim(),
         motif: motif != null ? String(motif).trim() : null,
         mood: mood != null ? String(mood).trim() : null,
-        pictureUrl: pictureUrl.trim(), // S3 file key stored in picture_url
+        coverUrl: pictureUrl.trim(), // S3 file key stored in picture_url
         designSpace: designSpace != null ? String(designSpace).trim() : null,
       });
     }
