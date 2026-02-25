@@ -1,9 +1,10 @@
 import type { IDesignSpaceItem } from 'src/types/design-space';
 
-import { CONFIG } from 'src/config-global';
-
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
+
+import { CONFIG } from 'src/config-global';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -19,6 +20,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
+import { Image } from 'src/components/dashboard/image';
 import { Upload } from 'src/components/dashboard/upload';
 import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
@@ -111,7 +113,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
         shouldValidate: true,
       });
     },
-    [setValue]
+    [setValue, getValues]
   );
 
   // Helper function to add a template image to the gallery
@@ -391,7 +393,8 @@ export function DesignSpaceForm({ currentArea }: Props) {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
                 {templateImages.map((template) => (
                   <Box key={template.url} sx={{ textAlign: 'center', width: 110 }}>
-                    <img
+                    <Image 
+                      alt={template.name}
                       src={template.url}
                       style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
                     />

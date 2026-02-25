@@ -89,35 +89,36 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
     <Box sx={{ p: 1 }}>
       {imageUrls.length === 0 ? (
         <>
-        <Box
-          sx={{
-            width: 1,
-            height: 164,
-            borderRadius: 1,
-            bgcolor: 'background.neutral',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
-            mb: 1,
-          }}
-        >
-          <Iconify icon="solar:image-broken" sx={{ width: 48, height: 48, color: 'text.disabled' }} />
-          <Typography variant="body2" color="text.disabled">
-            No Image
-          </Typography>
-        </Box>
-        <Box
+          <Box
             sx={{
-              width: 50,
-              height: 50,
-              borderRadius: 0.75,
+              width: 1,
+              height: 164,
+              borderRadius: 1,
               bgcolor: 'background.neutral',
-              display: 'flex',}}
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              mb: 1,
+            }}
           >
-        </Box>
-      </>
+            <Iconify icon="solar:image-broken" sx={{ width: 48, height: 48, color: 'text.disabled' }} />
+            <Typography variant="body2" color="text.disabled">
+              No Image
+            </Typography>
+          </Box>
+          <Box
+              sx={{
+                width: 50,
+                height: 50,
+                borderRadius: 0.75,
+                bgcolor: 'background.neutral',
+                display: 'flex',}}
+            >
+              empty
+          </Box>
+        </>
       ) : (
         <>
           {/* Main image */}

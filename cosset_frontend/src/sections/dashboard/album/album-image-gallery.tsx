@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 
+import { getS3SignedUrl } from 'src/utils/helper';
 import axios, { endpoints } from 'src/utils/axios';
 
 import { CONFIG } from 'src/config-global';
@@ -24,7 +25,6 @@ import { CONFIG } from 'src/config-global';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
-import { getS3SignedUrl } from 'src/utils/helper';
 
 
 // ----------------------------------------------------------------------

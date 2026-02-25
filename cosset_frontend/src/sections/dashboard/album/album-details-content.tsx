@@ -22,10 +22,10 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Markdown } from 'src/components/dashboard/markdown';
-import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
-import { AlbumImageGallery } from './album-image-gallery';
+import { useLightBox } from 'src/components/dashboard/lightbox';
 
 import { AlbumImageUpload } from './album-image-upload';
+import { AlbumImageGallery } from './album-image-gallery';
 
 // ----------------------------------------------------------------------
 

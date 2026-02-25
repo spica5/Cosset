@@ -75,7 +75,6 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
   });
 
   const {
-    watch,
     reset,
     setValue,
     handleSubmit,

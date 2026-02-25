@@ -4,7 +4,7 @@ import type { IGiftItem } from 'src/types/gift';
 import type { Slide } from 'yet-another-react-lightbox';
 
 import { useForm } from 'react-hook-form';
-import { useEffect, useCallback, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,11 +14,9 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
-import CircularProgress from '@mui/material/CircularProgress';
 import LoadingButton from '@mui/lab/LoadingButton';
+import CircularProgress from '@mui/material/CircularProgress';
 
-
-import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { uuidv4 } from 'src/utils/uuidv4';

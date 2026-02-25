@@ -4,7 +4,6 @@ import { CONFIG } from 'src/config-global';
 
 import { Label } from 'src/components/dashboard/label';
 import { SvgColor } from 'src/components/dashboard/svg-color';
-import { chip } from 'src/theme/dashboard/core/components/chip';
 
 // ----------------------------------------------------------------------
 
