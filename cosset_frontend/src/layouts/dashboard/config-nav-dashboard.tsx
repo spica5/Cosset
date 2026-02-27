@@ -4,6 +4,9 @@ import { CONFIG } from 'src/config-global';
 
 import { Label } from 'src/components/dashboard/label';
 import { SvgColor } from 'src/components/dashboard/svg-color';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import UmbrellaIcon from '@mui/icons-material/Umbrella';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 // ----------------------------------------------------------------------
 
@@ -31,6 +34,11 @@ const ICONS = {
   course: icon('ic-course'),
   drawer: icon('ic-drawer'),
   friend: icon('ic-friend'),
+  gift: icon('ic-gift'),
+  video: icon('ic-video'),
+  goodMemo: <WbSunnyIcon sx={{ width: 1, height: 1 }} />,
+  sadMemo: <UmbrellaIcon sx={{ width: 1, height: 1 }} />,
+  settings: <SettingsIcon sx={{ width: 1, height: 1 }} />,
   banking: icon('ic-banking'),
   booking: icon('ic-booking'),
   invoice: icon('ic-invoice'),
@@ -80,9 +88,10 @@ export const navData = [
         path: paths.dashboard.drawer.root, 
         icon: ICONS.drawer,
         children: [
-          { title: 'Gift', path: paths.dashboard.drawer.gift.root },
-          { title: 'Good memorize', path: paths.dashboard.drawer.goodMemo },          
-          { title: 'Sad memorize', path: paths.dashboard.drawer.sadMemo },
+          { title: 'Gift', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
+          { title: 'Good memorize', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
+          { title: 'Sad memorize', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
+          { title: 'Video', path: paths.dashboard.drawer.video, icon: ICONS.video },
         ],
       },
       { title: 'Friends', path: paths.dashboard.friend, icon: ICONS.friend },
@@ -109,6 +118,17 @@ export const navData = [
         title: 'Chat',
         path: paths.dashboard.chat,
         icon: ICONS.chat,
+      },
+      {
+        title: 'Settings',
+        path: paths.dashboard.settings.root,
+        icon: ICONS.settings,
+        children: [
+          { title: 'Profile', path: paths.dashboard.settings.profile },
+          { title: 'Appearance', path: paths.dashboard.settings.appearance },
+          { title: 'Account', path: paths.dashboard.settings.account },
+          
+        ],
       }
     ],
   },

@@ -25,13 +25,29 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * Create a new guest area (representative picture section)
- * Body: { title, motif, mood, pictureUrl, customerId?, designSpace? }
- * pictureUrl = S3 file key (stored in picture_url column); resolve to signed URL for display.
+ * Create or update a guest area
+ * Body: { title, motif, mood, pictureUrl, customerId?, designSpace? } for create/update
+ * Or { guestArea: { id, ...partial } } for partial updates
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    
+    // Check if it's a partial update
+    if (body.guestArea && typeof body.guestArea === 'object' && body.guestArea.id) {
+      const { guestArea: updates } = body;
+      const guestArea = await updateGuestArea(Number(updates.id), {
+        title: updates.title,
+        motif: updates.motif,
+        mood: updates.mood,
+        coverUrl: updates.coverUrl,
+        designSpace: updates.designSpace,
+        drawer: updates.drawer,
+      });
+      return response({ guestArea }, STATUS.OK);
+    }
+
+    // Original create/update logic
     const { title, motif, mood, pictureUrl, customerId, designSpace } = body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
@@ -68,11 +84,12 @@ export async function POST(req: NextRequest) {
         mood: mood != null ? String(mood).trim() : null,
         coverUrl: pictureUrl.trim(), // S3 file key stored in picture_url
         designSpace: designSpace != null ? String(designSpace).trim() : null,
+        drawer: null,
       });
     }
 
     return response({ guestArea }, STATUS.OK);
   } catch (error) {
-    return handleError('Guest Area - Create', error as Error);
+    return handleError('Guest Area - Create/Update', error as Error);
   }
 }

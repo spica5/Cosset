@@ -17,6 +17,7 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { deleteGift } from 'src/actions/gift';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { GiftItem } from './gift-item';
 
@@ -48,10 +49,12 @@ export function GiftList({ gifts }: Props) {
     setDeleteDialogOpen(true);
   }, []);
 
+  const { user } = useAuthContext();
+
   const handleDelete = useCallback(async () => {
     if (deleteTargetId == null) return;
     try {
-      await deleteGift(deleteTargetId);
+      await deleteGift(deleteTargetId, user?.id);
       const msg = 'Gift deleted successfully.';
       toast.success(msg);
     } catch (error) {
@@ -62,7 +65,7 @@ export function GiftList({ gifts }: Props) {
       setDeleteDialogOpen(false);
       setDeleteTargetId(null);
     }
-  }, [deleteTargetId]);
+  }, [deleteTargetId, user]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
     setCurrentPage(value);

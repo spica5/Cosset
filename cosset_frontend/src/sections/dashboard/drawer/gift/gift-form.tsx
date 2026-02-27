@@ -27,6 +27,7 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 
 import { createGift, updateGift } from 'src/actions/gift';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ——————————————————————————————————————————————————————————————————————————————
 
@@ -46,8 +47,11 @@ const formatDateForInput = (date: Date | string | number | null | undefined): st
 
 export function GiftForm({ currentGift, onClose }: Props) {
   const router = useRouter();
+  const { user } = useAuthContext();
+
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<IGiftItem>({
     defaultValues: {
+      userId: currentGift?.userId || user?.id || '',
       title: '',
       description: '',
       category: '',
@@ -60,6 +64,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
   useEffect(() => {
     if (currentGift) {
       reset({
+        userId: currentGift.userId || user?.id || '',
         title: currentGift.title || '',
         description: currentGift.description || '',
         category: currentGift.category || '',
@@ -68,7 +73,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
         images: currentGift.images || undefined,
       });
     }
-  }, [currentGift, reset]);
+  }, [currentGift, reset, user]);
 
   // Image upload states
   const [existingImageKeys, setExistingImageKeys] = useState<string[]>([]);
@@ -206,12 +211,17 @@ export function GiftForm({ currentGift, onClose }: Props) {
   const onSubmit = useCallback(
     async (data: IGiftItem) => {
       try {
+        // ensure payload includes a userId (prefer existing gift then current user)
+        const payload: IGiftItem = {
+          ...data,
+          userId: data.userId || currentGift?.userId || user?.id || '',
+        };
 
         if (currentGift?.id) {
-          await updateGift(currentGift.id, data);
+          await updateGift(currentGift.id, payload);
           toast.success('Gift updated successfully.');
         } else {
-          await createGift(data);
+          await createGift(payload);
           toast.success('Gift created successfully.');
         }
         // onClose?.();
@@ -220,7 +230,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
         toast.error('Failed to save gift.');
       }
     },
-    [currentGift, onClose]
+    [currentGift, onClose, user]
   );
 
   const handleCancel = useCallback(() => {

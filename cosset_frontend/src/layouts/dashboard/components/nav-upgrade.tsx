@@ -1,5 +1,6 @@
 import type { StackProps } from '@mui/material/Stack';
 
+import { useState, useEffect } from 'react';
 import { m } from 'framer-motion';
 
 import Box from '@mui/material/Box';
@@ -10,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { alpha as hexAlpha } from '@mui/material/styles';
 
 import { CONFIG } from 'src/config-global';
+import { getS3SignedUrl } from 'src/utils/helper';
 import { varAlpha, bgGradient } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';
@@ -26,6 +28,36 @@ const PLAN_TYPE_BADGE_MAP: Record<string, { label: string; color: 'primary' | 'e
 
 export function NavUpgrade({ sx, ...other }: StackProps) {
   const { user } = useAuthContext();
+  const [signedPhotoURL, setSignedPhotoURL] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolvePhotoUrl = async () => {
+      const photoKey = user?.photoURL;
+
+      if (!photoKey) {
+        if (mounted) setSignedPhotoURL('');
+        return;
+      }
+
+      if (photoKey.startsWith('http://') || photoKey.startsWith('https://')) {
+        if (mounted) setSignedPhotoURL(photoKey);
+        return;
+      }
+
+      const signedUrl = await getS3SignedUrl(photoKey);
+      if (mounted) {
+        setSignedPhotoURL(signedUrl || '');
+      }
+    };
+
+    resolvePhotoUrl();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.photoURL]);
 
   const planType = user?.plan || 'FREE';
   const badgeConfig = PLAN_TYPE_BADGE_MAP[planType] || PLAN_TYPE_BADGE_MAP.FREE;
@@ -34,7 +66,7 @@ export function NavUpgrade({ sx, ...other }: StackProps) {
     <Stack sx={{ px: 2, py: 5, textAlign: 'center', ...sx }} {...other}>
       <Stack alignItems="center">
         <Box sx={{ position: 'relative' }}>
-          <Avatar src={user?.photoURL} alt={user?.displayName} sx={{ width: 48, height: 48 }}>
+          <Avatar src={signedPhotoURL || undefined} alt={user?.displayName} sx={{ width: 48, height: 48 }}>
             {user?.displayName?.charAt(0).toUpperCase()}
           </Avatar>
 

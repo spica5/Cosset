@@ -21,6 +21,7 @@ export interface GuestArea {
   mood: string | null;
   coverUrl: string | null; // S3 object key (file key)
   designSpace: string | null;
+  drawer: string | null; // JSON string for drawer sharing settings
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -40,17 +41,19 @@ export async function createGuestArea(
           motif,
           mood,
           picture_url,
-          design_space
+          design_space,
+          drawer
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING
           id,
           customer_id as "customerId",
           title,
           motif,
           mood,
-          picture_url as "pictureUrl",
-          design_space as "designSpace"
+          picture_url as "coverUrl",
+          design_space as "designSpace",
+          drawer
       `,
       [
         data.customerId ?? null,
@@ -59,6 +62,7 @@ export async function createGuestArea(
         data.mood ?? null,
         data.coverUrl ?? null,
         data.designSpace ?? null,
+        data.drawer ?? null,
       ],
     );
 
@@ -99,7 +103,8 @@ export async function getGuestAreas(
         motif,
         mood,
         picture_url as "coverUrl",
-        design_space as "designSpace"
+        design_space as "designSpace",
+        drawer
       FROM ${TABLE_NAME}
     `;
     const params: unknown[] = [];
@@ -140,8 +145,9 @@ export async function getGuestAreaById(id: number): Promise<GuestArea | null> {
           title,
           motif,
           mood,
-          picture_url as "pictureUrl",
-          design_space as "designSpace"
+          picture_url as "coverUrl",
+          design_space as "designSpace",
+          drawer
         FROM ${TABLE_NAME}
         WHERE id = $1
       `,
@@ -164,7 +170,7 @@ export async function getGuestAreaById(id: number): Promise<GuestArea | null> {
  */
 export async function updateGuestArea(
   id: number,
-  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'coverUrl' | 'designSpace'>>,
+  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'coverUrl' | 'designSpace' | 'drawer'>>,
 ): Promise<GuestArea | null> {
   try {
     const row = await queryOne<GuestArea>(
@@ -175,7 +181,8 @@ export async function updateGuestArea(
           motif = COALESCE($3, motif),
           mood = COALESCE($4, mood),
           picture_url = COALESCE($5, picture_url),
-          design_space = COALESCE($6, design_space)
+          design_space = COALESCE($6, design_space),
+          drawer = COALESCE($7, drawer)
         WHERE id = $1
         RETURNING
           id,
@@ -183,8 +190,9 @@ export async function updateGuestArea(
           title,
           motif,
           mood,
-          picture_url as "pictureUrl",
-          design_space as "designSpace"
+          picture_url as "coverUrl",
+          design_space as "designSpace",
+          drawer
       `,
       [
         id,
@@ -193,6 +201,7 @@ export async function updateGuestArea(
         data.mood ?? null,
         data.coverUrl ?? null,
         data.designSpace ?? null,
+        data.drawer ?? null,
       ],
     );
     return row;

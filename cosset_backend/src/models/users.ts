@@ -432,3 +432,141 @@ export async function createUser(
     throw error;
   }
 }
+
+/**
+ * Update user profile information
+ *
+ * Fetches a single user record by id and updates the profile fields.
+ * Returns the updated user record.
+ *
+ * @param id - User ID to update
+ * @param updates - Partial user object with fields to update
+ * @returns Updated user object
+ * @throws {DatabaseError} If query execution fails
+ *
+ * @example
+ * ```ts
+ * import { updateUser } from '@/models/users';
+ *
+ * const updatedUser = await updateUser('user-123', {
+ *   firstName: 'John',
+ *   lastName: 'Doe',
+ *   phoneNumber: '+1234567890'
+ * });
+ * ```
+ */
+export async function updateUser(
+  id: string,
+  updates: Partial<Omit<User, 'id' | 'email' | 'password' | 'plan' | 'role' | 'createdAt' | 'updatedAt'>>,
+): Promise<User> {
+  try {
+    const fields: string[] = [];
+    const values: (string | boolean | null)[] = [];
+    let paramIndex = 2; // Start from $2 since $1 is the id
+    const nextParam = () => {
+      const currentParam = paramIndex;
+      paramIndex += 1;
+      return currentParam;
+    };
+
+    // Build dynamic UPDATE clause
+    if (updates.phoneNumber !== undefined) {
+      fields.push(`phone_number = $${nextParam()}`);
+      values.push(updates.phoneNumber || null);
+    }
+    if (updates.firstName !== undefined) {
+      fields.push(`first_name = $${nextParam()}`);
+      values.push(updates.firstName || null);
+    }
+    if (updates.lastName !== undefined) {
+      fields.push(`last_name = $${nextParam()}`);
+      values.push(updates.lastName || null);
+    }
+    if (updates.photoURL !== undefined) {
+      fields.push(`photo_url = $${nextParam()}`);
+      values.push(updates.photoURL || null);
+    }
+    if (updates.country !== undefined) {
+      fields.push(`country = $${nextParam()}`);
+      values.push(updates.country || null);
+    }
+    if (updates.address !== undefined) {
+      fields.push(`address = $${nextParam()}`);
+      values.push(updates.address || null);
+    }
+    if (updates.state !== undefined) {
+      fields.push(`state = $${nextParam()}`);
+      values.push(updates.state || null);
+    }
+    if (updates.city !== undefined) {
+      fields.push(`city = $${nextParam()}`);
+      values.push(updates.city || null);
+    }
+    if (updates.zipCode !== undefined) {
+      fields.push(`zip_code = $${nextParam()}`);
+      values.push(updates.zipCode || null);
+    }
+    if (updates.about !== undefined) {
+      fields.push(`about = $${nextParam()}`);
+      values.push(updates.about || null);
+    }
+    if (updates.isPublic !== undefined) {
+      fields.push(`is_public = $${nextParam()}`);
+      values.push(updates.isPublic);
+    }
+
+    if (fields.length === 0) {
+      // No fields to update, return the current user
+      return (await getUserById(id))!;
+    }
+
+    fields.push(`updated_at = NOW()`);
+    const updateClause = fields.join(', ');
+
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET ${updateClause}
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password,
+          plan as "plan",
+          role as "role",
+          phone_number as "phoneNumber",
+          first_name as "firstName",
+          last_name as "lastName",
+          photo_url as "photoURL",
+          country,
+          address,
+          state,
+          city,
+          zip_code as "zipCode",
+          about,
+          is_public as "isPublic",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `,
+      [id, ...values],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_FAILED',
+        message: 'Failed to update user: User not found or no data returned',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_ERROR',
+        message: `Failed to update user: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}

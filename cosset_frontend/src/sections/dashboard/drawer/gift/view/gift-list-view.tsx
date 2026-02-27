@@ -8,11 +8,12 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
+import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useSetState } from 'src/hooks/use-set-state';
 
 import { useGetGifts } from 'src/actions/gift';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -32,20 +33,33 @@ export function GiftListView() {
   const [sortBy, setSortBy] = useState('latest');
   const router = useRouter();
 
-  const { gifts, giftsLoading } = useGetGifts();
+  const { user } = useAuthContext();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category') || '';
+
+  const { gifts, giftsLoading } = useGetGifts(user?.id);
 
   // Refresh gift list when component mounts (when returning from create/edit)
   useEffect(() => {
+    // mutate both global and user-specific caches
     mutate(endpoints.gift.list);
-  }, []);
+    if (user?.id) {
+      mutate(`${endpoints.gift.list}?userId=${user.id}`);
+    }
+  }, [user]);
 
   const search = useSetState<{
     query: string;
     results: IGiftItem[];
   }>({ query: '', results: [] });
 
+  // apply category filter first, then search/sort
+  const baseData = categoryParam
+    ? gifts.filter((g) => g.category === categoryParam)
+    : gifts;
+
   const dataFiltered = applyFilter({
-    inputData: search.state.results.length ? search.state.results : gifts,
+    inputData: search.state.results.length ? search.state.results : baseData,
     sortBy,
   });
 
@@ -60,7 +74,11 @@ export function GiftListView() {
       search.setState({ query: inputValue });
 
       if (inputValue) {
-        const results = gifts.filter(
+        // when searching, also respect category filter
+      const source = categoryParam ?
+        gifts.filter((g) => g.category === categoryParam) :
+        gifts;
+      const results = source.filter(
           (gift) => gift.title.toLowerCase().indexOf(inputValue.toLowerCase()) !== -1
         );
 

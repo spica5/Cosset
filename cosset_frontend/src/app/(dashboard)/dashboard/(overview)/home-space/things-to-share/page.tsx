@@ -1,11 +1,11 @@
 import { CONFIG } from 'src/config-global';
 
-import { BlankView } from 'src/sections/dashboard/blank/view';
+import { ThingsToShareView } from 'src/sections/dashboard/overview/things-to-share/view';
 
 // ----------------------------------------------------------------------
 
 export const metadata = { title: `Dashboard - ${CONFIG.appName}` };
 
 export default function Page() {
-  return <BlankView title="Things To Share" />;
+  return <ThingsToShareView />;
 }

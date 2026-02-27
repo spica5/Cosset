@@ -34,8 +34,6 @@ export interface Gift {
   receivedFrom: string | null;
   /** Received date */
   receivedDate?: Date | null;
-  /** Openness */
-  openness?: string | null;
   /** Creation timestamp */
   createdAt?: Date | null;
   /** Update timestamp */
@@ -62,7 +60,6 @@ export async function getGiftById(id: number): Promise<Gift | null> {
           received_date as "receivedDate",
           category,
           images,
-          openness,
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
@@ -109,7 +106,6 @@ export async function getAllGifts(
         received_date as "receivedDate",
         category,
         images,
-        openness,
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM ${TABLE_NAME}
@@ -162,11 +158,10 @@ export async function createGift(
           received_from,
           received_date,
           images,
-          openness,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
         RETURNING
           id,
           user_id as "userId",
@@ -176,7 +171,6 @@ export async function createGift(
           received_from as "receivedFrom",
           received_date as "receivedDate",
           images,
-          openness,
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -188,7 +182,6 @@ export async function createGift(
         gift.receivedFrom || null,
         gift.receivedDate || null,
         gift.images || null,
-        gift.openness || null,
       ],
     );
 
@@ -259,11 +252,6 @@ export async function updateGift(
       values.push(gift.images);
       paramIndex += 1;
     }
-    if (gift.openness !== undefined) {
-      fields.push(`openness = $${paramIndex}`);
-      values.push(gift.openness);
-      paramIndex += 1;
-    }
 
     if (fields.length === 0) {
       const existing = await getGiftById(id);
@@ -294,7 +282,6 @@ export async function updateGift(
           received_from as "receivedFrom",
           received_date as "receivedDate",
           images,
-          openness,
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -328,47 +315,6 @@ export async function updateGift(
  * @returns true if gift was deleted, false if not found
  * @throws {DatabaseError} If query execution fails
  */
-export async function getGiftCount(
-  userId?: string,
-  openness?: string,
-  category?: string
-): Promise<number> {
-  try {
-    let query = `SELECT COUNT(*)::int AS count FROM ${TABLE_NAME}`;
-    const params: unknown[] = [];
-    const conditions: string[] = [];
-
-    if (userId !== undefined) {
-      conditions.push(`user_id = $${params.length + 1}`);
-      params.push(userId);
-    }
-    if (openness !== undefined) {
-      conditions.push(`openness = $${params.length + 1}`);
-      params.push(openness);
-    }
-    if (category !== undefined) {
-      conditions.push(`category = $${params.length + 1}`);
-      params.push(category);
-    }
-
-    if (conditions.length) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-
-    const row = await queryOne<{ count: number }>(query, params);
-    return row?.count || 0;
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'GET_GIFT_COUNT_ERROR',
-        message: `Failed to count gifts: ${error.message}`,
-        detail: error.detail,
-      });
-    }
-    throw error;
-  }
-}
-
 export async function deleteGift(id: number): Promise<boolean> {
   try {
     const result = await queryOne<{ id: number }>(

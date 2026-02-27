@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import { createGift } from 'src/models/gifts';
+import { verify } from 'src/utils/jwt';
+import { JWT_SECRET } from 'src/config-global';
 
 // Disable Next.js route caching for this API.
 export const dynamic = 'force-dynamic';
@@ -23,8 +25,23 @@ export async function POST(req: NextRequest) {
       return response({ message: 'Title is required' }, STATUS.BAD_REQUEST);
     }
 
+    // try to infer user from authorization header if not provided
+    let inferredUserId: string | null = null;
+    const authorization = req.headers.get('authorization');
+    if (authorization && authorization.startsWith('Bearer ')) {
+      const accessToken = authorization.split(' ')[1];
+      try {
+        const data = await verify(accessToken, JWT_SECRET);
+        if (data?.userId) {
+          inferredUserId = data.userId;
+        }
+      } catch (err) {
+        // ignore verification errors; we'll fall back to gift.userId
+      }
+    }
+
     const newGift= await createGift({
-      userId: gift.userId || null,
+      userId: gift.userId || inferredUserId || null,
       title: gift.title,
       description: gift.description || null,
       receivedFrom: gift.receivedFrom || null,

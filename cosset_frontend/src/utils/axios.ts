@@ -39,6 +39,9 @@ export const endpoints = {
     signIn: '/api/auth/sign-in',
     signUp: '/api/auth/sign-up',
   },
+  user: {
+    list: '/api/user/list',
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',
@@ -68,6 +71,7 @@ export const endpoints = {
   },
   gift: {
     list: '/api/gift/list',
+    count: '/api/gift/count',
     add: '/api/gift/new',
     update: (id: string | number) => `/api/gift/${id}`,
     delete: (id: string | number) => `/api/gift/${id}`,

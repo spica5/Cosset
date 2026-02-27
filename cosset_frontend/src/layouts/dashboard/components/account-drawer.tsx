@@ -2,13 +2,11 @@
 
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Drawer from '@mui/material/Drawer';
-import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
@@ -18,6 +16,7 @@ import { paths } from 'src/routes/paths';
 import { useRouter, usePathname } from 'src/routes/hooks';
 
 import { _mock } from 'src/_mock/dashboard';
+import { getS3SignedUrl } from 'src/utils/helper';
 import { varAlpha } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';
@@ -50,8 +49,41 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   const pathname = usePathname();
 
   const { user } = useAuthContext();
+  const [signedPhotoURL, setSignedPhotoURL] = useState('');
 
   const [open, setOpen] = useState(false);
+  const accountPlan = (user?.plan || 'FREE').toUpperCase();
+  const accountPlanColor =
+    accountPlan === 'EXTRA-PAID' ? 'warning' : accountPlan === 'PAID' ? 'error' : 'primary';
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolvePhotoUrl = async () => {
+      const photoKey = user?.photoURL;
+
+      if (!photoKey) {
+        if (mounted) setSignedPhotoURL('');
+        return;
+      }
+
+      if (photoKey.startsWith('http://') || photoKey.startsWith('https://')) {
+        if (mounted) setSignedPhotoURL(photoKey);
+        return;
+      }
+
+      const signedUrl = await getS3SignedUrl(photoKey);
+      if (mounted) {
+        setSignedPhotoURL(signedUrl || '');
+      }
+    };
+
+    resolvePhotoUrl();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.photoURL]);
 
   const handleOpenDrawer = useCallback(() => {
     setOpen(true);
@@ -70,26 +102,43 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   );
 
   const renderAvatar = (
-    <AnimateAvatar
-      width={96}
-      slotProps={{
-        avatar: { src: user?.photoURL, alt: user?.displayName },
-        overlay: {
-          border: 2,
-          spacing: 3,
-          color: `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0)} 25%, ${theme.vars.palette.primary.main} 100%)`,
-        },
-      }}
-    >
-      {user?.displayName?.charAt(0).toUpperCase()}
-    </AnimateAvatar>
+    <Box sx={{ position: 'relative' }}>
+      <AnimateAvatar
+        width={96}
+        slotProps={{
+          avatar: { src: signedPhotoURL || undefined, alt: user?.displayName },
+          overlay: {
+            border: 2,
+            spacing: 3,
+            color: `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0)} 25%, ${theme.vars.palette.primary.main} 100%)`,
+          },
+        }}
+      >
+        {user?.displayName?.charAt(0).toUpperCase()}
+      </AnimateAvatar>
+
+      <Label
+        color={accountPlanColor}
+        variant="filled"
+        sx={{
+          right: -8,
+          bottom: -8,
+          px: 0.75,
+          height: 20,
+          position: 'absolute',
+          borderTopLeftRadius: 2,
+        }}
+      >
+        {accountPlan}
+      </Label>
+    </Box>
   );
 
   return (
     <>
       <AccountButton
         onClick={handleOpenDrawer}
-        photoURL={user?.photoURL}
+        photoURL={signedPhotoURL}
         displayName={user?.displayName}
         sx={sx}
         {...other}
@@ -122,7 +171,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
             </Typography>
           </Stack>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" sx={{ p: 3 }}>
+          {/* <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" sx={{ p: 3 }}>
             {[...Array(3)].map((_, index) => (
               <Tooltip
                 key={_mock.fullName(index + 1)}
@@ -146,7 +195,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
                 <Iconify icon="mingcute:add-line" />
               </IconButton>
             </Tooltip>
-          </Stack>
+          </Stack> */}
 
           <Stack
             sx={{

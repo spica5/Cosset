@@ -45,19 +45,20 @@ export async function PUT(
     const { id } = await params;
     const giftId = parseInt(id, 10);
     const body = await req.json();
-    const gift = body?.gift;
+    const updates = body?.updates;
 
-    if (!gift) {
-      return response({ message: 'Gift data is required' }, STATUS.BAD_REQUEST);
+    if (!updates) {
+      return response({ message: 'Updates data is required' }, STATUS.BAD_REQUEST);
     }
 
     const updatedGift = await updateGift(giftId, {
-      title: gift.title,
-      description: gift.description ?? null,
-      receivedFrom: gift.receivedFrom ?? null,
-      receivedDate: gift.receivedDate ?? null,
-      category: gift.category ?? null,
-      images: gift.images ?? null,
+      title: updates.title,
+      description: updates.description ?? null,
+      receivedFrom: updates.receivedFrom ?? null,
+      receivedDate: updates.receivedDate ?? null,
+      category: updates.category ?? null,
+      images: updates.images ?? null,
+      openness: updates.openness ?? null,
     });
 
     return response({ gift: updatedGift }, STATUS.OK);

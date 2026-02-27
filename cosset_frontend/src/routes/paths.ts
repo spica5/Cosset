@@ -43,6 +43,7 @@ export const paths = {
       },
       goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
       sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
+      video: `${ROOTS.DASHBOARD}/drawer/video`,
     },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {
@@ -55,6 +56,12 @@ export const paths = {
     },
     mail: `${ROOTS.DASHBOARD}/mail`,
     chat: `${ROOTS.DASHBOARD}/chat`,
+    settings: {
+      root: `${ROOTS.DASHBOARD}/settings`,
+      profile: `${ROOTS.DASHBOARD}/settings/profile`,
+      appearance: `${ROOTS.DASHBOARD}/settings/appearance`,
+      account: `${ROOTS.DASHBOARD}/settings/account`,      
+    },
     auth: {
       signIn: `${ROOTS.DASHBOARD}/sign-in`,
       signUp: `${ROOTS.DASHBOARD}/sign-up`,
