@@ -47,6 +47,11 @@ export const endpoints = {
     details: '/api/mail/details',
     labels: '/api/mail/labels',
   },
+  notification: {
+    list: '/api/notification/list',
+    new: '/api/notification/new',
+    details: (id: string | number) => `/api/notification/${id}`,
+  },
   guestArea: {
     root: '/api/guest-area',
     details: (customerId: string | number) => `/api/guest-area/${customerId}`,

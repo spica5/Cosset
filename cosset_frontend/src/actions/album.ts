@@ -80,7 +80,7 @@ export async function createAlbum(album: IAlbumItem) {
 
 // ----------------------------------------------------------------------
 
-export async function updateAlbum(id: string | number, album: IAlbumItem) {
+export async function updateAlbum(id: string | number, album: Partial<IAlbumItem>) {
   const url = endpoints.album.update(id);
   const data = { album };
   const res = await axios.put(url, data);

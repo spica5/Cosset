@@ -4,6 +4,7 @@ import type { CardProps } from '@mui/material/Card';
 import { useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
 import Avatar from '@mui/material/Avatar';
@@ -21,6 +22,7 @@ import { varAlpha } from 'src/theme/dashboard/styles';
 import { AvatarShape } from 'src/assets/dashboard/illustrations';
 
 import { Image } from 'src/components/dashboard/image';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -29,6 +31,9 @@ type Props = CardProps & {
 };
 
 export function FriendCard({ friend, sx, ...other }: Props) {
+  const { user } = useAuthContext();
+  const isCurrentUser = user?.id === friend.id;
+
   const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
   const [signedCoverUrl, setSignedCoverUrl] = useState('');
 
@@ -147,7 +152,14 @@ export function FriendCard({ friend, sx, ...other }: Props) {
 
       <ListItemText
         sx={{ mt: 1, mb: 1 }}
-        primary={friend.name}
+        primary={
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+            <Typography component="span" variant="body2" noWrap>
+              {friend.name}
+            </Typography>
+            {isCurrentUser && <Chip label="You" size="small" color="primary" variant="filled" />}
+          </Box>
+        }
         secondary={friend.email || friend.motif}
         primaryTypographyProps={{
           noWrap: true,

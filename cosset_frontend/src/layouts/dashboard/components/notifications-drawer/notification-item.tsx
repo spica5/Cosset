@@ -24,9 +24,16 @@ export type NotificationItemProps = {
   isUnRead: boolean;
   avatarUrl: string | null;
   createdAt: string | number | null;
+  archived?: boolean;
 };
 
-export function NotificationItem({ notification }: { notification: NotificationItemProps }) {
+type Props = {
+  notification: NotificationItemProps;
+  onRead?: (id: string) => void;
+  onArchive?: (id: string) => void;
+};
+
+export function NotificationItem({ notification, onRead, onArchive }: Props) {
   const renderAvatar = (
     <ListItemAvatar>
       {notification.avatarUrl ? (
@@ -197,9 +204,35 @@ export function NotificationItem({ notification }: { notification: NotificationI
     </Stack>
   );
 
+  const archiveAction = (
+      <Box sx={{ mt: 1.5 }}>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={(event) => {
+            event.stopPropagation();
+            onArchive?.(notification.id);
+          }}
+
+          sx={{
+            top: 48,
+            width: 30,
+            height: 25,
+            right: 20,
+            borderRadius: '5px',
+            bgcolor: 'primary.main',
+            position: 'absolute',
+          }}
+        >
+          Archive
+        </Button>
+      </Box>
+  );
+
   return (
     <ListItemButton
       disableRipple
+      onClick={() => onRead?.(notification.id)}
       sx={{
         p: 2.5,
         alignItems: 'flex-start',
@@ -217,6 +250,8 @@ export function NotificationItem({ notification }: { notification: NotificationI
         {notification.type === 'file' && fileAction}
         {notification.type === 'tags' && tagsAction}
         {notification.type === 'payment' && paymentAction}
+        {!notification.archived && archiveAction}
+        
       </Stack>
     </ListItemButton>
   );

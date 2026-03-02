@@ -15,8 +15,8 @@ import IconButton from '@mui/material/IconButton';
 import { paths } from 'src/routes/paths';
 import { useRouter, usePathname } from 'src/routes/hooks';
 
-import { _mock } from 'src/_mock/dashboard';
 import { getS3SignedUrl } from 'src/utils/helper';
+
 import { varAlpha } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';

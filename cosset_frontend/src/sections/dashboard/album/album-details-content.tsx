@@ -88,12 +88,7 @@ export function AlbumDetailsContent({ album }: Props) {
     loadCoverUrl();
   }, [album?.coverUrl]);
 
-  const {
-    selected: selectedImage,
-    open: openLightbox,
-    onOpen: handleOpenLightbox,
-    onClose: handleCloseLightbox,
-  } = useLightBox(slides);
+  useLightBox(slides);
 
   const handleDelete = async (imageId: number) => {
     try {
@@ -104,11 +99,6 @@ export function AlbumDetailsContent({ album }: Props) {
     } catch (error) {
       console.error('Failed to delete image:', error);
     }
-  };
-
-  const handleOpenDelete = (imageId: number) => {
-    setImageToDelete(imageId);
-    setOpenDeleteDialog(true);
   };
 
   const handleCloseDelete = () => {
@@ -268,7 +258,6 @@ export function AlbumDetailsContent({ album }: Props) {
   );
 
   const renderHead = (
-    <>
       <Stack direction="row" sx={{ mb: 3 }}>
         <Box sx={{ width: '30%', pr: 2 }}>
           <Image
@@ -316,7 +305,6 @@ export function AlbumDetailsContent({ album }: Props) {
           </Stack>
         </Box>
       </Stack>
-    </>
   );
 
   const renderContent = (

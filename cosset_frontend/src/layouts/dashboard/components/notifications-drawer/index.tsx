@@ -3,7 +3,7 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
 import { m } from 'framer-motion';
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
@@ -31,9 +31,9 @@ import type { NotificationItemProps } from './notification-item';
 // ----------------------------------------------------------------------
 
 const TABS = [
-  { value: 'all', label: 'All', count: 22 },
-  { value: 'unread', label: 'Unread', count: 12 },
-  { value: 'archived', label: 'Archived', count: 10 },
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'archived', label: 'Archived' },
 ];
 
 // ----------------------------------------------------------------------
@@ -53,11 +53,47 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
 
   const [notifications, setNotifications] = useState(data);
 
+  useEffect(() => {
+    setNotifications(data);
+  }, [data]);
+
   const totalUnRead = notifications.filter((item) => item.isUnRead === true).length;
+
+  const allCount = notifications.length;
+  const unreadCount = notifications.filter((item) => item.isUnRead && !item.archived).length;
+  const archivedCount = notifications.filter((item) => item.archived).length;
+
+  const filteredNotifications = useMemo(() => {
+    if (currentTab === 'unread') {
+      return notifications.filter((item) => item.isUnRead && !item.archived);
+    }
+
+    if (currentTab === 'archived') {
+      return notifications.filter((item) => item.archived);
+    }
+
+    return notifications.filter((item) => !item.archived);
+  }, [currentTab, notifications]);
 
   const handleMarkAllAsRead = () => {
     setNotifications(notifications.map((notification) => ({ ...notification, isUnRead: false })));
   };
+
+  const handleReadOne = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id ? { ...notification, isUnRead: false } : notification
+      )
+    );
+  }, []);
+
+  const handleArchiveOne = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id ? { ...notification, isUnRead: false, archived: true } : notification
+      )
+    );
+  }, []);
 
   const renderHead = (
     <Stack direction="row" alignItems="center" sx={{ py: 2, pl: 2.5, pr: 1, minHeight: 68 }}>
@@ -100,7 +136,10 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
                 'default'
               }
             >
-              {tab.count}
+              {(tab.value === 'all' && allCount) ||
+                (tab.value === 'unread' && unreadCount) ||
+                (tab.value === 'archived' && archivedCount) ||
+                0}
             </Label>
           }
         />
@@ -111,9 +150,13 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
   const renderList = (
     <Scrollbar>
       <Box component="ul">
-        {notifications?.map((notification) => (
+        {filteredNotifications.map((notification) => (
           <Box component="li" key={notification.id} sx={{ display: 'flex' }}>
-            <NotificationItem notification={notification} />
+            <NotificationItem
+              notification={notification}
+              onRead={handleReadOne}
+              onArchive={handleArchiveOne}
+            />
           </Box>
         ))}
       </Box>

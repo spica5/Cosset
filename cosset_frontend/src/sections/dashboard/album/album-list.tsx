@@ -35,18 +35,11 @@ export function AlbumList({ albums }: Props) {
     setCurrentPage(value);
   };
 
-  // Calculate paginated albums based on the current page
-  const paginatedAlbums = albums.slice(
-    (currentPage - 1) * albumsPerPage,
-    currentPage * albumsPerPage
-  );
-
   const totalPages = Math.ceil(albums.length / albumsPerPage);
 
   if (albums.length === 0) {
     return <p>No albums available.</p>;
   };
-
  
 
   return (

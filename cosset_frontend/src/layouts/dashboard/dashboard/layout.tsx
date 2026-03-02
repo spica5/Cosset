@@ -10,7 +10,10 @@ import { iconButtonClasses } from '@mui/material/IconButton';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
-import { _contacts, _notifications } from 'src/_mock/dashboard';
+import { _contacts } from 'src/_mock/dashboard';
+
+import { useGetNotifications } from 'src/actions/notification';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { Logo } from 'src/components/dashboard/logo';
 import { useSettingsContext } from 'src/components/dashboard/settings';
@@ -45,8 +48,10 @@ export type DashboardLayoutProps = {
 
 export function DashboardLayout({ sx, children, header, data }: DashboardLayoutProps) {
   const theme = useTheme();
+  const { user } = useAuthContext();
 
   const mobileNavOpen = useBoolean();
+  const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
 
   const settings = useSettingsContext();
 
@@ -141,7 +146,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
             rightArea: (
               <Box display="flex" alignItems="center" gap={{ xs: 0, sm: 0.75 }}>
                 {/* -- Notifications popover -- */}
-                <NotificationsDrawer data={_notifications} />
+                <NotificationsDrawer data={notifications} />
                 {/* -- Contacts popover -- */}
                 <ContactsPopover data={_contacts} />
                 {/* -- Account drawer -- */}

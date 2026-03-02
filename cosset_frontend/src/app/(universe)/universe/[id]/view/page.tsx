@@ -1,5 +1,4 @@
 import { CONFIG } from 'src/config-global';
-import { _universes } from 'src/_mock/universe';
 
 import { UniverseLandingView } from 'src/sections/universe/universe/view/universe-landing-view';
 
@@ -14,7 +13,5 @@ type Props = {
 export default function Page({ params }: Props) {
   const { id } = params;
 
-  const currentUniverse = _universes.find((universe) => universe.id === id);
-
-  return <UniverseLandingView universe={currentUniverse} />;
+  return <UniverseLandingView customerId={id} />;
 }

@@ -2,6 +2,7 @@
 
 import type { IGiftItem } from 'src/types/gift';
 
+import { mutate } from 'swr';
 import { useState, useEffect, useCallback } from 'react';
 
 import Stack from '@mui/material/Stack';
@@ -13,17 +14,16 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 import { useSetState } from 'src/hooks/use-set-state';
 
 import { useGetGifts } from 'src/actions/gift';
-import { useAuthContext } from 'src/auth/hooks';
-
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { mutate } from 'swr';
 import { orderBy } from 'src/utils/helper';
 import { endpoints } from 'src/utils/axios';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { GiftList } from '../gift-list';
 import { GiftSort } from '../gift-sort';

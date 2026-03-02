@@ -53,6 +53,7 @@ export const paths = {
         details: (id: string) => `${ROOTS.DASHBOARD}/community/neighbor/${id}`,
       },
       coffeeShop: `${ROOTS.DASHBOARD}/community/coffee-shop`,
+      cinema:  `${ROOTS.DASHBOARD}/community/cinema`,
     },
     mail: `${ROOTS.DASHBOARD}/mail`,
     chat: `${ROOTS.DASHBOARD}/chat`,
@@ -74,6 +75,13 @@ export const paths = {
     // Albums
     albums: `${ROOTS.UNIVERSE}/albums`,
     album: (id: string | number) => `${ROOTS.UNIVERSE}/albums/${id}`,
+    gifts: `${ROOTS.UNIVERSE}/gifts`,
+    gift: (customerId: string, id: string | number) => `${ROOTS.UNIVERSE}/${customerId}/gifts/${id}`,
+    // Drawer
+    drawer: {
+      item: (customerId: string, category: string) =>
+        `${ROOTS.UNIVERSE}/${customerId}/drawer/${encodeURIComponent(category)}`,
+    },
     /**
      * Marketing
      */

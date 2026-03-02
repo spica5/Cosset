@@ -22,11 +22,12 @@ import { useRouter } from 'src/routes/hooks';
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
+import { createGift, updateGift } from 'src/actions/gift';
+
 import { Upload } from 'src/components/dashboard/upload';
 import { toast } from 'src/components/dashboard/snackbar';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 
-import { createGift, updateGift } from 'src/actions/gift';
 import { useAuthContext } from 'src/auth/hooks';
 
 // ——————————————————————————————————————————————————————————————————————————————
@@ -46,7 +47,6 @@ const formatDateForInput = (date: Date | string | number | null | undefined): st
 };
 
 export function GiftForm({ currentGift, onClose }: Props) {
-  const router = useRouter();
   const { user } = useAuthContext();
 
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<IGiftItem>({
@@ -76,7 +76,6 @@ export function GiftForm({ currentGift, onClose }: Props) {
   }, [currentGift, reset, user]);
 
   // Image upload states
-  const [existingImageKeys, setExistingImageKeys] = useState<string[]>([]);
   const [previewUrlMap, setPreviewUrlMap] = useState<Record<string, string>>({});
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -102,8 +101,6 @@ export function GiftForm({ currentGift, onClose }: Props) {
       }
 
       if (!keys.length) return;
-
-      setExistingImageKeys(keys);
 
       const map: Record<string, string> = {};
       const fetches = await Promise.all(
@@ -162,18 +159,13 @@ export function GiftForm({ currentGift, onClose }: Props) {
       const uploadedKeys = results.filter((r) => r.key).map((r) => r.key as string);
 
       if (uploadedKeys.length > 0) {
-        setExistingImageKeys((prev) => {
-          const all = [...prev, ...uploadedKeys];
-          // update form images as JSON string of keys
-          setValue('images', JSON.stringify(all));
-          return all;
-        });
-
         setPreviewUrlMap((prev) => {
           const next = { ...prev };
           results.forEach((r) => {
             if (r.key && r.url) next[r.key] = r.url as string;
           });
+
+          setValue('images', JSON.stringify(Object.keys(next)));
           return next;
         });
       }
@@ -190,14 +182,11 @@ export function GiftForm({ currentGift, onClose }: Props) {
   }, [pendingFiles, setValue]);
 
   const handleDeleteImage = useCallback((keyToDelete: string) => {
-    setExistingImageKeys((prev) => {
-      const updated = prev.filter((k) => k !== keyToDelete);
-      setValue('images', JSON.stringify(updated));
-      return updated;
-    });
     setPreviewUrlMap((prev) => {
-      const { [keyToDelete]: _, ...rest } = prev;
-      return rest;
+      const next = { ...prev };
+      delete next[keyToDelete];
+      setValue('images', JSON.stringify(Object.keys(next)));
+      return next;
     });
   }, [setValue]);
 
@@ -230,7 +219,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
         toast.error('Failed to save gift.');
       }
     },
-    [currentGift, onClose, user]
+    [currentGift, user]
   );
 
   const handleCancel = useCallback(() => {

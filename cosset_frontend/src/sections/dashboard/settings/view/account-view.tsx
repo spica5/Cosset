@@ -1,21 +1,24 @@
 'use client';
 
-import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import Card from '@mui/material/Card';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
+import CardContent from '@mui/material/CardContent';
+
+import { paths } from 'src/routes/paths';
+
+import { useGetCurrentUser } from 'src/actions/user';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
-import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
+
 import { Iconify } from 'src/components/dashboard/iconify';
-import { useGetCurrentUser } from 'src/actions/user';
-import { paths } from 'src/routes/paths';
+import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 // ---------------------------------------------------------------
 

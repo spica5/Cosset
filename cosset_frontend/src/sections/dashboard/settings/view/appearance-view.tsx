@@ -5,11 +5,13 @@ import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card/Card';
 import { useTheme, useColorScheme } from '@mui/material/styles';
 
+import { paths } from 'src/routes/paths';
+
+import { DashboardContent } from 'src/layouts/dashboard/dashboard';
+
 import COLORS from 'src/theme/dashboard/core/colors.json';
 import { defaultFont } from 'src/theme/dashboard/core/typography';
 import PRIMARY_COLOR from 'src/theme/dashboard/with-settings/primary-color.json';
-
-import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { useSettingsContext } from 'src/components/dashboard/settings/context';
 import { BaseOption } from 'src/components/dashboard/settings/drawer/base-option';
@@ -18,12 +20,9 @@ import { FontOptions } from 'src/components/dashboard/settings/drawer/font-optio
 import { PresetsOptions } from 'src/components/dashboard/settings/drawer/presets-options';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { paths } from 'src/routes/paths';
-
 // ---------------------------------------------------------------
 
 export function AppearanceView() {
-  const theme = useTheme();
   const settings = useSettingsContext();
   const { mode, setMode } = useColorScheme();
 

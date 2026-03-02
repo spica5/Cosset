@@ -6,8 +6,11 @@ import { paths } from 'src/routes/paths';
 
 import { CONFIG } from 'src/config-global';
 
-import { useGetGuestAreas } from 'src/actions/guestarea';
 import { useGetUsers } from 'src/actions/user';
+import { useGetGuestAreas } from 'src/actions/guestarea';
+
+import { useAuthContext } from 'src/auth/hooks';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
@@ -17,6 +20,7 @@ import { FriendCardList } from '../friend-card-list';
 // ----------------------------------------------------------------------
 
 export function FriendCardsView() {
+  const { user: currentUser } = useAuthContext();
   const { users, usersLoading } = useGetUsers(200, 0);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`;
@@ -35,7 +39,7 @@ export function FriendCardsView() {
     return acc;
   }, {});
 
-  const friends = users.map((user) => {
+  const mappedFriends = users.map((user) => {
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
     const guestArea = guestAreaByCustomerId[user.id];
 
@@ -58,6 +62,13 @@ export function FriendCardsView() {
       openness: user.isPublic ? 'Public' : 'Private',
     };
   });
+
+  const friends = currentUser?.id
+    ? [
+        ...mappedFriends.filter((friend) => friend.id === currentUser.id),
+        ...mappedFriends.filter((friend) => friend.id !== currentUser.id),
+      ]
+    : mappedFriends;
 
   return (
     <DashboardContent>

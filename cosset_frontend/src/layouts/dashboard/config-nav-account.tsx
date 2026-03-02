@@ -1,7 +1,8 @@
 import SvgIcon from '@mui/material/SvgIcon';
 
-import { Iconify } from 'src/components/dashboard/iconify';
 import { paths } from 'src/routes/paths';
+
+import { Iconify } from 'src/components/dashboard/iconify';
 
 // ----------------------------------------------------------------------
 

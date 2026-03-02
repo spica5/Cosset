@@ -1,27 +1,27 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import {
-  Card,
-  CardContent,
-  Stack,
-  TextField,
-  Button,
-  Box,
-  CircularProgress,
-  Typography,
-  Avatar,
-  Grid,
-  Divider,
-} from '@mui/material';
 import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from 'react';
+
+import {
+  Box,
+  Card,
+  Grid,
+  Stack,
+  Button,
+  Avatar,  
+  Divider,
+  TextField,
+  Typography,
+  CardContent,
+  CircularProgress,
+} from '@mui/material';
+
+import { uuidv4 } from 'src/utils/uuidv4';
+import { getS3SignedUrl } from 'src/utils/helper';
+import axiosInstance, { endpoints } from 'src/utils/axios';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { useGetCurrentUser, updateCurrentUser } from 'src/actions/user';
-import { useAuthContext } from 'src/auth/hooks';
-import axiosInstance, { endpoints } from 'src/utils/axios';
-import { uuidv4 } from 'src/utils/uuidv4';
-
-import { getS3SignedUrl } from 'src/utils/helper';
 
 // ==============================
 

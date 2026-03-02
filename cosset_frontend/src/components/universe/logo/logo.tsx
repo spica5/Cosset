@@ -20,7 +20,7 @@ export type LogoProps = BoxProps & {
 };
 
 export const Logo = forwardRef<HTMLDivElement, LogoProps>(
-  ({ href = '/', isSingle = false, disableLink = false, sx, className, ...other }, ref) => {
+  ({ href = '/', isSingle = true, disableLink = false, sx, className, ...other }, ref) => {
 
     const singleLogo = (
       <Box

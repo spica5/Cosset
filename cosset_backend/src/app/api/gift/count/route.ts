@@ -17,11 +17,14 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
+    const customerId = searchParams.get('customerId') || undefined;
     const userId = searchParams.get('userId') || undefined;
     const openness = searchParams.get('openness') || undefined;
     const category = searchParams.get('category') || undefined;
 
-    const count = await getGiftCount(userId, openness, category);
+    const ownerId = customerId ?? userId;
+
+    const count = await getGiftCount(ownerId, openness, category);
 
     return response({ count }, STATUS.OK);
   } catch (error) {

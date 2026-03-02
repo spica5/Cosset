@@ -1,241 +1,108 @@
 import type { BoxProps } from '@mui/material/Box';
 import type { IAlbumItem } from 'src/types/album';
-import type { Theme, SxProps } from '@mui/material/styles';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
-import Paper from '@mui/material/Paper';
+import Grid from '@mui/material/Grid';
+import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
+import CardMedia from '@mui/material/CardMedia';
 import Container from '@mui/material/Container';
-import Grid from '@mui/material/Unstable_Grid2';
 import Typography from '@mui/material/Typography';
+import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { maxLine, varAlpha } from 'src/theme/universe/styles';
-
-import { Iconify } from 'src/components/universe/iconify';
-
 // ----------------------------------------------------------------------
 
 type Props = BoxProps & {
-  albums: IAlbumItem[];
+  albums: (IAlbumItem & { signedCoverUrl?: string })[];
+  albumsLoading?: boolean;
 };
 
-export function UniverseLandingAlbums({ albums, sx, ...other }: Props) {
+export function UniverseLandingAlbums({
+  albums,
+  albumsLoading = false,
+  sx,
+  ...other
+}: Props) {
   return (
-    <Box
+    <Card
+      id="albums-section"
       component="section"
       sx={{
-        pb: 10,
+        pb: 3,
         overflow: 'hidden',
-        pt: { xs: 5, md: 10 },
+        pt: { xs: 3, md: 6 },
         ...sx,
       }}
       {...other}
     >
       <Container>
-        <Stack spacing={3} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Typography variant="h2">Albums</Typography>
+        <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
+          <Typography variant="h2">Albums ({albums.length})</Typography>
         </Stack>
 
-        <Grid spacing={3} container alignItems="center" sx={{ py: { xs: 5, md: 10 } }}>
-          <Grid xs={6} md={2}>
-            <SmallItem item={albums[0]} />
-          </Grid>
+        <Box sx={{ py: { xs: 4, md: 6 } }}>
+          {albumsLoading ? (
+            <Typography color="text.secondary">Loading albums...</Typography>
+          ) : albums.length === 0 ? (
+            <Typography color="text.secondary">No shared albums found.</Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {albums.map((album) => (
+                <Grid item xs={12} sm={6} md={3} key={album.id}>
+                  <Card>
+                    <CardMedia
+                      component="img"
+                      height="180"
+                      image={album.signedCoverUrl || ''}
+                      alt={album.title}
+                      sx={{ objectFit: 'cover' }}
+                    />
+                    <CardContent>
+                      <Stack spacing={1}>
+                        <Typography variant="h6" noWrap>
+                          {album.title}
+                        </Typography>
 
-          <Grid xs={6} md={2} sx={{ display: { md: 'none' } }}>
-            <SmallItem item={albums[5]} />
-          </Grid>
-
-          <Grid container xs={12} sm={12} md={8}>
-            <Grid xs={6} md={9}>
-              <LargeItem item={albums[1]} sx={{ display: { xs: 'none', md: 'flex' } }} />
-              <SmallItem item={albums[1]} isSquare sx={{ display: { md: 'none' } }} />
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {album.description || 'No description'}
+                        </Typography>
+                        <Typography
+                          component={RouterLink}
+                          href={paths.universe.album(album.id)}
+                          sx={{ typography: 'body2', color: 'primary.main', textDecoration: 'none' }}
+                        >
+                          View album
+                        </Typography>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
+          )}
+        </Box>
 
-            <Grid xs={6} md={3}>
-              <Stack justifyContent={{ md: 'flex-end' }} sx={{ height: { md: 1 } }}>
-                <SmallItem item={albums[2]} isSquare />
-              </Stack>
-            </Grid>
-
-            <Grid xs={6} md={3}>
-              <SmallItem item={albums[3]} isSquare />
-            </Grid>
-
-            <Grid xs={6} md={9}>
-              <LargeItem item={albums[4]} sx={{ display: { xs: 'none', md: 'flex' } }} />
-              <SmallItem item={albums[4]} isSquare sx={{ display: { md: 'none' } }} />
-            </Grid>
-          </Grid>
-
-          <Grid xs={6} md={2} sx={{ display: { xs: 'none', md: 'block' } }}>
-            <SmallItem item={albums[5]} />
-          </Grid>
-        </Grid>
-
-        <Stack alignItems={{ xs: 'center', md: 'flex-end' }}>
-          <Button
+        {/* <Stack direction="row" justifyContent={{ xs: 'center', md: 'flex-end' }}>
+          <Typography
             component={RouterLink}
             href={paths.universe.albums}
-            size="large"
-            color="inherit"
-            endIcon={<Iconify icon="solar:alt-arrow-right-outline" />}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              typography: 'button',
+              color: 'text.primary',
+              textDecoration: 'none',
+            }}
           >
             View all
-          </Button>
-        </Stack>
+            <Iconify icon="solar:alt-arrow-right-outline" />
+          </Typography>
+        </Stack> */}
       </Container>
-    </Box>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-type ItemProps = {
-  isSquare?: boolean;
-  sx?: SxProps<Theme>;
-  item: IAlbumItem;
-};
-
-function LargeItem({ item, sx }: Omit<ItemProps, 'isSquare'>) {
-  return (
-    <Paper
-      sx={{
-        p: 0.75,
-        display: 'flex',
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        boxShadow: (theme) => theme.customShadows.z24,
-        img: {
-          transition: (theme) =>
-            theme.transitions.create(['transform'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.short,
-            }),
-        },
-        '&:hover img': { transform: 'scale(1.2)' },
-        ...sx,
-      }}
-    >
-      <Box component="span" sx={{ overflow: 'hidden', borderRadius: 2, width: 0.5 }}>
-        <Box
-          component="img"
-          loading="lazy"
-          alt={item.title}
-          src={item.coverUrl}
-          sx={{
-            aspectRatio: '3/4',
-            objectFit: 'cover',
-          }}
-        />
-      </Box>
-
-      <Box display="flex" flexDirection="column" sx={{ p: 3, pt: 5, width: 0.5 }}>
-        <Typography variant="overline" sx={{ color: 'primary.main' }}>
-          {item.category}
-        </Typography>
-
-        <Typography variant="h4" component="h6" sx={{ mt: 1, mb: 2 }}>
-          {item.title}
-        </Typography>
-
-        <Typography variant="body2" sx={{ ...maxLine({ line: 2 }), color: 'text.secondary' }}>
-          {item.description}
-        </Typography>
-
-        <Box component="span" flexGrow={1} />
-
-        <Button
-          component={RouterLink}
-          href={paths.universe.album(item.id)}
-          size="small"
-          color="inherit"
-          endIcon={<Iconify width={16} icon="solar:alt-arrow-right-outline" sx={{ ml: -0.5 }} />}
-          sx={{ alignSelf: 'flex-end' }}
-        >
-          Learn more
-        </Button>
-      </Box>
-    </Paper>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-function SmallItem({ item, isSquare, sx }: ItemProps) {
-  return (
-    <Paper
-      sx={{
-        borderRadius: 2,
-        overflow: 'hidden',
-        position: 'relative',
-        img: {
-          transition: (theme) =>
-            theme.transitions.create(['transform'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.shorter,
-            }),
-        },
-        '&:hover img': { transform: 'scale(1.2)' },
-        '&::before': {
-          top: 0,
-          left: 0,
-          width: 1,
-          height: 1,
-          zIndex: 8,
-          content: "''",
-          position: 'absolute',
-          bgcolor: (theme) => varAlpha(theme.vars.palette.common.blackChannel, 0.48),
-        },
-        ...sx,
-      }}
-    >
-      <Box
-        gap={1}
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        sx={{
-          px: 2,
-          top: 0,
-          left: 0,
-          width: 1,
-          height: 1,
-          zIndex: 9,
-          textAlign: 'center',
-          position: 'absolute',
-          color: 'common.white',
-        }}
-      >
-        <Box component="span" sx={{ opacity: 0.48, typography: 'overline' }}>
-          {item.category}
-        </Box>
-        <Link
-          component={RouterLink}
-          href={paths.universe.album(item.id)}
-          variant="h6"
-          color="inherit"
-          underline="none"
-        >
-          {item.title}
-        </Link>
-      </Box>
-
-      <Box
-        component="img"
-        loading="lazy"
-        alt={item.title}
-        src={item.coverUrl}
-        sx={{
-          objectFit: 'cover',
-          aspectRatio: { xs: '1/1', md: '3/4' },
-          ...(isSquare && { aspectRatio: '1/1' }),
-        }}
-      />
-    </Paper>
+    </Card>
   );
 }

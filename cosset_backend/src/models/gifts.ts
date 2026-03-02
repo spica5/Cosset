@@ -343,12 +343,26 @@ export async function getGiftCount(
       params.push(userId);
     }
     if (openness !== undefined) {
-      conditions.push(`openness = $${params.length + 1}`);
-      params.push(openness);
+      const opennessText = String(openness).toLowerCase();
+
+      if (opennessText === 'public') {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) IN ('public', '1', 'true')`);
+      } else if (opennessText === 'private') {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) IN ('private', '0', 'false')`);
+      } else {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) = LOWER($${params.length + 1})`);
+        params.push(openness);
+      }
     }
     if (category !== undefined) {
-      conditions.push(`category = $${params.length + 1}`);
-      params.push(category);
+      const categoryText = String(category).toLowerCase();
+
+      if (categoryText === 'gift') {
+        conditions.push(`(category IS NULL OR BTRIM(category::text) = '' OR LOWER(category::text) IN ('gift', 'gifts'))`);
+      } else {
+        conditions.push(`LOWER(COALESCE(category::text, '')) = LOWER($${params.length + 1})`);
+        params.push(category);
+      }
     }
 
     if (conditions.length) {

@@ -1,12 +1,13 @@
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import UmbrellaIcon from '@mui/icons-material/Umbrella';
+import SettingsIcon from '@mui/icons-material/Settings';
+
 import { paths } from 'src/routes/paths';
 
 import { CONFIG } from 'src/config-global';
 
 import { Label } from 'src/components/dashboard/label';
 import { SvgColor } from 'src/components/dashboard/svg-color';
-import WbSunnyIcon from '@mui/icons-material/WbSunny';
-import UmbrellaIcon from '@mui/icons-material/Umbrella';
-import SettingsIcon from '@mui/icons-material/Settings';
 
 // ----------------------------------------------------------------------
 
@@ -102,6 +103,7 @@ export const navData = [
         children: [
           { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop },
+          { title: 'Cinema', path: paths.dashboard.community.cinema },
         ],
       },
       {

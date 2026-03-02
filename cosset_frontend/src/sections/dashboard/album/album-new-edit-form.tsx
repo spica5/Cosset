@@ -47,6 +47,14 @@ type Props = {
   currentAlbum?: IAlbumItem;
 };
 
+function stripHtmlTags(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function AlbumNewEditForm({ currentAlbum }: Props) {
   const router = useRouter();
 
@@ -93,39 +101,57 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
       // 1) Upload representative picture to S3 via backend API
       // ------------------------------------------------------------------
       const coverFile = data.coverUrl;
+      let uploadedCoverKey: string | undefined;
 
-      if (!(coverFile instanceof File)) {
+      if (coverFile instanceof File) {
+        const uploadKey = `album-cover/${Date.now()}-${coverFile.name}`;
+
+        const formData = new FormData();
+        formData.append('file', coverFile);
+        formData.append('key', uploadKey);
+
+        const uploadRes = await axiosInstance.post(endpoints.upload.image, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const uploadJson = uploadRes.data as { key: string; url: string };
+        uploadedCoverKey = uploadJson.key;
+      } else if (!currentAlbum) {
+        // Create flow still requires a new file
         toast.error('Please select a cover image to upload.');
         return;
       }
 
-      const uploadKey = `album-cover/${Date.now()}-${coverFile.name}`;
+      const plainDescription = stripHtmlTags(data.description || '');
 
-      const formData = new FormData();
-      formData.append('file', coverFile);
-      formData.append('key', uploadKey);
+      if (!plainDescription) {
+        toast.error('Description is required!');
+        return;
+      }
 
-      const uploadRes = await axiosInstance.post(endpoints.upload.image, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-  
-      const uploadJson = uploadRes.data as { key: string; url: string };
-
-      // Build album item with required fields
-      const albumData: Omit<IAlbumItem, 'id'> & { id?: number } = {
+      const baseAlbumData = {
         userId: data.userId || user?.id || '',
         title: data.title,
-        description: data.description || '',
-        coverUrl: uploadJson.key,
+        description: plainDescription,
         openness: data.openness ? 'Public' : 'Private',
         category: data.category || '',
       };
 
       if (currentAlbum) {
-        albumData.id = currentAlbum.id;
-        await updateAlbum(currentAlbum.id, albumData as IAlbumItem);
+        const albumUpdateData: Partial<IAlbumItem> = {
+          ...baseAlbumData,
+        };
+
+        if (uploadedCoverKey) {
+          albumUpdateData.coverUrl = uploadedCoverKey;
+        }
+
+        await updateAlbum(currentAlbum.id, albumUpdateData);
       } else {
-        await createAlbum(albumData as IAlbumItem);
+        await createAlbum({
+          ...baseAlbumData,
+          coverUrl: uploadedCoverKey || '',
+        } as IAlbumItem);
       }
 
       reset();

@@ -1,7 +1,7 @@
 import type { StackProps } from '@mui/material/Stack';
 
-import { useState, useEffect } from 'react';
 import { m } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -10,8 +10,9 @@ import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import { alpha as hexAlpha } from '@mui/material/styles';
 
-import { CONFIG } from 'src/config-global';
 import { getS3SignedUrl } from 'src/utils/helper';
+
+import { CONFIG } from 'src/config-global';
 import { varAlpha, bgGradient } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';
