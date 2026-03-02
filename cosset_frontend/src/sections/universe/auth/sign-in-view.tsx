@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 
 import { Logo } from 'src/components/universe/logo';
 import { Form } from 'src/components/universe/hook-form';
@@ -23,6 +24,7 @@ import type { SignInSchemaType } from './components/schema';
 
 export function SignInView() {
   const { checkUserSession } = useAuthContext();
+  const router = useRouter();
 
   const defaultValues = {
     email: '',
@@ -43,9 +45,9 @@ export function SignInView() {
         password: data.password,
       });
       await checkUserSession?.();
+      router.push(paths.dashboard.root);
 
       reset();
-      console.log('DATA', data);
     } catch (error) {
       console.error(error);
     }

@@ -65,7 +65,7 @@ export const CONFIG: ConfigValue = {
   auth: {
     method: 'jwt',
     skip: false,
-    redirectPath: paths.home,
+    redirectPath: paths.dashboard.root,
   },
   /**
    * Google Map

@@ -12,6 +12,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+import { useRouter } from 'src/routes/hooks';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
@@ -44,6 +45,7 @@ export const SignInSchema = zod.object({
 
 export function SignInView() {
   const { checkUserSession } = useAuthContext();
+  const router = useRouter();
 
   const password = useBoolean();
 
@@ -63,8 +65,7 @@ export function SignInView() {
     try {
       await signInWithPassword({ email: data.email, password: data.password });
       await checkUserSession?.();
-
-      console.info('DATA', data);
+      router.push(paths.dashboard.root);
     } catch (error) {
       console.error(error);
     }
