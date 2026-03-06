@@ -38,6 +38,9 @@ export function UniverseLandingView({ customerId, universe }: Props) {
   const { user, loading: userLoading } = useAuthContext();
   const { users } = useGetUsers(100, 0);
   const [heroUrl, setHeroUrl] = useState('');
+  const [customerName, setCustomerName] = useState('Customer');
+  const [customerAvatarKey, setCustomerAvatarKey] = useState('');
+  const [customerAvatarUrl, setCustomerAvatarUrl] = useState('');
   const [designGalleryUrls, setDesignGalleryUrls] = useState<string[]>([]);
   const [sharedAlbums, setSharedAlbums] = useState<(IAlbumItem & { signedCoverUrl?: string })[]>([]);
   const [albumsLoading, setAlbumsLoading] = useState(false);
@@ -74,6 +77,92 @@ export function UniverseLandingView({ customerId, universe }: Props) {
       mounted = false;
     };
   }, [guestarea?.coverUrl]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCustomerProfile = async () => {
+      if (!customerId) {
+        if (mounted) {
+          setCustomerName('Customer');
+          setCustomerAvatarKey('');
+        }
+        return;
+      }
+
+      try {
+        const res = await axiosInstance.get(endpoints.user.details(customerId));
+        const customer = res.data?.user as
+          | {
+              displayName?: string;
+              firstName?: string;
+              lastName?: string;
+              email?: string;
+              photoURL?: string;
+            }
+          | undefined;
+
+        const resolvedName =
+          customer?.displayName ||
+          `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() ||
+          customer?.email ||
+          guestarea?.title ||
+          'Customer';
+
+        if (mounted) {
+          setCustomerName(resolvedName);
+          setCustomerAvatarKey(customer?.photoURL || '');
+        }
+      } catch (error) {
+        console.error('Failed to load customer profile for universe view', error);
+        if (mounted) {
+          setCustomerName(guestarea?.title || 'Customer');
+          setCustomerAvatarKey('');
+        }
+      }
+    };
+
+    loadCustomerProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [customerId, guestarea?.title]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveCustomerAvatar = async () => {
+      const key = customerAvatarKey;
+
+      if (!key) {
+        if (mounted) setCustomerAvatarUrl('');
+        return;
+      }
+
+      if (key.startsWith('public:')) {
+        if (mounted) setCustomerAvatarUrl(key.replace(/^public:/, ''));
+        return;
+      }
+
+      if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) {
+        if (mounted) setCustomerAvatarUrl(key);
+        return;
+      }
+
+      const signedUrl = await getS3SignedUrl(key);
+
+      if (mounted) {
+        setCustomerAvatarUrl(signedUrl || '');
+      }
+    };
+
+    resolveCustomerAvatar();
+
+    return () => {
+      mounted = false;
+    };
+  }, [customerAvatarKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -364,7 +453,15 @@ export function UniverseLandingView({ customerId, universe }: Props) {
 
   return (
     <>
-      <UniverseLandingHero universe={resolvedUniverse!} visitors={visitors} />
+      <UniverseLandingHero
+        universe={resolvedUniverse!}
+        visitors={visitors}
+        customer={{
+          id: customerId,
+          name: customerName,
+          avatarUrl: customerAvatarUrl,
+        }}
+      />
 
       <UniverseLandingAlbums albums={sharedAlbums} albumsLoading={albumsLoading} />
 

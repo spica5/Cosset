@@ -26,6 +26,11 @@ import { Iconify } from 'src/components/universe/iconify/iconify';
 
 type Props = BoxProps & {
   universe: IUniverseProps;
+  customer?: {
+    id: string;
+    name: string;
+    avatarUrl: string;
+  };
   visitors?: {
     id: string;
     name: string;
@@ -33,7 +38,7 @@ type Props = BoxProps & {
   }[];
 };
 
-export function UniverseLandingHero({ universe, visitors = [], sx, ...other }: Props) {
+export function UniverseLandingHero({ universe, customer, visitors = [], sx, ...other }: Props) {
   const theme = useTheme();
   const [showRoomInfo, setShowRoomInfo] = useState(true);
   const [openGallery, setOpenGallery] = useState(false);
@@ -245,6 +250,31 @@ export function UniverseLandingHero({ universe, visitors = [], sx, ...other }: P
             backdropFilter: 'blur(4px)',
           }}
         >
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{
+              mb: 1.25,
+              pb: 1.25,
+              borderBottom: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
+            }}
+          >
+            <Avatar
+              src={customer?.avatarUrl || undefined}
+              alt={customer?.name || 'Customer'}
+              sx={{ width: 48, height: 48, bgcolor: 'grey.700' }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="caption" sx={{ color: 'grey.300', display: 'block' }}>
+                Customer
+              </Typography>
+              <Typography variant="body2" noWrap>
+                {customer?.name || 'Customer'}
+              </Typography>
+            </Box>
+          </Stack>
+
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Visitors
           </Typography>
@@ -252,7 +282,7 @@ export function UniverseLandingHero({ universe, visitors = [], sx, ...other }: P
             {visitors.length ? (
               visitors.map((visitor) => (
                 <Stack key={visitor.id} direction="row" spacing={1} alignItems="center">
-                  <Avatar src={visitor.avatarUrl || undefined} alt={visitor.name} sx={{ width: 28, height: 28 }} />
+                  <Avatar src={visitor.avatarUrl || undefined} alt={visitor.name} sx={{ width: 48, height: 48, bgcolor: 'grey.700' }} />
                   <Typography variant="body2" noWrap>
                     {visitor.name}
                   </Typography>

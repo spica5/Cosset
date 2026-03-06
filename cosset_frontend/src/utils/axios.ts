@@ -41,6 +41,7 @@ export const endpoints = {
   },
   user: {
     list: '/api/user/list',
+    details: (id: string | number) => `/api/user/${id}`,
   },
   mail: {
     list: '/api/mail/list',
