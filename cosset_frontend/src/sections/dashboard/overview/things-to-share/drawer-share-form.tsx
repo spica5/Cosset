@@ -34,9 +34,9 @@ type DrawerShareFormProps = {
 };
 
 const CATEGORY_OPTIONS = [
-  { label: 'Gifts', key: 'gift' },
-  { label: 'Good Memorize', key: 'goodMemo' },
-  { label: 'Sad Memorize', key: 'sadMemo' },
+  { label: 'Gifts and Souvenir', key: 'gift' },
+  { label: 'Good Memories', key: 'goodMemo' },
+  { label: 'Sad Memories', key: 'sadMemo' },
   { label: 'Videos', key: 'video' },
 ] as const;
 

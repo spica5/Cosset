@@ -29,7 +29,7 @@ export function OverviewAppView() {
         <Grid xs={12} md={8}>
           <AppWelcome
             title={`Welcome back 👋 \n ${user?.displayName}`}
-            description="If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything."
+            description="You can edit your home space and share your memories with your friends."
             img={<SeoIllustration hideBackground />}
             action={
               <Button variant="contained" color="primary">
@@ -46,7 +46,7 @@ export function OverviewAppView() {
         
         <Grid xs={12} md={4}>
           <AppWidgetSummary
-            title="Total active users"
+            title="Friends"
             percent={2.6}
             total={18765}
             chart={{
@@ -58,7 +58,7 @@ export function OverviewAppView() {
 
         <Grid xs={12} md={4}>
           <AppWidgetSummary
-            title="Total installed"
+            title="Total images"
             percent={0.2}
             total={4876}
             chart={{
@@ -82,19 +82,19 @@ export function OverviewAppView() {
           />
         </Grid>
 
-        <Grid xs={12}>
+        {/* <Grid xs={12}>
           <AppSeasonalTemplate 
             title="Seasonal Template"
             subheader="Change your home space with the seasons."
           />
-        </Grid>
+        </Grid> */}
 
-        <Grid xs={12}>
+        {/* <Grid xs={12}>
           <AppGeneralTemplate 
             title="General Template"
             subheader="Timeless designs for any occasion."
           />
-        </Grid>
+        </Grid> */}
 
       </Grid>
     </DashboardContent>

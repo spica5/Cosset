@@ -21,6 +21,7 @@ export const paths = {
   // DASHBOARD
   dashboard: {
     root: ROOTS.DASHBOARD,
+    preview: `${ROOTS.DASHBOARD}/preview`,
     homeSpace: {
       root: `${ROOTS.DASHBOARD}/home-space`,
       guestArea: `${ROOTS.DASHBOARD}/home-space/guest-area`,
@@ -43,7 +44,7 @@ export const paths = {
       },
       goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
       sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
-      video: `${ROOTS.DASHBOARD}/drawer/video`,
+      collections: `${ROOTS.DASHBOARD}/drawer/collections`,
     },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {

@@ -47,6 +47,13 @@ type Props = {
   currentAlbum?: IAlbumItem;
 };
 
+function isPublicOpenness(openness: unknown): boolean {
+  if (typeof openness === 'number') return openness === 1;
+  if (typeof openness === 'string') return openness === '1' || openness.toLowerCase() === 'public';
+  if (typeof openness === 'boolean') return openness;
+  return false;
+}
+
 function stripHtmlTags(input: string): string {
   return input
     .replace(/<[^>]*>/g, ' ')
@@ -67,7 +74,7 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
       title: currentAlbum?.title || '',
       description: currentAlbum?.description || '',
       coverUrl: currentAlbum?.coverUrl || null,
-      openness: currentAlbum?.openness === 'Public',
+      openness: isPublicOpenness(currentAlbum?.openness),
       category: currentAlbum?.category || '',
       createdAt: currentAlbum?.createdAt,
       updatedAt: currentAlbum?.updatedAt,
@@ -133,7 +140,7 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
         userId: data.userId || user?.id || '',
         title: data.title,
         description: plainDescription,
-        openness: data.openness ? 'Public' : 'Private',
+        openness: (data.openness ? 1 : 0) as unknown as IAlbumItem['openness'],
         category: data.category || '',
       };
 

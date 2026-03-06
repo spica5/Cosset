@@ -9,8 +9,14 @@ import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
 import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
+import Dialog from '@mui/material/Dialog';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ListItemText from '@mui/material/ListItemText';
+import DialogContent from '@mui/material/DialogContent';
+
+import CloseIcon from '@mui/icons-material/Close';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -18,11 +24,31 @@ import { RouterLink } from 'src/routes/components';
 import { fShortenNumber } from 'src/utils/format-number';
 import { getS3SignedUrl } from 'src/utils/helper';
 
+import { _moodIcons } from 'src/_mock/assets';
+
 import { varAlpha } from 'src/theme/dashboard/styles';
 import { AvatarShape } from 'src/assets/dashboard/illustrations';
 
 import { Image } from 'src/components/dashboard/image';
 import { useAuthContext } from 'src/auth/hooks';
+
+// ----------------------------------------------------------------------
+
+const _motifAvatars: Record<string, string> = {
+  'Welcome guests': '👋',
+  'Be Away': '🚪',
+  'I am back soon.': '⏳',
+};
+
+const getMotifAvatar = (motif?: string) => {
+  if (!motif) return '✨';
+  return _motifAvatars[motif] || '✨';
+};
+
+const getMoodAvatar = (mood?: string) => {
+  if (!mood) return '😊';
+  return _moodIcons[mood] || '😊';
+};
 
 // ----------------------------------------------------------------------
 
@@ -33,9 +59,12 @@ type Props = CardProps & {
 export function FriendCard({ friend, sx, ...other }: Props) {
   const { user } = useAuthContext();
   const isCurrentUser = user?.id === friend.id;
+  const motifLabel = friend.motif || 'No guest area motif';
+  const moodLabel = friend.mood || 'No guest area mood';
 
   const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
   const [signedCoverUrl, setSignedCoverUrl] = useState('');
+  const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -117,6 +146,13 @@ export function FriendCard({ friend, sx, ...other }: Props) {
           <Avatar
             alt={friend.name}
             src={signedAvatarUrl || undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (signedAvatarUrl) {
+                setOpenAvatarPreview(true);
+              }
+            }}
             sx={{
               width: 64,
               height: 64,
@@ -126,6 +162,7 @@ export function FriendCard({ friend, sx, ...other }: Props) {
               bottom: -32,
               mx: 'auto',
               position: 'absolute',
+              cursor: signedAvatarUrl ? 'zoom-in' : 'default',
             }}
           />
 
@@ -145,9 +182,18 @@ export function FriendCard({ friend, sx, ...other }: Props) {
       <ListItemText
         sx={{ mt: 5, mb: 1 }}
         primary={friend.universeName || 'No guest area title'}
-        secondary={friend.motif || 'No guest area motif'}
+        secondary={
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+            <Avatar sx={{ width: 20, height: 20, fontSize: 12 }}>
+              {getMotifAvatar(friend.motif)}
+            </Avatar>
+            <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
+              {motifLabel}
+            </Typography>
+          </Box>
+        }
         primaryTypographyProps={{ typography: 'subtitle1' }}
-        secondaryTypographyProps={{ component: 'span', mt: 0.5 }}
+        secondaryTypographyProps={{ component: 'span' }}
       />
 
       <ListItemText
@@ -179,9 +225,13 @@ export function FriendCard({ friend, sx, ...other }: Props) {
       >
         <div>
           <Typography variant="caption" component="div" sx={{ mb: 0.5, color: 'text.secondary' }}>
-            Reviews
+            Mood
           </Typography>
-          {fShortenNumber(friend.ratingNumber)}
+          <Tooltip title={moodLabel} arrow>
+            <Avatar sx={{ width: 24, height: 24, fontSize: 14, mx: 'auto', cursor: 'help' }}>
+              {getMoodAvatar(friend.mood)}
+            </Avatar>
+          </Tooltip>
         </div>
 
         <div>
@@ -199,6 +249,42 @@ export function FriendCard({ friend, sx, ...other }: Props) {
           {friend.openness}
         </div>
       </Box>
+
+      <Dialog
+        open={openAvatarPreview}
+        onClose={() => setOpenAvatarPreview(false)}
+        maxWidth={false}
+        PaperProps={{ sx: { position: 'relative', bgcolor: 'common.black' } }}
+      >
+        <IconButton
+          onClick={() => setOpenAvatarPreview(false)}
+          sx={{
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            position: 'absolute',
+            color: 'common.white',
+            bgcolor: 'rgba(0,0,0,0.45)',
+          }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+
+        <DialogContent sx={{ p: 1.5 }}>
+          <Box
+            component="img"
+            src={signedAvatarUrl}
+            alt={friend.name}
+            sx={{
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'block',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

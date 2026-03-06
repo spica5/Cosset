@@ -12,6 +12,7 @@ import { useSetState } from 'src/hooks/use-set-state';
 
 import { orderBy } from 'src/utils/helper';
 
+import { useAuthContext } from 'src/auth/hooks';
 import { useGetAlbums } from 'src/actions/album';
 import { ALBUM_SORT_OPTIONS } from 'src/_mock/universe';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -27,8 +28,9 @@ import { AlbumSearch } from '../album-search';
 
 export function AlbumListView() {
   const [sortBy, setSortBy] = useState('latest');
+  const { user } = useAuthContext();
 
-  const { albums, albumsLoading } = useGetAlbums();
+  const { albums, albumsLoading } = useGetAlbums(user?.id);
 
   const search = useSetState<{
     query: string;

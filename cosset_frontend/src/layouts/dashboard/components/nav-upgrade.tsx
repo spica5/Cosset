@@ -7,13 +7,20 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import Dialog from '@mui/material/Dialog';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogContent from '@mui/material/DialogContent';
 import { alpha as hexAlpha } from '@mui/material/styles';
+
+import CloseIcon from '@mui/icons-material/Close';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { CONFIG } from 'src/config-global';
 import { varAlpha, bgGradient } from 'src/theme/dashboard/styles';
+
+import { useGetCurrentUser } from 'src/actions/user';
 
 import { Label } from 'src/components/dashboard/label';
 
@@ -28,8 +35,16 @@ const PLAN_TYPE_BADGE_MAP: Record<string, { label: string; color: 'primary' | 'e
 };
 
 export function NavUpgrade({ sx, ...other }: StackProps) {
-  const { user } = useAuthContext();
+  const { user: authUser } = useAuthContext();
+  const { user: currentUser } = useGetCurrentUser();
+  const user = currentUser || authUser;
   const [signedPhotoURL, setSignedPhotoURL] = useState('');
+  const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+
+  const displayName =
+    user?.displayName ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    'User';
 
   useEffect(() => {
     let mounted = true;
@@ -64,48 +79,103 @@ export function NavUpgrade({ sx, ...other }: StackProps) {
   const badgeConfig = PLAN_TYPE_BADGE_MAP[planType] || PLAN_TYPE_BADGE_MAP.FREE;
 
   return (
-    <Stack sx={{ px: 2, py: 5, textAlign: 'center', ...sx }} {...other}>
-      <Stack alignItems="center">
-        <Box sx={{ position: 'relative' }}>
-          <Avatar src={signedPhotoURL || undefined} alt={user?.displayName} sx={{ width: 48, height: 48 }}>
-            {user?.displayName?.charAt(0).toUpperCase()}
-          </Avatar>
+    <>
+      <Stack sx={{ px: 2, py: 5, textAlign: 'center', ...sx }} {...other}>
+        <Stack alignItems="center">
+          <Box sx={{ position: 'relative' }}>
+            <Avatar
+              src={signedPhotoURL || undefined}
+              alt={displayName}
+              onClick={() => {
+                if (signedPhotoURL) {
+                  setOpenAvatarPreview(true);
+                }
+              }}
+              sx={{ width: 48, height: 48, cursor: signedPhotoURL ? 'zoom-in' : 'default' }}
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </Avatar>
 
-          <Label
-            color={badgeConfig.color}
-            variant="filled"
-            sx={{
-              top: -6,
-              px: 0.5,
-              left: 40,
-              height: 20,
-              position: 'absolute',
-              borderBottomLeftRadius: 2,
-            }}
-          >
-            {badgeConfig.label}
-          </Label>
-        </Box>
+            <Label
+              color={badgeConfig.color}
+              variant="filled"
+              sx={{
+                top: -6,
+                px: 0.5,
+                left: 40,
+                height: 20,
+                position: 'absolute',
+                borderBottomLeftRadius: 2,
+              }}
+            >
+              {badgeConfig.label}
+            </Label>
+          </Box>
 
-        <Stack spacing={0.5} sx={{ mb: 2, mt: 1.5, width: 1 }}>
-          <Typography
-            variant="subtitle2"
-            noWrap
-            sx={{ color: 'var(--layout-nav-text-primary-color)' }}
-          >
-            {user?.displayName}
-          </Typography>
+          <Stack spacing={0.5} sx={{ mb: 2, mt: 1.5, width: 1 }}>
+            <Typography
+              variant="subtitle2"
+              noWrap
+              sx={{ color: 'var(--layout-nav-text-primary-color)' }}
+            >
+              {displayName}
+            </Typography>
 
-          <Typography
-            variant="body2"
-            noWrap
-            sx={{ color: 'var(--layout-nav-text-disabled-color)' }}
-          >
-            {user?.email}
-          </Typography>
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{ color: 'var(--layout-nav-text-disabled-color)' }}
+            >
+              {user?.email}
+            </Typography>
+          </Stack>
         </Stack>
       </Stack>
-    </Stack>
+
+      <Dialog
+        open={openAvatarPreview}
+        onClose={() => setOpenAvatarPreview(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            position: 'relative',
+            bgcolor: 'common.black',
+            overflow: 'hidden',
+            m: 1,
+          },
+        }}
+      >
+        <IconButton
+          onClick={() => setOpenAvatarPreview(false)}
+          sx={{
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            position: 'absolute',
+            color: 'common.white',
+            bgcolor: 'rgba(0,0,0,0.45)',
+          }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+
+        <DialogContent sx={{ p: 0, overflow: 'hidden', '&:last-child': { pb: 0 } }}>
+          <Box
+            component="img"
+            src={signedPhotoURL}
+            alt={`${displayName} profile photo`}
+            sx={{
+              width: 'auto',
+              height: 'auto',
+              maxWidth: 'calc(100vw - 32px)',
+              maxHeight: 'calc(100vh - 32px)',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

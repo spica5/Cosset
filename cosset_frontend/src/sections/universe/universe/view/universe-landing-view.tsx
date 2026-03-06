@@ -293,7 +293,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
     () => [
       {
         key: 'gift',
-        label: 'Gifts',
+        label: 'Gifts and Souvenir',
         icon: 'solar:gift-bold',
         enabled: drawerSettings.gift,
         count: giftCountData.count,
@@ -301,7 +301,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
       },
       {
         key: 'goodMemo',
-        label: 'Good Memorize',
+        label: 'Good Memories',
         icon: 'solar:sun-bold',
         enabled: drawerSettings.goodMemo,
         count: goodMemoCountData.count,
@@ -309,7 +309,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
       },
       {
         key: 'sadMemo',
-        label: 'Sad Memorize',
+        label: 'Sad Memories',
         icon: 'solar:cloudy-bold',
         enabled: drawerSettings.sadMemo,
         count: sadMemoCountData.count,

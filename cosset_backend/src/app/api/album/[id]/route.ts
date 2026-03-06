@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import type { Album } from 'src/models/albums';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
@@ -47,19 +48,21 @@ export async function PUT(
     const body = await req.json();
     const album = body?.album;
 
-    if (!album) {
+    if (!album || typeof album !== 'object') {
       return response({ message: 'Album data is required' }, STATUS.BAD_REQUEST);
     }
 
-    const updatedAlbum = await updateAlbum(albumId, {
-      title: album.title,
-      description: album.description ?? null,
-      coverUrl: album.coverUrl ?? null,
-      category: album.category ?? null,
-      openness: album.openness ?? null,
-      priority: album.priority ?? null,
-      totalViews: album.totalViews ?? null,
-    });
+    const updates: Partial<Omit<Album, 'id' | 'createdAt' | 'updatedAt'>> = {};
+
+    if ('title' in album) updates.title = album.title as Album['title'];
+    if ('description' in album) updates.description = (album.description ?? null) as Album['description'];
+    if ('coverUrl' in album) updates.coverUrl = (album.coverUrl ?? null) as Album['coverUrl'];
+    if ('category' in album) updates.category = (album.category ?? null) as Album['category'];
+    if ('openness' in album) updates.openness = (album.openness ?? null) as Album['openness'];
+    if ('priority' in album) updates.priority = (album.priority ?? null) as Album['priority'];
+    if ('totalViews' in album) updates.totalViews = (album.totalViews ?? null) as Album['totalViews'];
+
+    const updatedAlbum = await updateAlbum(albumId, updates);
 
     return response({ album: updatedAlbum }, STATUS.OK);
   } catch (error) {

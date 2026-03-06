@@ -1,16 +1,19 @@
 import type { IGuestAreaItem } from 'src/types/guestarea';
 
 import { z as zod } from 'zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Avatar from '@mui/material/Avatar';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
+import Autocomplete from '@mui/material/Autocomplete';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { useRouter } from 'src/routes/hooks';
@@ -23,6 +26,16 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+// ----------------------------------------------------------------------
+
+const _motifs = ['Welcome guests', 'Be Away', 'I am back soon.'] as const;
+
+const _motifAvatars: Record<string, string> = {
+  'Welcome guests': '👋',
+  'Be Away': '🚪',
+  'I am back soon.': '⏳',
+};
 
 // ----------------------------------------------------------------------
 
@@ -164,17 +177,73 @@ export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Prop
 
       <Stack spacing={3} sx={{ p: 3 }}>
         <Stack spacing={1.5}>
-          <Typography variant="subtitle2">Cover</Typography>
+          <Typography variant="subtitle2"> Image </Typography>
           <Field.Upload name="coverViewUrl" maxSize={3145728} onDelete={handleRemoveFile} />
         </Stack>
 
         <Field.Text name="title" label="Title" />
 
-        <Field.Text name="motif" label="Motif" multiline rows={2} />
+        <Controller
+          name="motif"
+          control={methods.control}
+          render={({ field, fieldState: { error } }) => {
+            const motifValue = (field.value ?? '').toString();
+            const selectedMotifAvatar = motifValue ? _motifAvatars[motifValue] || '✨' : null;
 
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle2"> Mood </Typography>
+            return (
+              <Autocomplete
+                freeSolo
+                autoHighlight
+                options={_motifs.map((option) => option)}
+                value={motifValue}
+                onChange={(_, newValue) => field.onChange((newValue ?? '').toString())}
+                onInputChange={(_, newInputValue) => field.onChange(newInputValue)}
+                getOptionLabel={(option) => `${(option ?? '').toString()}`}
+                isOptionEqualToValue={(option, value) => option === value}
+                renderOption={(props, option) => {
+                  const motifOption = (option ?? '').toString();
+
+                  return (
+                    <li {...props} key={motifOption}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar sx={{ width: 24, height: 24, mr: 1, fontSize: 14 }}>
+                          {_motifAvatars[motifOption] || '✨'}
+                        </Avatar>
+                        <Typography variant="body2">{motifOption}</Typography>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Welcome guest status"
+                    error={!!error}
+                    helperText={error?.message}
+                    onBlur={field.onBlur}
+                    inputProps={{ ...params.inputProps, autoComplete: 'new-password' }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          {selectedMotifAvatar && (
+                            <Avatar sx={{ width: 24, height: 24, mr: 1, fontSize: 14 }}>
+                              {selectedMotifAvatar}
+                            </Avatar>
+                          )}
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            );
+          }}
+        />
+
           <Field.Autocomplete
+            label="Mood"
             name="mood"
             autoHighlight
             options={_moods.map((option) => option)}
@@ -190,7 +259,6 @@ export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Prop
               </li>
             )}
           />
-        </Stack>
       </Stack>
     </Card>
   );

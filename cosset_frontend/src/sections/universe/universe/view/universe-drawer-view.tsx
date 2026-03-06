@@ -52,9 +52,9 @@ const isCategoryMatch = (giftCategory: string | null | undefined, categoryKey: s
 };
 
 const categoryLabelMap: Record<string, string> = {
-  gift: 'Gifts',
-  goodMemo: 'Good Memorize',
-  sadMemo: 'Sad Memorize',
+  gift: 'Gifts and Souvenir',
+  goodMemo: 'Good Memories',
+  sadMemo: 'Sad Memories',
   video: 'Videos',
 };
 

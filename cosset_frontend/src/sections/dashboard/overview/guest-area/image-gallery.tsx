@@ -28,6 +28,8 @@ type Props = {
   setPreviewSrc: (s: string | null) => void;
   /** Called when the user confirms deletion of an image (parent should remove it) */
   onRemoveGalleryFile?: (inputFile: File | string) => void;
+  /** Called to reorder images in parent state */
+  onReorderGalleryImage?: (fromIndex: number, toIndex: number) => void;
 };
 
 export default function ImageGallery({
@@ -35,6 +37,7 @@ export default function ImageGallery({
   previewSrc,
   setPreviewSrc,
   onRemoveGalleryFile,
+  onReorderGalleryImage,
 }: Props) {
   const [sliderIndex, setSliderIndex] = useState(0);
   const [openDelete, setOpenDelete] = useState(false);
@@ -64,6 +67,13 @@ export default function ImageGallery({
   }, [previewSrc, images]);
 
   const lightbox = useLightBox(slides);
+
+  const tooltipIconButtonSx = {
+    bgcolor: 'background.paper',
+    width: 20,
+    height: 20,
+    p: 0,
+  } as const;
 
   const handleDelete = useCallback(async (input: File | string) => {
     try {
@@ -101,6 +111,18 @@ export default function ImageGallery({
         lightbox.setSelected(index);
     }
   }, [lightbox, sliderIndex]);
+
+  const handleMoveImage = useCallback(
+    (index: number, direction: 'up' | 'down') => {
+      if (!onReorderGalleryImage) return;
+ 
+      const nextIndex = direction === 'up' ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= images.length) return;
+
+      onReorderGalleryImage(index, nextIndex);
+    },
+    [images.length, onReorderGalleryImage]
+  );
 
   return (
     <>
@@ -228,10 +250,40 @@ export default function ImageGallery({
                                     e.stopPropagation();
                                     handleOpenDelete(fileOrUrl);
                                 }}
-                                sx={{ bgcolor: 'background.paper' }}
+                              sx={tooltipIconButtonSx}
                                 >
-                                <Iconify icon="solar:trash-bin-trash-bold" />
+                              <Iconify icon="solar:trash-bin-trash-bold" width={15} height={15} />
                                 </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title="Move up">
+                                <span>
+                                  <IconButton
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveImage(idx, 'up');
+                                    }}
+                                    disabled={idx === 0}
+                                    sx={tooltipIconButtonSx}
+                                  >
+                                    <Iconify icon="solar:alt-arrow-up-bold" width={15} height={15} />
+                                  </IconButton>
+                                </span>
+                            </Tooltip>
+
+                            <Tooltip title="Move down">
+                                <span>
+                                  <IconButton
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveImage(idx, 'down');
+                                    }}
+                                    disabled={idx === images.length - 1}
+                                    sx={tooltipIconButtonSx}
+                                  >
+                                    <Iconify icon="solar:alt-arrow-down-bold" width={15} height={15} />
+                                  </IconButton>
+                                </span>
                             </Tooltip>
                         </Box>
                     </Card>

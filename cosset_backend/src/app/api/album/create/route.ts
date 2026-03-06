@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       description: album.description || null,
       coverUrl: album.coverUrl || null,
       category: album.category || null,
-      openness: album.openness || null,
+      openness: album.openness ?? null,
       priority: album.priority ?? null,
       totalViews: album.totalViews ?? null,
     });

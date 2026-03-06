@@ -1,12 +1,17 @@
 'use client';
 
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
-import type { NavSectionProps } from 'src/components/dashboard/nav-section';
+import type { NavSectionProps, NavItemBaseProps } from 'src/components/dashboard/nav-section';
+
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
-import { iconButtonClasses } from '@mui/material/IconButton';
+import IconButton, { iconButtonClasses } from '@mui/material/IconButton';
+
+import AddIcon from '@mui/icons-material/Add';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
@@ -17,6 +22,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { Logo } from 'src/components/dashboard/logo';
 import { useSettingsContext } from 'src/components/dashboard/settings';
+
+import { paths } from 'src/routes/paths';
 
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
@@ -59,7 +66,65 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const layoutQuery: Breakpoint = 'lg';
 
-  const navData = data?.nav ?? dashboardNavData;
+  const [collectionSubitems, setCollectionSubitems] = useState<Array<{ title: string; path: string }>>([]);
+
+  const handleAddCollectionSubitem = useCallback(() => {
+    setCollectionSubitems((prev) => {
+      const nextIndex = prev.length + 1;
+
+      return [
+        ...prev,
+        {
+          title: `Collection ${nextIndex}`,
+          path: `${paths.dashboard.drawer.collections}?subitem=${nextIndex}`,
+        },
+      ];
+    });
+  }, []);
+
+  const navData = useMemo<NavSectionProps['data']>(() => {
+    const baseNavData = data?.nav ?? dashboardNavData;
+
+    return baseNavData.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        if (item.title !== 'Drawers' || !item.children) {
+          return item;
+        }
+
+        return {
+          ...item,
+          children: item.children.map((child: NavItemBaseProps) => {
+            return child;
+
+            if (child.title !== 'Collections') {
+              return child;
+            }
+
+            return {
+              ...child,
+              info: (
+                <Tooltip title="Add subitem">
+                  <IconButton
+                    size="small"
+                    aria-label="add collections subitem"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleAddCollectionSubitem();
+                    }}
+                  >
+                    <AddIcon sx={{ width: 16, height: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              ),
+              children: collectionSubitems,
+            };
+          }),
+        };
+      }),
+    }));
+  }, [data?.nav, collectionSubitems, handleAddCollectionSubitem]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

@@ -14,6 +14,23 @@ import { queryOne, queryMany } from '@/db/neon';
  */
 const TABLE_NAME = 'albums';
 
+const normalizeOpenness = (openness: unknown): 0 | 1 => {
+  if (typeof openness === 'number') {
+    return openness === 1 ? 1 : 0;
+  }
+
+  if (typeof openness === 'string') {
+    const normalized = openness.trim().toLowerCase();
+    return normalized === '1' || normalized === 'public' || normalized === 'true' ? 1 : 0;
+  }
+
+  if (typeof openness === 'boolean') {
+    return openness ? 1 : 0;
+  }
+
+  return 0;
+};
+
 /**
  * Album record from the database
  */
@@ -30,8 +47,8 @@ export interface Album {
   coverUrl?: string | null;
   /** Category */
   category?: string | null;
-  /** Openness as a string ('Public' | 'Private') */
-  openness?: 'Public' | 'Private' | null;
+  /** Openness input/output (int2 in DB, where 1=Public and others=Private) */
+  openness?: number | 'Public' | 'Private' | null;
   /** Priority */
   priority?: number | null;
   /** Total views */
@@ -166,7 +183,7 @@ export async function createAlbum(
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 = 'Public' THEN 1 WHEN $6 = 'Private' THEN 0 ELSE NULL END, $7, $8, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
         RETURNING
           id,
           user_id as "userId",
@@ -186,7 +203,7 @@ export async function createAlbum(
         album.description || null,
         album.coverUrl || null,
         album.category || null,
-        album.openness || null,
+        normalizeOpenness(album.openness),
         album.priority ?? null,
         album.totalViews ?? null,
       ],
@@ -250,9 +267,8 @@ export async function updateAlbum(
       paramIndex += 1;
     }
     if (album.openness !== undefined) {
-      // accept 'Public'|'Private' and store as int
-      fields.push(`openness = CASE WHEN $${paramIndex} = 'Public' THEN 1 WHEN $${paramIndex} = 'Private' THEN 0 ELSE NULL END`);
-      values.push(album.openness);
+      fields.push(`openness = $${paramIndex}`);
+      values.push(normalizeOpenness(album.openness));
       paramIndex += 1;
     }
     if (album.priority !== undefined) {

@@ -21,9 +21,11 @@ type AlbumsData = {
   albums: IAlbumItem[];
 };
 
-export function useGetAlbums() {
+export function useGetAlbums(userId?: string | number) {
+  const url = userId ? `${ALBUM_ENDPOINT}?userId=${encodeURIComponent(String(userId))}` : null;
+
   const { data, isLoading, error, isValidating } = useSWR<AlbumsData>(
-    ALBUM_ENDPOINT,
+    url,
     fetcher,
     swrOptions
   );
@@ -31,12 +33,12 @@ export function useGetAlbums() {
   const memoizedValue = useMemo(
     () => ({
       albums: data?.albums || [],
-      albumsLoading: isLoading,
+      albumsLoading: isLoading || !userId,
       albumsError: error,
       albumsValidating: isValidating,
-      albumsEmpty: !isLoading && !data?.albums.length,
+      albumsEmpty: !!userId && !isLoading && !data?.albums.length,
     }),
-    [data?.albums, error, isLoading, isValidating]
+    [data?.albums, error, isLoading, isValidating, userId]
   );
 
   return memoizedValue;
@@ -74,6 +76,9 @@ export async function createAlbum(album: IAlbumItem) {
 
   // Revalidate albums list
   mutate(ALBUM_ENDPOINT);
+  if (album.userId) {
+    mutate(`${ALBUM_ENDPOINT}?userId=${album.userId}`);
+  }
 
   return res.data;
 }
@@ -85,21 +90,30 @@ export async function updateAlbum(id: string | number, album: Partial<IAlbumItem
   const data = { album };
   const res = await axios.put(url, data);
 
+  const returned = res.data as { album?: IAlbumItem };
+  const userId = returned.album?.userId || album.userId;
+
   // Revalidate album detail and list
   mutate(endpoints.album.details(id));
   mutate(ALBUM_ENDPOINT);
+  if (userId) {
+    mutate(`${ALBUM_ENDPOINT}?userId=${userId}`);
+  }
 
   return res.data;
 }
 
 // ----------------------------------------------------------------------
 
-export async function deleteAlbum(id: string | number) {
+export async function deleteAlbum(id: string | number, userId?: string | number) {
   const url = endpoints.album.delete(id);
   const res = await axios.delete(url);
 
   // Revalidate album list
   mutate(ALBUM_ENDPOINT);
+  if (userId) {
+    mutate(`${ALBUM_ENDPOINT}?userId=${userId}`);
+  }
 
   return res.data;
 }

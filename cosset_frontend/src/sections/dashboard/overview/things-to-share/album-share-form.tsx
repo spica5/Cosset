@@ -21,6 +21,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 import { updateAlbum, useGetAlbums } from 'src/actions/album';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
@@ -31,9 +32,22 @@ type AlbumShareFormProps = {
   onSaveSuccess?: () => void;
 };
 
+type AlbumOpenness = 0 | 1;
+type AlbumIdKey = string;
+
+const isPublicOpenness = (openness: unknown): boolean => {
+  if (typeof openness === 'number') return openness === 1;
+  if (typeof openness === 'string') return openness === '1' || openness.toLowerCase() === 'public';
+  if (typeof openness === 'boolean') return openness;
+  return false;
+};
+
+const toAlbumIdKey = (id: string | number): AlbumIdKey => String(id);
+
 export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
-  const { albums, albumsLoading } = useGetAlbums();
-  const [albumUpdates, setAlbumUpdates] = useState<Record<number, string>>({});
+  const { user } = useAuthContext();
+  const { albums, albumsLoading } = useGetAlbums(user?.id);
+  const [albumUpdates, setAlbumUpdates] = useState<Record<AlbumIdKey, AlbumOpenness>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [coverUrlMap, setCoverUrlMap] = useState<Record<number, string>>({});
   const [loadingCovers, setLoadingCovers] = useState(false);
@@ -92,11 +106,24 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
     };
   }, [albums]);
 
-  const handleOpenessChange = (albumId: number, newOpenness: string) => {
-    setAlbumUpdates((prev) => ({
-      ...prev,
-      [albumId]: newOpenness,
-    }));
+  const handleOpennessChange = (albumId: string | number, newOpenness: AlbumOpenness) => {
+    const albumIdKey = toAlbumIdKey(albumId);
+    const originalAlbum = albums.find((album) => toAlbumIdKey(album.id) === albumIdKey);
+    const originalOpenness: AlbumOpenness =
+      isPublicOpenness(originalAlbum?.openness) ? 1 : 0;
+
+    setAlbumUpdates((prev) => {
+      if (newOpenness === originalOpenness) {
+        const next = { ...prev };
+        delete next[albumIdKey];
+        return next;
+      }
+
+      return {
+        ...prev,
+        [albumIdKey]: newOpenness,
+      };
+    });
   };
 
   const handleSave = async () => {
@@ -111,20 +138,23 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
 
       await Promise.all(
         updates.map(async ([albumId, newOpenness]) => {
-          const id = Number(albumId); // string->number conversion
-          const album = albums.find((a) => a.id === id);
+          const album = albums.find((a) => toAlbumIdKey(a.id) === albumId);
 
           if (album) {
-            await updateAlbum(parseInt(albumId, 10), {
-              ...album,
+            await updateAlbum(albumId, {
               openness: newOpenness as any,
+              userId: album.userId || user?.id || '',
             });
           }
         })
       );
 
       // Refresh albums list from server so UI shows updated openness
-      await mutate(endpoints.album.list);
+      if (user?.id) {
+        await mutate(`${endpoints.album.list}?userId=${encodeURIComponent(String(user.id))}`);
+      } else {
+        await mutate(endpoints.album.list);
+      }
       setAlbumUpdates({});
       toast.success('Albums updated successfully!');
       
@@ -176,9 +206,13 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
                     </TableCell>
                     <TableCell>
                       <Switch
-                        checked={albumUpdates[album.id] !== undefined ? albumUpdates[album.id] === 'Public' : album.openness === 'Public'}
+                        checked={
+                          albumUpdates[toAlbumIdKey(album.id)] !== undefined
+                            ? albumUpdates[toAlbumIdKey(album.id)] === 1
+                            : isPublicOpenness(album.openness)
+                        }
                         onChange={(e) =>
-                          handleOpenessChange(album.id, e.target.checked ? 'Public' : 'Private')
+                          handleOpennessChange(album.id, e.target.checked ? 1 : 0)
                         }
                       />
                     </TableCell>

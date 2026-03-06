@@ -64,17 +64,17 @@ export const navData = [
   {
     subheader: 'Overview',
     items: [
-      { title: 'My Universe', path: paths.dashboard.root, icon: ICONS.universe },
       { 
-        title: 'Home Space', 
+        title: 'My Universe', 
         path: paths.dashboard.homeSpace.root, 
-        icon: ICONS.home,
+        icon: ICONS.universe,
         children: [
           { title: 'Welcome Guest Area', path: paths.dashboard.homeSpace.guestArea },
           { title: 'Design Space', path: paths.dashboard.homeSpace.designSpace },
           { title: 'Things To Share', path: paths.dashboard.homeSpace.thingsToShare },
         ],
       },
+      { title: 'Home Space', path: paths.dashboard.preview, icon: ICONS.home },
       { 
         title: 'Albums', 
         path: paths.dashboard.album.root, 
@@ -89,10 +89,16 @@ export const navData = [
         path: paths.dashboard.drawer.root, 
         icon: ICONS.drawer,
         children: [
-          { title: 'Gift', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
-          { title: 'Good memorize', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
-          { title: 'Sad memorize', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
-          { title: 'Video', path: paths.dashboard.drawer.video, icon: ICONS.video },
+          { title: 'Gifts and Souvenir', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
+          { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
+          { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
+          { title: 'Collections', 
+            path: paths.dashboard.drawer.collections, 
+            icon: ICONS.course,
+             children: [
+              { title: 'Manage Collections', path: paths.dashboard.community.neighbor.root },
+            ],
+          },
         ],
       },
       { title: 'Friends', path: paths.dashboard.friend, icon: ICONS.friend },

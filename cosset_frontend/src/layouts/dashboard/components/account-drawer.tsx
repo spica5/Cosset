@@ -7,10 +7,12 @@ import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Drawer from '@mui/material/Drawer';
+import Dialog from '@mui/material/Dialog';
 import MenuItem from '@mui/material/MenuItem';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import DialogContent from '@mui/material/DialogContent';
 
 import { paths } from 'src/routes/paths';
 import { useRouter, usePathname } from 'src/routes/hooks';
@@ -18,6 +20,8 @@ import { useRouter, usePathname } from 'src/routes/hooks';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
+
+import { useGetCurrentUser } from 'src/actions/user';
 
 import { Label } from 'src/components/dashboard/label';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -48,8 +52,16 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
 
   const pathname = usePathname();
 
-  const { user } = useAuthContext();
+  const { user: authUser } = useAuthContext();
+  const { user: currentUser } = useGetCurrentUser();
+  const user = currentUser || authUser;
   const [signedPhotoURL, setSignedPhotoURL] = useState('');
+  const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+
+  const displayName =
+    user?.displayName ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    'User';
 
   const [open, setOpen] = useState(false);
   const accountPlan = (user?.plan || 'FREE').toUpperCase();
@@ -102,11 +114,18 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   );
 
   const renderAvatar = (
-    <Box sx={{ position: 'relative' }}>
+    <Box
+      onClick={() => {
+        if (signedPhotoURL) {
+          setOpenAvatarPreview(true);
+        }
+      }}
+      sx={{ position: 'relative', cursor: signedPhotoURL ? 'zoom-in' : 'default' }}
+    >
       <AnimateAvatar
         width={96}
         slotProps={{
-          avatar: { src: signedPhotoURL || undefined, alt: user?.displayName },
+          avatar: { src: signedPhotoURL || undefined, alt: displayName },
           overlay: {
             border: 2,
             spacing: 3,
@@ -139,7 +158,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
       <AccountButton
         onClick={handleOpenDrawer}
         photoURL={signedPhotoURL}
-        displayName={user?.displayName}
+        displayName={displayName}
         sx={sx}
         {...other}
       />
@@ -163,7 +182,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
             {renderAvatar}
 
             <Typography variant="subtitle1" noWrap sx={{ mt: 2 }}>
-              {user?.displayName}
+              {displayName}
             </Typography>
 
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }} noWrap>
@@ -246,6 +265,50 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
           <SignOutButton onClose={handleCloseDrawer} />
         </Box>
       </Drawer>
+
+      <Dialog
+        open={openAvatarPreview}
+        onClose={() => setOpenAvatarPreview(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            position: 'relative',
+            bgcolor: 'common.black',
+            overflow: 'hidden',
+            m: 1,
+          },
+        }}
+      >
+        <IconButton
+          onClick={() => setOpenAvatarPreview(false)}
+          sx={{
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            position: 'absolute',
+            color: 'common.white',
+            bgcolor: 'rgba(0,0,0,0.45)',
+          }}
+        >
+          <Iconify icon="mingcute:close-line" />
+        </IconButton>
+
+        <DialogContent sx={{ p: 0, overflow: 'hidden', '&:last-child': { pb: 0 } }}>
+          <Box
+            component="img"
+            src={signedPhotoURL}
+            alt={`${displayName} profile photo`}
+            sx={{
+              width: 'auto',
+              height: 'auto',
+              maxWidth: 'calc(100vw - 32px)',
+              maxHeight: 'calc(100vh - 32px)',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

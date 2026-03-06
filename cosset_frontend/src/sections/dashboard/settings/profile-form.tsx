@@ -8,12 +8,17 @@ import {
   Stack,
   Button,
   Avatar,  
+  Dialog,
   Divider,
+  IconButton,
   TextField,
   Typography,
   CardContent,
+  DialogContent,
   CircularProgress,
 } from '@mui/material';
+
+import CloseIcon from '@mui/icons-material/Close';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
@@ -45,6 +50,7 @@ export function ProfileForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [signedPhotoUrl, setSignedPhotoUrl] = useState('');
+  const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -213,10 +219,16 @@ export function ProfileForm() {
             <Box>
               <Avatar
                 src={signedPhotoUrl}
+                onClick={() => {
+                  if (signedPhotoUrl) {
+                    setOpenAvatarPreview(true);
+                  }
+                }}
                 sx={{
                   width: 100,
                   height: 100,
                   fontSize: '2.5rem',
+                  cursor: signedPhotoUrl ? 'zoom-in' : 'default',
                 }}
               >
                 {formData.firstName?.charAt(0) || 'U'}
@@ -394,6 +406,50 @@ export function ProfileForm() {
               </Stack>
             </Stack>
           </form>
+
+          <Dialog
+            open={openAvatarPreview}
+            onClose={() => setOpenAvatarPreview(false)}
+            maxWidth={false}
+            PaperProps={{
+              sx: {
+                position: 'relative',
+                bgcolor: 'common.black',
+                overflow: 'hidden',
+                m: 1,
+              },
+            }}
+          >
+            <IconButton
+              onClick={() => setOpenAvatarPreview(false)}
+              sx={{
+                top: 8,
+                right: 8,
+                zIndex: 2,
+                position: 'absolute',
+                color: 'common.white',
+                bgcolor: 'rgba(0,0,0,0.45)',
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+
+            <DialogContent sx={{ p: 0, overflow: 'hidden', '&:last-child': { pb: 0 } }}>
+              <Box
+                component="img"
+                src={signedPhotoUrl}
+                alt={`${formData.firstName || 'User'} profile photo`}
+                sx={{
+                  width: 'auto',
+                  height: 'auto',
+                  maxWidth: 'calc(100vw - 32px)',
+                  maxHeight: 'calc(100vh - 32px)',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </DialogContent>
+          </Dialog>
         </Stack>
       </CardContent>
     </Card>

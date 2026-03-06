@@ -56,6 +56,13 @@ const templateImages = [
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template5.jpg`, name: 'Office Space' },
 ];
 
+const reorderArray = <T,>(array: T[], fromIndex: number, toIndex: number) => {
+  const next = [...array];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+};
+
 export function DesignSpaceForm({ currentArea }: Props) {
   const { user } = useAuthContext();
   const defaultValues = useMemo(
@@ -294,6 +301,39 @@ export function DesignSpaceForm({ currentArea }: Props) {
     setValue('images', [], { shouldValidate: true });
   }, [setValue]);
 
+  const handleReorderGalleryImage = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const currentImages = (getValues('images') || []) as Array<File | string>;
+
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= currentImages.length ||
+        toIndex >= currentImages.length
+      ) {
+        return;
+      }
+
+      const reorderedImages = reorderArray(currentImages, fromIndex, toIndex);
+
+      setValue('images', reorderedImages, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+
+      const orderedUrls = reorderedImages.filter((item): item is string => typeof item === 'string');
+
+      const orderedKeys = orderedUrls
+        .map((url) => Object.keys(previewUrlMap).find((key) => previewUrlMap[key] === url))
+        .filter((key): key is string => Boolean(key));
+
+      const remainingKeys = existingImageKeys.filter((key) => !orderedKeys.includes(key));
+      setExistingImageKeys([...orderedKeys, ...remainingKeys]);
+    },
+    [existingImageKeys, getValues, previewUrlMap, setValue]
+  );
+
   const handleUploadImages = useCallback(async () => {
     try {
       if (pendingFiles.length === 0) {
@@ -363,6 +403,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
             previewSrc={previewSrc}
             setPreviewSrc={setPreviewSrc}
             onRemoveGalleryFile={handleRemoveGalleryFile}
+            onReorderGalleryImage={handleReorderGalleryImage}
           />
         
           <Divider />
