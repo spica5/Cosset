@@ -20,7 +20,8 @@ export const paths = {
   },
   // DASHBOARD
   dashboard: {
-    root: ROOTS.DASHBOARD,
+    // root: ROOTS.DASHBOARD,
+    root: `${ROOTS.DASHBOARD}/home-space/guest-area`,
     preview: `${ROOTS.DASHBOARD}/preview`,
     homeSpace: {
       root: `${ROOTS.DASHBOARD}/home-space`,
