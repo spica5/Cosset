@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
-import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useTheme } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
+import { Logo } from 'src/components/universe/logo';
 
 import { varAlpha } from 'src/theme/universe/styles';
 
@@ -85,10 +85,16 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
         // backdropFilter: 'blur(1px)',
       }}
     >
-      <Box gap={{ xs: 1, md: 2.5 }} display="flex" alignItems="center" flexWrap="wrap">
-        <Typography variant="subtitle1" sx={{ color: 'common.white', mr: { xs: 5, md: 10 } }}>
-          
-        </Typography>
+      <Box gap={{ xs: 2, md: 4 }} display="flex" alignItems="center" flexWrap="wrap">
+        <Logo
+          disableLink
+          sx={{
+            ml: { xs: 5, md: 10 },
+            mr: { xs: 10, md: 15 },
+            width: { xs: 76, md: 92 },
+            height: { xs: 48, md: 58 },
+          }}
+        />
 
         <Link
           component={RouterLink}
