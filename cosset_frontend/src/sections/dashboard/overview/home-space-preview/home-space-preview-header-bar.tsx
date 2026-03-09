@@ -68,7 +68,7 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
       sx={{
         top: { xs: 12, md: 20 },
         left: { xs: 12, md: 20 },
-        right: { xs: 12, md: 20 },
+        right: { xs: 250, md: 300 },
         zIndex: 12,
         position: 'absolute',
         display: 'flex',
@@ -78,17 +78,17 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
         px: { xs: 1, md: 2 },
         py: 1.25,
         mb: 0,
-        borderRadius: 1.5,
-        bgcolor: (currentTheme) => varAlpha(currentTheme.vars.palette.common.blackChannel, 0.0),
-        border: (currentTheme) =>
-          `1px solid ${varAlpha(currentTheme.vars.palette.common.whiteChannel, 0.2)}`,
-        backdropFilter: 'blur(1px)',
+        // borderRadius: 1.5,
+        // bgcolor: (currentTheme) => varAlpha(currentTheme.vars.palette.common.blackChannel, 0.0),
+        // border: (currentTheme) =>
+        //   `1px solid ${varAlpha(currentTheme.vars.palette.common.whiteChannel, 0.2)}`,
+        // backdropFilter: 'blur(1px)',
       }}
     >
-      <Box gap={{ xs: 1, md: 1.5 }} display="flex" alignItems="center" flexWrap="wrap">
-        {/* <Typography variant="subtitle1" sx={{ color: 'common.white', mr: { xs: 0, md: 1 } }}>
-          Home Space Preview : 
-        </Typography> */}
+      <Box gap={{ xs: 1, md: 2.5 }} display="flex" alignItems="center" flexWrap="wrap">
+        <Typography variant="subtitle1" sx={{ color: 'common.white', mr: { xs: 5, md: 10 } }}>
+          
+        </Typography>
 
         <Link
           component={RouterLink}
@@ -108,6 +108,16 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
           sx={menuLinkSx}
         >
           Drawer
+        </Link>
+
+         <Link
+          component={RouterLink}
+          href={`${currentPath}#books-section`}
+          color="inherit"
+          underline="none"
+          sx={menuLinkSx}
+        >
+          Books
         </Link>
       </Box>
 
