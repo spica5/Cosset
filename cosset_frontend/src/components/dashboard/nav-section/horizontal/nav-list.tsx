@@ -72,7 +72,10 @@ export function NavList({
       externalLink={isExternalLink(data.path)}
       enabledRootRedirect={enabledRootRedirect}
       // styles
-      slotProps={depth === 1 ? slotProps?.rootItem : slotProps?.subItem}
+      slotProps={{
+        ...(depth === 1 ? slotProps?.rootItem : slotProps?.subItem),
+        ...data.slotProps,
+      }}
       // actions
       onMouseEnter={handleOpenMenu}
       onMouseLeave={handleCloseMenu}

@@ -1,11 +1,11 @@
 import { CONFIG } from 'src/config-global';
 
-import { BlankView } from 'src/sections/dashboard/blank/view';
+import { CollectionItemsView } from 'src/sections/dashboard/drawer/collections/view';
 
 // ----------------------------------------------------------------------
 
-export const metadata = { title: `sadMemo - ${CONFIG.appName}` };
+export const metadata = { title: `Sad Memories - ${CONFIG.appName}` };
 
 export default function Page() {
-  return <BlankView title="Sad Memories" />;
+  return <CollectionItemsView collectionId={2} />;
 }

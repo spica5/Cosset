@@ -54,7 +54,10 @@ export function NavList({ data, render, depth, slotProps, enabledRootRedirect }:
       externalLink={isExternalLink(data.path)}
       enabledRootRedirect={enabledRootRedirect}
       // styles
-      slotProps={depth === 1 ? slotProps?.rootItem : slotProps?.subItem}
+      slotProps={{
+        ...(depth === 1 ? slotProps?.rootItem : slotProps?.subItem),
+        ...data.slotProps,
+      }}
       // actions
       onClick={handleToggleMenu}
     />

@@ -10,7 +10,6 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import VideocamIcon from '@mui/icons-material/Videocam';
 import CircularProgress from '@mui/material/CircularProgress';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
@@ -37,7 +36,6 @@ const CATEGORY_OPTIONS = [
   { label: 'Gifts and Souvenir', key: 'gift' },
   { label: 'Good Memories', key: 'goodMemo' },
   { label: 'Sad Memories', key: 'sadMemo' },
-  { label: 'Videos', key: 'video' },
 ] as const;
 
 // derive type for keys
@@ -50,7 +48,6 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   const giftCountData = useGiftCount(user?.id, '1');
   const goodMemoCountData = useGiftCount(user?.id, '1', 'goodMemo');
   const sadMemoCountData = useGiftCount(user?.id, '1', 'sadMemo');
-  const videoCountData = useGiftCount(user?.id, '1', 'video');
 
   const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
@@ -58,7 +55,6 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
     gift: false,
     goodMemo: false,
     sadMemo: false,
-    video: false,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -71,7 +67,6 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
           gift: drawerSettings.gift || false,
           goodMemo: drawerSettings.goodMemo || false,
           sadMemo: drawerSettings.sadMemo || false,
-          video: drawerSettings.video || false,
         });
       } catch (error) {
         console.error('Failed to parse drawer settings:', error);
@@ -90,7 +85,23 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
     }
     setIsSaving(true);
     try {
-      const drawerSettings = JSON.stringify(categorySwitches);
+      let existingDrawerSettings: Record<string, boolean> = {};
+
+      if (guestarea.drawer) {
+        try {
+          existingDrawerSettings = JSON.parse(guestarea.drawer) as Record<string, boolean>;
+        } catch {
+          existingDrawerSettings = {};
+        }
+      }
+
+      const { blog: _legacyBlog, ...drawerWithoutBlog } = existingDrawerSettings;
+
+      const drawerSettings = JSON.stringify({
+        ...drawerWithoutBlog,
+        ...categorySwitches,
+      });
+
       await updateGuestArea({ id: guestarea.id, drawer: drawerSettings });
       toast.success('Drawer sharing settings updated successfully!');
       onSaveSuccess?.();
@@ -115,14 +126,12 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   const totalCount =
     giftCountData.count +
     goodMemoCountData.count +
-    sadMemoCountData.count +
-    videoCountData.count;
+    sadMemoCountData.count;
 
   const anyCountLoading =
     giftCountData.loading ||
     goodMemoCountData.loading ||
-    sadMemoCountData.loading ||
-    videoCountData.loading;
+    sadMemoCountData.loading;
 
   const notFound = totalCount === 0 && !anyCountLoading && !guestarea && !guestAreaLoading;
 
@@ -141,7 +150,6 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
                 gift: giftCountData.count,
                 goodMemo: goodMemoCountData.count,
                 sadMemo: sadMemoCountData.count,
-                video: videoCountData.count,
               };
               const count = countsMap[key];
               return (
@@ -153,7 +161,6 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
                           {key === 'gift' && <CardGiftcardIcon fontSize="medium" />}
                           {key === 'goodMemo' && <WbSunnyIcon fontSize="medium" />}
                           {key === 'sadMemo' && < UmbrellaIcon fontSize="medium" />}
-                          {key === 'video' && <VideocamIcon fontSize="medium" />}
                         </Avatar>
                         <Typography variant="subtitle1">{label}</Typography>
                       </Box>

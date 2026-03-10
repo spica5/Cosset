@@ -83,6 +83,20 @@ export const endpoints = {
     delete: (id: string | number) => `/api/gift/${id}`,
     details: (id: string | number) => `/api/gift/${id}`,
   },
+  collection: {
+    list: '/api/collection/list',
+    add: '/api/collection/new',
+    update: (id: string | number) => `/api/collection/${id}`,
+    delete: (id: string | number) => `/api/collection/${id}`,
+    details: (id: string | number) => `/api/collection/${id}`,
+  },
+  collectionItem: {
+    list: '/api/collection-item/list',
+    add: '/api/collection-item/new',
+    update: (id: string | number) => `/api/collection-item/${id}`,
+    delete: (id: string | number) => `/api/collection-item/${id}`,
+    details: (id: string | number) => `/api/collection-item/${id}`,
+  },
   post: {
     list: '/api/post/list',
     latest: '/api/post/latest',

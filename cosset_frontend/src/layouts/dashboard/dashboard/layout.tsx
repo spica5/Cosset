@@ -3,20 +3,18 @@
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
 import type { NavSectionProps, NavItemBaseProps } from 'src/components/dashboard/nav-section';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
-import IconButton, { iconButtonClasses } from '@mui/material/IconButton';
-
-import AddIcon from '@mui/icons-material/Add';
+import { iconButtonClasses } from '@mui/material/IconButton';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
 import { _contacts } from 'src/_mock/dashboard';
 
+import { useGetCollections } from 'src/actions/collection';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -59,6 +57,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const mobileNavOpen = useBoolean();
   const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
+  const { collections } = useGetCollections(user?.id ? String(user.id) : undefined);
 
   const settings = useSettingsContext();
 
@@ -66,21 +65,24 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const layoutQuery: Breakpoint = 'lg';
 
-  const [collectionSubitems, setCollectionSubitems] = useState<Array<{ title: string; path: string }>>([]);
+  const collectionSubitems = useMemo<NavItemBaseProps[]>(
+    () => 
+     [...collections]
+      .sort((a, b) => {
+        const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
 
-  const handleAddCollectionSubitem = useCallback(() => {
-    setCollectionSubitems((prev) => {
-      const nextIndex = prev.length + 1;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
 
-      return [
-        ...prev,
-        {
-          title: `Collection ${nextIndex}`,
-          path: `${paths.dashboard.drawer.collections}?subitem=${nextIndex}`,
-        },
-      ];
-    });
-  }, []);
+        return (a.name || '').localeCompare(b.name || '');
+      })
+      .map((collection) => ({
+        title: `${collection.name || 'Collection'}`,
+        path: paths.dashboard.drawer.collections.items(collection.id),
+      })),
+   [collections]);
 
   const navData = useMemo<NavSectionProps['data']>(() => {
     const baseNavData = data?.nav ?? dashboardNavData;
@@ -95,36 +97,19 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
         return {
           ...item,
           children: item.children.map((child: NavItemBaseProps) => {
-            return child;
-
-            if (child.title !== 'Collections') {
+            if (child.title !== 'Collections' || !child.children) {
               return child;
             }
 
             return {
               ...child,
-              info: (
-                <Tooltip title="Add subitem">
-                  <IconButton
-                    size="small"
-                    aria-label="add collections subitem"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleAddCollectionSubitem();
-                    }}
-                  >
-                    <AddIcon sx={{ width: 16, height: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              ),
-              children: collectionSubitems,
+              children: [...child.children, ...collectionSubitems],
             };
           }),
         };
       }),
     }));
-  }, [data?.nav, collectionSubitems, handleAddCollectionSubitem]);
+  }, [data?.nav, collectionSubitems]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

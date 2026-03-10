@@ -43,12 +43,13 @@ export async function POST(req: NextRequest) {
         coverUrl: updates.coverUrl,
         designSpace: updates.designSpace,
         drawer: updates.drawer,
+        blog: updates.blog,
       });
       return response({ guestArea }, STATUS.OK);
     }
 
     // Original create/update logic
-    const { title, motif, mood, pictureUrl, customerId, designSpace } = body;
+    const { title, motif, mood, pictureUrl, customerId, designSpace, blog } = body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return response({ message: 'Title is required' }, STATUS.BAD_REQUEST);
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
           mood: mood != null ? String(mood).trim() : null,
           coverUrl: pictureUrl.trim(),
           designSpace: designSpace != null ? String(designSpace).trim() : null,
+          blog: blog != null ? Boolean(blog) : null,
         });
       }
     }
@@ -85,6 +87,7 @@ export async function POST(req: NextRequest) {
         coverUrl: pictureUrl.trim(), // S3 file key stored in picture_url
         designSpace: designSpace != null ? String(designSpace).trim() : null,
         drawer: null,
+        blog: blog != null ? Boolean(blog) : null,
       });
     }
 

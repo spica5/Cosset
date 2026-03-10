@@ -2,7 +2,7 @@
  * Guest Area Model
  *
  * Provides functions to manage guest area records (representative picture section).
- * Table: guest_area (id, customer_id, title, motif, mood, picture_url, design_space)
+ * Table: guest_area (id, customer_id, title, motif, mood, picture_url, design_space, drawer, blog)
  * picture_url stores the S3 object key (file key); resolve to signed URL for display.
  *
  * @module models/guest-area
@@ -22,6 +22,7 @@ export interface GuestArea {
   coverUrl: string | null; // S3 object key (file key)
   designSpace: string | null;
   drawer: string | null; // JSON string for drawer sharing settings
+  blog: boolean | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -42,9 +43,10 @@ export async function createGuestArea(
           mood,
           picture_url,
           design_space,
-          drawer
+          drawer,
+          blog
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING
           id,
           customer_id as "customerId",
@@ -53,7 +55,8 @@ export async function createGuestArea(
           mood,
           picture_url as "coverUrl",
           design_space as "designSpace",
-          drawer
+          drawer,
+          blog
       `,
       [
         data.customerId ?? null,
@@ -63,6 +66,7 @@ export async function createGuestArea(
         data.coverUrl ?? null,
         data.designSpace ?? null,
         data.drawer ?? null,
+        data.blog ?? null,
       ],
     );
 
@@ -104,7 +108,8 @@ export async function getGuestAreas(
         mood,
         picture_url as "coverUrl",
         design_space as "designSpace",
-        drawer
+        drawer,
+        blog
       FROM ${TABLE_NAME}
     `;
     const params: unknown[] = [];
@@ -147,7 +152,8 @@ export async function getGuestAreaById(id: number): Promise<GuestArea | null> {
           mood,
           picture_url as "coverUrl",
           design_space as "designSpace",
-          drawer
+          drawer,
+          blog
         FROM ${TABLE_NAME}
         WHERE id = $1
       `,
@@ -170,7 +176,7 @@ export async function getGuestAreaById(id: number): Promise<GuestArea | null> {
  */
 export async function updateGuestArea(
   id: number,
-  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'coverUrl' | 'designSpace' | 'drawer'>>,
+  data: Partial<Pick<GuestArea, 'title' | 'motif' | 'mood' | 'coverUrl' | 'designSpace' | 'drawer' | 'blog'>>,
 ): Promise<GuestArea | null> {
   try {
     const row = await queryOne<GuestArea>(
@@ -182,7 +188,8 @@ export async function updateGuestArea(
           mood = COALESCE($4, mood),
           picture_url = COALESCE($5, picture_url),
           design_space = COALESCE($6, design_space),
-          drawer = COALESCE($7, drawer)
+          drawer = COALESCE($7, drawer),
+          blog = COALESCE($8, blog)
         WHERE id = $1
         RETURNING
           id,
@@ -192,7 +199,8 @@ export async function updateGuestArea(
           mood,
           picture_url as "coverUrl",
           design_space as "designSpace",
-          drawer
+          drawer,
+          blog
       `,
       [
         id,
@@ -202,6 +210,7 @@ export async function updateGuestArea(
         data.coverUrl ?? null,
         data.designSpace ?? null,
         data.drawer ?? null,
+        data.blog ?? null,
       ],
     );
     return row;

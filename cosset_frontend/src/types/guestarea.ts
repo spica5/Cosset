@@ -10,5 +10,6 @@ export type IGuestAreaItem = {
   images: string[];
   designSpace: string;
   drawer: string;
+  blog?: boolean | null;
   createdAt: IDateValue;
 };

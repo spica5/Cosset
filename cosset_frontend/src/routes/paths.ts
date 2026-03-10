@@ -51,7 +51,16 @@ export const paths = {
       },
       goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
       sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
-      collections: `${ROOTS.DASHBOARD}/drawer/collections`,
+      collections: {
+        root: `${ROOTS.DASHBOARD}/drawer/collections`,
+        manage: `${ROOTS.DASHBOARD}/drawer/collections/manage`,
+        items: (collectionId: string | number) =>
+          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}`,
+        newItem: (collectionId: string | number) =>
+          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}/new`,
+        editItem: (collectionId: string | number, itemId: string | number) =>
+          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}/${itemId}/edit`,
+      },
     },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {

@@ -8,7 +8,9 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 
 import { paths } from 'src/routes/paths';
 
+import { BlogShareForm } from '../blog-share-form';
 import { AlbumShareForm } from '../album-share-form';
+import { CollectionItemsShareForm } from '../collection-items-share-form';
 import { DrawerShareForm } from '../drawer-share-form';
 
 // ---------------------------------------------------------------
@@ -26,8 +28,10 @@ export function ThingsToShareView() {
       />
 
       <Stack spacing={3}>
+        <BlogShareForm />
         <AlbumShareForm />
         <DrawerShareForm />
+        <CollectionItemsShareForm />
       </Stack>
     </DashboardContent>
   );

@@ -112,21 +112,41 @@ export function BlogCreateView() {
             {...register('title', { required: 'Title is required' })}
             error={!!errors.title}
             helperText={errors.title?.message}
-          />
+          />          
 
-          <TextField
-            select
-            label="Category"
-            InputLabelProps={{ shrink: true }}
-            defaultValue={defaultValues.category}
-            {...register('category', { valueAsNumber: true })}
+          <Stack direction={{ xs: 'column', md: 'row' }} 
+            spacing={2} 
+            sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+              }}
           >
-            {BLOG_CATEGORY_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            <TextField
+              select
+              label="Category"
+              InputLabelProps={{ shrink: true }}
+              defaultValue={defaultValues.category}
+              {...register('category', { valueAsNumber: true })}
+            >
+              {BLOG_CATEGORY_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Visibility"
+              InputLabelProps={{ shrink: true }}
+              defaultValue={defaultValues.isPublic}
+              {...register('isPublic', { valueAsNumber: true })}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value={1}>Public</MenuItem>
+              <MenuItem value={0}>Private</MenuItem>
+            </TextField>
+          </Stack>
 
           <TextField
             label="Description"
@@ -141,7 +161,7 @@ export function BlogCreateView() {
             label="Content"
             placeholder="Write your post content"
             multiline
-            minRows={8}
+            minRows={12}
             InputLabelProps={{ shrink: true }}
             {...register('content')}
           />
@@ -152,20 +172,6 @@ export function BlogCreateView() {
             InputLabelProps={{ shrink: true }}
             {...register('file')}
           /> */}
-
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              select
-              label="Visibility"
-              InputLabelProps={{ shrink: true }}
-              defaultValue={defaultValues.isPublic}
-              {...register('isPublic', { valueAsNumber: true })}
-              sx={{ minWidth: 200 }}
-            >
-              <MenuItem value={1}>Public</MenuItem>
-              <MenuItem value={0}>Private</MenuItem>
-            </TextField>
-          </Stack>
 
           {/* <TextField
             label="Comments"

@@ -11,6 +11,8 @@ import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { useGiftCount } from 'src/actions/gift';
+import { useGetBlogs } from 'src/actions/blog';
+import { useGetCollections } from 'src/actions/collection';
 import { useGetUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { createNotification } from 'src/actions/notification';
@@ -18,6 +20,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { UniverseLandingHero } from '../landing/universe-landing-hero';
 import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
+import { UniverseLandingBlogs } from '../landing/universe-landing-blogs';
+import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
 
 // ----------------------------------------------------------------------
@@ -37,6 +41,8 @@ export function UniverseLandingView({ customerId, universe }: Props) {
   const { guestarea } = useGetGuestArea(customerId);
   const { user, loading: userLoading } = useAuthContext();
   const { users } = useGetUsers(100, 0);
+  const { blogs, blogsLoading } = useGetBlogs(customerId);
+  const { collections } = useGetCollections(customerId);
   const [heroUrl, setHeroUrl] = useState('');
   const [customerName, setCustomerName] = useState('Customer');
   const [customerAvatarKey, setCustomerAvatarKey] = useState('');
@@ -48,7 +54,6 @@ export function UniverseLandingView({ customerId, universe }: Props) {
   const giftCountData = useGiftCount(customerId, 'Public', 'gift');
   const goodMemoCountData = useGiftCount(customerId, 'Public', 'goodMemo');
   const sadMemoCountData = useGiftCount(customerId, 'Public', 'sadMemo');
-  const videoCountData = useGiftCount(customerId, 'Public', 'video');
 
   useEffect(() => {
     let mounted = true;
@@ -356,7 +361,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
 
   const drawerSettings = useMemo(() => {
     if (!guestarea?.drawer) {
-      return { gift: false, goodMemo: false, sadMemo: false, video: false };
+      return { gift: false, goodMemo: false, sadMemo: false, collectionItems: {} as Record<string, boolean> };
     }
 
     try {
@@ -364,19 +369,57 @@ export function UniverseLandingView({ customerId, universe }: Props) {
         gift?: boolean;
         goodMemo?: boolean;
         sadMemo?: boolean;
-        video?: boolean;
+        collectionItems?: Record<string, unknown>;
       };
+
+      const collectionItems = Object.entries(parsed.collectionItems || {}).reduce<Record<string, boolean>>(
+        (acc, [key, value]) => {
+          acc[String(key)] = !!value;
+          return acc;
+        },
+        {},
+      );
 
       return {
         gift: !!parsed.gift,
         goodMemo: !!parsed.goodMemo,
         sadMemo: !!parsed.sadMemo,
-        video: !!parsed.video,
+        collectionItems,
       };
     } catch {
-      return { gift: false, goodMemo: false, sadMemo: false, video: false };
+      return { gift: false, goodMemo: false, sadMemo: false, collectionItems: {} as Record<string, boolean> };
     }
   }, [guestarea?.drawer]);
+
+  const sharedCollections = useMemo(
+    () =>
+      [...collections]
+        .filter((collection) => !!drawerSettings.collectionItems[String(collection.id)])
+        .sort((a, b) => {
+          const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+          const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+
+          if (aOrder !== bOrder) {
+            return aOrder - bOrder;
+          }
+
+          return (a.name || '').localeCompare(b.name || '');
+        }),
+    [collections, drawerSettings.collectionItems],
+  );
+
+  const sharedBlogs = useMemo(
+    () =>
+      [...blogs]
+        .filter((blog) => blog.isPublic === 1)
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+          return bTime - aTime;
+        }),
+    [blogs],
+  );
 
   const drawerItems = useMemo(
     () => [
@@ -404,52 +447,65 @@ export function UniverseLandingView({ customerId, universe }: Props) {
         count: sadMemoCountData.count,
         href: paths.universe.drawer.item(customerId, 'sadMemo'),
       },
-      {
-        key: 'video',
-        label: 'Videos',
-        icon: 'solar:videocamera-record-bold',
-        enabled: drawerSettings.video,
-        count: videoCountData.count,
-        href: paths.universe.drawer.item(customerId, 'video'),
-      },
     ],
     [
       customerId,
       drawerSettings.gift,
       drawerSettings.goodMemo,
       drawerSettings.sadMemo,
-      drawerSettings.video,
       giftCountData.count,
       goodMemoCountData.count,
       sadMemoCountData.count,
-      videoCountData.count,
     ]
   );
 
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
 
-  const visitors = useMemo<VisitorItem[]>(
-    () =>
-      users
-        .filter((candidate) => candidate.id !== customerId)
-        .slice(0, 6)
-        .map((candidate) => {
-          const fullName = `${candidate?.firstName || ''} ${candidate?.lastName || ''}`.trim();
+  const visitors = useMemo<VisitorItem[]>(() => {
+    const normalizedCustomerId = String(customerId || '');
+    const visitorMap = new Map<string, VisitorItem>();
 
-          return {
-            id: candidate.id,
-            name: fullName || candidate.email || 'Visitor',
-            avatarUrl: candidate.photoURL || '',
-          };
-        }),
-    [customerId, users]
-  );
+    const normalizeVisitor = (candidate: Record<string, any> | null | undefined): VisitorItem | null => {
+      const id = String(candidate?.id || '').trim();
+
+      if (!id || id === normalizedCustomerId) {
+        return null;
+      }
+
+      const displayName = String(candidate?.displayName || '').trim();
+      const fullName = `${candidate?.firstName || ''} ${candidate?.lastName || ''}`.trim();
+      const email = String(candidate?.email || '').trim();
+
+      return {
+        id,
+        name: displayName || fullName || email || 'Visitor',
+        avatarUrl: String(candidate?.photoURL || '').trim(),
+      };
+    };
+
+    const currentUserVisitor = normalizeVisitor(user);
+
+    if (currentUserVisitor) {
+      visitorMap.set(currentUserVisitor.id, currentUserVisitor);
+    }
+
+    users.forEach((candidate) => {
+      const visitor = normalizeVisitor(candidate);
+
+      if (!visitor || visitorMap.has(visitor.id)) {
+        return;
+      }
+
+      visitorMap.set(visitor.id, visitor);
+    });
+
+    return Array.from(visitorMap.values()).slice(0, 6);
+  }, [customerId, user, users]);
 
   const drawerLoading =
     giftCountData.loading ||
     goodMemoCountData.loading ||
-    sadMemoCountData.loading ||
-    videoCountData.loading;
+    sadMemoCountData.loading;
 
   return (
     <>
@@ -463,13 +519,26 @@ export function UniverseLandingView({ customerId, universe }: Props) {
         }}
       />
 
+      {Boolean(guestarea?.blog) && (
+        <UniverseLandingBlogs blogs={sharedBlogs} blogsLoading={blogsLoading} />
+      )}
+
       <UniverseLandingAlbums albums={sharedAlbums} albumsLoading={albumsLoading} />
 
       <UniverseLandingDrawer
         items={sharedDrawerItems}
         loading={drawerLoading}
         sx={{ px: { xs: 2, md: 0 }, py: { xs: 5, md: 8 } }}
-      />
+      />  
+
+      {sharedCollections.length > 0 && (
+        <UniverseLandingCollectionItems
+          customerId={customerId}
+          collections={sharedCollections}
+        />
+      )}
+
+      
     </>
   );
 }

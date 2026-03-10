@@ -102,10 +102,16 @@ export const navData = [
           { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
           { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
           { title: 'Collections', 
-            path: paths.dashboard.drawer.collections, 
+            path: paths.dashboard.drawer.collections.root, 
             icon: ICONS.course,
              children: [
-              { title: 'Manage Collections', path: paths.dashboard.community.neighbor.root },
+              {
+                title: 'Manage Collections',
+                path: paths.dashboard.drawer.collections.manage,
+                slotProps: {
+                  title: { color: '#8B0000' },
+                },
+              },
             ],
           },
         ],

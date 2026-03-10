@@ -41,6 +41,68 @@ function getMimeType(ext: string) {
   return map[ext.toLowerCase()] || "application/octet-stream";
 }
 
+type UploadFileKind = 'image' | 'video' | 'pdf' | 'unsupported';
+
+const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
+  image: 5 * 1024 * 1024,
+  video: 50 * 1024 * 1024,
+  pdf: 10 * 1024 * 1024,
+};
+
+function getUploadFileKind(file: File): UploadFileKind {
+  const mime = (file.type || '').toLowerCase();
+
+  if (mime.startsWith('image/')) {
+    return 'image';
+  }
+
+  if (mime.startsWith('video/')) {
+    return 'video';
+  }
+
+  if (mime === 'application/pdf') {
+    return 'pdf';
+  }
+
+  const ext = getFileExtension(file);
+
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+    return 'image';
+  }
+
+  if (['mp4', 'mov'].includes(ext)) {
+    return 'video';
+  }
+
+  if (ext === 'pdf') {
+    return 'pdf';
+  }
+
+  return 'unsupported';
+}
+
+function validateSingleUploadFile(file: File): { valid: true } | { valid: false; message: string } {
+  const kind = getUploadFileKind(file);
+
+  if (kind === 'unsupported') {
+    return {
+      valid: false,
+      message: 'Only image, video, or PDF files are supported',
+    };
+  }
+
+  const maxSize = MAX_FILE_SIZE_BYTES[kind];
+  if (file.size > maxSize) {
+    const maxSizeMb = Math.floor(maxSize / (1024 * 1024));
+    return {
+      valid: false,
+      message: `File size must be less than ${maxSizeMb}MB for ${kind}`,
+    };
+  }
+
+  return { valid: true };
+}
+
 async function uploadToS3(key: string, content: Buffer, contentType: string) {
   if (!key) throw new Error("key is requried");
   if (!content) throw new Error("content is requried");
@@ -168,17 +230,13 @@ export async function POST(req: NextRequest) {
         return response({ message: "key is required" }, STATUS.BAD_REQUEST);
       }
 
-      if (!singleFile.type.startsWith('image/')) {
-        return response({ message: 'File must be an image' }, STATUS.BAD_REQUEST);
-      }
-
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (singleFile.size > maxSize) {
-        return response({ message: 'File size must be less than 5MB' }, STATUS.BAD_REQUEST);
+      const singleValidation = validateSingleUploadFile(singleFile);
+      if (!singleValidation.valid) {
+        return response({ message: singleValidation.message }, STATUS.BAD_REQUEST);
       }
 
       const ext = getFileExtension(singleFile);
-      const contentType = getMimeType(ext);
+      const contentType = singleFile.type || getMimeType(ext);
       const arrayBuffer = await singleFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const s3Key = singleKey.trim();
