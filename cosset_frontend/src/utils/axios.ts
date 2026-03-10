@@ -82,5 +82,12 @@ export const endpoints = {
     update: (id: string | number) => `/api/gift/${id}`,
     delete: (id: string | number) => `/api/gift/${id}`,
     details: (id: string | number) => `/api/gift/${id}`,
-  }
+  },
+  post: {
+    list: '/api/post/list',
+    latest: '/api/post/latest',
+    details: '/api/post/details',
+    search: '/api/post/search',
+    add: '/api/post/new',
+  },
 };

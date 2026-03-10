@@ -23,6 +23,12 @@ export const paths = {
     // root: ROOTS.DASHBOARD,
     root: `${ROOTS.DASHBOARD}/home-space/guest-area`,
     preview: `${ROOTS.DASHBOARD}/preview`,
+    blog: {
+      root: `${ROOTS.DASHBOARD}/blog`,
+      list: `${ROOTS.DASHBOARD}/blog`,
+      new: `${ROOTS.DASHBOARD}/blog/new`,
+      details: (id: string | number) => `${ROOTS.DASHBOARD}/blog/${id}`,
+    },
     homeSpace: {
       root: `${ROOTS.DASHBOARD}/home-space`,
       guestArea: `${ROOTS.DASHBOARD}/home-space/guest-area`,

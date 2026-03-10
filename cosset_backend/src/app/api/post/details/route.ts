@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
 
-import { paramCase } from 'src/utils/change-case';
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { _posts } from 'src/_mock/_blog';
+import { getBlogById } from 'src/models/blogs';
 
 // ----------------------------------------------------------------------
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
 
 /** **************************************
  * Get post details
@@ -15,18 +16,27 @@ export const runtime = 'edge';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const title = searchParams.get('title');
+    const idParam = searchParams.get('id');
 
-    const posts = _posts();
+    if (!idParam) {
+      return response({ message: 'Blog id is required' }, STATUS.BAD_REQUEST);
+    }
 
-    const post = posts.find((_post) => paramCase(_post.title) === title);
+    const id = Number.parseInt(idParam, 10);
 
-    if (!post) {
+    if (Number.isNaN(id)) {
+      return response({ message: 'Blog id must be a number' }, STATUS.BAD_REQUEST);
+    }
+
+    const blog = await getBlogById(id);
+
+    if (!blog) {
       return response({ message: 'Post not found!' }, STATUS.NOT_FOUND);
     }
 
-    return response({ post }, STATUS.OK);
+    // Keep both keys for compatibility with existing consumers.
+    return response({ blog, post: blog }, STATUS.OK);
   } catch (error) {
-    return handleError('Post - Get details', error);
+    return handleError('Post - Get details', error as Error);
   }
 }

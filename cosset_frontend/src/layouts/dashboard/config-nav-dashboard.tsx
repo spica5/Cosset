@@ -76,6 +76,15 @@ export const navData = [
       },
       { title: 'Home Space', path: paths.dashboard.preview, icon: ICONS.home },
       { 
+        title: 'Blogs', 
+        path: paths.dashboard.blog.root, 
+        icon: ICONS.blog,
+        children: [
+          { title: 'Create New Blog', path: paths.dashboard.blog.new },
+          { title: 'Blog List', path: paths.dashboard.blog.list },
+        ],
+      },
+      { 
         title: 'Albums', 
         path: paths.dashboard.album.root, 
         icon: ICONS.album,
