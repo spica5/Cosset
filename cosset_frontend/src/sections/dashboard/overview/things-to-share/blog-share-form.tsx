@@ -6,17 +6,10 @@ import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
-import TableRow from '@mui/material/TableRow';
-import TableHead from '@mui/material/TableHead';
-import TableCell from '@mui/material/TableCell';
-import TableBody from '@mui/material/TableBody';
 import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -27,7 +20,6 @@ import { useGetBlogs } from 'src/actions/blog';
 import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
 
 import { toast } from 'src/components/dashboard/snackbar';
-import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 // ---------------------------------------------------------------
 

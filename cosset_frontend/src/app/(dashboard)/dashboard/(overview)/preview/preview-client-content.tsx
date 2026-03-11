@@ -29,13 +29,13 @@ export function PreviewClientContent() {
 
     if (document.fullscreenElement === previewElement) {
       if (document.exitFullscreen) {
-        void document.exitFullscreen();
+        document.exitFullscreen();
       }
 
       return;
     }
 
-    void previewElement.requestFullscreen();
+    previewElement.requestFullscreen();
   }, []);
 
   useEffect(() => {
