@@ -36,3 +36,7 @@ build
 .eslintcache
 .unimportedrc.json
 tsconfig.tsbuildinfo
+
+# other
+../azuresnow
+../azuresnow.pub

@@ -50,8 +50,8 @@ export function useGetCurrentUser() {
 /**
  * Fetch users list for friend page
  */
-export function useGetUsers(limit: number = 100, offset: number = 0) {
-  const usersEndpoint = `${endpoints.user.list}?limit=${limit}&offset=${offset}`;
+export function useGetUsers(limit: number = 100, offset: number = 0, enabled: boolean = true) {
+  const usersEndpoint = enabled ? `${endpoints.user.list}?limit=${limit}&offset=${offset}` : null;
 
   const { data, isLoading, error, isValidating } = useSWR<UsersData>(
     usersEndpoint,

@@ -39,8 +39,8 @@ type VisitorItem = {
 
 export function UniverseLandingView({ customerId, universe }: Props) {
   const { guestarea } = useGetGuestArea(customerId);
-  const { user, loading: userLoading } = useAuthContext();
-  const { users } = useGetUsers(100, 0);
+  const { user, loading: userLoading, authenticated } = useAuthContext();
+  const { users } = useGetUsers(100, 0, authenticated);
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const { collections } = useGetCollections(customerId);
   const [heroUrl, setHeroUrl] = useState('');
@@ -237,9 +237,10 @@ export function UniverseLandingView({ customerId, universe }: Props) {
   useEffect(() => {
     const notifyCustomerVisit = async () => {
       if (!customerId) return;
-      if (userLoading) return;
+      if (userLoading || !authenticated) return;
 
-      const visitorId = user?.id ? String(user.id) : 'anonymous';
+      const visitorId = user?.id ? String(user.id) : '';
+      if (!visitorId) return;
       if (visitorId === customerId) return;
 
       const storageKey = `notification:visit:${customerId}:${visitorId}`;
@@ -275,7 +276,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
     notifyCustomerVisit().catch((error) => {
       console.error('Failed to create visit notification', error);
     });
-  }, [customerId, user, userLoading, users]);
+  }, [authenticated, customerId, user, userLoading, users]);
 
   useEffect(() => {
     let mounted = true;

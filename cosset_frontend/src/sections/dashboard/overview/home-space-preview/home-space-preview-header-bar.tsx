@@ -90,11 +90,21 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
           disableLink
           sx={{
             ml: { xs: 5, md: 10 },
-            mr: { xs: 10, md: 15 },
-            width: { xs: 76, md: 92 },
-            height: { xs: 48, md: 58 },
+            mr: { xs: 8, md: 12 },
+            width: { xs: 70, md: 80 },
+            height: { xs: 42, md: 50 },
           }}
         />
+
+        <Link
+          component={RouterLink}
+          href={`${currentPath}#blogs-section`}
+          color="inherit"
+          underline="none"
+          sx={menuLinkSx}
+        >
+          Blogs
+        </Link>
 
         <Link
           component={RouterLink}
@@ -104,7 +114,7 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
           sx={menuLinkSx}
         >
           Albums
-        </Link>
+        </Link>       
 
         <Link
           component={RouterLink}
@@ -116,14 +126,14 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
           Drawer
         </Link>
 
-         <Link
+        <Link
           component={RouterLink}
-          href={`${currentPath}#books-section`}
+          href={`${currentPath}#collection-items-section`}
           color="inherit"
           underline="none"
           sx={menuLinkSx}
         >
-          Books
+          Collections
         </Link>
       </Box>
 
