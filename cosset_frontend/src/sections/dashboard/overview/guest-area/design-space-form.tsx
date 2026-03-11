@@ -408,8 +408,8 @@ export function DesignSpaceForm({ currentArea }: Props) {
         
           <Divider />
           <Box sx={{ p: 3, display: 'flex', gap: 3 }}>
-            <Box sx={{ width: "50%", spacing: 1.5 }}>
-              <Typography variant="subtitle2">Add Images</Typography>
+            <Box sx={{ width: "40%", spacing: 1.5 }}>
+              <Typography variant="subtitle1">Add Images</Typography>
               <Upload
                 multiple
                 thumbnail
@@ -430,15 +430,15 @@ export function DesignSpaceForm({ currentArea }: Props) {
               />
             </Box>
 
-            <Box sx={{ width: "50%", spacing: 1.5 }}>
-              <Typography variant="subtitle2">Template Images</Typography>
+            <Box sx={{ width: "60%", spacing: 1.5, ml: 1 }}>
+              <Typography variant="subtitle1">Template Images</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
                 {templateImages.map((template) => (
-                  <Box key={template.url} sx={{ textAlign: 'center', width: 110 }}>
+                  <Box key={template.url} sx={{ textAlign: 'center', width: 135 }}>
                     <Image 
                       alt={template.name}
                       src={template.url}
-                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
+                      style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
                     />
                     <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
                       {template.name}
@@ -463,12 +463,12 @@ export function DesignSpaceForm({ currentArea }: Props) {
 
           <Stack spacing={3} sx={{ p: 3 }}>
             <Stack spacing={1.5}>
-              <Typography variant="subtitle2">Rooms Description</Typography>
+              <Typography variant="subtitle1">Rooms Description</Typography>
               <Field.Text name="rooms" placeholder="Describe the rooms in your design space..." />
             </Stack>
 
             <Stack spacing={1.5}>
-              <Typography variant="subtitle2">Effects</Typography>
+              <Typography variant="subtitle1">Effects</Typography>
               <Field.Text name="effects" placeholder="Describe special effects or features..." />
             </Stack>
           </Stack>

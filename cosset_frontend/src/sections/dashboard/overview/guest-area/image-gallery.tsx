@@ -1,6 +1,6 @@
 import type { Slide } from 'yet-another-react-lightbox';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,6 +14,8 @@ import Tooltip from '@mui/material/Tooltip/Tooltip';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
+import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -72,7 +74,16 @@ export default function ImageGallery({
     bgcolor: 'background.paper',
     width: 20,
     height: 20,
-    p: 0,
+    p: 1,
+  } as const;
+
+  const actionIconButtonSx = {
+    bgcolor: 'background.paper',
+    border: '1px solid',
+    width: 25,
+    height: 25,
+    p: 2,
+    cursor: 'pointer',
   } as const;
 
   const handleDelete = useCallback(async (input: File | string) => {
@@ -113,16 +124,42 @@ export default function ImageGallery({
   }, [lightbox, sliderIndex]);
 
   const handleMoveImage = useCallback(
-    (index: number, direction: 'up' | 'down') => {
+    (index: number, direction: 'up' | 'down' | 'first' | 'last') => {
       if (!onReorderGalleryImage) return;
- 
-      const nextIndex = direction === 'up' ? index - 1 : index + 1;
+
+      const nextIndex =
+        direction === 'first'
+          ? 0
+          : direction === 'last'
+            ? images.length - 1
+            : direction === 'up'
+              ? index - 1
+              : index + 1;
+
       if (nextIndex < 0 || nextIndex >= images.length) return;
 
       onReorderGalleryImage(index, nextIndex);
     },
     [images.length, onReorderGalleryImage]
   );
+
+  const selectedImageIndex = useMemo(() => {
+    if (images.length === 0) {
+      return -1;
+    }
+
+    if (!previewSrc) {
+      return 0;
+    }
+
+    const indexByUrl = images.findIndex((file) => typeof file === 'string' && file === previewSrc);
+
+    if (indexByUrl !== -1) {
+      return indexByUrl;
+    }
+
+    return Math.min(sliderIndex, images.length - 1);
+  }, [images, previewSrc, sliderIndex]);
 
   return (
     <>
@@ -148,7 +185,74 @@ export default function ImageGallery({
               })()}
             </Grid>
 
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={1}>
+              <Stack spacing={2} alignItems="center" pt = {5}>
+                <Tooltip title="Move first">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveImage(selectedImageIndex, 'first');
+                      }}
+                      disabled={selectedImageIndex <= 0}
+                      sx={actionIconButtonSx}
+                    >
+                      <KeyboardDoubleArrowUpIcon sx={{ width: 25, height: 25 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              
+                <Tooltip title="Move up">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveImage(selectedImageIndex, 'up');
+                      }}
+                      disabled={selectedImageIndex <= 0}
+                      sx={actionIconButtonSx}
+                    >
+                      <Iconify icon="solar:alt-arrow-up-bold" width={25} height={25} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Move down">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveImage(selectedImageIndex, 'down');
+                      }}
+                      disabled={selectedImageIndex === -1 || selectedImageIndex >= images.length - 1}
+                      sx={actionIconButtonSx}
+                    >
+                      <Iconify icon="solar:alt-arrow-down-bold" width={25} height={25} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Move last">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveImage(selectedImageIndex, 'last');
+                      }}
+                      disabled={selectedImageIndex === -1 || selectedImageIndex >= images.length - 1}
+                      sx={actionIconButtonSx}
+                    >
+                      <KeyboardDoubleArrowDownIcon sx={{ width: 25, height: 25 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={2}>
               <Stack 
                 spacing={1} 
                 sx={{ 
@@ -226,8 +330,8 @@ export default function ImageGallery({
                                 opacity: 0,
                                 transition: 'opacity 0.2s',
                                 display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'right',
+                                alignItems: 'flex-start',
+                                justifyContent: 'flex-end',
                                 gap: 1,
                             }}
                             >
@@ -243,48 +347,19 @@ export default function ImageGallery({
                                 <Iconify icon="solar:eye-bold" />
                                 </IconButton>
                             </Tooltip> */}
-                            <Tooltip title="Delete">
+                            
+                              <Tooltip title="Delete">
                                 <IconButton
-                                color="error"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenDelete(fileOrUrl);
-                                }}
-                              sx={tooltipIconButtonSx}
+                                  color="error"
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenDelete(fileOrUrl);
+                                  }}
+                                sx={tooltipIconButtonSx}
                                 >
-                              <Iconify icon="solar:trash-bin-trash-bold" width={15} height={15} />
+                                <Iconify icon="solar:trash-bin-trash-bold" width={15} height={15} />
                                 </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="Move up">
-                                <span>
-                                  <IconButton
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleMoveImage(idx, 'up');
-                                    }}
-                                    disabled={idx === 0}
-                                    sx={tooltipIconButtonSx}
-                                  >
-                                    <Iconify icon="solar:alt-arrow-up-bold" width={15} height={15} />
-                                  </IconButton>
-                                </span>
-                            </Tooltip>
-
-                            <Tooltip title="Move down">
-                                <span>
-                                  <IconButton
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleMoveImage(idx, 'down');
-                                    }}
-                                    disabled={idx === images.length - 1}
-                                    sx={tooltipIconButtonSx}
-                                  >
-                                    <Iconify icon="solar:alt-arrow-down-bold" width={15} height={15} />
-                                  </IconButton>
-                                </span>
-                            </Tooltip>
+                              </Tooltip>
                         </Box>
                     </Card>
                   );
