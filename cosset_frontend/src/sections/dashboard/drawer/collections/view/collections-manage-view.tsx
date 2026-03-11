@@ -42,9 +42,6 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 
 import { orderBy } from 'src/utils/helper';
 
-import { CollectionItemsSort } from '../collection-items-sort';
-import { CollectionItemsSearch } from '../collection-items-search';
-
 type CollectionFormState = {
   customerId: string;
   name: string;

@@ -1,7 +1,9 @@
 'use client';
 
-import Alert from '@mui/material/Alert';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -13,8 +15,40 @@ import { HomeSpacePreviewHeaderBar } from 'src/sections/dashboard/overview/home-
 
 export function PreviewClientContent() {
   const { user, loading } = useAuthContext();
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const customerId = user?.id ? String(user.id) : '';
+
+  const handleToggleFullScreen = useCallback(() => {
+    const previewElement = previewRef.current;
+
+    if (!previewElement) {
+      return;
+    }
+
+    if (document.fullscreenElement === previewElement) {
+      if (document.exitFullscreen) {
+        void document.exitFullscreen();
+      }
+
+      return;
+    }
+
+    void previewElement.requestFullscreen();
+  }, []);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(document.fullscreenElement === previewRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -40,8 +74,23 @@ export function PreviewClientContent() {
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <HomeSpacePreviewHeaderBar currentPath={paths.dashboard.preview} />
+    <Box
+      ref={previewRef}
+      sx={{
+        position: 'relative',
+        '&:fullscreen': {
+          width: '100vw',
+          height: '100vh',
+          overflow: 'auto',
+          bgcolor: 'background.default',
+        },
+      }}
+    >
+      <HomeSpacePreviewHeaderBar
+        currentPath={paths.dashboard.preview}
+        isFullScreen={isFullScreen}
+        onToggleFullScreen={handleToggleFullScreen}
+      />
       <UniverseLandingView customerId={customerId} />
     </Box>
   );

@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
-import IconButton from '@mui/material/IconButton';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import { RouterLink } from 'src/routes/components';
 import { Logo } from 'src/components/universe/logo';
@@ -18,9 +21,15 @@ import { varAlpha } from 'src/theme/universe/styles';
 
 type Props = {
   currentPath: string;
+  isFullScreen: boolean;
+  onToggleFullScreen: () => void;
 };
 
-export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
+export function HomeSpacePreviewHeaderBar({
+  currentPath,
+  isFullScreen,
+  onToggleFullScreen,
+}: Props) {
   const theme = useTheme();
   const [roomInfoVisible, setRoomInfoVisible] = useState(true);
 
@@ -54,6 +63,20 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
       currentTheme.transitions.create(['background-color', 'border-color', 'color'], {
         duration: currentTheme.transitions.duration.shorter,
       }),
+    '&:hover': {
+      borderColor: 'text.secondary',
+      bgcolor: (currentTheme: typeof theme) =>
+        varAlpha(currentTheme.vars.palette.common.blackChannel, 0.65),
+      color: 'info.lighter',
+    },
+  } as const;
+
+  const actionButtonSx = {
+    border: 1,
+    borderColor: 'text.secondary',
+    color: 'info.main',
+    bgcolor: (currentTheme: typeof theme) =>
+      varAlpha(currentTheme.vars.palette.common.blackChannel, 0.45),
     '&:hover': {
       borderColor: 'text.secondary',
       bgcolor: (currentTheme: typeof theme) =>
@@ -137,25 +160,31 @@ export function HomeSpacePreviewHeaderBar({ currentPath }: Props) {
         </Link>
       </Box>
 
-      <IconButton
-        aria-label={roomInfoVisible ? 'hide room info' : 'show room info'}
-        onClick={() => {
-          window.dispatchEvent(new Event('toggle-room-info'));
-        }}
-        sx={{
-          border: 1,
-          borderColor: 'text.secondary',
-          color: 'info.main',
-          bgcolor: (currentTheme) => varAlpha(currentTheme.vars.palette.common.blackChannel, 0.45),
-          '&:hover': {
-            borderColor: 'text.secondary',
-            bgcolor: (currentTheme) => varAlpha(currentTheme.vars.palette.common.blackChannel, 0.65),
-            color: 'info.lighter',
-          },
-        }}
-      >
-        {roomInfoVisible ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-      </IconButton>
+      <Box display="flex" alignItems="center" gap={2}>
+        <Tooltip title={isFullScreen ? 'Exit full screen' : 'Enter full screen'}>
+          <IconButton
+            aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
+            onClick={onToggleFullScreen}
+            sx={actionButtonSx}
+          >
+            {isFullScreen ? (
+              <FullscreenExitIcon fontSize="small" />
+            ) : (
+              <FullscreenIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+
+        <IconButton
+          aria-label={roomInfoVisible ? 'hide room info' : 'show room info'}
+          onClick={() => {
+            window.dispatchEvent(new Event('toggle-room-info'));
+          }}
+          sx={actionButtonSx}
+        >
+          {roomInfoVisible ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+        </IconButton>
+      </Box>
     </Box>
   );
 }
