@@ -31,6 +31,7 @@ type Props = BoxProps & {
 };
 
 const BLOG_PREVIEW_LIMIT = 3;
+const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 
 const formatDate = (value: unknown) => {
   if (!value) {
@@ -88,9 +89,53 @@ export function UniverseLandingBlogs({
           alignItems={{ xs: 'flex-start', sm: 'center' }}
           justifyContent="space-between"
         >
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Iconify icon="solar:document-text-bold" width={36} sx={{ color: 'primary.main' }} />
-            <Typography variant="h2">Blogs ({blogs.length})</Typography>
+          <Stack spacing={0.75}>
+            <Stack
+              direction="row"
+              spacing={1.25}
+              alignItems="center"
+              sx={{
+                px: 1.5,
+                py: 0.8,
+                borderRadius: 99,
+                border: '1px solid rgba(18, 96, 194, 0.32)',
+                background: 'linear-gradient(90deg, rgba(35, 126, 233, 0.16), rgba(35, 126, 233, 0.05))',
+                boxShadow: '0 8px 18px rgba(35, 126, 233, 0.14)',
+                width: 'fit-content',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: '1px solid rgba(35, 126, 233, 0.35)',
+                  bgcolor: 'rgba(255,255,255,0.35)',
+                }}
+              >
+                <Iconify icon="solar:document-text-bold" width={20} sx={{ color: 'primary.main' }} />
+              </Box>
+
+              <Typography
+                variant="h2"
+                sx={{
+                  fontFamily: SECTION_TITLE_FONT,
+                  fontWeight: 800,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Blogs ({blogs.length})
+              </Typography>
+            </Stack>
+
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
+            >
+              Shared stories and reflections from this universe
+            </Typography>
           </Stack>
 
           {!blogsLoading && blogs.length > 0 && viewAllHref ? (

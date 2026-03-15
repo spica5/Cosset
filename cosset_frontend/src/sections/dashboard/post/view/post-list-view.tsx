@@ -2,7 +2,7 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -17,8 +17,6 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetPosts } from 'src/actions/post';
-
-import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -46,10 +44,13 @@ const getCreatedAtTime = (value: IPostItem['createdAt']) => {
 // ----------------------------------------------------------------------
 
 export function PostListView() {
-  const { user } = useAuthContext();
-  const { posts, postsLoading } = useGetPosts(user?.id);
+  const { posts, postsLoading, refreshPosts } = useGetPosts();
   const [query, setQuery] = useState('');
   const [orderBy, setOrderBy] = useState<OrderByValue>('newest');
+
+  useEffect(() => {
+    refreshPosts();
+  }, [refreshPosts]);
 
   const normalizedQuery = query.trim().toLowerCase();
 

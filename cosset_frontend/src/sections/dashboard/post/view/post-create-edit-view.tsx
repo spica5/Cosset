@@ -409,43 +409,6 @@ export function PostCreateEditView({ postId }: Props) {
             disabled={isReadOnly}
           />
 
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            sx={{
-              display: 'grid',
-              gap: 2,
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-            }}
-          >
-            <TextField
-              select
-              label="Category"
-              InputLabelProps={{ shrink: true }}
-              defaultValue={defaultValues.category}
-              {...register('category', { valueAsNumber: true })}
-              disabled={isReadOnly}
-            >
-              {BLOG_CATEGORY_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Visibility"
-              InputLabelProps={{ shrink: true }}
-              defaultValue={defaultValues.isPublic}
-              {...register('isPublic', { valueAsNumber: true })}
-              sx={{ minWidth: 200 }}
-              disabled={isReadOnly}
-            >
-              <MenuItem value={1}>Public</MenuItem>
-              <MenuItem value={0}>Private</MenuItem>
-            </TextField>
-          </Stack>
-
           <TextField
             label="Description"
             placeholder="Short description"

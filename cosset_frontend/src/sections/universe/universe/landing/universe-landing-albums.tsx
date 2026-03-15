@@ -20,6 +20,8 @@ type Props = BoxProps & {
   albumsLoading?: boolean;
 };
 
+const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+
 export function UniverseLandingAlbums({
   albums,
   albumsLoading = false,
@@ -40,9 +42,53 @@ export function UniverseLandingAlbums({
     >
       <Container>
         <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Iconify icon="solar:album-bold" width={36} sx={{ color: 'primary.main' }} />
-            <Typography variant="h2">Albums ({albums.length})</Typography>
+          <Stack spacing={0.75}>
+            <Stack
+              direction="row"
+              spacing={1.25}
+              alignItems="center"
+              sx={{
+                px: 1.5,
+                py: 0.8,
+                borderRadius: 99,
+                border: '1px solid rgba(27, 153, 139, 0.35)',
+                background: 'linear-gradient(90deg, rgba(27, 153, 139, 0.16), rgba(27, 153, 139, 0.05))',
+                boxShadow: '0 8px 18px rgba(27, 153, 139, 0.14)',
+                width: 'fit-content',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: '1px solid rgba(27, 153, 139, 0.35)',
+                  bgcolor: 'rgba(255,255,255,0.35)',
+                }}
+              >
+                <Iconify icon="solar:album-bold" width={20} sx={{ color: 'primary.main' }} />
+              </Box>
+
+              <Typography
+                variant="h2"
+                sx={{
+                  fontFamily: SECTION_TITLE_FONT,
+                  fontWeight: 800,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Albums ({albums.length})
+              </Typography>
+            </Stack>
+
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
+            >
+              Memory frames and snapshots shared with visitors
+            </Typography>
           </Stack>
         </Stack>
 

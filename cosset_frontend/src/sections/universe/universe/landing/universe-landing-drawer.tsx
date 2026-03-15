@@ -27,6 +27,8 @@ type Props = BoxProps & {
   loading?: boolean;
 };
 
+const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+
 export function UniverseLandingDrawer({ items = [], loading = false, sx, ...other }: Props) {
   return (
     <Card
@@ -37,9 +39,53 @@ export function UniverseLandingDrawer({ items = [], loading = false, sx, ...othe
     >
       <Container>
         <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Iconify icon="solar:box-bold" width={36} sx={{ color: 'primary.main' }} />
-            <Typography variant="h2">Drawer</Typography>
+          <Stack spacing={0.75}>
+            <Stack
+              direction="row"
+              spacing={1.25}
+              alignItems="center"
+              sx={{
+                px: 1.5,
+                py: 0.8,
+                borderRadius: 99,
+                border: '1px solid rgba(199, 125, 18, 0.34)',
+                background: 'linear-gradient(90deg, rgba(199, 125, 18, 0.16), rgba(199, 125, 18, 0.06))',
+                boxShadow: '0 8px 18px rgba(199, 125, 18, 0.15)',
+                width: 'fit-content',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: '1px solid rgba(199, 125, 18, 0.35)',
+                  bgcolor: 'rgba(255,255,255,0.35)',
+                }}
+              >
+                <Iconify icon="solar:box-bold" width={20} sx={{ color: 'primary.main' }} />
+              </Box>
+
+              <Typography
+                variant="h2"
+                sx={{
+                  fontFamily: SECTION_TITLE_FONT,
+                  fontWeight: 800,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Drawer
+              </Typography>
+            </Stack>
+
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
+            >
+              Keepsakes, mementos, and meaningful shared moments
+            </Typography>
           </Stack>
         </Stack>
 

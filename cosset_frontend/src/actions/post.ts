@@ -1,6 +1,6 @@
 import type { IPostItem } from 'src/types/post';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
@@ -27,6 +27,7 @@ export function useGetPosts(customerId?: string | number) {
     : POST_LIST_ENDPOINT;
 
   const { data, isLoading, error, isValidating } = useSWR<PostsData>(url, fetcher, swrOptions);
+  const refreshPosts = useCallback(() => mutate(url), [url]);
 
   const memoizedValue = useMemo(() => {
     const posts = data?.posts || [];
@@ -37,8 +38,9 @@ export function useGetPosts(customerId?: string | number) {
       postsError: error,
       postsValidating: isValidating,
       postsEmpty: !isLoading && !posts.length,
+      refreshPosts,
     };
-  }, [data?.posts, error, isLoading, isValidating]);
+  }, [data?.posts, error, isLoading, isValidating, refreshPosts]);
 
   return memoizedValue;
 }
