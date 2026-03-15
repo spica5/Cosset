@@ -408,7 +408,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
         
           <Divider />
           <Box sx={{ p: 3, display: 'flex', gap: 3 }}>
-            <Box sx={{ width: "40%", spacing: 1.5 }}>
+            <Box sx={{ width: "45%", spacing: 1.5 }}>
               <Typography variant="subtitle1">Add Images</Typography>
               <Upload
                 multiple
@@ -430,15 +430,15 @@ export function DesignSpaceForm({ currentArea }: Props) {
               />
             </Box>
 
-            <Box sx={{ width: "60%", spacing: 1.5, ml: 1 }}>
+            <Box sx={{ width: "55%", spacing: 1.5, ml: 1 }}>
               <Typography variant="subtitle1">Template Images</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
                 {templateImages.map((template) => (
-                  <Box key={template.url} sx={{ textAlign: 'center', width: 135 }}>
+                  <Box key={template.url} sx={{ textAlign: 'center', width: 120 }}>
                     <Image 
                       alt={template.name}
                       src={template.url}
-                      style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
+                      style={{ width: 110, height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
                     />
                     <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
                       {template.name}

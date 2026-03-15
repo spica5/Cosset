@@ -17,6 +17,7 @@ export function PreviewClientContent() {
   const { user, loading } = useAuthContext();
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showTopMenu, setShowTopMenu] = useState(true);
 
   const customerId = user?.id ? String(user.id) : '';
 
@@ -38,6 +39,10 @@ export function PreviewClientContent() {
     previewElement.requestFullscreen();
   }, []);
 
+  const handleToggleTopMenu = useCallback(() => {
+    setShowTopMenu((prev) => !prev);
+  }, []);
+
   useEffect(() => {
     const handleFullScreenChange = () => {
       setIsFullScreen(document.fullscreenElement === previewRef.current);
@@ -49,6 +54,32 @@ export function PreviewClientContent() {
       document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
   }, []);
+
+  useEffect(() => {
+    const handleSetTopMenuState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ visible?: boolean }>;
+
+      if (typeof customEvent.detail?.visible === 'boolean') {
+        setShowTopMenu(customEvent.detail.visible);
+      }
+    };
+
+    window.addEventListener('toggle-top-menu', handleToggleTopMenu);
+    window.addEventListener('set-top-menu-state', handleSetTopMenuState as EventListener);
+
+    return () => {
+      window.removeEventListener('toggle-top-menu', handleToggleTopMenu);
+      window.removeEventListener('set-top-menu-state', handleSetTopMenuState as EventListener);
+    };
+  }, [handleToggleTopMenu]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('top-menu-state', {
+        detail: { visible: showTopMenu },
+      })
+    );
+  }, [showTopMenu]);
 
   if (loading) {
     return (
@@ -86,12 +117,18 @@ export function PreviewClientContent() {
         },
       }}
     >
-      <HomeSpacePreviewHeaderBar
-        currentPath={paths.dashboard.preview}
+      {showTopMenu ? (
+        <HomeSpacePreviewHeaderBar
+          currentPath={paths.dashboard.preview}
+          isFullScreen={isFullScreen}
+          onToggleFullScreen={handleToggleFullScreen}
+        />
+      ) : null}
+      <UniverseLandingView
+        customerId={customerId}
         isFullScreen={isFullScreen}
         onToggleFullScreen={handleToggleFullScreen}
       />
-      <UniverseLandingView customerId={customerId} />
     </Box>
   );
 }

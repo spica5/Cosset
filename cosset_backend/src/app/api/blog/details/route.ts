@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { getCommunityPostById } from 'src/models/community-posts';
+import { getBlogById } from 'src/models/blogs';
 
 // ----------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ export const revalidate = 0;
 export const runtime = 'nodejs';
 
 /** **************************************
- * GET /api/post/details?id={id}
+ * Get blog details
  *************************************** */
 export async function GET(req: NextRequest) {
   try {
@@ -19,23 +19,24 @@ export async function GET(req: NextRequest) {
     const idParam = searchParams.get('id');
 
     if (!idParam) {
-      return response({ message: 'Post id is required' }, STATUS.BAD_REQUEST);
+      return response({ message: 'Blog id is required' }, STATUS.BAD_REQUEST);
     }
 
     const id = Number.parseInt(idParam, 10);
 
     if (Number.isNaN(id)) {
-      return response({ message: 'Post id must be a number' }, STATUS.BAD_REQUEST);
+      return response({ message: 'Blog id must be a number' }, STATUS.BAD_REQUEST);
     }
 
-    const post = await getCommunityPostById(id);
+    const blog = await getBlogById(id);
 
-    if (!post) {
-      return response({ message: 'Post not found' }, STATUS.NOT_FOUND);
+    if (!blog) {
+      return response({ message: 'Blog not found!' }, STATUS.NOT_FOUND);
     }
 
-    return response({ post }, STATUS.OK);
+    // Keep both keys for compatibility with existing consumers.
+    return response({ blog }, STATUS.OK);
   } catch (error) {
-    return handleError('Post - Get details', error as Error);
+    return handleError('Blog - Get details', error as Error);
   }
 }

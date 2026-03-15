@@ -28,6 +28,7 @@ export const paths = {
       list: `${ROOTS.DASHBOARD}/blog`,
       new: `${ROOTS.DASHBOARD}/blog/new`,
       details: (id: string | number) => `${ROOTS.DASHBOARD}/blog/${id}`,
+      edit: (id: string | number) => `${ROOTS.DASHBOARD}/blog/${id}/edit`,
     },
     homeSpace: {
       root: `${ROOTS.DASHBOARD}/home-space`,
@@ -69,6 +70,12 @@ export const paths = {
         root: `${ROOTS.DASHBOARD}/community/neighbor`,
         details: (id: string) => `${ROOTS.DASHBOARD}/community/neighbor/${id}`,
       },
+      post: {
+        root: `${ROOTS.DASHBOARD}/community/post`,
+        list: `${ROOTS.DASHBOARD}/community/post`,
+        new: `${ROOTS.DASHBOARD}/community/post/new`,
+        edit: (id: string | number) => `${ROOTS.DASHBOARD}/community/post/${id}`,
+      },
       coffeeShop: `${ROOTS.DASHBOARD}/community/coffee-shop`,
       cinema:  `${ROOTS.DASHBOARD}/community/cinema`,
     },
@@ -89,6 +96,7 @@ export const paths = {
   // UNIVERSE
   universe: {
     view: (id: string) => `${ROOTS.UNIVERSE}/${id}/view`,
+    blogs: (customerId: string) => `${ROOTS.UNIVERSE}/${customerId}/blogs`,
     // Albums
     albums: `${ROOTS.UNIVERSE}/albums`,
     album: (id: string | number) => `${ROOTS.UNIVERSE}/albums/${id}`,

@@ -3,26 +3,26 @@ import type { NextRequest } from 'next/server';
 import { paramCase } from 'src/utils/change-case';
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { _posts } from 'src/_mock/_blog';
+import { _blogs } from 'src/_mock/_blog';
 
 // ----------------------------------------------------------------------
 
 export const runtime = 'edge';
 
 /** **************************************
- * Get latest posts
+ * Get latest Blogs
  *************************************** */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const title = searchParams.get('title');
 
-    const posts = _posts();
+    const blogs = _blogs();
 
-    const latestPosts = posts.filter((_post) => paramCase(_post.title) !== title);
+    const latestBlogs = blogs.filter((blogItem) => paramCase(blogItem.title) !== title);
 
-    return response({ latestPosts }, STATUS.OK);
+    return response({ latestBlogs }, STATUS.OK);
   } catch (error) {
-    return handleError('Post - Get latest', error);
+    return handleError('Blog - Get latest', error);
   }
 }

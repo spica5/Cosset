@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { _posts } from 'src/_mock/_blog';
+import { _blogs } from 'src/_mock/_blog';
 
 // ----------------------------------------------------------------------
 
@@ -16,17 +16,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const query = searchParams.get('query');
 
-    const posts = _posts();
+    const blogs = _blogs();
 
     if (query) {
       const cleanQuery = query?.toLowerCase().trim() ?? '';
-      const results = posts.filter((post) => post.title.toLowerCase().includes(cleanQuery));
+      const results = blogs.filter((blog) => blog.title.toLowerCase().includes(cleanQuery));
 
       return response({ results }, STATUS.OK);
     }
 
     return response({ results: [] }, STATUS.OK);
   } catch (error) {
-    return handleError('Post - Get search', error);
+    return handleError('Blog - Get search', error);
   }
 }

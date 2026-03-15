@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { getAllCommunityPosts } from 'src/models/community-posts';
+import { getAllBlogs } from 'src/models/blogs';
 
 // ----------------------------------------------------------------------
 
@@ -11,8 +11,7 @@ export const revalidate = 0;
 export const runtime = 'nodejs';
 
 /** **************************************
- * GET /api/post/list
- * Query params: customerId?, limit?, offset?
+ * Get list of blogs
  *************************************** */
 export async function GET(req: NextRequest) {
   try {
@@ -21,14 +20,15 @@ export async function GET(req: NextRequest) {
     const limit = Number.parseInt(searchParams.get('limit') ?? '50', 10);
     const offset = Number.parseInt(searchParams.get('offset') ?? '0', 10);
 
-    const posts = await getAllCommunityPosts(
+    const blogs = await getAllBlogs(
       customerId,
       Number.isNaN(limit) ? 50 : limit,
       Number.isNaN(offset) ? 0 : offset,
     );
 
-    return response({ posts }, STATUS.OK);
+    // Keep both keys for compatibility with existing consumers.
+    return response({ blogs }, STATUS.OK);
   } catch (error) {
-    return handleError('Post - Get list', error as Error);
+    return handleError('Blog - Get list', error as Error);
   }
 }

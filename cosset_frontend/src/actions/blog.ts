@@ -1,13 +1,13 @@
 import type { IBlogItem } from 'src/types/blog';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
-const BLOG_LIST_ENDPOINT = endpoints.post.list;
+const BLOG_LIST_ENDPOINT = endpoints.blog.list;
 
 const swrOptions = {
   revalidateIfStale: false,
@@ -19,7 +19,6 @@ const swrOptions = {
 
 type BlogsData = {
   blogs?: IBlogItem[];
-  posts?: IBlogItem[];
 };
 
 export function useGetBlogs(customerId?: string | number) {
@@ -28,9 +27,10 @@ export function useGetBlogs(customerId?: string | number) {
     : BLOG_LIST_ENDPOINT;
 
   const { data, isLoading, error, isValidating } = useSWR<BlogsData>(url, fetcher, swrOptions);
+  const refreshBlogs = useCallback(() => mutate(url), [url]);
 
   const memoizedValue = useMemo(() => {
-    const blogs = data?.blogs || data?.posts || [];
+    const blogs = data?.blogs || [];
 
     return {
       blogs,
@@ -38,8 +38,9 @@ export function useGetBlogs(customerId?: string | number) {
       blogsError: error,
       blogsValidating: isValidating,
       blogsEmpty: !isLoading && !blogs.length,
+      refreshBlogs,
     };
-  }, [data?.blogs, data?.posts, error, isLoading, isValidating]);
+  }, [data?.blogs, error, isLoading, isValidating, refreshBlogs]);
 
   return memoizedValue;
 }
@@ -48,22 +49,21 @@ export function useGetBlogs(customerId?: string | number) {
 
 type BlogData = {
   blog?: IBlogItem;
-  post?: IBlogItem;
 };
 
 export function useGetBlog(blogId: string | number | '') {
-  const url = blogId ? `${endpoints.post.details}?id=${encodeURIComponent(String(blogId))}` : null;
+  const url = blogId ? `${endpoints.blog.details}?id=${encodeURIComponent(String(blogId))}` : null;
 
   const { data, isLoading, error, isValidating } = useSWR<BlogData>(url, fetcher, swrOptions);
 
   const memoizedValue = useMemo(
     () => ({
-      blog: data?.blog || data?.post,
+      blog: data?.blog, 
       blogLoading: isLoading,
       blogError: error,
       blogValidating: isValidating,
     }),
-    [data?.blog, data?.post, error, isLoading, isValidating],
+    [data?.blog, error, isLoading, isValidating],
   );
 
   return memoizedValue;
@@ -73,12 +73,46 @@ export function useGetBlog(blogId: string | number | '') {
 
 export async function createBlog(blog: Omit<IBlogItem, 'id' | 'createdAt' | 'updatedAt'>) {
   const data = { blog };
-  const res = await axios.post(endpoints.post.add, data);
+  const res = await axios.post(endpoints.blog.add, data);
 
-  // Revalidate the post list cache after creating a blog.
+  // Revalidate the blog list cache after creating a blog.
   mutate(BLOG_LIST_ENDPOINT);
   if (blog.customerId) {
     mutate(`${BLOG_LIST_ENDPOINT}?customerId=${encodeURIComponent(String(blog.customerId))}`);
+  }
+
+  return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+export async function updateBlog(
+  blogId: string | number,
+  updates: Partial<Omit<IBlogItem, 'id' | 'createdAt' | 'updatedAt'>>,
+) {
+  const data = { blog: updates };
+  const res = await axios.put(endpoints.blog.update(blogId), data);
+
+  mutate(BLOG_LIST_ENDPOINT);
+  if (updates.customerId) {
+    mutate(`${BLOG_LIST_ENDPOINT}?customerId=${encodeURIComponent(String(updates.customerId))}`);
+  }
+  mutate(`${endpoints.blog.details}?id=${encodeURIComponent(String(blogId))}`);
+
+  return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+export async function deleteBlog(
+  blogId: string | number,
+  customerId?: string | number,
+) {
+  const res = await axios.delete(endpoints.blog.delete(blogId));
+
+  mutate(BLOG_LIST_ENDPOINT);
+  if (customerId) {
+    mutate(`${BLOG_LIST_ENDPOINT}?customerId=${encodeURIComponent(String(customerId))}`);
   }
 
   return res.data;

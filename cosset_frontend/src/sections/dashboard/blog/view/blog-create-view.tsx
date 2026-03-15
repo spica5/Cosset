@@ -2,13 +2,16 @@
 
 import type { IBlogItem } from 'src/types/blog';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 import Card from '@mui/material/Card';
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { paths } from 'src/routes/paths';
@@ -16,12 +19,30 @@ import { useRouter } from 'src/routes/hooks';
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { createBlog } from 'src/actions/blog';
+import { createBlog, updateBlog, useGetBlog } from 'src/actions/blog';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
+import {
+  BLOG_CONTENT_BACKGROUND_OPTIONS,
+  BLOG_CONTENT_FONT_OPTIONS,
+  DEFAULT_BLOG_CONTENT_APPEARANCE,
+  getBlogContentAppearance,
+  getBlogContentBackgroundSx,
+  getBlogContentFontSx,
+  isBlogContentBackgroundPreset,
+  isBlogContentFontPreset,
+  type BlogContentBackgroundPreset,
+  type BlogContentFontPreset,
+} from 'src/sections/dashboard/blog/blog-content-style';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
+
+// ----------------------------------------------------------------------
+
+type Props = {
+  blogId?: string | number;
+};
 
 // ----------------------------------------------------------------------
 
@@ -35,6 +56,8 @@ type BlogFormValues = {
   totalViews: number;
   following: number;
   comments: string;
+  fontPreset: BlogContentFontPreset;
+  backgroundPreset: BlogContentBackgroundPreset;
 };
 
 const defaultValues: BlogFormValues = {
@@ -47,20 +70,97 @@ const defaultValues: BlogFormValues = {
   totalViews: 0,
   following: 0,
   comments: '',
+  fontPreset: DEFAULT_BLOG_CONTENT_APPEARANCE.fontPreset,
+  backgroundPreset: DEFAULT_BLOG_CONTENT_APPEARANCE.backgroundPreset,
 };
 
-export function BlogCreateView() {
+export function BlogCreateView({ blogId }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
+
+  const isEditMode = Boolean(blogId);
+  const { blog, blogLoading } = useGetBlog(isEditMode ? blogId! : '');
 
   const {
     register,
     handleSubmit,
+    reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<BlogFormValues>({ defaultValues });
 
+  const selectedFontPreset = watch('fontPreset');
+  const selectedBackgroundPreset = watch('backgroundPreset');
+  const contentPreview = watch('content');
+
+  const currentUserId = String(user?.id || '');
+  const ownerId = String(blog?.customerId || '');
+  const isOwner = !isEditMode || !blog ? true : !!currentUserId && ownerId === currentUserId;
+  const isReadOnly = isEditMode && !isOwner;
+
+  useEffect(() => {
+    if (!isEditMode || !blog) {
+      return;
+    }
+
+    const fallbackAppearance = getBlogContentAppearance(blog.comments);
+    const appearance = {
+      fontPreset: isBlogContentFontPreset(blog.fontPreset)
+        ? blog.fontPreset
+        : fallbackAppearance.fontPreset,
+      backgroundPreset: isBlogContentBackgroundPreset(blog.backgroundPreset)
+        ? blog.backgroundPreset
+        : fallbackAppearance.backgroundPreset,
+    };
+
+    reset({
+      title: blog.title || '',
+      category: blog.category ?? 1,
+      description: blog.description || '',
+      content: blog.content || '',
+      file: blog.file || '',
+      isPublic: blog.isPublic ?? 1,
+      totalViews: blog.totalViews ?? 0,
+      following: blog.following ?? 0,
+      comments: blog.comments || '',
+      fontPreset: appearance.fontPreset,
+      backgroundPreset: appearance.backgroundPreset,
+    });
+  }, [blog, isEditMode, reset]);
+
   const onSubmit = handleSubmit(async (values) => {
     try {
+      if (isEditMode) {
+        if (!blog) {
+          toast.error('Blog post not found.');
+          return;
+        }
+
+        if (!isOwner) {
+          toast.error('You can only edit your own blog post.');
+          return;
+        }
+
+        await updateBlog(blogId!, {
+          customerId: blog.customerId || user?.id || null,
+          title: values.title.trim(),
+          category: values.category,
+          description: values.description.trim() || null,
+          content: values.content.trim() || null,
+          file: values.file.trim() || null,
+          isPublic: values.isPublic,
+          totalViews: values.totalViews,
+          following: values.following,
+          fontPreset: values.fontPreset,
+          backgroundPreset: values.backgroundPreset,
+          comments: values.comments.trim() || null,
+        });
+
+        toast.success('Blog post updated successfully.');
+        router.refresh();
+        return;
+      }
+
       const payload: Omit<IBlogItem, 'id' | 'createdAt' | 'updatedAt'> = {
         customerId: user?.id || null,
         title: values.title.trim(),
@@ -71,34 +171,57 @@ export function BlogCreateView() {
         isPublic: values.isPublic,
         totalViews: values.totalViews,
         following: values.following,
+        fontPreset: values.fontPreset,
+        backgroundPreset: values.backgroundPreset,
         comments: values.comments.trim() || null,
       };
 
-      const created = await createBlog(payload);
-      const createdBlog = (created as { blog?: IBlogItem; post?: IBlogItem }).blog
-        || (created as { blog?: IBlogItem; post?: IBlogItem }).post;
+      await createBlog(payload);
 
       toast.success('Blog post created successfully.');
-
-      if (createdBlog?.id) {
-        router.push(paths.dashboard.blog.details(createdBlog.id));
-      } else {
-        router.push(paths.dashboard.blog.list);
-      }
+      router.push(paths.dashboard.blog.list);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to create blog post.');
+      toast.error(isEditMode ? 'Failed to update blog post.' : 'Failed to create blog post.');
     }
   });
+
+  if (isEditMode && blogLoading) {
+    return (
+      <DashboardContent>
+        <Card sx={{ p: 3 }}>Loading...</Card>
+      </DashboardContent>
+    );
+  }
+
+  if (isEditMode && !blog) {
+    return (
+      <DashboardContent>
+        <CustomBreadcrumbs
+          heading="Blog Post"
+          links={[
+            { name: 'Dashboard', href: paths.dashboard.root },
+            { name: 'Blogs', href: paths.dashboard.blog.list },
+            { name: 'Edit' },
+          ]}
+          sx={{ mb: { xs: 3, md: 5 } }}
+        />
+
+        <Card sx={{ p: 3 }}>Blog post not found.</Card>
+      </DashboardContent>
+    );
+  }
+
+  const heading = isEditMode ? 'Edit Blog' : 'Create New Blog';
 
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading="Create New Blog"
+        heading={heading}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Blogs', href: paths.dashboard.blog.list },
-          { name: 'Create New Blog' },
+          { name: isEditMode ? 'Edit Blog' : 'Create New Blog' },
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}
       />
@@ -112,6 +235,7 @@ export function BlogCreateView() {
             {...register('title', { required: 'Title is required' })}
             error={!!errors.title}
             helperText={errors.title?.message}
+            disabled={isReadOnly}
           />          
 
           <Stack direction={{ xs: 'column', md: 'row' }} 
@@ -128,6 +252,7 @@ export function BlogCreateView() {
               InputLabelProps={{ shrink: true }}
               defaultValue={defaultValues.category}
               {...register('category', { valueAsNumber: true })}
+              disabled={isReadOnly}
             >
               {BLOG_CATEGORY_OPTIONS.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -142,9 +267,40 @@ export function BlogCreateView() {
               defaultValue={defaultValues.isPublic}
               {...register('isPublic', { valueAsNumber: true })}
               sx={{ minWidth: 200 }}
+              disabled={isReadOnly}
             >
               <MenuItem value={1}>Public</MenuItem>
               <MenuItem value={0}>Private</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              label="Content Font"
+              InputLabelProps={{ shrink: true }}
+              defaultValue={defaultValues.fontPreset}
+              {...register('fontPreset')}
+              disabled={isReadOnly}
+            >
+              {BLOG_CONTENT_FONT_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              label="Content Background"
+              InputLabelProps={{ shrink: true }}
+              defaultValue={defaultValues.backgroundPreset}
+              {...register('backgroundPreset')}
+              disabled={isReadOnly}
+            >
+              {BLOG_CONTENT_BACKGROUND_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </TextField>
           </Stack>
 
@@ -155,6 +311,7 @@ export function BlogCreateView() {
             minRows={3}
             InputLabelProps={{ shrink: true }}
             {...register('description')}
+            disabled={isReadOnly}
           />
 
           <TextField
@@ -164,7 +321,32 @@ export function BlogCreateView() {
             minRows={12}
             InputLabelProps={{ shrink: true }}
             {...register('content')}
+            disabled={isReadOnly}
           />
+
+          <Box
+            sx={{
+              p: { xs: 1.5, md: 2 },
+              borderRadius: 1.5,
+              border: '1px solid',
+              ...getBlogContentBackgroundSx(selectedBackgroundPreset),
+            }}
+          >
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+              Content Preview
+            </Typography>
+
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#3c2a1a',
+                ...getBlogContentFontSx(selectedFontPreset),
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {contentPreview?.trim() || 'Start typing content to preview your selected style.'}
+            </Typography>
+          </Box>
 
           {/* <TextField
             label="File"
@@ -184,11 +366,13 @@ export function BlogCreateView() {
 
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             <Button onClick={() => router.push(paths.dashboard.blog.list)} color="inherit" variant="outlined">
-              Cancel
+              {isEditMode ? 'Back' : 'Cancel'}
             </Button>
-            <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-              Create Blog Post
-            </LoadingButton>
+            {(!isEditMode || isOwner) && (
+              <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+                {isEditMode ? 'Save Changes' : 'Create Blog Post'}
+              </LoadingButton>
+            )}
           </Stack>
         </Stack>
       </Card>

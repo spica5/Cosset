@@ -31,23 +31,7 @@ export function HomeSpacePreviewHeaderBar({
   onToggleFullScreen,
 }: Props) {
   const theme = useTheme();
-  const [roomInfoVisible, setRoomInfoVisible] = useState(true);
-
-  useEffect(() => {
-    const handleRoomInfoState = (event: Event) => {
-      const customEvent = event as CustomEvent<{ visible?: boolean }>;
-      if (typeof customEvent.detail?.visible === 'boolean') {
-        setRoomInfoVisible(customEvent.detail.visible);
-      }
-    };
-
-    window.addEventListener('room-info-state', handleRoomInfoState as EventListener);
-
-    return () => {
-      window.removeEventListener('room-info-state', handleRoomInfoState as EventListener);
-    };
-  }, []);
-
+ 
   const menuLinkSx = {
     px: 2,
     py: 0.75,
@@ -101,11 +85,6 @@ export function HomeSpacePreviewHeaderBar({
         px: { xs: 1, md: 2 },
         py: 1.25,
         mb: 0,
-        // borderRadius: 1.5,
-        // bgcolor: (currentTheme) => varAlpha(currentTheme.vars.palette.common.blackChannel, 0.0),
-        // border: (currentTheme) =>
-        //   `1px solid ${varAlpha(currentTheme.vars.palette.common.whiteChannel, 0.2)}`,
-        // backdropFilter: 'blur(1px)',
       }}
     >
       <Box gap={{ xs: 2, md: 4 }} display="flex" alignItems="center" flexWrap="wrap">
@@ -160,7 +139,7 @@ export function HomeSpacePreviewHeaderBar({
         </Link>
       </Box>
 
-      <Box display="flex" alignItems="center" gap={2}>
+      <Box display="none" alignItems="center" gap={2}>
         <Tooltip title={isFullScreen ? 'Exit full screen' : 'Enter full screen'}>
           <IconButton
             aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
@@ -174,16 +153,6 @@ export function HomeSpacePreviewHeaderBar({
             )}
           </IconButton>
         </Tooltip>
-
-        <IconButton
-          aria-label={roomInfoVisible ? 'hide room info' : 'show room info'}
-          onClick={() => {
-            window.dispatchEvent(new Event('toggle-room-info'));
-          }}
-          sx={actionButtonSx}
-        >
-          {roomInfoVisible ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-        </IconButton>
       </Box>
     </Box>
   );

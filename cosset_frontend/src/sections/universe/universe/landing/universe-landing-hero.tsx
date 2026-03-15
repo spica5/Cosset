@@ -14,6 +14,10 @@ import { Typography } from '@mui/material';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -36,11 +40,22 @@ type Props = BoxProps & {
     name: string;
     avatarUrl: string;
   }[];
+  isFullScreen?: boolean;
+  onToggleFullScreen?: () => void;
 };
 
-export function UniverseLandingHero({ universe, customer, visitors = [], sx, ...other }: Props) {
+export function UniverseLandingHero({
+  universe,
+  customer,
+  visitors = [],
+  isFullScreen = false,
+  onToggleFullScreen,
+  sx,
+  ...other
+}: Props) {
   const theme = useTheme();
   const [showRoomInfo, setShowRoomInfo] = useState(true);
+  const [showTopMenu, setShowTopMenu] = useState(true);
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
 
@@ -110,6 +125,21 @@ export function UniverseLandingHero({ universe, customer, visitors = [], sx, ...
       })
     );
   }, [showRoomInfo]);
+
+  useEffect(() => {
+    const handleTopMenuState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ visible?: boolean }>;
+      if (typeof customEvent.detail?.visible === 'boolean') {
+        setShowTopMenu(customEvent.detail.visible);
+      }
+    };
+
+    window.addEventListener('top-menu-state', handleTopMenuState as EventListener);
+
+    return () => {
+      window.removeEventListener('top-menu-state', handleTopMenuState as EventListener);
+    };
+  }, []);
 
   if (!universe) {
     return null;
@@ -254,45 +284,98 @@ export function UniverseLandingHero({ universe, customer, visitors = [], sx, ...
             direction="row"
             spacing={1}
             alignItems="center"
+            justifyContent="space-between"
             sx={{
               mb: 1.25,
               pb: 1.25,
               borderBottom: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
             }}
           >
-            <Avatar
-              src={customer?.avatarUrl || undefined}
-              alt={customer?.name || 'Customer'}
-              sx={{ width: 48, height: 48, bgcolor: 'grey.700' }}
-            />
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="caption" sx={{ color: 'grey.300', display: 'block' }}>
-                Customer
-              </Typography>
-              <Typography variant="body2" noWrap>
-                {customer?.name || 'Customer'}
-              </Typography>
-            </Box>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+              <Avatar
+                src={customer?.avatarUrl || undefined}
+                alt={customer?.name || 'Customer'}
+                sx={{ width: 45, height: 45, bgcolor: 'grey.700' }}
+              />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body1" noWrap>
+                  {customer?.name || 'Customer'}
+                </Typography>
+              </Box>
+            </Stack>
+
+            {onToggleFullScreen ? (
+              <IconButton
+                size="small"
+                aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
+                onClick={onToggleFullScreen}
+                sx={{
+                  border: 1,
+                  borderColor: 'text.secondary',
+                  color: 'info.main',
+                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                  '&:hover': {
+                    borderColor: 'text.secondary',
+                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                    color: 'info.lighter',
+                  },
+                }}
+              >
+                {isFullScreen ? (
+                  <FullscreenExitIcon fontSize="small" />
+                ) : (
+                  <FullscreenIcon fontSize="small" />
+                )}
+              </IconButton>
+            ) : null}
           </Stack>
 
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Visitors
-          </Typography>
-          <Stack spacing={1}>
-            {visitors.length ? (
-              visitors.map((visitor) => (
-                <Stack key={visitor.id} direction="row" spacing={1} alignItems="center">
-                  <Avatar src={visitor.avatarUrl || undefined} alt={visitor.name} sx={{ width: 48, height: 48, bgcolor: 'grey.700' }} />
-                  <Typography variant="body2" noWrap>
-                    {visitor.name}
-                  </Typography>
-                </Stack>
-              ))
-            ) : (
-              <Typography variant="body2" sx={{ color: 'grey.300' }}>
-                No visitors yet
-              </Typography>
-            )}
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2">Room Info</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+              onClick={() => {
+                window.dispatchEvent(new Event('toggle-room-info'));
+              }}
+              sx={{
+                borderColor: 'text.secondary',
+                color: 'info.main',
+                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                '&:hover': {
+                  borderColor: 'text.secondary',
+                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                  color: 'info.lighter',
+                },
+              }}
+            >
+              {showRoomInfo ? 'Hide' : 'View'}
+            </Button>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2">Top Menu</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={showTopMenu ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+              onClick={() => {
+                window.dispatchEvent(new Event('toggle-top-menu'));
+              }}
+              sx={{
+                borderColor: 'text.secondary',
+                color: 'info.main',
+                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                '&:hover': {
+                  borderColor: 'text.secondary',
+                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                  color: 'info.lighter',
+                },
+              }}
+            >
+              {showTopMenu ? 'Hide' : 'View'}
+            </Button>
           </Stack>
         </Card>
 

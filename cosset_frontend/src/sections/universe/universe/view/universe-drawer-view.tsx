@@ -137,6 +137,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
   }, [categoryKey, customerId]);
 
   const categoryLabel = categoryLabelMap[categoryKey] || categoryKey;
+  const previewImageHeight = categoryKey === 'gift' ? 245 : 220;
 
   const slideItems = useMemo(
     () =>
@@ -227,7 +228,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
                         alt={item.title}
                         sx={{
                           width: 1,
-                          height: 220,
+                          height: previewImageHeight,
                           objectFit: 'cover',
                           bgcolor: 'background.neutral',
                           transition: (theme) =>

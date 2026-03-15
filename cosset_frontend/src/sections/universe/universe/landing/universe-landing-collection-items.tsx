@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 
 import { useGetCollectionItems } from 'src/actions/collection-item';
+import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -53,36 +54,58 @@ function UniverseCollectionItemsCard({ customerId, collection }: CollectionCardP
       <Card sx={{ height: 1 }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="h6" noWrap>
-              {collection.name || `Collection #${collection.id}`}
-            </Typography>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Iconify icon="solar:folder-with-files-bold" width={16} sx={{ color: 'primary.main' }} />
+              <Typography variant="h6" noWrap>
+                {collection.name || `Collection #${collection.id}`}
+              </Typography>
+            </Stack>
 
             {collectionItemsLoading ? (
-              <Typography variant="body2" color="text.secondary">
-                Loading items...
-              </Typography>
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Iconify icon="solar:refresh-outline" width={14} sx={{ color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading items...
+                </Typography>
+              </Stack>
             ) : (
-              <Typography variant="caption" color="text.secondary">
-                {publicItems.length} public item{publicItems.length === 1 ? '' : 's'}
-              </Typography>
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Iconify icon="eva:layers-fill" width={14} sx={{ color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {publicItems.length} public item{publicItems.length === 1 ? '' : 's'}
+                </Typography>
+              </Stack>
             )}
 
             {!collectionItemsLoading && publicItems.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                No public items in this collection.
-              </Typography>
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Iconify icon="solar:forbidden-circle-linear" width={14} sx={{ color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  No public items in this collection.
+                </Typography>
+              </Stack>
             )}
 
             {!collectionItemsLoading && previewItems.length > 0 && (
               <Stack spacing={0.75}>
                 {previewItems.map((item) => (
                   <Box key={item.id}>
-                    <Typography variant="body2" noWrap>
-                      {(item.title || '').trim() || `Item #${item.id}`}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDate(item.date || item.updatedAt)}
-                    </Typography>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Iconify
+                        icon="solar:bookmark-square-minimalistic-bold"
+                        width={14}
+                        sx={{ color: 'info.main' }}
+                      />
+                      <Typography variant="body2" noWrap>
+                        {(item.title || '').trim() || `Item #${item.id}`}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Iconify icon="eva:calendar-outline" width={14} sx={{ color: 'text.secondary' }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(item.date || item.updatedAt)}
+                      </Typography>
+                    </Stack>
                   </Box>
                 ))}
               </Stack>
@@ -104,7 +127,10 @@ export function UniverseLandingCollectionItems({ customerId, collections, sx, ..
     >
       <Container>
         <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Typography variant="h2">Collection Items ({collections.length})</Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Iconify icon="solar:widget-4-bold" width={26} sx={{ color: 'primary.main' }} />
+            <Typography variant="h2">Collection Items ({collections.length})</Typography>
+          </Stack>
         </Stack>
 
         <Box sx={{ py: { xs: 4, md: 6 } }}>

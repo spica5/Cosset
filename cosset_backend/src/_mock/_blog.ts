@@ -158,7 +158,7 @@ const generateComments = () => {
   ];
 };
 
-export const _posts = () =>
+export const _blogs = () =>
   [...Array(19)].map((_, index) => {
     const comments = generateComments();
 

@@ -29,6 +29,8 @@ import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
 type Props = {
   customerId: string;
   universe?: IUniverseProps;
+  isFullScreen?: boolean;
+  onToggleFullScreen?: () => void;
 };
 
 type VisitorItem = {
@@ -37,7 +39,12 @@ type VisitorItem = {
   avatarUrl: string;
 };
 
-export function UniverseLandingView({ customerId, universe }: Props) {
+export function UniverseLandingView({
+  customerId,
+  universe,
+  isFullScreen = false,
+  onToggleFullScreen,
+}: Props) {
   const { guestarea } = useGetGuestArea(customerId);
   const { user, loading: userLoading, authenticated } = useAuthContext();
   const { users } = useGetUsers(100, 0, authenticated);
@@ -461,6 +468,7 @@ export function UniverseLandingView({ customerId, universe }: Props) {
   );
 
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
+  const sharedBlogViewItems = guestarea?.blog ? sharedBlogs : [];
 
   const visitors = useMemo<VisitorItem[]>(() => {
     const normalizedCustomerId = String(customerId || '');
@@ -513,6 +521,8 @@ export function UniverseLandingView({ customerId, universe }: Props) {
       <UniverseLandingHero
         universe={resolvedUniverse!}
         visitors={visitors}
+        isFullScreen={isFullScreen}
+        onToggleFullScreen={onToggleFullScreen}
         customer={{
           id: customerId,
           name: customerName,
@@ -520,9 +530,11 @@ export function UniverseLandingView({ customerId, universe }: Props) {
         }}
       />
 
-      {Boolean(guestarea?.blog) && (
-        <UniverseLandingBlogs blogs={sharedBlogs} blogsLoading={blogsLoading} />
-      )}
+      <UniverseLandingBlogs
+        blogs={sharedBlogViewItems}
+        blogsLoading={guestarea?.blog ? blogsLoading : false}
+        viewAllHref={paths.universe.blogs(customerId)}
+      />
 
       <UniverseLandingAlbums albums={sharedAlbums} albumsLoading={albumsLoading} />
 
@@ -532,12 +544,10 @@ export function UniverseLandingView({ customerId, universe }: Props) {
         sx={{ px: { xs: 2, md: 0 }, py: { xs: 5, md: 8 } }}
       />  
 
-      {sharedCollections.length > 0 && (
-        <UniverseLandingCollectionItems
-          customerId={customerId}
-          collections={sharedCollections}
-        />
-      )}
+      <UniverseLandingCollectionItems
+        customerId={customerId}
+        collections={sharedCollections}
+      />
 
       
     </>

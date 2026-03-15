@@ -122,7 +122,8 @@ export const navData = [
         path: paths.dashboard.community.root, 
         icon: ICONS.star, 
         children: [
-          { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },
+          { title: 'Posts', path: paths.dashboard.community.post.list },
+          { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },          
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop },
           { title: 'Cinema', path: paths.dashboard.community.cinema },
         ],

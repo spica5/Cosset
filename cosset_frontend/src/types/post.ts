@@ -2,19 +2,22 @@ import type { IDateValue } from './common';
 
 // ----------------------------------------------------------------------
 
-export type IBlogItem = {
+export type IPostItem = {
   id: number;
   customerId?: string | null;
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
+  customerDisplayName?: string | null;
+  customerEmail?: string | null;
+  customerPhotoURL?: string | null;
   title?: string | null;
   category?: number | null;
   description?: string | null;
   content?: string | null;
-  file?: string | null;
+  files?: string | null;
   isPublic?: number | null;
   totalViews?: number | null;
   following?: number | null;
-  fontPreset?: string | null;
-  backgroundPreset?: string | null;
   comments?: string | null;
   createdAt?: IDateValue;
   updatedAt?: IDateValue;

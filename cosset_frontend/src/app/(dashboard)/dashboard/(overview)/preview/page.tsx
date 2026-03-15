@@ -1,5 +1,5 @@
 import { CONFIG } from 'src/config-global';
-import { PreviewClientContent } from './preview-client-content';
+import { PreviewClientContent } from 'src/sections/dashboard/overview/home-space-preview/preview-client-content';
 
 // ----------------------------------------------------------------------
 

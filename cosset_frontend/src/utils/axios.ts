@@ -97,11 +97,22 @@ export const endpoints = {
     delete: (id: string | number) => `/api/collection-item/${id}`,
     details: (id: string | number) => `/api/collection-item/${id}`,
   },
+  blog: {
+    list: '/api/blog/list',
+    latest: '/api/blog/latest',
+    details: '/api/blog/details',
+    search: '/api/blog/search',
+    add: '/api/blog/new',
+    update: (id: string | number) => `/api/blog/${id}`,
+    delete: (id: string | number) => `/api/blog/${id}`,
+  },
   post: {
     list: '/api/post/list',
     latest: '/api/post/latest',
     details: '/api/post/details',
     search: '/api/post/search',
     add: '/api/post/new',
+    update: (id: string | number) => `/api/post/${id}`,
+    delete: (id: string | number) => `/api/post/${id}`,
   },
 };

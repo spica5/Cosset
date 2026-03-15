@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
+import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -40,7 +40,10 @@ export function UniverseLandingAlbums({
     >
       <Container>
         <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Typography variant="h2">Albums ({albums.length})</Typography>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Iconify icon="solar:album-bold" width={36} sx={{ color: 'primary.main' }} />
+            <Typography variant="h2">Albums ({albums.length})</Typography>
+          </Stack>
         </Stack>
 
         <Box sx={{ py: { xs: 4, md: 6 } }}>
@@ -50,37 +53,74 @@ export function UniverseLandingAlbums({
             <Typography color="text.secondary">No shared albums found.</Typography>
           ) : (
             <Grid container spacing={2}>
-              {albums.map((album) => (
-                <Grid item xs={12} sm={6} md={3} key={album.id}>
-                  <Card>
-                    <CardMedia
-                      component="img"
-                      height="180"
-                      image={album.signedCoverUrl || ''}
-                      alt={album.title}
-                      sx={{ objectFit: 'cover' }}
-                    />
-                    <CardContent>
-                      <Stack spacing={1}>
-                        <Typography variant="h6" noWrap>
-                          {album.title}
-                        </Typography>
+              {albums.map((album) => {
+                const albumHref = paths.universe.album(album.id);
 
-                        <Typography variant="body2" color="text.secondary" noWrap>
-                          {album.description || 'No description'}
-                        </Typography>
-                        <Typography
-                          component={RouterLink}
-                          href={paths.universe.album(album.id)}
-                          sx={{ typography: 'body2', color: 'primary.main', textDecoration: 'none' }}
-                        >
-                          View album
-                        </Typography>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={album.id}>
+                    <Card
+                      onClick={() => window.open(albumHref, '_blank', 'noopener,noreferrer')}
+                      sx={{
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          boxShadow: (theme) => theme.shadows[8],
+                        },
+                      }}
+                    >
+                      <CardMedia
+                        component="img"
+                        height="180"
+                        image={album.signedCoverUrl || ''}
+                        alt={album.title}
+                        sx={{ objectFit: 'cover' }}
+                      />
+                      <CardContent>
+                        <Stack spacing={1}>
+                          <Typography variant="h6" noWrap>
+                            {album.title}
+                          </Typography>
+
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Iconify icon="solar:gallery-bold" width={14} sx={{ color: 'info.main' }} />
+                            <Typography variant="caption" color="text.secondary">
+                              Shared album item
+                            </Typography>
+                          </Stack>
+
+                          <Stack direction="row" spacing={0.75} alignItems="flex-start">
+                            <Iconify
+                              icon="solar:notes-linear"
+                              width={14}
+                              sx={{ color: 'text.secondary', mt: '2px', flexShrink: 0 }}
+                            />
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {album.description || 'No description'}
+                            </Typography>
+                          </Stack>
+
+                          <Typography
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              typography: 'body2',
+                              color: 'primary.main',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Iconify icon="eva:arrow-ios-forward-fill" width={14} />
+                            View album
+                          </Typography>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
           )}
         </Box>
