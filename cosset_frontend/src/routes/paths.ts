@@ -97,6 +97,9 @@ export const paths = {
   universe: {
     view: (id: string) => `${ROOTS.UNIVERSE}/${id}/view`,
     blogs: (customerId: string) => `${ROOTS.UNIVERSE}/${customerId}/blogs`,
+    collections: (customerId: string) => `${ROOTS.UNIVERSE}/${customerId}/collections`,
+    collectionItems: (customerId: string, collectionId: string | number) =>
+      `${ROOTS.UNIVERSE}/${customerId}/collections/${collectionId}`,
     // Albums
     albums: `${ROOTS.UNIVERSE}/albums`,
     album: (id: string | number) => `${ROOTS.UNIVERSE}/albums/${id}`,

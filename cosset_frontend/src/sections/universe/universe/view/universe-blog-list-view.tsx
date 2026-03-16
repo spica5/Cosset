@@ -7,7 +7,6 @@ import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Link from '@mui/material/Link';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -286,7 +285,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                         flexWrap="wrap"
                       >
                         <Stack direction="row" alignItems="center" spacing={1}>
-                          <Chip size="small" color="success" label="Public" />
+                          {/* <Chip size="small" color="success" label="Public" /> */}
 
                           <Typography variant="h6" title={fullTitle}>
                             {title}

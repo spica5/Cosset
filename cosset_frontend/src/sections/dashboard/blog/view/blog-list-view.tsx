@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -34,6 +33,7 @@ import {
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
+import { Label } from 'src/components/dashboard/label';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
@@ -275,11 +275,9 @@ export function BlogListView() {
                 flexWrap="wrap"
               >
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  <Chip
-                    size="small"
-                    color={blog.isPublic === 1 ? 'success' : 'default'}
-                    label={blog.isPublic === 1 ? 'Public' : 'Private'}
-                  />
+                  <Label variant="soft" color={blog.isPublic === 1 ? 'info' : 'default'}>
+                    {blog.isPublic === 1 ? 'Public' : 'Private'}
+                  </Label>
 
                   <Typography variant="h6" title={fullTitle}>
                     {title}

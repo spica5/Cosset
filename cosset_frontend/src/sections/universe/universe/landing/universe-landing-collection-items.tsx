@@ -11,6 +11,8 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 import { useGetCollectionItems } from 'src/actions/collection-item';
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -43,6 +45,7 @@ const formatDate = (value: unknown) => {
 
 function UniverseCollectionItemsCard({ customerId, collection }: CollectionCardProps) {
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collection.id, customerId);
+  const collectionItemsHref = paths.universe.collectionItems(customerId, collection.id);
 
   const publicItems = useMemo(
     () => collectionItems.filter((item) => item.isPublic === 1),
@@ -53,7 +56,29 @@ function UniverseCollectionItemsCard({ customerId, collection }: CollectionCardP
 
   return (
     <Grid item xs={12} sm={6} md={4}>
-      <Card sx={{ height: 1 }}>
+      <Card
+        component={RouterLink}
+        href={collectionItemsHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        sx={{
+          height: 1,
+          textDecoration: 'none',
+          color: 'inherit',
+          border: '1px solid',
+          borderColor: 'divider',
+          cursor: 'pointer',
+          transition: (theme) =>
+            theme.transitions.create(['transform', 'box-shadow', 'border-color'], {
+              duration: theme.transitions.duration.shorter,
+            }),
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            borderColor: 'primary.main',
+            boxShadow: (theme) => theme.shadows[8],
+          },
+        }}
+      >
         <CardContent>
           <Stack spacing={1}>
             <Stack direction="row" spacing={0.75} alignItems="center">
@@ -119,7 +144,12 @@ function UniverseCollectionItemsCard({ customerId, collection }: CollectionCardP
   );
 }
 
-export function UniverseLandingCollectionItems({ customerId, collections, sx, ...other }: Props) {
+export function UniverseLandingCollectionItems({
+  customerId,
+  collections,
+  sx,
+  ...other
+}: Props) {
   return (
     <Card
       id="collection-items-section"
@@ -128,8 +158,13 @@ export function UniverseLandingCollectionItems({ customerId, collections, sx, ..
       {...other}
     >
       <Container>
-        <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Stack spacing={0.75}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="flex-start"
+        >
+          <Stack spacing={0.75} sx={{ textAlign: { xs: 'left', md: 'unset' } }}>
             <Stack
               direction="row"
               spacing={1.25}
