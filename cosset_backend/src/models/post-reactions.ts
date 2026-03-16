@@ -1,5 +1,5 @@
 import { DatabaseError } from '@/db/errors';
-import { executeQuery, queryMany, queryOne } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'post_reactions';
 
@@ -54,9 +54,9 @@ const normalizeCount = (value: number | string): number => {
 const createEmptyReactionCounts = (): Record<PostReactionType, number> => {
   const counts = {} as Record<PostReactionType, number>;
 
-  for (const reactionType of POST_REACTION_TYPES) {
+  POST_REACTION_TYPES.forEach((reactionType) => {
     counts[reactionType] = 0;
-  }
+  });
 
   return counts;
 };
@@ -282,11 +282,11 @@ export async function getPostReactionSummary(
     const counts = createEmptyReactionCounts();
     let totalCount = 0;
 
-    for (const row of rows) {
+    rows.forEach((row) => {
       const count = normalizeCount(row.count);
       counts[row.reactionType] = count;
       totalCount += count;
-    }
+    });
 
     let myReaction: PostReactionType | null = null;
 
