@@ -232,7 +232,7 @@ export function UniverseLandingAlbums({
                           <Stack direction="row" spacing={0.75} alignItems="center">
                             <Iconify icon="solar:gallery-bold" width={14} sx={{ color: 'info.main' }} />
                             <Typography variant="caption" color="text.secondary">
-                              Shared album item
+                               {album.category || 'No Category'}
                             </Typography>
                           </Stack>
 
