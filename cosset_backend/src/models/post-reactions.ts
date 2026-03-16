@@ -51,6 +51,19 @@ const normalizeCount = (value: number | string): number => {
   return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
 };
 
+const normalizeDate = (value: unknown): Date | null => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+};
+
 const createEmptyReactionCounts = (): Record<PostReactionType, number> => {
   const counts = {} as Record<PostReactionType, number>;
 
@@ -71,7 +84,7 @@ const ensurePostReactionsTable = async (): Promise<void> => {
             target_id BIGINT NOT NULL,
             customer_id BIGINT NOT NULL,
             target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('blog', 'album', 'collection', 'drawer')),
-            reaction_type VARCHAR(20) NOT NULL CHECK (reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')),
+            reaction_type VARCHAR(20) CHECK (reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')),
             viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT uq_post_reaction UNIQUE (target_type, target_id, customer_id)
@@ -85,6 +98,17 @@ const ensurePostReactionsTable = async (): Promise<void> => {
 
       await executeQuery(
         `CREATE INDEX IF NOT EXISTS idx_post_reactions_customer ON ${TABLE_NAME} (customer_id)`,
+      );
+
+      // Migration-safe: views are represented by viewed_at, so reaction_type can be null.
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ALTER COLUMN reaction_type DROP NOT NULL`);
+
+      await executeQuery(
+        `
+          UPDATE ${TABLE_NAME}
+          SET reaction_type = NULL
+          WHERE reaction_type = 'view'
+        `,
       );
     })().catch((error) => {
       ensurePostReactionsTablePromise = null;
@@ -180,18 +204,20 @@ export async function removePostReaction(params: {
       });
     }
 
-    const deleted = await queryOne<{ id: number }>(
+    const removed = await queryOne<{ id: number }>(
       `
-        DELETE FROM ${TABLE_NAME}
+        UPDATE ${TABLE_NAME}
+        SET reaction_type = NULL
         WHERE target_type = $1
           AND target_id = $2
           AND customer_id = $3
+          AND reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')
         RETURNING id
       `,
       [params.targetType, targetId, customerId],
     );
 
-    return !!deleted;
+    return !!removed;
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -227,6 +253,7 @@ export async function getPostReaction(
         WHERE target_type = $1
           AND target_id = $2
           AND customer_id = $3
+          AND reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')
         LIMIT 1
       `,
       [targetType, targetId, customerId],
@@ -274,6 +301,7 @@ export async function getPostReactionSummary(
         FROM ${TABLE_NAME}
         WHERE target_type = $1
           AND target_id = $2
+          AND reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')
         GROUP BY reaction_type
       `,
       [targetType, normalizedTargetId],
@@ -311,6 +339,172 @@ export async function getPostReactionSummary(
       throw new DatabaseError({
         code: 'GET_REACTION_SUMMARY_ERROR',
         message: `Failed to fetch reaction summary: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function markPostAsViewed(params: {
+  targetType: PostReactionTargetType;
+  targetId: number;
+  customerId: number;
+}): Promise<{ isFirstView: boolean; viewedAt: Date | null }> {
+  try {
+    await ensurePostReactionsTable();
+
+    const targetId = toInteger(params.targetId);
+    const customerId = toInteger(params.customerId);
+
+    if (targetId === null || customerId === null) {
+      throw new DatabaseError({
+        code: 'INVALID_VIEW_IDENTIFIERS',
+        message: 'targetId and customerId must be valid integers',
+      });
+    }
+
+    const inserted = await queryOne<{ viewedAt: Date }>(
+      `
+        INSERT INTO ${TABLE_NAME} (
+          target_id,
+          customer_id,
+          target_type,
+          reaction_type,
+          viewed_at,
+          created_at
+        )
+        VALUES ($1, $2, $3, NULL, NOW(), NOW())
+        ON CONFLICT (target_type, target_id, customer_id)
+        DO NOTHING
+        RETURNING viewed_at as "viewedAt"
+      `,
+      [targetId, customerId, params.targetType],
+    );
+
+    if (inserted) {
+      return {
+        isFirstView: true,
+        viewedAt: inserted.viewedAt,
+      };
+    }
+
+    const existing = await queryOne<{ viewedAt: Date }>(
+      `
+        SELECT viewed_at as "viewedAt"
+        FROM ${TABLE_NAME}
+        WHERE target_type = $1
+          AND target_id = $2
+          AND customer_id = $3
+        LIMIT 1
+      `,
+      [params.targetType, targetId, customerId],
+    );
+
+    const normalizedViewedAt = normalizeDate(existing?.viewedAt);
+
+    if (normalizedViewedAt) {
+      return {
+        isFirstView: false,
+        viewedAt: normalizedViewedAt,
+      };
+    }
+
+    const repaired = await queryOne<{ viewedAt: Date | string | null }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET viewed_at = NOW()
+        WHERE target_type = $1
+          AND target_id = $2
+          AND customer_id = $3
+        RETURNING viewed_at as "viewedAt"
+      `,
+      [params.targetType, targetId, customerId],
+    );
+
+    return {
+      isFirstView: !!normalizeDate(repaired?.viewedAt),
+      viewedAt: normalizeDate(repaired?.viewedAt),
+    };
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'MARK_VIEW_ERROR',
+        message: `Failed to mark post as viewed: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function getViewedPostIdsByCustomer(
+  targetType: PostReactionTargetType,
+  customerId: number,
+  ownerCustomerId?: string,
+): Promise<number[]> {
+  try {
+    await ensurePostReactionsTable();
+
+    const normalizedCustomerId = toInteger(customerId);
+
+    if (normalizedCustomerId === null) {
+      throw new DatabaseError({
+        code: 'INVALID_VIEW_CUSTOMER',
+        message: 'customerId must be a valid integer',
+      });
+    }
+
+    let rows: Array<{ targetId: number | string; viewedAt: Date | string | null }>;
+
+    if (ownerCustomerId && ownerCustomerId.trim() !== '' && (targetType === 'blog' || targetType === 'album')) {
+      const ownerTableName = targetType === 'blog' ? 'blogs' : 'albums';
+      const ownerIdColumn = targetType === 'blog' ? 'customer_id' : 'user_id';
+
+      rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
+        `
+          SELECT
+            pr.target_id as "targetId",
+            pr.viewed_at as "viewedAt"
+          FROM ${TABLE_NAME} pr
+          INNER JOIN ${ownerTableName} o ON o.id = pr.target_id
+          WHERE pr.target_type = $1
+            AND pr.customer_id = $2
+            AND pr.viewed_at IS NOT NULL
+            AND o.${ownerIdColumn} = $3
+        `,
+        [targetType, normalizedCustomerId, ownerCustomerId],
+      );
+    } else {
+      rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
+        `
+          SELECT
+            target_id as "targetId",
+            viewed_at as "viewedAt"
+          FROM ${TABLE_NAME}
+          WHERE target_type = $1
+            AND customer_id = $2
+            AND viewed_at IS NOT NULL
+        `,
+        [targetType, normalizedCustomerId],
+      );
+    }
+
+    return rows
+      .map((row) => {
+        const id = toInteger(row.targetId);
+        const viewedAt = normalizeDate(row.viewedAt);
+
+        return id !== null && viewedAt ? id : 0;
+      })
+      .filter((id) => id !== 0);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_VIEWED_POSTS_ERROR',
+        message: `Failed to fetch viewed posts: ${error.message}`,
         detail: error.detail,
       });
     }

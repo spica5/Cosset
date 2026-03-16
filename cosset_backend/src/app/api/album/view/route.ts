@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 
 import { JWT_SECRET } from 'src/config-global';
-import { getViewedAlbumIdsByCustomer, markAlbumAsViewed } from 'src/models/album-views';
+import { getViewedPostIdsByCustomer, markPostAsViewed } from 'src/models/post-reactions';
 import { getAlbumById, incrementAlbumViews } from 'src/models/albums';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     const ownerUserId = req.nextUrl.searchParams.get('ownerUserId') ?? undefined;
 
-    const viewedAlbumIds = await getViewedAlbumIdsByCustomer(viewerCustomerId, ownerUserId);
+    const viewedAlbumIds = await getViewedPostIdsByCustomer('album', viewerCustomerId, ownerUserId);
 
     return response({ viewedAlbumIds }, STATUS.OK);
   } catch (error) {
@@ -134,8 +134,9 @@ export async function POST(req: NextRequest) {
       return response({ totalViews, alreadyViewed: false, viewedAt: null }, STATUS.OK);
     }
 
-    const viewState = await markAlbumAsViewed({
-      albumId,
+    const viewState = await markPostAsViewed({
+      targetType: 'album',
+      targetId: albumId,
       customerId: viewerCustomerId,
     });
 

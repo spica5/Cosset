@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 
 import { JWT_SECRET } from 'src/config-global';
-import { markBlogAsViewed, getViewedBlogIdsByCustomer } from 'src/models/blog-views';
+import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
 import { incrementBlogViews, getBlogById } from 'src/models/blogs';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     const ownerCustomerId = req.nextUrl.searchParams.get('ownerCustomerId') ?? undefined;
 
-    const viewedBlogIds = await getViewedBlogIdsByCustomer(viewerCustomerId, ownerCustomerId);
+    const viewedBlogIds = await getViewedPostIdsByCustomer('blog', viewerCustomerId, ownerCustomerId);
 
     return response({ viewedBlogIds }, STATUS.OK);
   } catch (error) {
@@ -134,8 +134,9 @@ export async function POST(req: NextRequest) {
       return response({ totalViews, alreadyViewed: false, viewedAt: null }, STATUS.OK);
     }
 
-    const viewState = await markBlogAsViewed({
-      blogId,
+    const viewState = await markPostAsViewed({
+      targetType: 'blog',
+      targetId: blogId,
       customerId: viewerCustomerId,
     });
 
