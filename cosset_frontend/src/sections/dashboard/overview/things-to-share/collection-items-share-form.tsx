@@ -107,7 +107,7 @@ function CollectionItemsCard({ collection, customerId, enabled, onToggle }: Coll
           fullWidth
           sx={{ mt: 1.5 }}
           component={RouterLink}
-          href={paths.dashboard.drawer.collections.items(collection.id)}
+          href={paths.dashboard.collections.items(collection.id)}
         >
           View Items
         </Button>
@@ -227,7 +227,7 @@ export function CollectionItemsShareForm() {
 
           <Button
             component={RouterLink}
-            href={paths.dashboard.drawer.collections.manage}
+            href={paths.dashboard.collections.manage}
             size="small"
             variant="outlined"
           >

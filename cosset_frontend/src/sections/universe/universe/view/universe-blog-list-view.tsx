@@ -21,6 +21,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetBlogs } from 'src/actions/blog';
+import { useGetReactionSummary } from 'src/actions/reaction';
 import {
   BLOG_CATEGORY_OPTIONS,
   getBlogCategoryLabel,
@@ -79,6 +80,40 @@ const getTitle = (blog: IBlogItem) => {
 };
 
 const getContentLineCount = (content: string) => content.split(/\r?\n/).length;
+
+const normalizeCounterValue = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  return 0;
+};
+
+type BlogReactionStatProps = {
+  blogId: string | number;
+  totalViews?: number | null;
+};
+
+function BlogReactionStat({ blogId, totalViews }: BlogReactionStatProps) {
+  const { reactionSummary } = useGetReactionSummary('blog', blogId);
+  const safeViews = normalizeCounterValue(totalViews);
+  const safeReactions = normalizeCounterValue(reactionSummary?.totalCount);
+  const totalReactionCount =  safeReactions + safeViews;
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={0.5}>
+      <Iconify width={16} icon="solar:heart-bold" sx={{ color: 'error.main' }} />
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        Following {safeReactions}
+      </Typography>
+    </Stack>
+  );
+}
 
 const hasCollapsedOverflow = (node: HTMLParagraphElement, content: string) => {
   if (typeof window === 'undefined') {
@@ -315,12 +350,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                           </Typography>
                         </Stack>
 
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <Iconify width={16} icon="eva:people-fill" sx={{ color: 'success.main' }} />
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Following {blog.following ?? 0}
-                          </Typography>
-                        </Stack>
+                        <BlogReactionStat blogId={blog.id} totalViews={blog.totalViews} />
 
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <Iconify width={16} icon="eva:clock-outline" sx={{ color: 'warning.main' }} />
@@ -385,7 +415,13 @@ export function UniverseBlogListView({ customerId }: Props) {
                         </Typography>
                       </Box>
 
-                      <Stack direction="row" justifyContent="flex-start">
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        spacing={1}
+                        useFlexGap
+                        flexWrap="wrap"
+                      >
                         <Button
                           size="small"
                           variant="outlined"
@@ -399,6 +435,16 @@ export function UniverseBlogListView({ customerId }: Props) {
                           onClick={() => handleToggleContent(blog.id, hasMoreThanPreview)}
                         >
                           {isExpanded ? 'Collapse Content' : 'Expand Content'}
+                        </Button>
+
+                        <Button
+                          size="small"
+                          variant="contained"
+                          component={RouterLink}
+                          href={paths.universe.blog(customerId, blog.id)}
+                          endIcon={<Iconify icon="eva:arrow-ios-forward-fill" width={14} />}
+                        >
+                          Open Post
                         </Button>
                       </Stack>
                     </Stack>

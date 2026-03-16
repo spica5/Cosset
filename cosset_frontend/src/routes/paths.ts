@@ -52,16 +52,16 @@ export const paths = {
       },
       goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
       sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
-      collections: {
-        root: `${ROOTS.DASHBOARD}/drawer/collections`,
-        manage: `${ROOTS.DASHBOARD}/drawer/collections/manage`,
-        items: (collectionId: string | number) =>
-          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}`,
-        newItem: (collectionId: string | number) =>
-          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}/new`,
-        editItem: (collectionId: string | number, itemId: string | number) =>
-          `${ROOTS.DASHBOARD}/drawer/collections/items/${collectionId}/${itemId}/edit`,
-      },
+    },
+    collections: {
+      root: `${ROOTS.DASHBOARD}/collections`,
+      manage: `${ROOTS.DASHBOARD}/collections/manage`,
+      items: (collectionId: string | number) =>
+        `${ROOTS.DASHBOARD}/collections/items/${collectionId}`,
+      newItem: (collectionId: string | number) =>
+        `${ROOTS.DASHBOARD}/collections/items/${collectionId}/new`,
+      editItem: (collectionId: string | number, itemId: string | number) =>
+        `${ROOTS.DASHBOARD}/collections/items/${collectionId}/${itemId}/edit`,
     },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {
@@ -97,6 +97,8 @@ export const paths = {
   universe: {
     view: (id: string) => `${ROOTS.UNIVERSE}/${id}/view`,
     blogs: (customerId: string) => `${ROOTS.UNIVERSE}/${customerId}/blogs`,
+    blog: (customerId: string, blogId: string | number) =>
+      `${ROOTS.UNIVERSE}/${customerId}/blogs/${blogId}`,
     collections: (customerId: string) => `${ROOTS.UNIVERSE}/${customerId}/collections`,
     collectionItems: (customerId: string, collectionId: string | number) =>
       `${ROOTS.UNIVERSE}/${customerId}/collections/${collectionId}`,

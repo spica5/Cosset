@@ -3,6 +3,8 @@ import type { IBlogItem } from 'src/types/blog';
 
 import { useMemo } from 'react';
 
+import { useGetViewedBlogIds } from 'src/actions/blog';
+
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
@@ -30,6 +32,8 @@ type Props = BoxProps & {
   blogs: IBlogItem[];
   blogsLoading?: boolean;
   viewAllHref?: string;
+  ownerCustomerId?: string | number;
+  getBlogHref?: (blog: IBlogItem) => string;
 };
 
 const BLOG_PREVIEW_LIMIT = 3;
@@ -61,9 +65,22 @@ export function UniverseLandingBlogs({
   blogs,
   blogsLoading = false,
   viewAllHref,
+  ownerCustomerId,
+  getBlogHref,
   sx,
   ...other
 }: Props) {
+  const { viewedBlogIds } = useGetViewedBlogIds(ownerCustomerId);
+
+  const viewedIdSet = useMemo(() => new Set(viewedBlogIds.map(String)), [viewedBlogIds]);
+
+  const totalCount = blogs.length;
+  const viewedCount = useMemo(
+    () => blogs.filter((blog) => viewedIdSet.has(String(blog.id))).length,
+    [blogs, viewedIdSet],
+  );
+  const unreadCount = totalCount - viewedCount;
+
   const previewBlogs = useMemo(
     () =>
       [...blogs]
@@ -137,40 +154,76 @@ export function UniverseLandingBlogs({
                   }}
                 >
                   Blogs
-                  <Label
-                    color="error"
-                    variant="filled"
-                    sx={{
-                      top: 0,
-                      left: '100%',
-                      px: 0.5,
-                      height: 24,
-                      position: 'absolute',
-                      transform: 'translate(-10%, -45%)',
-                      borderRadius: '50%',
-                      //borderBottomLeftRadius: 2,
-                    }}
-                  >
-                    {blogs.length}
-                  </Label>
+                  {unreadCount > 0 ? (
+                    <Label
+                      color="error"
+                      variant="filled"
+                      sx={{
+                        top: 0,
+                        left: '100%',
+                        px: 0.5,
+                        height: 24,
+                        position: 'absolute',
+                        transform: 'translate(-10%, -45%)',
+                        borderRadius: '50%',
+                      }}
+                    >
+                      {unreadCount}
+                    </Label>
+                  ) : viewedCount > 0 ? (
+                    <Label
+                      color="success"
+                      variant="filled"
+                      sx={{
+                        top: 0,
+                        left: '100%',
+                        px: 0.5,
+                        height: 24,
+                        position: 'absolute',
+                        transform: 'translate(-10%, -45%)',
+                        borderRadius: '50%',
+                      }}
+                    >
+                      {viewedCount}
+                    </Label>
+                  ) : null}
                 </Box>
               </Typography>
             </Stack>
 
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
-            >
-              Shared stories and reflections from this universe
-            </Typography>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
+              >
+                Shared stories and reflections from this universe
+              </Typography>
+
+              {totalCount > 0 && (
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Label color="success" variant="soft" sx={{ fontSize: 11 }}>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Iconify icon="eva:eye-fill" width={12} />
+                      <Box component="span">{viewedCount}</Box>
+                    </Stack>
+                  </Label>
+                  {unreadCount > 0 && (
+                    <Label color="warning" variant="soft" sx={{ fontSize: 11 }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Iconify icon="eva:eye-off-fill" width={12} />
+                        <Box component="span">{unreadCount}</Box>
+                      </Stack>
+                    </Label>
+                  )}
+                </Stack>
+              )}
+            </Stack>
           </Stack>
 
           {!blogsLoading && blogs.length > 0 && viewAllHref ? (
             <Button
               component={RouterLink}
               href={viewAllHref}
-              target="_blank"
-              rel="noopener noreferrer"
               size="small"
               variant="outlined"
               endIcon={<Iconify icon="eva:arrow-ios-forward-fill" width={14} />}
@@ -189,6 +242,8 @@ export function UniverseLandingBlogs({
             <Grid container spacing={2}>
               {previewBlogs.map((blog) => {
                 const fallbackAppearance = getBlogContentAppearance(blog.comments);
+                const blogHref = getBlogHref?.(blog);
+                const isViewed = viewedIdSet.has(String(blog.id));
                 const contentAppearance = {
                   fontPreset: isBlogContentFontPreset(blog.fontPreset)
                     ? blog.fontPreset
@@ -206,7 +261,12 @@ export function UniverseLandingBlogs({
                     }}
                   >
                     <Stack spacing={1}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                      >
                         <Typography
                           variant="h6"
                           noWrap
@@ -217,6 +277,20 @@ export function UniverseLandingBlogs({
                         >
                           {(blog.title || '').trim() || `Blog #${blog.id}`}
                         </Typography>
+
+                        <Label
+                          color={isViewed ? 'success' : 'warning'}
+                          variant="soft"
+                          title={isViewed ? 'Viewed' : 'Unread'}
+                          sx={{
+                            minWidth: 28,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={18} />
+                        </Label>
                       </Stack>
 
                       <Stack direction="row" spacing={0.75} alignItems="center">
@@ -249,12 +323,10 @@ export function UniverseLandingBlogs({
 
                 return (
                   <Grid item xs={12} sm={6} md={4} key={blog.id}>
-                    {viewAllHref ? (
+                    {blogHref ? (
                       <Card
                         component={RouterLink}
-                        href={viewAllHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={blogHref}
                         sx={{
                           height: 1,
                           cursor: 'pointer',

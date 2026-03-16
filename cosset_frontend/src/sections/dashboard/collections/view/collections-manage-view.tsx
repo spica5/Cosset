@@ -241,8 +241,7 @@ export function CollectionsManageView() {
         heading="Manage Collections"
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Drawers', href: paths.dashboard.drawer.root },
-          { name: 'Collections', href: paths.dashboard.drawer.collections.root },
+          { name: 'Collections', href: paths.dashboard.collections.root },
           { name: 'Manage' },
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}
@@ -365,7 +364,7 @@ export function CollectionsManageView() {
                             size="small"
                             variant="text"
                             component={RouterLink}
-                            href={paths.dashboard.drawer.collections.items(item.id)}
+                            href={paths.dashboard.collections.items(item.id)}
                           >
                             Items
                           </Button>

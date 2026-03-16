@@ -51,6 +51,10 @@ type BlogData = {
   blog?: IBlogItem;
 };
 
+type ViewedBlogsData = {
+  viewedBlogIds?: number[];
+};
+
 export function useGetBlog(blogId: string | number | '') {
   const url = blogId ? `${endpoints.blog.details}?id=${encodeURIComponent(String(blogId))}` : null;
 
@@ -64,6 +68,28 @@ export function useGetBlog(blogId: string | number | '') {
       blogValidating: isValidating,
     }),
     [data?.blog, error, isLoading, isValidating],
+  );
+
+  return memoizedValue;
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetViewedBlogIds(ownerCustomerId?: string | number) {
+  const url = ownerCustomerId
+    ? `${endpoints.blog.view}?ownerCustomerId=${encodeURIComponent(String(ownerCustomerId))}`
+    : endpoints.blog.view;
+
+  const { data, isLoading, error, isValidating } = useSWR<ViewedBlogsData>(url, fetcher, swrOptions);
+
+  const memoizedValue = useMemo(
+    () => ({
+      viewedBlogIds: data?.viewedBlogIds || [],
+      viewedBlogIdsLoading: isLoading,
+      viewedBlogIdsError: error,
+      viewedBlogIdsValidating: isValidating,
+    }),
+    [data?.viewedBlogIds, error, isLoading, isValidating],
   );
 
   return memoizedValue;
@@ -116,4 +142,24 @@ export async function deleteBlog(
   }
 
   return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+/**
+ * Record a blog view.
+ * The backend increments total_views only when this customer has not viewed it before.
+ */
+export async function recordBlogView(blogId: string | number): Promise<void> {
+  try {
+    await axios.post(endpoints.blog.view, { blogId: Number(blogId) });
+
+    // Revalidate the blog detail cache so totalViews reflects the new count.
+    mutate(`${endpoints.blog.details}?id=${encodeURIComponent(String(blogId))}`);
+
+    // Revalidate viewed-id caches that feed the landing page viewed/unread counters.
+    await mutate((key) => typeof key === 'string' && key.startsWith(endpoints.blog.view));
+  } catch {
+    // Silently ignore view-count errors — they should not block the page.
+  }
 }

@@ -67,7 +67,7 @@ export function CollectionItemsSearch<T extends SearchOption>({
       return;
     }
 
-    router.push(paths.dashboard.drawer.collections.items(option.id));
+    router.push(paths.dashboard.collections.items(option.id));
   };
 
   const handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {

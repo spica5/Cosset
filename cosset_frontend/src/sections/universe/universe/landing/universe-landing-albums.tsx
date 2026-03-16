@@ -101,7 +101,6 @@ export function UniverseLandingAlbums({
                       position: 'absolute',
                       transform: 'translate(-10%, -45%)',
                       borderRadius: '50%',
-                      //borderBottomLeftRadius: 2,
                     }}
                   >
                     {albums.length}

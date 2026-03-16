@@ -80,7 +80,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
       })
       .map((collection) => ({
         title: `${collection.name || 'Collection'}`,
-        path: paths.dashboard.drawer.collections.items(collection.id),
+        path: paths.dashboard.collections.items(collection.id),
       })),
    [collections]);
 
@@ -90,22 +90,13 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
     return baseNavData.map((group) => ({
       ...group,
       items: group.items.map((item) => {
-        if (item.title !== 'Drawers' || !item.children) {
+        if (item.title !== 'Collections' || !item.children) {
           return item;
         }
 
         return {
           ...item,
-          children: item.children.map((child: NavItemBaseProps) => {
-            if (child.title !== 'Collections' || !child.children) {
-              return child;
-            }
-
-            return {
-              ...child,
-              children: [...child.children, ...collectionSubitems],
-            };
-          }),
+          children: [...item.children, ...collectionSubitems],
         };
       }),
     }));

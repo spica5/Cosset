@@ -831,19 +831,18 @@ export function CollectionItemsView({ collectionId }: Props) {
         heading={collection?.name ? `${collection.name} - Items` : 'Collection Items'}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Drawers', href: paths.dashboard.drawer.root },
-          { name: 'Collections', href: paths.dashboard.drawer.collections.root },
-          { name: 'Manage', href: paths.dashboard.drawer.collections.manage },
+          { name: 'Collections', href: paths.dashboard.collections.root },
+          { name: 'Manage', href: paths.dashboard.collections.manage },
           { name: 'Items' },
         ]}
         action={
           <Stack direction="row" spacing={1.5}>
-            <Button component={RouterLink} href={paths.dashboard.drawer.collections.manage} variant="outlined">
+            <Button component={RouterLink} href={paths.dashboard.collections.manage} variant="outlined">
               Back to Manage Collections
             </Button>
             <Button
               component={RouterLink}
-              href={paths.dashboard.drawer.collections.newItem(numericCollectionId)}
+              href={paths.dashboard.collections.newItem(numericCollectionId)}
               variant="contained"
             >
               New Item
@@ -1116,7 +1115,7 @@ export function CollectionItemsView({ collectionId }: Props) {
                           <IconButton
                             size="small"
                             component={RouterLink}
-                            href={paths.dashboard.drawer.collections.editItem(
+                            href={paths.dashboard.collections.editItem(
                               numericCollectionId,
                               item.id,
                             )}

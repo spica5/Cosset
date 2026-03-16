@@ -613,7 +613,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
         toast.success('Collection item created successfully.');
       }
 
-      router.push(paths.dashboard.drawer.collections.items(numericCollectionId));
+      router.push(paths.dashboard.collections.items(numericCollectionId));
     } catch (error) {
       console.error('Failed to save collection item:', error);
       toast.error('Failed to save collection item.');
@@ -636,16 +636,15 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
         heading={isEditMode ? 'Edit Collection Item' : 'Create Collection Item'}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Drawers', href: paths.dashboard.drawer.root },
-          { name: 'Collections', href: paths.dashboard.drawer.collections.root },
-          { name: 'Manage', href: paths.dashboard.drawer.collections.manage },
-          { name: 'Items', href: paths.dashboard.drawer.collections.items(numericCollectionId) },
+          { name: 'Collections', href: paths.dashboard.collections.root },
+          { name: 'Manage', href: paths.dashboard.collections.manage },
+          { name: 'Items', href: paths.dashboard.collections.items(numericCollectionId) },
           { name: isEditMode ? 'Edit' : 'Create' },
         ]}
         action={
           <Button
             component={RouterLink}
-            href={paths.dashboard.drawer.collections.items(numericCollectionId)}
+            href={paths.dashboard.collections.items(numericCollectionId)}
             variant="outlined"
           >
             Back to Items
@@ -829,7 +828,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
                 <Button
                   variant="outlined"
                   disabled={submitting}
-                  onClick={() => router.push(paths.dashboard.drawer.collections.items(numericCollectionId))}
+                  onClick={() => router.push(paths.dashboard.collections.items(numericCollectionId))}
                 >
                   Cancel
                 </Button>

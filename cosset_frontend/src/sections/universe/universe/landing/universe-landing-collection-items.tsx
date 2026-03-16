@@ -223,7 +223,6 @@ export function UniverseLandingCollectionItems({
                       position: 'absolute',
                       transform: 'translate(-10%, -45%)',
                       borderRadius: '50%',
-                      //borderBottomLeftRadius: 2,
                     }}
                   >
                     {collections.length}

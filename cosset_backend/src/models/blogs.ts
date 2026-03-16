@@ -407,6 +407,34 @@ export async function updateBlog(
 }
 
 /**
+ * Atomically increment total_views for a blog and return updated totalViews.
+ */
+export async function incrementBlogViews(id: number): Promise<number> {
+  try {
+    const result = await queryOne<{ totalViews: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING total_views as "totalViews"
+      `,
+      [id],
+    );
+
+    return result?.totalViews ?? 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_BLOG_VIEWS_ERROR',
+        message: `Failed to increment blog views: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
  * Delete a blog by ID.
  */
 export async function deleteBlog(id: number): Promise<boolean> {

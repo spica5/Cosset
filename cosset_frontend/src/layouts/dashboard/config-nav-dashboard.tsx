@@ -101,18 +101,19 @@ export const navData = [
           { title: 'Gifts and Souvenir', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
           { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
           { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
-          { title: 'Collections', 
-            path: paths.dashboard.drawer.collections.root, 
-            icon: ICONS.course,
-             children: [
-              {
-                title: 'Manage Collections',
-                path: paths.dashboard.drawer.collections.manage,
-                slotProps: {
-                  title: { color: '#8B0000' },
-                },
-              },
-            ],
+        ],
+      },
+      {
+        title: 'Collections',
+        path: paths.dashboard.collections.root,
+        icon: ICONS.course,
+        children: [
+          {
+            title: 'Manage Collections',
+            path: paths.dashboard.collections.manage,
+            slotProps: {
+              title: { color: '#8B0000' },
+            },
           },
         ],
       },

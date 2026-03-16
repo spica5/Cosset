@@ -6,6 +6,32 @@ import { STORAGE_KEY } from './constant';
 
 // ----------------------------------------------------------------------
 
+const readStoredToken = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
+};
+
+const persistToken = (token: string): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  sessionStorage.setItem(STORAGE_KEY, token);
+  localStorage.setItem(STORAGE_KEY, token);
+};
+
+const clearStoredToken = (): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  sessionStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+};
+
 export function jwtDecode(token: string) {
   try {
     if (!token) return null;
@@ -58,7 +84,7 @@ export function tokenExpired(exp: number) {
   setTimeout(() => {
     try {
       alert('Token expired!');
-      sessionStorage.removeItem(STORAGE_KEY);
+      clearStoredToken();
       window.location.href = paths.auth.signIn;
     } catch (error) {
       console.error('Error during token expiration:', error);
@@ -72,7 +98,7 @@ export function tokenExpired(exp: number) {
 export async function setSession(accessToken: string | null) {
   try {
     if (accessToken) {
-      sessionStorage.setItem(STORAGE_KEY, accessToken);
+      persistToken(accessToken);
 
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
@@ -84,11 +110,15 @@ export async function setSession(accessToken: string | null) {
         throw new Error('Invalid access token!');
       }
     } else {
-      sessionStorage.removeItem(STORAGE_KEY);
+      clearStoredToken();
       delete axios.defaults.headers.common.Authorization;
     }
   } catch (error) {
     console.error('Error during set session:', error);
     throw error;
   }
+}
+
+export function getStoredSessionToken(): string | null {
+  return readStoredToken();
 }

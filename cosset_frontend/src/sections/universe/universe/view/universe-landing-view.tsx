@@ -534,6 +534,8 @@ export function UniverseLandingView({
         blogs={sharedBlogViewItems}
         blogsLoading={guestarea?.blog ? blogsLoading : false}
         viewAllHref={paths.universe.blogs(customerId)}
+        ownerCustomerId={customerId}
+        getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
       />
 
       <UniverseLandingAlbums albums={sharedAlbums} albumsLoading={albumsLoading} />

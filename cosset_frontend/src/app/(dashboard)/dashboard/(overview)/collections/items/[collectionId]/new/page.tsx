@@ -1,6 +1,6 @@
 import { CONFIG } from 'src/config-global';
 
-import { CollectionItemCreateEditView } from 'src/sections/dashboard/drawer/collections/view';
+import { CollectionItemCreateEditView } from 'src/sections/dashboard/collections/view';
 
 type PageProps = {
   params: {

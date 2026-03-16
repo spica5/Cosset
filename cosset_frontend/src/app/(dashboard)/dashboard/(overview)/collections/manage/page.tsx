@@ -1,6 +1,6 @@
 import { CONFIG } from 'src/config-global';
 
-import { CollectionsManageView } from 'src/sections/dashboard/drawer/collections/view';
+import { CollectionsManageView } from 'src/sections/dashboard/collections/view';
 
 export const metadata = { title: `Collections - ${CONFIG.appName}` };
 

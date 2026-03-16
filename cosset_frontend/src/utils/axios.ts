@@ -97,6 +97,9 @@ export const endpoints = {
     delete: (id: string | number) => `/api/collection-item/${id}`,
     details: (id: string | number) => `/api/collection-item/${id}`,
   },
+  reaction: {
+    root: '/api/reaction',
+  },
   blog: {
     list: '/api/blog/list',
     latest: '/api/blog/latest',
@@ -105,6 +108,7 @@ export const endpoints = {
     add: '/api/blog/new',
     update: (id: string | number) => `/api/blog/${id}`,
     delete: (id: string | number) => `/api/blog/${id}`,
+    view: '/api/blog/view',
   },
   post: {
     list: '/api/post/list',

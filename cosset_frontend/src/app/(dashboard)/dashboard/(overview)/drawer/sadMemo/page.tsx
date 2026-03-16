@@ -1,6 +1,6 @@
 import { CONFIG } from 'src/config-global';
 
-import { CollectionItemsView } from 'src/sections/dashboard/drawer/collections/view';
+import { CollectionItemsView } from 'src/sections/dashboard/collections/view';
 
 // ----------------------------------------------------------------------
 
