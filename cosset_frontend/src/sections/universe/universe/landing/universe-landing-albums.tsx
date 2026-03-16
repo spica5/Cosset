@@ -1,6 +1,10 @@
 import type { BoxProps } from '@mui/material/Box';
 import type { IAlbumItem } from 'src/types/album';
 
+import { useMemo } from 'react';
+
+import { useGetViewedAlbumIds } from 'src/actions/album';
+
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
@@ -20,6 +24,7 @@ import { Iconify } from 'src/components/universe/iconify';
 type Props = BoxProps & {
   albums: (IAlbumItem & { signedCoverUrl?: string })[];
   albumsLoading?: boolean;
+  ownerUserId?: string | number;
 };
 
 const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
@@ -27,9 +32,21 @@ const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 export function UniverseLandingAlbums({
   albums,
   albumsLoading = false,
+  ownerUserId,
   sx,
   ...other
 }: Props) {
+  const { viewedAlbumIds } = useGetViewedAlbumIds(ownerUserId);
+
+  const viewedIdSet = useMemo(() => new Set(viewedAlbumIds.map(String)), [viewedAlbumIds]);
+
+  const totalCount = albums.length;
+  const viewedCount = useMemo(
+    () => albums.filter((album) => viewedIdSet.has(String(album.id))).length,
+    [albums, viewedIdSet],
+  );
+  const unreadCount = totalCount - viewedCount;
+
   return (
     <Card
       id="albums-section"
@@ -90,31 +107,70 @@ export function UniverseLandingAlbums({
                   }}
                 >
                   Albums
-                  <Label
-                    color="error"
-                    variant="filled"
-                    sx={{
-                      top: 0,
-                      left: '100%',
-                      px: 0.5,
-                      height: 24,
-                      position: 'absolute',
-                      transform: 'translate(-10%, -45%)',
-                      borderRadius: '50%',
-                    }}
-                  >
-                    {albums.length}
-                  </Label>
+                  {unreadCount > 0 ? (
+                    <Label
+                      color="error"
+                      variant="filled"
+                      sx={{
+                        top: 0,
+                        left: '100%',
+                        px: 0.5,
+                        height: 24,
+                        position: 'absolute',
+                        transform: 'translate(-10%, -45%)',
+                        borderRadius: '50%',
+                      }}
+                    >
+                      {unreadCount}
+                    </Label>
+                  ) : viewedCount > 0 ? (
+                    <Label
+                      color="success"
+                      variant="filled"
+                      sx={{
+                        top: 0,
+                        left: '100%',
+                        px: 0.5,
+                        height: 24,
+                        position: 'absolute',
+                        transform: 'translate(-10%, -45%)',
+                        borderRadius: '50%',
+                      }}
+                    >
+                      {viewedCount}
+                    </Label>
+                  ) : null}
                 </Box>
               </Typography>
             </Stack>
 
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
-            >
-              Memory frames and snapshots shared with visitors
-            </Typography>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
+              >
+                Memory frames and snapshots shared with visitors
+              </Typography>
+
+              {totalCount > 0 && (
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Label color="success" variant="soft" sx={{ fontSize: 11 }}>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Iconify icon="eva:eye-fill" width={12} />
+                      <Box component="span">{viewedCount} viewed</Box>
+                    </Stack>
+                  </Label>
+                  {unreadCount > 0 && (
+                    <Label color="warning" variant="soft" sx={{ fontSize: 11 }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Iconify icon="eva:eye-off-fill" width={12} />
+                        <Box component="span">{unreadCount} unread</Box>
+                      </Stack>
+                    </Label>
+                  )}
+                </Stack>
+              )}
+            </Stack>
           </Stack>
         </Stack>
 
@@ -127,6 +183,7 @@ export function UniverseLandingAlbums({
             <Grid container spacing={2}>
               {albums.map((album) => {
                 const albumHref = paths.universe.album(album.id);
+                const isViewed = viewedIdSet.has(String(album.id));
 
                 return (
                   <Grid item xs={12} sm={6} md={3} key={album.id}>
@@ -152,9 +209,25 @@ export function UniverseLandingAlbums({
                       />
                       <CardContent>
                         <Stack spacing={1}>
-                          <Typography variant="h6" noWrap>
-                            {album.title}
-                          </Typography>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                            <Typography variant="h6" noWrap>
+                              {album.title}
+                            </Typography>
+
+                            <Label
+                              color={isViewed ? 'success' : 'warning'}
+                              variant="soft"
+                              title={isViewed ? 'Viewed' : 'Unread'}
+                              sx={{
+                                minWidth: 28,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={18} />
+                            </Label>
+                          </Stack>
 
                           <Stack direction="row" spacing={0.75} alignItems="center">
                             <Iconify icon="solar:gallery-bold" width={14} sx={{ color: 'info.main' }} />

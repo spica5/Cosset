@@ -178,6 +178,17 @@ export async function unreactToAlbum(albumId: string | number, customerId?: stri
   return removeReaction({ targetType: 'album', targetId: albumId, customerId });
 }
 
+export async function reactToAlbumForLoggedInCustomer(
+  albumId: string | number,
+  reactionType: ReactionType,
+) {
+  return setReaction({ targetType: 'album', targetId: albumId, reactionType });
+}
+
+export async function unreactToAlbumForLoggedInCustomer(albumId: string | number) {
+  return removeReaction({ targetType: 'album', targetId: albumId });
+}
+
 export async function reactToCollection(
   collectionId: string | number,
   reactionType: ReactionType,

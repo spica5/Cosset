@@ -2,6 +2,7 @@
 
 import type { Slide } from 'yet-another-react-lightbox';
 import type { IAlbumItem, IAlbumImage } from 'src/types/album';
+import type { ReactionType } from 'src/actions/reaction';
 
 import { useMemo, useState, useEffect } from 'react';
 
@@ -11,6 +12,8 @@ import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
@@ -21,6 +24,13 @@ import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
+import { recordAlbumView } from 'src/actions/album';
+import {
+  reactToAlbumForLoggedInCustomer,
+  unreactToAlbumForLoggedInCustomer,
+  useGetReactionSummary,
+} from 'src/actions/reaction';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
@@ -38,6 +48,39 @@ type GalleryImageItem = {
   description?: string;
 };
 
+const REACTION_OPTIONS: Array<{ type: ReactionType; label: string; icon: string }> = [
+  { type: 'like', label: 'Like', icon: 'mdi:thumb-up' },
+  { type: 'love', label: 'Love', icon: 'mdi:heart' },
+  { type: 'haha', label: 'Haha', icon: 'mdi:emoticon-happy-outline' },
+  { type: 'wow', label: 'Wow', icon: 'mdi:emoticon-excited-outline' },
+  { type: 'sad', label: 'Sad', icon: 'mdi:emoticon-sad-outline' },
+  { type: 'angry', label: 'Angry', icon: 'mdi:emoticon-angry-outline' },
+];
+
+const createEmptyReactionCounts = (): Record<ReactionType, number> => ({
+  like: 0,
+  love: 0,
+  haha: 0,
+  wow: 0,
+  sad: 0,
+  angry: 0,
+});
+
+const toReactionCounts = (counts?: Partial<Record<ReactionType, number>>) => {
+  const next = createEmptyReactionCounts();
+
+  if (!counts) {
+    return next;
+  }
+
+  REACTION_OPTIONS.forEach((option) => {
+    const raw = counts[option.type];
+    next[option.type] = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  });
+
+  return next;
+};
+
 const formatAlbumDate = (value: unknown) => {
   if (!value) {
     return '-';
@@ -52,10 +95,31 @@ const formatAlbumDate = (value: unknown) => {
 };
 
 export function UniverseAlbumView({ albumId }: Props) {
+  const { user, authenticated } = useAuthContext();
   const [album, setAlbum] = useState<IAlbumItem | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
   const [images, setImages] = useState<Array<IAlbumImage & { signedUrl?: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
+
+  const viewerId = user?.id ? String(user.id) : undefined;
+  const { reactionSummary, reactionSummaryLoading, reactionSummaryValidating } = useGetReactionSummary(
+    'album',
+    albumId,
+    authenticated ? viewerId : undefined,
+  );
+
+  const [optimisticReaction, setOptimisticReaction] = useState<ReactionType | null>(
+    reactionSummary?.myReaction ?? null,
+  );
+  const [optimisticCounts, setOptimisticCounts] = useState<Record<ReactionType, number>>(
+    toReactionCounts(reactionSummary?.counts),
+  );
+
+  useEffect(() => {
+    setOptimisticReaction(reactionSummary?.myReaction ?? null);
+    setOptimisticCounts(toReactionCounts(reactionSummary?.counts));
+  }, [reactionSummary]);
 
   const galleryItems = useMemo<GalleryImageItem[]>(() => {
     const imageItems = images
@@ -163,6 +227,81 @@ export function UniverseAlbumView({ albumId }: Props) {
     };
   }, [albumId]);
 
+  // Record a view once when the album is loaded (fire-and-forget).
+  useEffect(() => {
+    let active = true;
+
+    const recordView = async () => {
+      if (!album?.id) {
+        return;
+      }
+
+      const result = await recordAlbumView(album.id);
+
+      if (!active) {
+        return;
+      }
+
+      const latestTotalViews =
+        typeof result?.totalViews === 'number' && Number.isFinite(result.totalViews)
+          ? Math.max(0, Math.trunc(result.totalViews))
+          : null;
+
+      if (latestTotalViews === null) {
+        return;
+      }
+
+      setAlbum((prev) => (prev ? { ...prev, totalViews: latestTotalViews } : prev));
+    };
+
+    recordView();
+
+    return () => {
+      active = false;
+    };
+  }, [album?.id]);
+
+  const handleReaction = async (reactionType: ReactionType) => {
+    if (!authenticated || isSubmittingReaction) {
+      return;
+    }
+
+    const previousReaction = optimisticReaction;
+    const previousCounts = { ...optimisticCounts };
+    const nextReaction = previousReaction === reactionType ? null : reactionType;
+
+    setOptimisticReaction(nextReaction);
+    setOptimisticCounts((prev) => {
+      const next = { ...prev };
+
+      if (previousReaction) {
+        next[previousReaction] = Math.max(0, (next[previousReaction] ?? 0) - 1);
+      }
+
+      if (nextReaction) {
+        next[nextReaction] = Math.max(0, (next[nextReaction] ?? 0) + 1);
+      }
+
+      return next;
+    });
+
+    try {
+      setIsSubmittingReaction(true);
+
+      if (nextReaction === null) {
+        await unreactToAlbumForLoggedInCustomer(albumId);
+      } else {
+        await reactToAlbumForLoggedInCustomer(albumId, nextReaction);
+      }
+    } catch (error) {
+      console.error('Failed to update album reaction', error);
+      setOptimisticReaction(previousReaction);
+      setOptimisticCounts(previousCounts);
+    } finally {
+      setIsSubmittingReaction(false);
+    }
+  };
+
   const totalImages = useMemo(() => images.length, [images.length]);
 
   if (loading) {
@@ -189,6 +328,15 @@ export function UniverseAlbumView({ albumId }: Props) {
       </Container>
     );
   }
+
+  const totalReactionCount = REACTION_OPTIONS.reduce(
+    (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
+    0,
+  );
+  const totalViews =
+    typeof album.totalViews === 'number' && Number.isFinite(album.totalViews)
+      ? Math.max(0, Math.trunc(album.totalViews))
+      : 0;
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>
@@ -281,17 +429,99 @@ export function UniverseAlbumView({ albumId }: Props) {
                 </Stack>
 
                 <Stack direction="row" alignItems="center" spacing={0.75}>
-                  <Iconify icon="solar:eye-bold" width={18} sx={{ color: 'warning.main' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {album.totalViews ?? 0} views
-                  </Typography>
-                </Stack>
-
-                <Stack direction="row" alignItems="center" spacing={0.75}>
                   <Iconify icon="eva:clock-outline" width={18} sx={{ color: 'text.secondary' }} />
                   <Typography variant="body2" color="text.secondary">
                     Created: {formatAlbumDate(album.createdAt)}
                   </Typography>
+                </Stack>
+
+                <Divider sx={{ borderStyle: 'dashed', my: 0.75 }} />
+
+                <Stack spacing={2}>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={1.5}
+                    useFlexGap
+                    flexWrap="wrap"
+                  >
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                      {REACTION_OPTIONS.map((option) => {
+                        const count = optimisticCounts[option.type] ?? 0;
+                        const active = optimisticReaction === option.type;
+
+                        return (
+                          <Stack key={option.type} spacing={0.5} alignItems="center">
+                            <Tooltip title={option.label}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color={active ? 'primary' : 'default'}
+                                  onClick={() => handleReaction(option.type)}
+                                  disabled={!authenticated || isSubmittingReaction}
+                                  sx={{
+                                    border: '1px solid',
+                                    borderColor: active ? 'primary.main' : 'divider',
+                                    bgcolor: active ? 'action.selected' : 'transparent',
+                                  }}
+                                >
+                                  <Iconify icon={option.icon} width={20} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 600,
+                                color: active ? 'primary.main' : 'text.secondary',
+                              }}
+                            >
+                              {count}
+                            </Typography>
+                          </Stack>
+                        );
+                      })}
+                    </Stack>
+
+                    <Stack direction="row" spacing={1.5} alignItems="center" useFlexGap flexWrap="wrap">
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'error.main' }}>
+                        <Iconify icon="solar:heart-bold" width={24} />
+                        <Typography variant="caption">{totalReactionCount} reactions</Typography>
+                      </Stack>
+
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'warning.main' }}>
+                        <Iconify icon="solar:eye-bold" width={22} />
+                        <Typography variant="caption">{totalViews} views</Typography>
+                      </Stack>
+                    </Stack>
+                  </Stack>
+
+                  {!authenticated ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Sign in to add your reaction.
+                      {' '}
+                      <Link component={RouterLink} href={paths.auth.signIn} underline="hover">
+                        Sign in
+                      </Link>
+                    </Typography>
+                  ) : null}
+
+                  {authenticated && optimisticReaction ? (
+                    <Typography variant="body2" color="text.secondary">
+                      You reacted with
+                      {' '}
+                      <strong>{optimisticReaction}</strong>
+                      . Click the same reaction again to remove it.
+                    </Typography>
+                  ) : null}
+
+                  {reactionSummaryLoading || reactionSummaryValidating ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Refreshing reactions...
+                    </Typography>
+                  ) : null}
                 </Stack>
               </Stack>
             </Stack>

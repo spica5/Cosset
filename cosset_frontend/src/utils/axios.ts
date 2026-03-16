@@ -69,6 +69,7 @@ export const endpoints = {
     details: (id: string | number) => `/api/album/${id}`,
     update: (id: string | number) => `/api/album/${id}`,
     delete: (id: string | number) => `/api/album/${id}`,
+    view: '/api/album/view',
     images: {
       list: (id: string | number) => `/api/album/${id}/images`,
       upload: (id: string | number) => `/api/album/${id}/images`,

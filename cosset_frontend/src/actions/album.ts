@@ -50,6 +50,16 @@ type AlbumData = {
   album: IAlbumItem;
 };
 
+type AlbumViewData = {
+  totalViews?: number;
+  alreadyViewed?: boolean;
+  viewedAt?: string | Date | null;
+};
+
+type ViewedAlbumsData = {
+  viewedAlbumIds?: number[];
+};
+
 export function useGetAlbum(albumId: string | number) {
   const url = albumId ? endpoints.album.details(albumId) : '';
 
@@ -63,6 +73,28 @@ export function useGetAlbum(albumId: string | number) {
       albumValidating: isValidating,
     }),
     [data?.album, error, isLoading, isValidating]
+  );
+
+  return memoizedValue;
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetViewedAlbumIds(ownerUserId?: string | number) {
+  const url = ownerUserId
+    ? `${endpoints.album.view}?ownerUserId=${encodeURIComponent(String(ownerUserId))}`
+    : endpoints.album.view;
+
+  const { data, isLoading, error, isValidating } = useSWR<ViewedAlbumsData>(url, fetcher, swrOptions);
+
+  const memoizedValue = useMemo(
+    () => ({
+      viewedAlbumIds: data?.viewedAlbumIds || [],
+      viewedAlbumIdsLoading: isLoading,
+      viewedAlbumIdsError: error,
+      viewedAlbumIdsValidating: isValidating,
+    }),
+    [data?.viewedAlbumIds, error, isLoading, isValidating],
   );
 
   return memoizedValue;
@@ -116,4 +148,29 @@ export async function deleteAlbum(id: string | number, userId?: string | number)
   }
 
   return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+/**
+ * Record an album view.
+ * The backend increments total_views only when this customer has not viewed it before.
+ */
+export async function recordAlbumView(
+  albumId: string | number,
+): Promise<AlbumViewData | undefined> {
+  try {
+    const res = await axios.post<AlbumViewData>(endpoints.album.view, { albumId: Number(albumId) });
+
+    // Revalidate album detail cache so totalViews can stay in sync.
+    mutate(endpoints.album.details(albumId));
+
+    // Revalidate viewed-id caches that feed landing viewed/unread counters.
+    await mutate((key) => typeof key === 'string' && key.startsWith(endpoints.album.view));
+
+    return res.data;
+  } catch {
+    // Silently ignore view-count errors — they should not block the page.
+    return undefined;
+  }
 }

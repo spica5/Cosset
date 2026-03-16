@@ -23,8 +23,8 @@ import {
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
-import { Iconify } from 'src/components/universe/iconify';
 import { Label } from 'src/components/universe/label';
+import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -204,14 +204,14 @@ export function UniverseLandingBlogs({
                   <Label color="success" variant="soft" sx={{ fontSize: 11 }}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       <Iconify icon="eva:eye-fill" width={12} />
-                      <Box component="span">{viewedCount}</Box>
+                      <Box component="span">{viewedCount} viewed</Box>
                     </Stack>
                   </Label>
                   {unreadCount > 0 && (
                     <Label color="warning" variant="soft" sx={{ fontSize: 11 }}>
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <Iconify icon="eva:eye-off-fill" width={12} />
-                        <Box component="span">{unreadCount}</Box>
+                        <Box component="span">{unreadCount} unread</Box>
                       </Stack>
                     </Label>
                   )}

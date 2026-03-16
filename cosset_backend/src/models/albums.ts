@@ -339,6 +339,34 @@ export async function updateAlbum(
 }
 
 /**
+ * Atomically increment total_views for an album and return updated totalViews.
+ */
+export async function incrementAlbumViews(id: number): Promise<number> {
+  try {
+    const result = await queryOne<{ totalViews: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING total_views as "totalViews"
+      `,
+      [id],
+    );
+
+    return result?.totalViews ?? 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_ALBUM_VIEWS_ERROR',
+        message: `Failed to increment album views: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
  * Delete an album
  *
  * @param id - Album ID
