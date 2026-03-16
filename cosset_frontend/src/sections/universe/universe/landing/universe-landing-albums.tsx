@@ -11,6 +11,8 @@ import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
+
+import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
@@ -68,7 +70,7 @@ export function UniverseLandingAlbums({
                   bgcolor: 'rgba(255,255,255,0.35)',
                 }}
               >
-                <Iconify icon="solar:album-bold" width={20} sx={{ color: 'primary.main' }} />
+                <Iconify icon="solar:album-bold" width={24} sx={{ color: 'primary.main' }} />
               </Box>
 
               <Typography
@@ -79,7 +81,32 @@ export function UniverseLandingAlbums({
                   letterSpacing: '0.01em',
                 }}
               >
-                Albums ({albums.length})
+                <Box
+                  sx={{
+                    position: 'relative',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    lineHeight: 1,
+                  }}
+                >
+                  Albums
+                  <Label
+                    color="error"
+                    variant="filled"
+                    sx={{
+                      top: 0,
+                      left: '100%',
+                      px: 0.5,
+                      height: 24,
+                      position: 'absolute',
+                      transform: 'translate(-10%, -45%)',
+                      borderRadius: '50%',
+                      //borderBottomLeftRadius: 2,
+                    }}
+                  >
+                    {albums.length}
+                  </Label>
+                </Box>
               </Typography>
             </Stack>
 
@@ -170,24 +197,6 @@ export function UniverseLandingAlbums({
             </Grid>
           )}
         </Box>
-
-        {/* <Stack direction="row" justifyContent={{ xs: 'center', md: 'flex-end' }}>
-          <Typography
-            component={RouterLink}
-            href={paths.universe.albums}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1,
-              typography: 'button',
-              color: 'text.primary',
-              textDecoration: 'none',
-            }}
-          >
-            View all
-            <Iconify icon="solar:alt-arrow-right-outline" />
-          </Typography>
-        </Stack> */}
       </Container>
     </Card>
   );

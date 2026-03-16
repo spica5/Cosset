@@ -76,7 +76,7 @@ export function UniverseLandingDrawer({ items = [], loading = false, sx, ...othe
                   letterSpacing: '0.01em',
                 }}
               >
-                Drawer
+                Drawers
               </Typography>
             </Stack>
 

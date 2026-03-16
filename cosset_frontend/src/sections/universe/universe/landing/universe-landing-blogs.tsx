@@ -20,7 +20,9 @@ import {
   isBlogContentBackgroundPreset,
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
+
 import { Iconify } from 'src/components/universe/iconify';
+import { Label } from 'src/components/universe/label';
 
 // ----------------------------------------------------------------------
 
@@ -115,7 +117,7 @@ export function UniverseLandingBlogs({
                   bgcolor: 'rgba(255,255,255,0.35)',
                 }}
               >
-                <Iconify icon="solar:document-text-bold" width={20} sx={{ color: 'primary.main' }} />
+                <Iconify icon="solar:document-text-bold" width={24} sx={{ color: 'primary.main' }} />
               </Box>
 
               <Typography
@@ -126,7 +128,32 @@ export function UniverseLandingBlogs({
                   letterSpacing: '0.01em',
                 }}
               >
-                Blogs ({blogs.length})
+                <Box
+                  sx={{
+                    position: 'relative',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    lineHeight: 1,
+                  }}
+                >
+                  Blogs
+                  <Label
+                    color="error"
+                    variant="filled"
+                    sx={{
+                      top: 0,
+                      left: '100%',
+                      px: 0.5,
+                      height: 24,
+                      position: 'absolute',
+                      transform: 'translate(-10%, -45%)',
+                      borderRadius: '50%',
+                      //borderBottomLeftRadius: 2,
+                    }}
+                  >
+                    {blogs.length}
+                  </Label>
+                </Box>
               </Typography>
             </Stack>
 
