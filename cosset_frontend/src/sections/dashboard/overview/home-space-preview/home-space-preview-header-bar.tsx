@@ -120,12 +120,12 @@ export function HomeSpacePreviewHeaderBar({
 
         <Link
           component={RouterLink}
-          href={`${currentPath}#drawer-section`}
+          href={`${currentPath}#drawers-section`}
           color="inherit"
           underline="none"
           sx={menuLinkSx}
         >
-          Drawer
+          Drawers
         </Link>
 
         <Link

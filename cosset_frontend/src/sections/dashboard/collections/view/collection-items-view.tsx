@@ -57,6 +57,12 @@ type Props = {
 
 type UploadFileType = 'image' | 'video' | 'pdf';
 
+const MAX_UPLOAD_FILE_SIZE_BYTES: Record<UploadFileType, number> = {
+  image: 5 * 1024 * 1024,
+  video: 150 * 1024 * 1024,
+  pdf: 10 * 1024 * 1024,
+};
+
 type CollectionItemFormState = {
   customerId: string;
   title: string;
@@ -130,6 +136,30 @@ const uploadAcceptMap: Record<UploadFileType, string> = {
   pdf: 'application/pdf',
 };
 
+const getMaxUploadSizeLabel = (uploadType: UploadFileType) => {
+  const maxMb = Math.floor(MAX_UPLOAD_FILE_SIZE_BYTES[uploadType] / (1024 * 1024));
+  return `${maxMb}MB`;
+};
+
+const getUploadErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const candidate = (error as { message?: unknown }).message;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return fallbackMessage;
+};
+
 const isFileAllowedForUploadType = (file: File, uploadType: UploadFileType) => {
   const mimeType = (file.type || '').toLowerCase();
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -139,7 +169,7 @@ const isFileAllowedForUploadType = (file: File, uploadType: UploadFileType) => {
   }
 
   if (uploadType === 'video') {
-    return mimeType.startsWith('video/') || ['mp4', 'mov'].includes(ext);
+    return mimeType.startsWith('video/') || ['mp4', 'mov', 'm4v', 'webm'].includes(ext);
   }
 
   return mimeType === 'application/pdf' || ext === 'pdf';
@@ -444,6 +474,12 @@ export function CollectionItemsView({ collectionId }: Props) {
       return;
     }
 
+    const maxFileSize = MAX_UPLOAD_FILE_SIZE_BYTES[uploadType];
+    if (selectedFile.size > maxFileSize) {
+      toast.error(`File size must be less than ${getMaxUploadSizeLabel(uploadType)} for ${uploadType}.`);
+      return;
+    }
+
     const ext = selectedFile.name.split('.').pop()?.toLowerCase();
     const fallbackExt = uploadType === 'image' ? 'jpg' : uploadType === 'video' ? 'mp4' : 'pdf';
     const safeExt = ext || fallbackExt;
@@ -475,7 +511,7 @@ export function CollectionItemsView({ collectionId }: Props) {
       toast.success(`${uploadType.toUpperCase()} uploaded successfully.`);
     } catch (error) {
       console.error('Failed to upload file:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload file.');
+      toast.error(getUploadErrorMessage(error, 'Failed to upload file.'));
     } finally {
       setUploadingFile(false);
     }
@@ -825,6 +861,9 @@ export function CollectionItemsView({ collectionId }: Props) {
       ? `No results for "${search.state.query.trim()}"`
       : 'No collection items yet';
 
+  const selectedFileName = selectedFile?.name ?? '';
+  const selectedFileSizeMb = ((selectedFile?.size ?? 0) / (1024 * 1024)).toFixed(2);
+
   return (
     <DashboardContent>
       <CustomBreadcrumbs
@@ -968,8 +1007,8 @@ export function CollectionItemsView({ collectionId }: Props) {
 
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {selectedFile
-                  ? `Selected: ${selectedFile?.name || ''}`
-                  : `Accepted format: ${uploadAcceptMap[uploadType]}`}
+                  ? `Selected: ${selectedFileName} (${selectedFileSizeMb} MB)`
+                  : `Accepted format: ${uploadAcceptMap[uploadType]} (max ${getMaxUploadSizeLabel(uploadType)})`}
               </Typography>
             </Stack>
 

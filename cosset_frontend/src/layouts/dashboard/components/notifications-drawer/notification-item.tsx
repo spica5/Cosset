@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -7,6 +11,7 @@ import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemButton from '@mui/material/ListItemButton';
 
+import { getS3SignedUrl } from 'src/utils/helper';
 import { fToNow } from 'src/utils/format-time';
 
 import { CONFIG } from 'src/config-global';
@@ -24,7 +29,7 @@ export type NotificationItemProps = {
   isUnRead: boolean;
   avatarUrl: string | null;
   createdAt: string | number | null;
-  archived?: boolean;
+  archived: boolean;
 };
 
 type Props = {
@@ -34,10 +39,65 @@ type Props = {
 };
 
 export function NotificationItem({ notification, onRead, onArchive }: Props) {
+  const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveAvatarUrl = async () => {
+      const avatarKey = String(notification.avatarUrl || '').trim();
+
+      if (!avatarKey) {
+        if (mounted) {
+          setResolvedAvatarUrl('');
+        }
+        return;
+      }
+
+      if (avatarKey.startsWith('public:')) {
+        if (mounted) {
+          setResolvedAvatarUrl(avatarKey.replace(/^public:/, ''));
+        }
+        return;
+      }
+
+      if (
+        avatarKey.startsWith('http://') ||
+        avatarKey.startsWith('https://') ||
+        avatarKey.startsWith('/')
+      ) {
+        if (mounted) {
+          setResolvedAvatarUrl(avatarKey);
+        }
+        return;
+      }
+
+      try {
+        const signedUrl = await getS3SignedUrl(avatarKey);
+
+        if (mounted) {
+          setResolvedAvatarUrl(signedUrl || '');
+        }
+      } catch (error) {
+        console.error('Failed to resolve notification avatar', error);
+
+        if (mounted) {
+          setResolvedAvatarUrl('');
+        }
+      }
+    };
+
+    resolveAvatarUrl();
+
+    return () => {
+      mounted = false;
+    };
+  }, [notification.avatarUrl]);
+
   const renderAvatar = (
     <ListItemAvatar>
-      {notification.avatarUrl ? (
-        <Avatar src={notification.avatarUrl} sx={{ bgcolor: 'background.neutral' }} />
+      {resolvedAvatarUrl ? (
+        <Avatar src={resolvedAvatarUrl} sx={{ bgcolor: 'background.neutral' }} />
       ) : (
         <Stack
           alignItems="center"

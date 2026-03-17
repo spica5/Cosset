@@ -50,6 +50,7 @@ export const paths = {
         details: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}`,
         edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}/edit`,
       },
+      letter: `${ROOTS.DASHBOARD}/drawer/letter`,
       goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
       sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
     },

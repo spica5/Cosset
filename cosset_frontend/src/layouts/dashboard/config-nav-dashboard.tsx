@@ -37,6 +37,7 @@ const ICONS = {
   friend: icon('ic-friend'),
   gift: icon('ic-gift'),
   video: icon('ic-video'),
+  letter: icon('ic-document'),
   goodMemo: <WbSunnyIcon sx={{ width: 1, height: 1 }} />,
   sadMemo: <UmbrellaIcon sx={{ width: 1, height: 1 }} />,
   settings: <SettingsIcon sx={{ width: 1, height: 1 }} />,
@@ -99,6 +100,7 @@ export const navData = [
         icon: ICONS.drawer,
         children: [
           { title: 'Gifts and Souvenir', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
+          { title: 'Letters', path: paths.dashboard.drawer.letter, icon: ICONS.letter },
           { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
           { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
         ],

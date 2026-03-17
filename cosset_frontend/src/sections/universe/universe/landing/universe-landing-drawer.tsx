@@ -32,7 +32,7 @@ const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 export function UniverseLandingDrawer({ items = [], loading = false, sx, ...other }: Props) {
   return (
     <Card
-      id="drawer-section"
+      id="drawers-section"
       component="section"
       sx={{ pb: 10, overflow: 'hidden', pt: { xs: 3, md: 6 }, ...sx }}
       {...other}

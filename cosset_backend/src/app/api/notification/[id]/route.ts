@@ -13,6 +13,26 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
+const normalizeOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === 'true') {
+      return true;
+    }
+
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  return undefined;
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -46,7 +66,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       avatarUrl: updates.avatarUrl,
       type: updates.type !== undefined ? Number(updates.type) : undefined,
       category: updates.category !== undefined ? Number(updates.category) : undefined,
-      isUnRead: updates.isUnRead,
+      isUnRead: normalizeOptionalBoolean(updates.isUnRead),
+      isArchived: normalizeOptionalBoolean(updates.isArchived),
       title: updates.title,
       content: updates.content,
     });

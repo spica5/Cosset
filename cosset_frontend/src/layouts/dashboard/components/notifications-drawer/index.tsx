@@ -5,6 +5,12 @@ import type { IconButtonProps } from '@mui/material/IconButton';
 import { m } from 'framer-motion';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
+import {
+  archiveNotification,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from 'src/actions/notification';
+
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -40,9 +46,10 @@ const TABS = [
 
 export type NotificationsDrawerProps = IconButtonProps & {
   data?: NotificationItemProps[];
+  customerId?: string;
 };
 
-export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDrawerProps) {
+export function NotificationsDrawer({ data = [], customerId, sx, ...other }: NotificationsDrawerProps) {
   const drawer = useBoolean();
 
   const [currentTab, setCurrentTab] = useState('all');
@@ -75,25 +82,72 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
     return notifications.filter((item) => !item.archived);
   }, [currentTab, notifications]);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map((notification) => ({ ...notification, isUnRead: false })));
-  };
+  const handleMarkAllAsRead = useCallback(async () => {
+    const unreadIds = notifications.filter((notification) => notification.isUnRead).map((notification) => notification.id);
 
-  const handleReadOne = useCallback((id: string) => {
+    if (unreadIds.length === 0) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+
+    setNotifications((prev) =>
+      prev.map((notification) => ({ ...notification, isUnRead: false }))
+    );
+
+    try {
+      await markAllNotificationsAsRead(unreadIds, customerId);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
+
+  const handleReadOne = useCallback(async (id: string) => {
+    const target = notifications.find((notification) => notification.id === id);
+
+    if (!target || !target.isUnRead) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id ? { ...notification, isUnRead: false } : notification
       )
     );
-  }, []);
 
-  const handleArchiveOne = useCallback((id: string) => {
+    try {
+      await markNotificationAsRead(id, customerId);
+    } catch (error) {
+      console.error('Failed to mark notification as read', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
+
+  const handleArchiveOne = useCallback(async (id: string) => {
+    const target = notifications.find((notification) => notification.id === id);
+
+    if (!target || target.archived) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id ? { ...notification, isUnRead: false, archived: true } : notification
       )
     );
-  }, []);
+
+    try {
+      await archiveNotification(id, customerId);
+    } catch (error) {
+      console.error('Failed to archive notification', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
 
   const renderHead = (
     <Stack direction="row" alignItems="center" sx={{ py: 2, pl: 2.5, pr: 1, minHeight: 68 }}>

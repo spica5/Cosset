@@ -1,5 +1,5 @@
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 // ----------------------------------------------------------------------
 
@@ -12,13 +12,62 @@ export interface Notification {
   type: number;
   category: number;
   isUnRead: boolean;
+  isArchived: boolean;
   title?: string | null;
   content?: string | null;
   createdAt?: Date | null;
 }
 
+let ensureNotificationsTablePromise: Promise<void> | null = null;
+
+const ensureNotificationsTable = async (): Promise<void> => {
+  if (!ensureNotificationsTablePromise) {
+    ensureNotificationsTablePromise = (async () => {
+      await executeQuery(
+        `
+          CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+            id BIGSERIAL PRIMARY KEY,
+            customer_id VARCHAR(255) NOT NULL,
+            avatar_url TEXT NULL,
+            type INTEGER NOT NULL,
+            category INTEGER NOT NULL,
+            is_unread BOOLEAN NOT NULL DEFAULT TRUE,
+            is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+            title TEXT NULL,
+            content TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `,
+      );
+
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE`,
+      );
+
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET is_archived = FALSE WHERE is_archived IS NULL`,
+      );
+
+      await executeQuery(
+        `CREATE INDEX IF NOT EXISTS idx_notification_customer ON ${TABLE_NAME} (customer_id)`,
+      );
+
+      await executeQuery(
+        `CREATE INDEX IF NOT EXISTS idx_notification_customer_state ON ${TABLE_NAME} (customer_id, is_unread, is_archived)`,
+      );
+    })().catch((error) => {
+      ensureNotificationsTablePromise = null;
+      throw error;
+    });
+  }
+
+  await ensureNotificationsTablePromise;
+};
+
 export async function getNotificationById(id: number): Promise<Notification | null> {
   try {
+    await ensureNotificationsTable();
+
     const notification = await queryOne<Notification>(
       `
         SELECT
@@ -28,6 +77,7 @@ export async function getNotificationById(id: number): Promise<Notification | nu
           type,
           category,
           is_unread as "isUnRead",
+          is_archived as "isArchived",
           title,
           content,
           created_at as "createdAt"
@@ -56,6 +106,8 @@ export async function getAllNotifications(
   offset: number = 0
 ): Promise<Notification[]> {
   try {
+    await ensureNotificationsTable();
+
     let query = `
       SELECT
         id,
@@ -64,6 +116,7 @@ export async function getAllNotifications(
         type,
         category,
         is_unread as "isUnRead",
+        is_archived as "isArchived",
         title,
         content,
         created_at as "createdAt"
@@ -96,6 +149,8 @@ export async function createNotification(
   notification: Omit<Notification, 'id' | 'createdAt'>
 ): Promise<Notification> {
   try {
+    await ensureNotificationsTable();
+
     const created = await queryOne<Notification>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -104,11 +159,12 @@ export async function createNotification(
           type,
           category,
           is_unread,
+          is_archived,
           title,
           content,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         RETURNING
           id,
           customer_id as "customerId",
@@ -116,6 +172,7 @@ export async function createNotification(
           type,
           category,
           is_unread as "isUnRead",
+          is_archived as "isArchived",
           title,
           content,
           created_at as "createdAt"
@@ -126,6 +183,7 @@ export async function createNotification(
         notification.type,
         notification.category,
         notification.isUnRead,
+        notification.isArchived,
         notification.title ?? null,
         notification.content ?? null,
       ]
@@ -156,6 +214,8 @@ export async function updateNotification(
   notification: Partial<Omit<Notification, 'id' | 'createdAt'>>
 ): Promise<Notification> {
   try {
+    await ensureNotificationsTable();
+
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -183,6 +243,11 @@ export async function updateNotification(
     if (notification.isUnRead !== undefined) {
       fields.push(`is_unread = $${paramIndex}`);
       values.push(notification.isUnRead);
+      paramIndex += 1;
+    }
+    if (notification.isArchived !== undefined) {
+      fields.push(`is_archived = $${paramIndex}`);
+      values.push(notification.isArchived);
       paramIndex += 1;
     }
     if (notification.title !== undefined) {
@@ -222,6 +287,7 @@ export async function updateNotification(
           type,
           category,
           is_unread as "isUnRead",
+          is_archived as "isArchived",
           title,
           content,
           created_at as "createdAt"
@@ -251,6 +317,8 @@ export async function updateNotification(
 
 export async function deleteNotification(id: number): Promise<boolean> {
   try {
+    await ensureNotificationsTable();
+
     const deleted = await queryOne<{ id: number }>(
       `
         DELETE FROM ${TABLE_NAME}

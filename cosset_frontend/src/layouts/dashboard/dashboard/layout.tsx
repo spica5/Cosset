@@ -187,7 +187,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
             rightArea: (
               <Box display="flex" alignItems="center" gap={{ xs: 0, sm: 0.75 }}>
                 {/* -- Notifications popover -- */}
-                <NotificationsDrawer data={notifications} />
+                <NotificationsDrawer data={notifications} customerId={user?.id ? String(user.id) : undefined} />
                 {/* -- Contacts popover -- */}
                 <ContactsPopover data={_contacts} />
                 {/* -- Account drawer -- */}

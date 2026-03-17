@@ -36,6 +36,8 @@ function getMimeType(ext: string) {
     webp: "image/webp",
     mp4: "video/mp4",
     mov: "video/quicktime",
+    m4v: "video/x-m4v",
+    webm: "video/webm",
     pdf: "application/pdf",
   };
   return map[ext.toLowerCase()] || "application/octet-stream";
@@ -43,9 +45,13 @@ function getMimeType(ext: string) {
 
 type UploadFileKind = 'image' | 'video' | 'pdf' | 'unsupported';
 
+const IMAGE_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
+const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm']);
+
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
   image: 5 * 1024 * 1024,
-  video: 50 * 1024 * 1024,
+  // Keep this in sync with frontend collection upload validation.
+  video: 150 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
 };
 
@@ -66,11 +72,11 @@ function getUploadFileKind(file: File): UploadFileKind {
 
   const ext = getFileExtension(file);
 
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+  if (IMAGE_FILE_EXTENSIONS.has(ext)) {
     return 'image';
   }
 
-  if (['mp4', 'mov'].includes(ext)) {
+  if (VIDEO_FILE_EXTENSIONS.has(ext)) {
     return 'video';
   }
 

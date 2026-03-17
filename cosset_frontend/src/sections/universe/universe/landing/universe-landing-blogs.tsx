@@ -327,6 +327,8 @@ export function UniverseLandingBlogs({
                       <Card
                         component={RouterLink}
                         href={blogHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         sx={{
                           height: 1,
                           cursor: 'pointer',

@@ -138,12 +138,12 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
                   </Link>
                   <Link
                     component={RouterLink}
-                    href={`${currentPathWithHash}#drawer-section`}
+                    href={`${currentPathWithHash}#drawers-section`}
                     color="inherit"
                     underline="none"
                     sx={menuLinkSx}
                   >
-                    Drawer
+                    Drawers
                   </Link>
                   <Link
                     component={RouterLink}

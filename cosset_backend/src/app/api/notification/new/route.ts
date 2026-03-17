@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       type: Number(notification.type),
       category: Number(notification.category),
       isUnRead: Boolean(notification.isUnRead),
+      isArchived: Boolean(notification.isArchived ?? false),
       title: notification.title ?? null,
       content: notification.content ?? null,
     });
