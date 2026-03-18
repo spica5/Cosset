@@ -49,7 +49,7 @@ const IMAGE_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm']);
 
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
-  image: 5 * 1024 * 1024,
+  image: 10 * 1024 * 1024,
   // Keep this in sync with frontend collection upload validation.
   video: 150 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,

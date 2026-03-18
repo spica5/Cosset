@@ -62,6 +62,7 @@ export const endpoints = {
   },
   upload: {
     image: '/api/upload/image',
+    sign: '/api/upload/sign',
   },
   album: {
     list: '/api/album/list',

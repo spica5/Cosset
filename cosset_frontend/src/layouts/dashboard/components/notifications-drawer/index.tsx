@@ -6,9 +6,11 @@ import { m } from 'framer-motion';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import {
+  deleteAllNotifications,
+  deleteNotification,
   archiveNotification,
-  markAllNotificationsAsRead,
   markNotificationAsRead,
+  markAllNotificationsAsRead,
 } from 'src/actions/notification';
 
 import Tab from '@mui/material/Tab';
@@ -149,6 +151,47 @@ export function NotificationsDrawer({ data = [], customerId, sx, ...other }: Not
     }
   }, [customerId, notifications]);
 
+  const handleDeleteOne = useCallback(async (id: string) => {
+    const target = notifications.find((notification) => notification.id === id);
+
+    if (!target) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+
+    try {
+      await deleteNotification(id, customerId);
+    } catch (error) {
+      console.error('Failed to delete notification', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
+
+  const handleViewAll = useCallback(async () => {
+    await handleMarkAllAsRead();
+  }, [handleMarkAllAsRead]);
+
+  const handleClearAll = useCallback(async () => {
+    if (notifications.length === 0) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+    const notificationIds = notifications.map((notification) => notification.id);
+
+    setNotifications([]);
+
+    try {
+      await deleteAllNotifications(notificationIds, customerId);
+    } catch (error) {
+      console.error('Failed to clear notifications', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
+
   const renderHead = (
     <Stack direction="row" alignItems="center" sx={{ py: 2, pl: 2.5, pr: 1, minHeight: 68 }}>
       <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -210,6 +253,7 @@ export function NotificationsDrawer({ data = [], customerId, sx, ...other }: Not
               notification={notification}
               onRead={handleReadOne}
               onArchive={handleArchiveOne}
+              onDelete={handleDeleteOne}
             />
           </Box>
         ))}
@@ -258,9 +302,21 @@ export function NotificationsDrawer({ data = [], customerId, sx, ...other }: Not
         {renderList}
 
         <Box sx={{ p: 1 }}>
-          <Button fullWidth size="large">
-            View all
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button fullWidth size="large" onClick={handleViewAll}>
+              View all
+            </Button>
+            <Button
+              fullWidth
+              size="large"
+              color="error"
+              variant="outlined"
+              onClick={handleClearAll}
+              disabled={notifications.length === 0}
+            >
+              Clear all
+            </Button>
+          </Stack>
         </Box>
       </Drawer>
     </>

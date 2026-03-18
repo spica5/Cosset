@@ -13,6 +13,7 @@ export interface Notification {
   category: number;
   isUnRead: boolean;
   isArchived: boolean;
+  isDeleted?: boolean;
   title?: string | null;
   content?: string | null;
   createdAt?: Date | null;
@@ -33,6 +34,7 @@ const ensureNotificationsTable = async (): Promise<void> => {
             category INTEGER NOT NULL,
             is_unread BOOLEAN NOT NULL DEFAULT TRUE,
             is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+            is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
             title TEXT NULL,
             content TEXT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -45,7 +47,15 @@ const ensureNotificationsTable = async (): Promise<void> => {
       );
 
       await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE`,
+      );
+
+      await executeQuery(
         `UPDATE ${TABLE_NAME} SET is_archived = FALSE WHERE is_archived IS NULL`,
+      );
+
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET is_deleted = FALSE WHERE is_deleted IS NULL`,
       );
 
       await executeQuery(
@@ -54,6 +64,10 @@ const ensureNotificationsTable = async (): Promise<void> => {
 
       await executeQuery(
         `CREATE INDEX IF NOT EXISTS idx_notification_customer_state ON ${TABLE_NAME} (customer_id, is_unread, is_archived)`,
+      );
+
+      await executeQuery(
+        `CREATE INDEX IF NOT EXISTS idx_notification_customer_visible_state ON ${TABLE_NAME} (customer_id, is_deleted, is_unread, is_archived)`,
       );
     })().catch((error) => {
       ensureNotificationsTablePromise = null;
@@ -78,11 +92,13 @@ export async function getNotificationById(id: number): Promise<Notification | nu
           category,
           is_unread as "isUnRead",
           is_archived as "isArchived",
+          is_deleted as "isDeleted",
           title,
           content,
           created_at as "createdAt"
         FROM ${TABLE_NAME}
         WHERE id = $1
+          AND is_deleted = FALSE
       `,
       [id]
     );
@@ -117,6 +133,7 @@ export async function getAllNotifications(
         category,
         is_unread as "isUnRead",
         is_archived as "isArchived",
+        is_deleted as "isDeleted",
         title,
         content,
         created_at as "createdAt"
@@ -125,10 +142,10 @@ export async function getAllNotifications(
     const params: unknown[] = [];
 
     if (customerId) {
-      query += ` WHERE customer_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`;
+      query += ` WHERE is_deleted = FALSE AND customer_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`;
       params.push(customerId, limit, offset);
     } else {
-      query += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`;
+      query += ` WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
     }
 
@@ -160,11 +177,12 @@ export async function createNotification(
           category,
           is_unread,
           is_archived,
+          is_deleted,
           title,
           content,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7, $8, NOW())
         RETURNING
           id,
           customer_id as "customerId",
@@ -173,6 +191,7 @@ export async function createNotification(
           category,
           is_unread as "isUnRead",
           is_archived as "isArchived",
+          is_deleted as "isDeleted",
           title,
           content,
           created_at as "createdAt"
@@ -280,6 +299,7 @@ export async function updateNotification(
         UPDATE ${TABLE_NAME}
         SET ${fields.join(', ')}
         WHERE id = $${paramIndex}
+          AND is_deleted = FALSE
         RETURNING
           id,
           customer_id as "customerId",
@@ -288,6 +308,7 @@ export async function updateNotification(
           category,
           is_unread as "isUnRead",
           is_archived as "isArchived",
+          is_deleted as "isDeleted",
           title,
           content,
           created_at as "createdAt"
@@ -321,8 +342,10 @@ export async function deleteNotification(id: number): Promise<boolean> {
 
     const deleted = await queryOne<{ id: number }>(
       `
-        DELETE FROM ${TABLE_NAME}
+        UPDATE ${TABLE_NAME}
+        SET is_deleted = TRUE
         WHERE id = $1
+          AND is_deleted = FALSE
         RETURNING id
       `,
       [id]

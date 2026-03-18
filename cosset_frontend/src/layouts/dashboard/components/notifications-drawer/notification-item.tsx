@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
@@ -17,6 +18,7 @@ import { fToNow } from 'src/utils/format-time';
 import { CONFIG } from 'src/config-global';
 
 import { Label } from 'src/components/dashboard/label';
+import { Iconify } from 'src/components/dashboard/iconify';
 import { FileThumbnail } from 'src/components/dashboard/file-thumbnail';
 
 // ----------------------------------------------------------------------
@@ -36,9 +38,10 @@ type Props = {
   notification: NotificationItemProps;
   onRead?: (id: string) => void;
   onArchive?: (id: string) => void;
+  onDelete?: (id: string) => void;
 };
 
-export function NotificationItem({ notification, onRead, onArchive }: Props) {
+export function NotificationItem({ notification, onRead, onArchive, onDelete }: Props) {
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState('');
 
   useEffect(() => {
@@ -148,7 +151,7 @@ export function NotificationItem({ notification, onRead, onArchive }: Props) {
         top: 26,
         width: 8,
         height: 8,
-        right: 20,
+        right: 44,
         borderRadius: '50%',
         bgcolor: 'info.main',
         position: 'absolute',
@@ -289,6 +292,25 @@ export function NotificationItem({ notification, onRead, onArchive }: Props) {
       </Box>
   );
 
+  const deleteAction = (
+    <IconButton
+      size="small"
+      color="error"
+      aria-label="Delete notification"
+      onClick={(event) => {
+        event.stopPropagation();
+        onDelete?.(notification.id);
+      }}
+      sx={{
+        top: 10,
+        right: 10,
+        position: 'absolute',
+      }}
+    >
+      <Iconify icon="solar:trash-bin-trash-outline" width={18} />
+    </IconButton>
+  );
+
   return (
     <ListItemButton
       disableRipple
@@ -299,6 +321,8 @@ export function NotificationItem({ notification, onRead, onArchive }: Props) {
         borderBottom: (theme) => `dashed 1px ${theme.vars.palette.divider}`,
       }}
     >
+      {deleteAction}
+
       {renderUnReadBadge}
 
       {renderAvatar}

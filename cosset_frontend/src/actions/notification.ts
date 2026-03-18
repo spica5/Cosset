@@ -160,6 +160,40 @@ export async function archiveNotification(notificationId: string | number, custo
   return updateNotification(notificationId, { isUnRead: false, isArchived: true }, customerId);
 }
 
+export async function deleteNotification(notificationId: string | number, customerId?: string) {
+  const res = await axiosInstance.delete(endpoints.notification.details(notificationId));
+
+  await mutate(buildNotificationListUrl(customerId));
+  await mutate(endpoints.notification.details(notificationId), undefined, { revalidate: false });
+
+  return res.data;
+}
+
+export async function deleteAllNotifications(
+  notificationIds: Array<string | number>,
+  customerId?: string,
+) {
+  const uniqueIds = Array.from(new Set(notificationIds.map(String)));
+
+  if (uniqueIds.length === 0) {
+    return { deletedIds: [] as string[] };
+  }
+
+  await Promise.all(
+    uniqueIds.map((notificationId) => axiosInstance.delete(endpoints.notification.details(notificationId))),
+  );
+
+  await mutate(buildNotificationListUrl(customerId));
+
+  await Promise.all(
+    uniqueIds.map((notificationId) =>
+      mutate(endpoints.notification.details(notificationId), undefined, { revalidate: false }),
+    ),
+  );
+
+  return { deletedIds: uniqueIds };
+}
+
 export async function markAllNotificationsAsRead(
   notificationIds: Array<string | number>,
   customerId?: string,
