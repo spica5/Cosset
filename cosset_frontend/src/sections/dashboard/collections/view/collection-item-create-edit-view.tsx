@@ -5,24 +5,27 @@ import type { ICollectionDrawerItem } from 'src/types/collection-item';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import axiosInstance, { endpoints } from 'src/utils/axios';
+
+import { uploadFileToS3 } from 'src/actions/upload';
 import { useGetCollection } from 'src/actions/collection';
+
 import { useAuthContext } from 'src/auth/hooks';
 
 import { uuidv4 } from 'src/utils/uuidv4';
@@ -407,15 +410,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
     try {
       setUploadingFile(true);
 
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', selectedFile);
-      uploadFormData.append('key', key);
-
-      const uploadRes = await axiosInstance.post(endpoints.upload.image, uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      const result = uploadRes.data as { key?: string; url?: string };
+      const result = await uploadFileToS3({ file: selectedFile, key });
       const uploadedKey = result.key || key;
 
       if (uploadType === 'image') {

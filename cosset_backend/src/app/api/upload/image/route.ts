@@ -166,6 +166,57 @@ async function getSignedImageUrl(key: string, isPublic = false, expiresInSeconds
   return getSignedUrl(s3, cmd, { expiresIn: expiresInSeconds });
 }
 
+async function getSignedUploadUrl(
+  key: string,
+  contentType: string,
+  isPublic = false,
+  expiresInSeconds = 60 * 10,
+) {
+  const bucket = requireEnv('S3_BUCKET');
+  if (!bucket) throw new Error('S3_BUCKET env var is missing');
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ACL: isPublic ? 'public-read' : 'private',
+    ContentType: contentType,
+  });
+
+  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
+}
+
+type UploadSingleFileParams = {
+  file: File;
+  key: string;
+  isPublic: boolean;
+};
+
+type UploadSingleFileResult =
+  | { validationMessage: string }
+  | { key: string; url: string };
+
+async function uploadSingleFileToS3({ file, key, isPublic }: UploadSingleFileParams): Promise<UploadSingleFileResult> {
+  const validation = validateSingleUploadFile(file);
+  if (!validation.valid) {
+    return { validationMessage: validation.message };
+  }
+
+  const ext = getFileExtension(file);
+  const contentType = file.type || getMimeType(ext);
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  console.log(`key:${key} contentType:${contentType}`);
+
+  const result = await (isPublic ? uploadToS3Public(key, buffer, contentType) : uploadToS3(key, buffer, contentType));
+  if (result.$metadata?.httpStatusCode !== 200) {
+    throw new Error('Failed to upload file to S3');
+  }
+
+  const signedUrl = await getSignedImageUrl(key, isPublic);
+  return { key, url: signedUrl };
+}
+
 /**
  * Upload multiple files to S3 in parallel
  */
@@ -195,16 +246,38 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const key = searchParams.get('key');
     const isPublic = searchParams.get('public') === 'true';
+    const action = (searchParams.get('action') || '').trim().toLowerCase();
+
     if (!key || !key.trim()) {
       return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
     }
 
+    const normalizedKey = key.trim();
+
+    if (action === 'upload') {
+      if (normalizedKey.startsWith('public:')) {
+        return response(
+          { message: 'Upload key must not include the public: prefix' },
+          STATUS.BAD_REQUEST,
+        );
+      }
+
+      const ext = normalizedKey.split('.').pop()?.toLowerCase() || '';
+      const requestedContentType = (searchParams.get('contentType') || '').trim();
+      const contentType = requestedContentType || getMimeType(ext);
+
+      const uploadUrl = await getSignedUploadUrl(normalizedKey, contentType, isPublic);
+      const url = await getSignedImageUrl(normalizedKey, isPublic);
+
+      return response({ key: normalizedKey, uploadUrl, contentType, url }, STATUS.OK);
+    }
+
     let url: string;
-    if (key.startsWith('public:')) {
+    if (normalizedKey.startsWith('public:')) {
       // Return the key except the "public:" prefix as URL
-      url = key.substring(7);
+      url = normalizedKey.substring(7);
     } else {
-      url = await getSignedImageUrl(key.trim(), isPublic);
+      url = await getSignedImageUrl(normalizedKey, isPublic);
     }
 
     return response({ url }, STATUS.OK);
@@ -236,26 +309,17 @@ export async function POST(req: NextRequest) {
         return response({ message: "key is required" }, STATUS.BAD_REQUEST);
       }
 
-      const singleValidation = validateSingleUploadFile(singleFile);
-      if (!singleValidation.valid) {
-        return response({ message: singleValidation.message }, STATUS.BAD_REQUEST);
+      const uploadResult = await uploadSingleFileToS3({
+        file: singleFile,
+        key: singleKey.trim(),
+        isPublic,
+      });
+
+      if ('validationMessage' in uploadResult) {
+        return response({ message: uploadResult.validationMessage }, STATUS.BAD_REQUEST);
       }
 
-      const ext = getFileExtension(singleFile);
-      const contentType = singleFile.type || getMimeType(ext);
-      const arrayBuffer = await singleFile.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const s3Key = singleKey.trim();
-
-      console.log(`key:${s3Key} contentType:${contentType}`);
-
-      const result = await (isPublic ? uploadToS3Public(s3Key, buffer, contentType) : uploadToS3(s3Key, buffer, contentType));
-      if (result.$metadata?.httpStatusCode !== 200) {
-        throw new Error("Failed to upload image to S3");
-      }
-
-      const signedUrl = await getSignedImageUrl(s3Key, isPublic);
-      return response({ key: s3Key, url: signedUrl }, STATUS.OK);
+      return response(uploadResult, STATUS.OK);
     }
 
     // Handle batch uploads
