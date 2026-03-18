@@ -4,16 +4,14 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 // --------------------------------------------------------------------------
 
-export type UploadFileToS3DirectInput = {
-  file: File;
-  key: string;
-  isPublic?: boolean;
-};
-
 export type UploadFileToS3DirectResult = {
   key: string;
   url: string;
 };
+
+const FILE_FIELD_NAME = 'file';
+const KEY_FIELD_NAME = 'key';
+const IS_PUBLIC_FIELD_NAME = 'isPublic';
 
 // --------------------------------------------------------------------------
 
@@ -37,19 +35,40 @@ function createS3Client(): S3Client {
 
 // --------------------------------------------------------------------------
 
-/**
- * Upload a file directly to S3 using the AWS SDK and server-side credentials.
- * Runs as a Next.js Server Action — credentials are never exposed to the browser.
- */
-export async function uploadFileToS3Direct({
-  file,
-  key,
-  isPublic = false,
-}: UploadFileToS3DirectInput): Promise<UploadFileToS3DirectResult> {
-  const normalizedKey = key.trim();
-  if (!normalizedKey) {
+function getFileFromFormData(formData: FormData) {
+  const value = formData.get(FILE_FIELD_NAME);
+
+  if (!(value instanceof File)) {
+    throw new Error('Upload file is required.');
+  }
+
+  return value;
+}
+
+function getKeyFromFormData(formData: FormData) {
+  const value = String(formData.get(KEY_FIELD_NAME) || '').trim();
+
+  if (!value) {
     throw new Error('Upload key is required.');
   }
+
+  return value;
+}
+
+function getIsPublicFromFormData(formData: FormData) {
+  const value = String(formData.get(IS_PUBLIC_FIELD_NAME) || '').trim().toLowerCase();
+  return value === '1' || value === 'true';
+}
+
+/**
+ * Upload a file directly to S3 using the AWS SDK and server-side credentials.
+ * This server action expects FormData so file uploads cross the client/server
+ * boundary using a supported payload type.
+ */
+export async function uploadFileToS3Direct(formData: FormData): Promise<UploadFileToS3DirectResult> {
+  const file = getFileFromFormData(formData);
+  const normalizedKey = getKeyFromFormData(formData);
+  const isPublic = getIsPublicFromFormData(formData);
 
   const bucket = requireEnv('S3_BUCKET');
   const s3 = createS3Client();

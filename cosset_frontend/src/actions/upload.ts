@@ -1,5 +1,5 @@
 import axiosInstance, { endpoints } from 'src/utils/axios';
-import { uploadFileToS3Direct } from './upload-server';
+import { uploadFileToS3Direct as uploadFileToS3DirectAction } from './upload-server';
 
 export type UploadFileToS3Input = {
   file: File;
@@ -30,6 +30,24 @@ async function uploadFileViaBackendProxy(file: File, key: string, isPublic: bool
   };
 }
 
+export async function uploadFileToS3Direct({
+  file,
+  key,
+  isPublic = false,
+}: UploadFileToS3Input): Promise<UploadFileToS3Result> {
+  const normalizedKey = key.trim();
+  if (!normalizedKey) {
+    throw new Error('Upload key is required.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('key', normalizedKey);
+  formData.append('isPublic', isPublic ? '1' : '0');
+
+  return uploadFileToS3DirectAction(formData);
+}
+
 export async function uploadFileToS3({
   file,
   key,
@@ -42,7 +60,8 @@ export async function uploadFileToS3({
 
   try {
     return await uploadFileToS3Direct({ file, key: normalizedKey, isPublic });
-  } catch {
+  } catch (error) {
+    console.warn('Direct S3 upload failed, falling back to backend proxy.', error);
     return uploadFileViaBackendProxy(file, normalizedKey, isPublic);
   }
 }
