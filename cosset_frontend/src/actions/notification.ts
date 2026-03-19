@@ -1,9 +1,7 @@
-import useSWR, { mutate } from 'swr';
 import { useMemo } from 'react';
+import useSWR, { mutate } from 'swr';
 
 import axiosInstance, { fetcher, endpoints } from 'src/utils/axios';
-
-import type { NotificationItemProps } from 'src/layouts/dashboard/components/notifications-drawer/notification-item';
 
 // ----------------------------------------------------------------------
 
@@ -127,6 +125,54 @@ export async function createNotification(notification: CreateNotificationInput) 
   await revalidateNotificationCaches(notification.customerId);
 
   return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+type ActivityNotificationInput = {
+  ownerId: string;
+  visitor: {
+    id?: string | null;
+    name: string;
+    avatarUrl?: string | null;
+  };
+  title: string;
+  content: string;
+  sessionKey: string;
+};
+
+/**
+ * Creates a one-time activity notification for the space owner when a visitor
+ * performs a tracked action (view album, view drawer, react, etc.).
+ *
+ * Skips silently when:
+ *  - visitor is the owner themselves
+ *  - the same sessionKey was already fired in this browser session
+ */
+export async function recordActivityNotification({
+  ownerId,
+  visitor,
+  title,
+  content,
+  sessionKey,
+}: ActivityNotificationInput): Promise<void> {
+  if (!ownerId) return;
+  if (visitor.id && String(visitor.id) === String(ownerId)) return;
+  if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey) === '1') return;
+
+  await createNotification({
+    customerId: ownerId,
+    avatarUrl: visitor.avatarUrl ?? null,
+    type: 7,
+    category: 1,
+    isUnRead: true,
+    title,
+    content,
+  });
+
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(sessionKey, '1');
+  }
 }
 
 type UpdateNotificationInput = {

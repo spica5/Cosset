@@ -40,6 +40,7 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Lightbox } from 'src/components/dashboard/lightbox';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
+import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
 type Props = {
   collectionId: string | number;
@@ -205,7 +206,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
 
   const [submitting, setSubmitting] = useState(false);
   const [uploadType, setUploadType] = useState<UploadFileType>('image');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [signedUrlMap, setSignedUrlMap] = useState<Record<string, string>>({});
   const [lightboxSlides, setLightboxSlides] = useState<Slide[]>([]);
@@ -347,11 +348,16 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
     [],
   );
 
-  const appendUploadedStorageKey = useCallback(
-    (field: 'images' | 'videos' | 'files', key: string) => {
+  const appendUploadedStorageKeys = useCallback(
+    (field: 'images' | 'videos' | 'files', keys: string[]) => {
+      if (!keys.length) {
+        return;
+      }
+
       setForm((prev) => {
-        const current = prev[field].trim();
-        const next = current ? `${current}\n${key}` : key;
+        const currentKeys = parseStorageKeys(prev[field]);
+        const nextKeys = Array.from(new Set([...currentKeys, ...keys]));
+        const next = stringifyStorageKeys(nextKeys);
 
         if (field === 'images') {
           return { ...prev, images: next };
@@ -368,8 +374,11 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
   );
 
   const handleSelectFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setSelectedFile(file);
+    const files = Array.from(event.target.files || []);
+
+    if (files.length) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
 
     event.target.value = '';
   }, []);
@@ -377,7 +386,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
   const handleUploadTypeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const nextType = event.target.value as UploadFileType;
     setUploadType(nextType);
-    setSelectedFile(null);
+    setSelectedFiles([]);
   }, []);
 
   const handleUploadFile = useCallback(async () => {
@@ -386,50 +395,58 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
       return;
     }
 
-    if (!selectedFile) {
-      toast.warning('Please choose a file first.');
+    if (!selectedFiles.length) {
+      toast.warning('Please choose file(s) first.');
       return;
     }
 
-    if (!isFileAllowedForUploadType(selectedFile, uploadType)) {
-      toast.error(`Selected file is not a valid ${uploadType} file.`);
+    const invalidTypeFiles = selectedFiles.filter((file) => !isFileAllowedForUploadType(file, uploadType));
+    if (invalidTypeFiles.length) {
+      toast.error(
+        `${invalidTypeFiles.length} selected file(s) are not valid ${uploadType} files.`,
+      );
       return;
     }
 
     const maxFileSize = MAX_UPLOAD_FILE_SIZE_BYTES[uploadType];
-    if (selectedFile.size > maxFileSize) {
+    const oversizedFiles = selectedFiles.filter((file) => file.size > maxFileSize);
+    if (oversizedFiles.length) {
       toast.error(`File size must be less than ${getMaxUploadSizeLabel(uploadType)} for ${uploadType}.`);
       return;
     }
 
-    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-    const fallbackExt = uploadType === 'image' ? 'jpg' : uploadType === 'video' ? 'mp4' : 'pdf';
-    const safeExt = ext || fallbackExt;
-    const key = `collection-items/${numericCollectionId}/${getUploadStorageFolder(uploadType)}/${uuidv4()}.${safeExt}`;
-
     try {
       setUploadingFile(true);
 
-      const result = await uploadFileToS3({ file: selectedFile, key });
-      const uploadedKey = result.key || key;
+      const fallbackExt = uploadType === 'image' ? 'jpg' : uploadType === 'video' ? 'mp4' : 'pdf';
+
+      const uploadedKeys = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const ext = file.name.split('.').pop()?.toLowerCase();
+          const safeExt = ext || fallbackExt;
+          const key = `collection-items/${numericCollectionId}/${getUploadStorageFolder(uploadType)}/${uuidv4()}.${safeExt}`;
+          const result = await uploadFileToS3({ file, key });
+          return result.key || key;
+        }),
+      );
 
       if (uploadType === 'image') {
-        appendUploadedStorageKey('images', uploadedKey);
+        appendUploadedStorageKeys('images', uploadedKeys);
       } else if (uploadType === 'video') {
-        appendUploadedStorageKey('videos', uploadedKey);
+        appendUploadedStorageKeys('videos', uploadedKeys);
       } else {
-        appendUploadedStorageKey('files', uploadedKey);
+        appendUploadedStorageKeys('files', uploadedKeys);
       }
 
-      setSelectedFile(null);
-      toast.success(`${uploadType.toUpperCase()} uploaded successfully.`);
+      setSelectedFiles([]);
+      toast.success(`${uploadedKeys.length} ${uploadType}(s) uploaded successfully.`);
     } catch (error) {
       console.error('Failed to upload file:', error);
       toast.error(getUploadErrorMessage(error, 'Failed to upload file.'));
     } finally {
       setUploadingFile(false);
     }
-  }, [appendUploadedStorageKey, numericCollectionId, selectedFile, uploadType]);
+  }, [appendUploadedStorageKeys, numericCollectionId, selectedFiles, uploadType]);
 
   const handleRemoveAttachment = useCallback((type: UploadFileType, keyToRemove: string) => {
     setForm((prev) => {
@@ -690,7 +707,9 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
           {collectionLoading ? '' : collection?.name ? <strong> {collection.name} </strong> : ''}
         </Alert>
 
-        <Card sx={{ p: 3 }}>
+        <>
+          <UploadingOverlay isOpen={uploadingFile} message="Uploading file(s)..." />
+          <Card sx={{ p: 3 }}>
           {isEditMode && collectionItemLoading ? (
             <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
               <CircularProgress />
@@ -770,10 +789,11 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
                   </TextField>
 
                   <Button component="label" variant="outlined" disabled={uploadingFile}>
-                    Choose File
+                    Choose File(s)
                     <input
                       hidden
                       type="file"
+                      multiple
                       accept={uploadAcceptMap[uploadType]}
                       onChange={handleSelectFile}
                     />
@@ -782,15 +802,18 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
                   <Button
                     variant="contained"
                     onClick={handleUploadFile}
-                    disabled={!selectedFile || uploadingFile}
+                    disabled={!selectedFiles.length || uploadingFile}
                   >
                     {uploadingFile ? 'Uploading...' : 'Upload'}
                   </Button>
                 </Box>
 
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {selectedFile
-                    ? `Selected: ${selectedFile.name} (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)`
+                  {selectedFiles.length
+                    ? `Selected ${selectedFiles.length} file(s): ${selectedFiles
+                        .slice(0, 3)
+                        .map((file) => file.name)
+                        .join(', ')}${selectedFiles.length > 3 ? ', ...' : ''}`
                     : `Accepted format: ${uploadAcceptMap[uploadType]} (max ${getMaxUploadSizeLabel(uploadType)})`}
                 </Typography>
               </Stack>
@@ -867,6 +890,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
             </Stack>
           )}
         </Card>
+        </>
       </Stack>
 
       <Lightbox

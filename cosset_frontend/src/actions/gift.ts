@@ -51,6 +51,10 @@ type GiftData = {
   gift: IGiftItem;
 };
 
+type ViewedGiftsData = {
+  viewedGiftIds?: number[];
+};
+
 export function useGetGift(giftId: string | number | '') {
   const url = giftId ? endpoints.gift.details(giftId) : null;
 
@@ -68,6 +72,47 @@ export function useGetGift(giftId: string | number | '') {
       giftValidating: isValidating,
     }),
     [data?.gift, error, isLoading, isValidating]
+  );
+
+  return memoizedValue;
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetViewedGiftIds(
+  ownerCustomerId?: string | number,
+  openness?: string,
+  category?: string,
+) {
+  let url = endpoints.gift.view;
+  const params: string[] = [];
+
+  if (ownerCustomerId !== undefined && ownerCustomerId !== null) {
+    params.push(`ownerCustomerId=${encodeURIComponent(String(ownerCustomerId))}`);
+  }
+
+  if (openness !== undefined && openness !== null) {
+    params.push(`openness=${encodeURIComponent(openness)}`);
+  }
+
+  if (category !== undefined && category !== null) {
+    params.push(`category=${encodeURIComponent(category)}`);
+  }
+
+  if (params.length) {
+    url += `?${params.join('&')}`;
+  }
+
+  const { data, isLoading, error, isValidating } = useSWR<ViewedGiftsData>(url, fetcher, swrOptions);
+
+  const memoizedValue = useMemo(
+    () => ({
+      viewedGiftIds: data?.viewedGiftIds || [],
+      viewedGiftIdsLoading: isLoading,
+      viewedGiftIdsError: error,
+      viewedGiftIdsValidating: isValidating,
+    }),
+    [data?.viewedGiftIds, error, isLoading, isValidating],
   );
 
   return memoizedValue;
@@ -175,4 +220,30 @@ export async function deleteGift(id: string | number, userId?: string | number) 
   }
 
   return res.data;
+}
+
+type GiftViewData = {
+  totalViews: number;
+  alreadyViewed: boolean;
+  viewedAt: string | null;
+};
+
+/**
+ * Record a gift view.
+ * The backend increments total_views only when this customer has not viewed it before.
+ */
+export async function recordGiftView(giftId: string | number): Promise<GiftViewData | undefined> {
+  try {
+    const res = await axios.post<GiftViewData>(endpoints.gift.view, {
+      giftId: Number(giftId),
+    });
+
+    mutate(endpoints.gift.details(giftId));
+    await mutate((key) => typeof key === 'string' && key.startsWith(endpoints.gift.list));
+    await mutate((key) => typeof key === 'string' && key.startsWith(endpoints.gift.view));
+
+    return res.data;
+  } catch {
+    return undefined;
+  }
 }

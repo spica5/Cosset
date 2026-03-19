@@ -2,6 +2,7 @@
 
 import type { IGiftItem } from 'src/types/gift';
 import type { Slide } from 'yet-another-react-lightbox';
+import type { ReactionType } from 'src/actions/reaction';
 
 import { useMemo, useState, useEffect } from 'react';
 
@@ -10,7 +11,10 @@ import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -22,8 +26,13 @@ import { fDate } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
+import { recordGiftView } from 'src/actions/gift';
+import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
+
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -32,10 +41,79 @@ type Props = {
   giftId: string;
 };
 
+const REACTION_OPTIONS: Array<{ type: ReactionType; label: string; emoji: string }> = [
+  { type: 'like', label: 'Like', emoji: '👍' },
+  { type: 'love', label: 'Love', emoji: '❤️' },
+  { type: 'haha', label: 'Haha', emoji: '🥰' },
+  { type: 'wow', label: 'Wow', emoji: '😆' },
+  { type: 'sad', label: 'Sad', emoji: '😢' },
+  { type: 'angry', label: 'Angry', emoji: '😡' },
+];
+
+const createEmptyReactionCounts = (): Record<ReactionType, number> => ({
+  like: 0,
+  love: 0,
+  haha: 0,
+  wow: 0,
+  sad: 0,
+  angry: 0,
+});
+
+const toReactionCounts = (counts?: Partial<Record<ReactionType, number>>) => {
+  const next = createEmptyReactionCounts();
+
+  if (!counts) {
+    return next;
+  }
+
+  REACTION_OPTIONS.forEach((option) => {
+    const raw = counts[option.type];
+    next[option.type] = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  });
+
+  return next;
+};
+
+const normalizeCounterValue = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  return 0;
+};
+
 export function UniverseGiftView({ customerId, giftId }: Props) {
+  const { user, authenticated } = useAuthContext();
   const [gift, setGift] = useState<IGiftItem | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
+  const [totalViews, setTotalViews] = useState(0);
+
+  const viewerId = authenticated && user?.id ? String(user.id) : undefined;
+
+  const { reactionSummary, reactionSummaryLoading, reactionSummaryValidating } = useGetReactionSummary(
+    'drawer',
+    gift?.id ?? '',
+    viewerId,
+  );
+
+  const [optimisticReaction, setOptimisticReaction] = useState<ReactionType | null>(
+    reactionSummary?.myReaction ?? null,
+  );
+  const [optimisticCounts, setOptimisticCounts] = useState<Record<ReactionType, number>>(
+    toReactionCounts(reactionSummary?.counts),
+  );
+
+  useEffect(() => {
+    setOptimisticReaction(reactionSummary?.myReaction ?? null);
+    setOptimisticCounts(toReactionCounts(reactionSummary?.counts));
+  }, [reactionSummary]);
 
   const slides: Slide[] = useMemo(
     () =>
@@ -101,11 +179,13 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
         if (!mounted) return;
 
         setGift(giftData);
+        setTotalViews(normalizeCounterValue(giftData.totalViews));
         setImageUrls(signedUrls.filter(Boolean));
       } catch (error) {
         console.error('Failed to load universe gift view data:', error);
         if (mounted) {
           setGift(null);
+          setTotalViews(0);
           setImageUrls([]);
         }
       } finally {
@@ -122,7 +202,79 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
     };
   }, [customerId, giftId]);
 
-  const customerViewHref = customerId ? paths.universe.view(customerId) : paths.home;
+  useEffect(() => {
+    let active = true;
+    const currentGiftId = gift?.id;
+
+    if (currentGiftId) {
+      const handleViewRecord = async () => {
+        const result = await recordGiftView(currentGiftId);
+
+        if (!active || !result) {
+          return;
+        }
+
+        setTotalViews(normalizeCounterValue(result.totalViews));
+      };
+
+      handleViewRecord();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [gift?.id]);
+
+  const handleReaction = async (reactionType: ReactionType) => {
+    if (!gift?.id || !authenticated || isSubmittingReaction) {
+      return;
+    }
+
+    const previousReaction = optimisticReaction;
+    const previousCounts = { ...optimisticCounts };
+    const nextReaction = previousReaction === reactionType ? null : reactionType;
+
+    setOptimisticReaction(nextReaction);
+    setOptimisticCounts((prev) => {
+      const next = { ...prev };
+
+      if (previousReaction) {
+        next[previousReaction] = Math.max(0, (next[previousReaction] ?? 0) - 1);
+      }
+
+      if (nextReaction) {
+        next[nextReaction] = Math.max(0, (next[nextReaction] ?? 0) + 1);
+      }
+
+      return next;
+    });
+
+    try {
+      setIsSubmittingReaction(true);
+
+      if (nextReaction === null) {
+        await unreactToDrawer(gift.id, viewerId);
+      } else {
+        await reactToDrawer(gift.id, nextReaction, viewerId);
+      }
+    } catch (error) {
+      console.error('Failed to update gift reaction', error);
+      setOptimisticReaction(previousReaction);
+      setOptimisticCounts(previousCounts);
+    } finally {
+      setIsSubmittingReaction(false);
+    }
+  };
+
+  const selectedReaction =
+    REACTION_OPTIONS.find((option) => option.type === optimisticReaction) ?? null;
+
+  const totalReactionCount = REACTION_OPTIONS.reduce(
+    (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
+    0,
+  );
+
+  const customerViewHref = customerId ? paths.universe.drawer.item(customerId, 'gift') : paths.home;
 
   if (loading) {
     return (
@@ -166,7 +318,7 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
             }}
           >
             <Iconify icon="solar:alt-arrow-left-outline" />
-            Back
+            Back To List
           </Link>
 
           <Stack spacing={1}>
@@ -179,6 +331,108 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
               {gift.receivedFrom ? ` • From ${gift.receivedFrom}` : ''}
               {gift.receivedDate ? ` • ${fDate(gift.receivedDate)}` : ''}
             </Typography>
+          </Stack>
+
+          <Stack spacing={1} sx={{ maxWidth: 460 }}>
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.65,
+                width: 'fit-content',
+                px: 1,
+                py: 0.75,
+                borderRadius: 999,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                boxShadow: (theme) => theme.shadows[3],
+              }}
+            >
+              {REACTION_OPTIONS.map((option) => {
+                const active = optimisticReaction === option.type;
+
+                return (
+                  <Tooltip key={option.type} title={option.label}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleReaction(option.type)}
+                        disabled={!authenticated || isSubmittingReaction}
+                        sx={{
+                          width: 38,
+                          height: 38,
+                          fontSize: 22,
+                          p: 0,
+                          border: active ? '1px solid' : '1px solid transparent',
+                          borderColor: active ? 'primary.main' : 'transparent',
+                          transform: active ? 'translateY(-1px)' : 'none',
+                        }}
+                      >
+                        <Box component="span" sx={{ lineHeight: 1 }}>
+                          {option.emoji}
+                        </Box>
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+
+            <Button
+              variant="outlined"
+              disabled={!authenticated || isSubmittingReaction}
+              onClick={() => handleReaction('like')}
+              startIcon={
+                <Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>
+                  {selectedReaction?.emoji || '👍'}
+                </Box>
+              }
+              sx={{
+                justifyContent: 'center',
+                textTransform: 'none',
+                bgcolor: 'action.hover',
+                borderColor: 'transparent',
+                color: selectedReaction ? 'text.primary' : 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'action.selected',
+                  borderColor: 'transparent',
+                },
+              }}
+            >
+              {selectedReaction?.label || 'Like'}
+            </Button>
+
+            <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="center">
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Iconify icon="eva:eye-fill" width={16} sx={{ color: 'info.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {totalViews} view{totalViews === 1 ? '' : 's'}
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Iconify icon="eva:heart-fill" width={16} sx={{ color: 'error.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {totalReactionCount} reaction{totalReactionCount === 1 ? '' : 's'}
+                </Typography>
+              </Stack>
+            </Stack>
+
+            {!authenticated ? (
+              <Typography variant="caption" color="text.secondary">
+                Sign in to react.{' '}
+                <Link component={RouterLink} href={paths.auth.signIn} underline="hover">
+                  Sign in
+                </Link>
+              </Typography>
+            ) : null}
+
+            {reactionSummaryLoading || reactionSummaryValidating ? (
+              <Typography variant="caption" color="text.secondary">
+                Refreshing reactions...
+              </Typography>
+            ) : null}
           </Stack>
 
           {imageUrls.length === 0 ? (
@@ -196,20 +450,22 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
                       '&:hover img': { transform: 'scale(1.04)' },
                     }}
                   >
-                    <Box
-                      component="img"
-                      src={url}
-                      alt={`${gift.title}-${index + 1}`}
-                      sx={{
-                        width: 1,
-                        aspectRatio: '1/1',
-                        objectFit: 'cover',
-                        transition: (theme) =>
-                          theme.transitions.create('transform', {
-                            duration: theme.transitions.duration.shorter,
-                          }),
-                      }}
-                    />
+                    <Box sx={{ position: 'relative' }}>
+                      <Box
+                        component="img"
+                        src={url}
+                        alt={`${gift.title}-${index + 1}`}
+                        sx={{
+                          width: 1,
+                          aspectRatio: '1/1',
+                          objectFit: 'cover',
+                          transition: (theme) =>
+                            theme.transitions.create('transform', {
+                              duration: theme.transitions.duration.shorter,
+                            }),
+                        }}
+                      />
+                    </Box>
                     <CardContent sx={{ py: 1.25 }}>
                       <Typography variant="subtitle2" noWrap>
                         {gift.title}

@@ -7,12 +7,29 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 /**
  * Table name for gifts 
  */
 const TABLE_NAME = 'gifts';
+
+let ensureGiftViewsColumnPromise: Promise<void> | null = null;
+
+const ensureGiftViewsColumn = async (): Promise<void> => {
+  if (!ensureGiftViewsColumnPromise) {
+    ensureGiftViewsColumnPromise = executeQuery(
+      `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views BIGINT NOT NULL DEFAULT 0`,
+    )
+      .then(() => undefined)
+      .catch((error) => {
+        ensureGiftViewsColumnPromise = null;
+        throw error;
+      });
+  }
+
+  await ensureGiftViewsColumnPromise;
+};
 
 /**
  * Gift record from the database
@@ -35,12 +52,90 @@ export interface Gift {
   /** Received date */
   receivedDate?: Date | null;
   /** Openness */
-  openness?: string | null;
+  openness?: string | number | boolean | null;
+  /** Total views */
+  totalViews?: number | null;
   /** Creation timestamp */
   createdAt?: Date | null;
   /** Update timestamp */
   updatedAt?: Date | null;
 }
+
+const normalizeGiftTotalViews = (value: unknown): number => {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === 'bigint') {
+    if (value <= BigInt(0)) {
+      return 0;
+    }
+
+    const capped = value > BigInt(Number.MAX_SAFE_INTEGER) ? BigInt(Number.MAX_SAFE_INTEGER) : value;
+    return Number(capped);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 0;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(parsed));
+  }
+
+  return 0;
+};
+
+const normalizeGiftRecord = (gift: Gift): Gift => ({
+  ...gift,
+  totalViews: normalizeGiftTotalViews(gift.totalViews),
+});
+
+const normalizeGiftOpenness = (value: unknown): 0 | 1 | null => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return value === 1 ? 1 : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (normalized === 'public' || normalized === '1' || normalized === 'true') {
+      return 1;
+    }
+
+    if (normalized === 'private' || normalized === '0' || normalized === 'false') {
+      return 0;
+    }
+  }
+
+  return 0;
+};
 
 /**
  * Get gift by ID
@@ -51,6 +146,8 @@ export interface Gift {
  */
 export async function getGiftById(id: number): Promise<Gift | null> {
   try {
+    await ensureGiftViewsColumn();
+
     const gift = await queryOne<Gift>(
       `
         SELECT
@@ -63,6 +160,7 @@ export async function getGiftById(id: number): Promise<Gift | null> {
           category,
           images,
           openness,
+          total_views as "totalViews",
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
@@ -71,7 +169,7 @@ export async function getGiftById(id: number): Promise<Gift | null> {
       [id],
     );
 
-    return gift;
+    return gift ? normalizeGiftRecord(gift) : null;
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -99,6 +197,8 @@ export async function getAllGifts(
   offset: number = 0,
 ): Promise<Gift[]> {
   try {
+    await ensureGiftViewsColumn();
+
     let query = `
       SELECT
         id,
@@ -110,6 +210,7 @@ export async function getAllGifts(
         category,
         images,
         openness,
+        total_views as "totalViews",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM ${TABLE_NAME}
@@ -128,7 +229,7 @@ export async function getAllGifts(
 
     const gifts = await queryMany<Gift>(query, params);
 
-    return gifts;
+    return gifts.map(normalizeGiftRecord);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -152,6 +253,8 @@ export async function createGift(
   gift: Omit<Gift, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<Gift> {
   try {
+    await ensureGiftViewsColumn();
+
     const createdGift = await queryOne<Gift>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -163,10 +266,11 @@ export async function createGift(
           received_date,
           images,
           openness,
+          total_views,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW(), NOW())
         RETURNING
           id,
           user_id as "userId",
@@ -177,6 +281,7 @@ export async function createGift(
           received_date as "receivedDate",
           images,
           openness,
+          total_views as "totalViews",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -188,7 +293,7 @@ export async function createGift(
         gift.receivedFrom || null,
         gift.receivedDate || null,
         gift.images || null,
-        gift.openness || null,
+        normalizeGiftOpenness(gift.openness),
       ],
     );
 
@@ -199,7 +304,7 @@ export async function createGift(
       });
     }
 
-    return createdGift;
+    return normalizeGiftRecord(createdGift);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -225,6 +330,8 @@ export async function updateGift(
   gift: Partial<Omit<Gift, 'id' | 'createdAt' | 'updatedAt'>>,
 ): Promise<Gift> {
   try {
+    await ensureGiftViewsColumn();
+
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -261,7 +368,7 @@ export async function updateGift(
     }
     if (gift.openness !== undefined) {
       fields.push(`openness = $${paramIndex}`);
-      values.push(gift.openness);
+      values.push(normalizeGiftOpenness(gift.openness));
       paramIndex += 1;
     }
 
@@ -295,6 +402,7 @@ export async function updateGift(
           received_date as "receivedDate",
           images,
           openness,
+          total_views as "totalViews",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -308,7 +416,7 @@ export async function updateGift(
       });
     }
 
-    return updatedGift;
+    return normalizeGiftRecord(updatedGift);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -334,6 +442,8 @@ export async function getGiftCount(
   category?: string
 ): Promise<number> {
   try {
+    await ensureGiftViewsColumn();
+
     let query = `SELECT COUNT(*)::int AS count FROM ${TABLE_NAME}`;
     const params: unknown[] = [];
     const conditions: string[] = [];
@@ -383,8 +493,80 @@ export async function getGiftCount(
   }
 }
 
+export async function getGiftIdsByFilters(
+  userId: string,
+  openness?: string,
+  category?: string,
+): Promise<number[]> {
+  try {
+    await ensureGiftViewsColumn();
+
+    let query = `SELECT id FROM ${TABLE_NAME} WHERE user_id = $1`;
+    const params: unknown[] = [userId];
+    const conditions: string[] = [];
+
+    if (openness !== undefined) {
+      const opennessText = String(openness).toLowerCase();
+
+      if (opennessText === 'public') {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) IN ('public', '1', 'true')`);
+      } else if (opennessText === 'private') {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) IN ('private', '0', 'false')`);
+      } else {
+        conditions.push(`LOWER(COALESCE(openness::text, '')) = LOWER($${params.length + 1})`);
+        params.push(openness);
+      }
+    }
+
+    if (category !== undefined) {
+      const categoryText = String(category).toLowerCase();
+
+      if (categoryText === 'gift') {
+        conditions.push(
+          `(category IS NULL OR BTRIM(category::text) = '' OR LOWER(category::text) IN ('gift', 'gifts'))`,
+        );
+      } else {
+        conditions.push(`LOWER(COALESCE(category::text, '')) = LOWER($${params.length + 1})`);
+        params.push(category);
+      }
+    }
+
+    if (conditions.length) {
+      query += ` AND ${conditions.join(' AND ')}`;
+    }
+
+    const rows = await queryMany<{ id: number | string }>(query, params);
+
+    return rows
+      .map((row) => {
+        if (typeof row.id === 'number' && Number.isFinite(row.id)) {
+          return Math.trunc(row.id);
+        }
+
+        if (typeof row.id === 'string' && row.id.trim() !== '') {
+          const parsed = Number.parseInt(row.id, 10);
+          return Number.isNaN(parsed) ? 0 : parsed;
+        }
+
+        return 0;
+      })
+      .filter((id) => id > 0);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_GIFT_IDS_BY_FILTERS_ERROR',
+        message: `Failed to fetch gift ids by filters: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function deleteGift(id: number): Promise<boolean> {
   try {
+    await ensureGiftViewsColumn();
+
     const result = await queryOne<{ id: number }>(
       `
         DELETE FROM ${TABLE_NAME}
@@ -403,6 +585,44 @@ export async function deleteGift(id: number): Promise<boolean> {
         detail: error.detail,
       });
     }
+    throw error;
+  }
+}
+
+/**
+ * Atomically increment total_views for a gift and return updated totalViews.
+ */
+export async function incrementGiftViews(id: number): Promise<number> {
+  try {
+    await ensureGiftViewsColumn();
+
+    const updated = await queryOne<{ totalViews: number | string | null }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING total_views as "totalViews"
+      `,
+      [id],
+    );
+
+    if (!updated) {
+      throw new DatabaseError({
+        code: 'GIFT_NOT_FOUND',
+        message: `Gift with id ${id} not found`,
+      });
+    }
+
+    return normalizeGiftTotalViews(updated.totalViews);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_GIFT_VIEWS_ERROR',
+        message: `Failed to increment gift views: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
     throw error;
   }
 }

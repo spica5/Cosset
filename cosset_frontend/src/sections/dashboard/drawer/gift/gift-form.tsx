@@ -10,10 +10,12 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import { Divider } from '@mui/material';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import LoadingButton from '@mui/lab/LoadingButton';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -27,6 +29,7 @@ import { createGift, updateGift } from 'src/actions/gift';
 import { Upload } from 'src/components/dashboard/upload';
 import { toast } from 'src/components/dashboard/snackbar';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -35,6 +38,27 @@ import { useAuthContext } from 'src/auth/hooks';
 type Props = {
   currentGift?: IGiftItem;
   onClose?: () => void;
+};
+
+type GiftOpennessValue = 'Public' | 'Private';
+
+const normalizeGiftOpenness = (value: unknown): GiftOpennessValue => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'public' || normalized === '1' || normalized === 'true') {
+      return 'Public';
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value === 1 ? 'Public' : 'Private';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Public' : 'Private';
+  }
+
+  return 'Private';
 };
 
 const formatDateForInput = (date: Date | string | number | null | undefined): string => {
@@ -58,8 +82,11 @@ export function GiftForm({ currentGift, onClose }: Props) {
       receivedFrom: '',
       receivedDate: undefined,
       images: undefined,
+      openness: 'Private',
     },
   });
+
+  const [openness, setOpenness] = useState<GiftOpennessValue>('Private');
 
   useEffect(() => {
     if (currentGift) {
@@ -71,7 +98,11 @@ export function GiftForm({ currentGift, onClose }: Props) {
         receivedFrom: currentGift.receivedFrom || '',
         receivedDate: formatDateForInput(currentGift.receivedDate) as any,
         images: currentGift.images || undefined,
+        openness: normalizeGiftOpenness(currentGift.openness),
       });
+      setOpenness(normalizeGiftOpenness(currentGift.openness));
+    } else {
+      setOpenness('Private');
     }
   }, [currentGift, reset, user]);
 
@@ -204,6 +235,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
         const payload: IGiftItem = {
           ...data,
           userId: data.userId || currentGift?.userId || user?.id || '',
+          openness,
         };
 
         if (currentGift?.id) {
@@ -219,7 +251,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
         toast.error('Failed to save gift.');
       }
     },
-    [currentGift, user]
+    [currentGift, openness, user]
   );
 
   const handleCancel = useCallback(() => {
@@ -227,8 +259,10 @@ export function GiftForm({ currentGift, onClose }: Props) {
   }, [onClose]);
 
   return (
-    <Card>
-      <Stack spacing={3} sx={{ p: 3 }}>
+    <>
+      <UploadingOverlay isOpen={isUploading} message="Uploading images..." />
+      <Card>
+        <Stack spacing={3} sx={{ p: 3 }}>
         <TextField
           fullWidth
           label="Title"
@@ -268,6 +302,24 @@ export function GiftForm({ currentGift, onClose }: Props) {
           helperText={errors.description?.message}
         />
 
+        <Stack spacing={0.5}>
+          <FormControlLabel
+            label="Public"
+            control={
+              <Switch
+                checked={openness === 'Public'}
+                onChange={(event) => setOpenness(event.target.checked ? 'Public' : 'Private')}
+                inputProps={{ 'aria-label': 'gift-openness-switch' }}
+              />
+            }
+          />
+          <Box sx={{ color: 'text.secondary', typography: 'caption' }}>
+            {openness === 'Public'
+              ? 'Visible in public drawer pages.'
+              : 'Private: hidden from public drawer pages.'}
+          </Box>
+        </Stack>
+
         {/* <TextField
           fullWidth
           label="Category"
@@ -306,7 +358,7 @@ export function GiftForm({ currentGift, onClose }: Props) {
                 )}
             </Box>
             <Box sx={{ width: '30%' }}>
-                Upload images (max 3MB each):
+                Upload images (max 5MB each):
                 <Box sx={{ position: 'relative' }}>
                   {isUploading && (
                     <Box
@@ -366,5 +418,6 @@ export function GiftForm({ currentGift, onClose }: Props) {
         </Box>
       </Stack>
     </Card>
-  );
+  </>
+  );  
 }

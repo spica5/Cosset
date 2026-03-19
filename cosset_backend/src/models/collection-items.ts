@@ -6,9 +6,26 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'collection_items';
+
+let ensureCollectionItemViewsColumnPromise: Promise<void> | null = null;
+
+const ensureCollectionItemViewsColumn = async (): Promise<void> => {
+  if (!ensureCollectionItemViewsColumnPromise) {
+    ensureCollectionItemViewsColumnPromise = executeQuery(
+      `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views BIGINT NOT NULL DEFAULT 0`,
+    )
+      .then(() => undefined)
+      .catch((error) => {
+        ensureCollectionItemViewsColumnPromise = null;
+        throw error;
+      });
+  }
+
+  await ensureCollectionItemViewsColumnPromise;
+};
 
 export interface CollectionItem {
   id: number;
@@ -22,8 +39,53 @@ export interface CollectionItem {
   images?: string | null;
   videos?: string | null;
   files?: string | null;
+  totalViews?: number | null;
   updatedAt?: Date | null;
 }
+
+const normalizeTotalViews = (value: unknown): number => {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === 'bigint') {
+    if (value <= BigInt(0)) {
+      return 0;
+    }
+
+    const capped = value > BigInt(Number.MAX_SAFE_INTEGER) ? BigInt(Number.MAX_SAFE_INTEGER) : value;
+    return Number(capped);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 0;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(parsed));
+  }
+
+  return 0;
+};
+
+const normalizeCollectionItemRecord = (item: CollectionItem): CollectionItem => ({
+  ...item,
+  totalViews: normalizeTotalViews(item.totalViews),
+});
 
 const normalizeNullableInteger = (value: unknown): number | null => {
   if (value === undefined || value === null || value === '') {
@@ -78,6 +140,8 @@ export async function getCollectionItems(
   offset: number = 0,
 ): Promise<CollectionItem[]> {
   try {
+    await ensureCollectionItemViewsColumn();
+
     let query = `
       SELECT
         id,
@@ -91,6 +155,7 @@ export async function getCollectionItems(
         images,
         videos,
         files,
+        total_views as "totalViews",
         updated_at as "updatedAt"
       FROM ${TABLE_NAME}
       WHERE collection_id = $1
@@ -107,7 +172,8 @@ export async function getCollectionItems(
       params.push(limit, offset);
     }
 
-    return await queryMany<CollectionItem>(query, params);
+    const items = await queryMany<CollectionItem>(query, params);
+    return items.map(normalizeCollectionItemRecord);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -122,7 +188,9 @@ export async function getCollectionItems(
 
 export async function getCollectionItemById(id: number): Promise<CollectionItem | null> {
   try {
-    return await queryOne<CollectionItem>(
+    await ensureCollectionItemViewsColumn();
+
+    const item = await queryOne<CollectionItem>(
       `
         SELECT
           id,
@@ -136,12 +204,15 @@ export async function getCollectionItemById(id: number): Promise<CollectionItem 
           images,
           videos,
           files,
+          total_views as "totalViews",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
         WHERE id = $1
       `,
       [id],
     );
+
+    return item ? normalizeCollectionItemRecord(item) : null;
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -158,6 +229,8 @@ export async function createCollectionItem(
   item: Omit<CollectionItem, 'id' | 'updatedAt'>,
 ): Promise<CollectionItem> {
   try {
+    await ensureCollectionItemViewsColumn();
+
     const created = await queryOne<CollectionItem>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -186,6 +259,7 @@ export async function createCollectionItem(
           images,
           videos,
           files,
+          total_views as "totalViews",
           updated_at as "updatedAt"
       `,
       [
@@ -209,7 +283,7 @@ export async function createCollectionItem(
       });
     }
 
-    return created;
+    return normalizeCollectionItemRecord(created);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -227,6 +301,8 @@ export async function updateCollectionItem(
   updates: Partial<Omit<CollectionItem, 'id' | 'updatedAt'>>,
 ): Promise<CollectionItem> {
   try {
+    await ensureCollectionItemViewsColumn();
+
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -299,7 +375,7 @@ export async function updateCollectionItem(
           message: `Collection item with id ${id} not found`,
         });
       }
-      return existing;
+      return normalizeCollectionItemRecord(existing);
     }
 
     fields.push('updated_at = NOW()');
@@ -322,6 +398,7 @@ export async function updateCollectionItem(
           images,
           videos,
           files,
+          total_views as "totalViews",
           updated_at as "updatedAt"
       `,
       values,
@@ -334,7 +411,7 @@ export async function updateCollectionItem(
       });
     }
 
-    return updated;
+    return normalizeCollectionItemRecord(updated);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -364,6 +441,36 @@ export async function deleteCollectionItem(id: number): Promise<boolean> {
       throw new DatabaseError({
         code: 'DELETE_COLLECTION_ITEM_ERROR',
         message: `Failed to delete collection item: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Atomically increment total_views for a collection item and return updated totalViews.
+ */
+export async function incrementCollectionItemViews(id: number): Promise<number> {
+  try {
+    await ensureCollectionItemViewsColumn();
+
+    const result = await queryOne<{ totalViews: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING total_views as "totalViews"
+      `,
+      [id],
+    );
+
+    return normalizeTotalViews(result?.totalViews);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_COLLECTION_ITEM_VIEWS_ERROR',
+        message: `Failed to increment collection item views: ${error.message}`,
         detail: error.detail,
       });
     }

@@ -12,6 +12,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import UmbrellaIcon from '@mui/icons-material/Umbrella';
 
@@ -33,7 +34,8 @@ type DrawerShareFormProps = {
 };
 
 const CATEGORY_OPTIONS = [
-  { label: 'Gifts and Souvenir', key: 'gift' },
+  { label: 'Gifts and Souvenirs', key: 'gift' },
+  { label: 'Letters', key: 'letter' },
   { label: 'Good Memories', key: 'goodMemo' },
   { label: 'Sad Memories', key: 'sadMemo' },
 ] as const;
@@ -46,6 +48,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   const router = useRouter();
 
   const giftCountData = useGiftCount(user?.id, '1');
+  const letterCountData = useGiftCount(user?.id, '1', 'letter');
   const goodMemoCountData = useGiftCount(user?.id, '1', 'goodMemo');
   const sadMemoCountData = useGiftCount(user?.id, '1', 'sadMemo');
 
@@ -53,6 +56,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
 
   const [categorySwitches, setCategorySwitches] = useState<Record<CategoryKey, boolean>>({
     gift: false,
+    letter: false,
     goodMemo: false,
     sadMemo: false,
   });
@@ -65,6 +69,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
         const drawerSettings = JSON.parse(guestarea.drawer);
         setCategorySwitches({
           gift: drawerSettings.gift || false,
+          letter: drawerSettings.letter || false,
           goodMemo: drawerSettings.goodMemo || false,
           sadMemo: drawerSettings.sadMemo || false,
         });
@@ -125,11 +130,13 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
 
   const totalCount =
     giftCountData.count +
+    letterCountData.count +
     goodMemoCountData.count +
     sadMemoCountData.count;
 
   const anyCountLoading =
     giftCountData.loading ||
+    letterCountData.loading ||
     goodMemoCountData.loading ||
     sadMemoCountData.loading;
 
@@ -148,6 +155,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
             {CATEGORY_OPTIONS.map(({ label, key }) => {
               const countsMap: Record<CategoryKey, number> = {
                 gift: giftCountData.count,
+                letter: letterCountData.count,
                 goodMemo: goodMemoCountData.count,
                 sadMemo: sadMemoCountData.count,
               };
@@ -159,6 +167,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar sx={{ bgcolor: 'transparent', width: 32, height: 32, color: 'primary.main' }}>
                           {key === 'gift' && <CardGiftcardIcon fontSize="medium" />}
+                          {key === 'letter' && <MailOutlineIcon fontSize="medium" />}
                           {key === 'goodMemo' && <WbSunnyIcon fontSize="medium" />}
                           {key === 'sadMemo' && < UmbrellaIcon fontSize="medium" />}
                         </Avatar>

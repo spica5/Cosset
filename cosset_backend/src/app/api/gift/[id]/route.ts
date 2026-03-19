@@ -11,6 +11,29 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
+const normalizeGiftOpenness = (value: unknown): 0 | 1 => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'public' || normalized === '1' || normalized === 'true') {
+      return 1;
+    }
+
+    if (normalized === 'private' || normalized === '0' || normalized === 'false') {
+      return 0;
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value === 1 ? 1 : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  return 0;
+};
+
 /**
  * Get gift by ID
  */
@@ -51,6 +74,8 @@ export async function PUT(
       return response({ message: 'Updates data is required' }, STATUS.BAD_REQUEST);
     }
 
+    const hasOpenness = Object.prototype.hasOwnProperty.call(updates, 'openness');
+
     const updatedGift = await updateGift(giftId, {
       title: updates.title,
       description: updates.description ?? null,
@@ -58,7 +83,7 @@ export async function PUT(
       receivedDate: updates.receivedDate ?? null,
       category: updates.category ?? null,
       images: updates.images ?? null,
-      openness: updates.openness ?? null,
+      openness: hasOpenness ? normalizeGiftOpenness(updates.openness) : undefined,
     });
 
     return response({ gift: updatedGift }, STATUS.OK);

@@ -155,7 +155,7 @@ export function PostCreateEditView({ postId }: Props) {
   } = useForm<PostFormValues>({ defaultValues });
 
   const [uploadType, setUploadType] = useState<UploadFileType>('image');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
 
   const currentUserId = String(user?.id || '');
@@ -186,24 +186,29 @@ export function PostCreateEditView({ postId }: Props) {
   const handleUploadTypeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const nextType = event.target.value as UploadFileType;
     setUploadType(nextType);
-    setSelectedFile(null);
+    setSelectedFiles([]);
   }, []);
 
   const handleSelectFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setSelectedFile(file);
+    const files = Array.from(event.target.files || []);
+
+    if (files.length) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
 
     event.target.value = '';
   }, []);
 
-  const appendUploadedStorageKey = useCallback(
-    (key: string) => {
-      const currentKeys = parseStorageKeys(getValues('files'));
-      if (currentKeys.includes(key)) {
+  const appendUploadedStorageKeys = useCallback(
+    (keys: string[]) => {
+      if (!keys.length) {
         return;
       }
 
-      setValue('files', stringifyStorageKeys([...currentKeys, key]), { shouldDirty: true });
+      const currentKeys = parseStorageKeys(getValues('files'));
+      const nextKeys = Array.from(new Set([...currentKeys, ...keys]));
+
+      setValue('files', stringifyStorageKeys(nextKeys), { shouldDirty: true });
     },
     [getValues, setValue],
   );
@@ -214,47 +219,54 @@ export function PostCreateEditView({ postId }: Props) {
       return;
     }
 
-    if (!selectedFile) {
-      toast.warning('Please choose a file first.');
+    if (!selectedFiles.length) {
+      toast.warning('Please choose file(s) first.');
       return;
     }
 
-    if (!isFileAllowedForUploadType(selectedFile, uploadType)) {
-      toast.error(`Selected file is not a valid ${uploadType} file.`);
+    const invalidTypeFiles = selectedFiles.filter((file) => !isFileAllowedForUploadType(file, uploadType));
+    if (invalidTypeFiles.length) {
+      toast.error(`${invalidTypeFiles.length} selected file(s) are not valid ${uploadType} files.`);
       return;
     }
-
-    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-    const fallbackExt = uploadType === 'image' ? 'jpg' : uploadType === 'video' ? 'mp4' : 'pdf';
-    const safeExt = ext || fallbackExt;
-    const ownerSegment = String(post?.customerId || user?.id || 'guest');
-    const postSegment = isEditMode ? String(postId) : 'draft';
-    const key = `community-posts/${ownerSegment}/${postSegment}/${getUploadStorageFolder(uploadType)}/${uuidv4()}.${safeExt}`;
 
     try {
       setUploadingFile(true);
 
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', selectedFile);
-      uploadFormData.append('key', key);
+      const fallbackExt = uploadType === 'image' ? 'jpg' : uploadType === 'video' ? 'mp4' : 'pdf';
+      const ownerSegment = String(post?.customerId || user?.id || 'guest');
+      const postSegment = isEditMode ? String(postId) : 'draft';
 
-      const uploadRes = await axiosInstance.post(endpoints.upload.image, uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const uploadedKeys = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const ext = file.name.split('.').pop()?.toLowerCase();
+          const safeExt = ext || fallbackExt;
+          const key = `community-posts/${ownerSegment}/${postSegment}/${getUploadStorageFolder(uploadType)}/${uuidv4()}.${safeExt}`;
 
-      const result = uploadRes.data as { key?: string; url?: string };
-      const uploadedKey = result.key || key;
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', file);
+          uploadFormData.append('key', key);
 
-      appendUploadedStorageKey(uploadedKey);
-      setSelectedFile(null);
-      toast.success(`${uploadType.toUpperCase()} uploaded successfully.`);
+          const uploadRes = await axiosInstance.post(endpoints.upload.image, uploadFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+
+          const result = uploadRes.data as { key?: string; url?: string };
+
+          return result.key || key;
+        }),
+      );
+
+      appendUploadedStorageKeys(uploadedKeys);
+      setSelectedFiles([]);
+      toast.success(`${uploadedKeys.length} ${uploadType}(s) uploaded successfully.`);
     } catch (error) {
       console.error('Failed to upload file:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to upload file.');
     } finally {
       setUploadingFile(false);
     }
-  }, [appendUploadedStorageKey, isEditMode, isReadOnly, post?.customerId, postId, selectedFile, uploadType, user?.id]);
+  }, [appendUploadedStorageKeys, isEditMode, isReadOnly, post?.customerId, postId, selectedFiles, uploadType, user?.id]);
 
   const handleRemoveAttachment = useCallback(
     (keyToRemove: string) => {
@@ -461,10 +473,11 @@ export function PostCreateEditView({ postId }: Props) {
               </TextField>
 
               <Button component="label" variant="outlined" disabled={isReadOnly || uploadingFile}>
-                Choose File
+                Choose File(s)
                 <input
                   hidden
                   type="file"
+                  multiple
                   accept={uploadAcceptMap[uploadType]}
                   onChange={handleSelectFile}
                 />
@@ -473,15 +486,18 @@ export function PostCreateEditView({ postId }: Props) {
               <Button
                 variant="contained"
                 onClick={handleUploadFile}
-                disabled={isReadOnly || !selectedFile || uploadingFile}
+                disabled={isReadOnly || !selectedFiles.length || uploadingFile}
               >
                 {uploadingFile ? 'Uploading...' : 'Upload'}
               </Button>
             </Box>
 
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {selectedFile
-                ? `Selected: ${selectedFile.name}`
+              {selectedFiles.length
+                ? `Selected ${selectedFiles.length} file(s): ${selectedFiles
+                    .slice(0, 3)
+                    .map((file) => file.name)
+                    .join(', ')}${selectedFiles.length > 3 ? ', ...' : ''}`
                 : `Accepted format: ${uploadAcceptMap[uploadType]}`}
             </Typography>
           </Stack>

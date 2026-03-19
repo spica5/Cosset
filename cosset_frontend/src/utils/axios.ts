@@ -84,6 +84,7 @@ export const endpoints = {
     update: (id: string | number) => `/api/gift/${id}`,
     delete: (id: string | number) => `/api/gift/${id}`,
     details: (id: string | number) => `/api/gift/${id}`,
+    view: '/api/gift/view',
   },
   collection: {
     list: '/api/collection/list',
@@ -98,6 +99,7 @@ export const endpoints = {
     update: (id: string | number) => `/api/collection-item/${id}`,
     delete: (id: string | number) => `/api/collection-item/${id}`,
     details: (id: string | number) => `/api/collection-item/${id}`,
+    view: '/api/collection-item/view',
   },
   reaction: {
     root: '/api/reaction',

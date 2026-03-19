@@ -14,6 +14,7 @@ export type IGiftItem = {
   receivedFrom: string;
   images: string;
   openness: IGiftOpenness;
+  totalViews?: number | null;
   createdAt?: IDateValue;
   updatedAt?: IDateValue;
 };

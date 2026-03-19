@@ -12,5 +12,6 @@ export type ICollectionDrawerItem = {
   images?: string | null;
   videos?: string | null;
   files?: string | null;
+  totalViews?: number | null;
   updatedAt?: IDateValue;
 };

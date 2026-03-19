@@ -30,6 +30,7 @@ import {
   unreactToAlbumForLoggedInCustomer,
   useGetReactionSummary,
 } from 'src/actions/reaction';
+import { recordActivityNotification } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -161,7 +162,9 @@ export function UniverseAlbumView({ albumId }: Props) {
 
   const lightbox = useLightBox(slides);
 
-  const customerViewHref = album?.userId ? paths.universe.view(String(album.userId)) : paths.home;
+  const customerViewHref = album?.userId
+    ? `${paths.universe.view(String(album.userId))}#albums-section`
+    : paths.home;
 
   useEffect(() => {
     let mounted = true;
@@ -261,6 +264,27 @@ export function UniverseAlbumView({ albumId }: Props) {
     };
   }, [album?.id]);
 
+  // Notify album owner when a visitor views the album.
+  useEffect(() => {
+    if (loading || !album?.userId) return;
+    const ownerId = String(album.userId);
+    const visitorId = user?.id ? String(user.id) : null;
+    const visitorName =
+      user?.displayName ||
+      `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+      user?.email ||
+      'A visitor';
+    const visitorAvatar = user?.photoURL || null;
+    recordActivityNotification({
+      ownerId,
+      visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+      title: `<p><strong>${visitorName}</strong> viewed your album <strong>${album.title || `#${albumId}`}</strong></p>`,
+      content: `${visitorName} viewed your album "${album.title || `#${albumId}`}"`,
+      sessionKey: `activity:album_view:${albumId}:${visitorId ?? 'anon'}`,
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [album?.id, loading]);
+
   const handleReaction = async (reactionType: ReactionType) => {
     if (!authenticated || isSubmittingReaction) {
       return;
@@ -292,6 +316,24 @@ export function UniverseAlbumView({ albumId }: Props) {
         await unreactToAlbumForLoggedInCustomer(albumId);
       } else {
         await reactToAlbumForLoggedInCustomer(albumId, nextReaction);
+
+        if (album?.userId) {
+          const ownerId = String(album.userId);
+          const visitorId = user?.id ? String(user.id) : null;
+          const visitorName =
+            user?.displayName ||
+            `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+            user?.email ||
+            'A visitor';
+          const visitorAvatar = user?.photoURL || null;
+          recordActivityNotification({
+            ownerId,
+            visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+            title: `<p><strong>${visitorName}</strong> reacted <strong>${nextReaction}</strong> to your album <strong>${album.title || `#${albumId}`}</strong></p>`,
+            content: `${visitorName} reacted "${nextReaction}" to your album "${album.title || `#${albumId}`}"`,
+            sessionKey: `activity:react:album:${albumId}:${nextReaction}:${visitorId ?? 'anon'}`,
+          }).catch(console.error);
+        }
       }
     } catch (error) {
       console.error('Failed to update album reaction', error);

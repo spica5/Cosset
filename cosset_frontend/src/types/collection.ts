@@ -8,6 +8,7 @@ export type ICollectionItem = {
   category?: number | null;
   reference?: string | null;
   order?: number | null;
+  totalViews?: number | null;
   createdAt?: IDateValue;
   updatedAt?: IDateValue;
 };

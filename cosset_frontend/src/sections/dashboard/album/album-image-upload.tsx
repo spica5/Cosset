@@ -14,6 +14,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import axios, { endpoints } from 'src/utils/axios';
 
 import { Iconify } from 'src/components/dashboard/iconify';
+import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
 // ----------------------------------------------------------------------
 
@@ -100,8 +101,10 @@ export function AlbumImageUpload({ albumId, onUploadSuccess }: Props) {
   }, []);
 
   return (
-    <Card sx={{ p: 3, overflow: 'auto' }}>
-      <Stack spacing={3}>
+    <>
+      <UploadingOverlay isOpen={uploading} progress={uploadProgress} message="Uploading images..." />
+      <Card sx={{ p: 3, overflow: 'auto' }}>
+        <Stack spacing={3}>
         <Typography variant="h6">Upload Images</Typography>
 
         {/* <Box>
@@ -240,5 +243,6 @@ export function AlbumImageUpload({ albumId, onUploadSuccess }: Props) {
         </Button>
       </Stack>
     </Card>
+    </>
   );
 }

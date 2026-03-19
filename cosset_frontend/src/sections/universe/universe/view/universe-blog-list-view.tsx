@@ -2,7 +2,7 @@
 
 import type { IBlogItem } from 'src/types/blog';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,6 +22,9 @@ import { RouterLink } from 'src/routes/components';
 
 import { useGetBlogs } from 'src/actions/blog';
 import { useGetReactionSummary } from 'src/actions/reaction';
+
+import { useAuthContext } from 'src/auth/hooks';
+import { recordActivityNotification } from 'src/actions/notification';
 import {
   BLOG_CATEGORY_OPTIONS,
   getBlogCategoryLabel,
@@ -163,6 +166,7 @@ const hasCollapsedOverflow = (node: HTMLParagraphElement, content: string) => {
 };
 
 export function UniverseBlogListView({ customerId }: Props) {
+  const { user } = useAuthContext();
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -204,7 +208,26 @@ export function UniverseBlogListView({ customerId }: Props) {
       }),
     [sharedBlogs, categoryFilter, normalizedQuery]
   );
-
+  // Notify owner when a visitor views their blogs.
+  useEffect(() => {
+    if (blogsLoading) return;
+    const visitorId = user?.id ? String(user.id) : null;
+    const visitorName =
+      user?.displayName ||
+      `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+      user?.email ||
+      'A visitor';
+    const visitorAvatar = user?.photoURL || null;
+    recordActivityNotification({
+      ownerId: customerId,
+      visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+      title: `<p><strong>${visitorName}</strong> viewed your blogs</p>`,
+      content: `${visitorName} viewed your blogs`,
+      sessionKey: `activity:blog_view:${customerId}:${visitorId ?? 'anon'}`,
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blogsLoading]);
+  
   const handleToggleContent = (blogId: string | number, canToggle: boolean) => {
     if (!canToggle) {
       return;
@@ -220,7 +243,7 @@ export function UniverseBlogListView({ customerId }: Props) {
         <Stack spacing={3}>
           <Link
             component={RouterLink}
-            href={paths.universe.view(customerId)}
+            href={`${paths.universe.view(customerId)}#blogs-section`}
             underline="none"
             sx={{
               display: 'inline-flex',

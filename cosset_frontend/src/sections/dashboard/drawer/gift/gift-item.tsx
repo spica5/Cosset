@@ -21,6 +21,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
+import { Label } from 'src/components/dashboard/label';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
 
@@ -32,11 +33,29 @@ type Props = {
   onDelete: () => void;
 };
 
+const isPublicGift = (openness: unknown): boolean => {
+  if (typeof openness === 'number') {
+    return openness === 1;
+  }
+
+  if (typeof openness === 'boolean') {
+    return openness;
+  }
+
+  if (typeof openness === 'string') {
+    const normalized = openness.trim().toLowerCase();
+    return normalized === 'public' || normalized === '1' || normalized === 'true';
+  }
+
+  return false;
+};
+
 export function GiftItem({ gift, onView, onDelete }: Props) {
   const popover = usePopover();
   const [coverUrl, setCoverUrl] = useState<string>('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const isPublic = isPublicGift(gift.openness);
 
   useEffect(() => {
     const loadImages = async () => {
@@ -91,6 +110,7 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
         <>
           <Box
             sx={{
+              position: 'relative',
               width: 1,
               height: 164,
               borderRadius: 1,
@@ -107,6 +127,20 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
             <Typography variant="body2" color="text.disabled">
               No Image
             </Typography>
+
+            <Label
+              variant="filled"
+              color={isPublic ? 'success' : 'warning'}
+              sx={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                zIndex: 2,
+                textTransform: 'none',
+              }}
+            >
+              {isPublic ? 'Public' : 'Private'}
+            </Label>
           </Box>
           <Box
               sx={{
@@ -128,6 +162,7 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
                 lightbox.setSelected(selectedImageIndex);
               }}
               sx={{
+                position: 'relative',
                 cursor: 'pointer',
                 mb: 1,
                 borderRadius: 1,
@@ -141,6 +176,20 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
                 src={coverUrl}
                 sx={{ width: 1, height: 164, borderRadius: 1 }}
               />
+
+              <Label
+                variant="filled"
+                color={isPublic ? 'success' : 'warning'}
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  zIndex: 2,
+                  textTransform: 'none',
+                }}
+              >
+                {isPublic ? 'Public' : 'Private'}
+              </Label>
             </Box>
           )}
 

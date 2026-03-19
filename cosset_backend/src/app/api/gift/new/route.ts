@@ -11,6 +11,29 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
+const normalizeGiftOpenness = (value: unknown): 0 | 1 => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'public' || normalized === '1' || normalized === 'true') {
+      return 1;
+    }
+
+    if (normalized === 'private' || normalized === '0' || normalized === 'false') {
+      return 0;
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value === 1 ? 1 : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  return 0;
+};
+
 // ----------------------------------------------------------------------
 
 /**
@@ -48,6 +71,7 @@ export async function POST(req: NextRequest) {
       receivedDate: gift.receivedDate || null,
       category: gift.category || null,
       images: gift.images ?? null,
+      openness: normalizeGiftOpenness(gift.openness),
     });
 
     return response({ gift: newGift }, STATUS.OK);

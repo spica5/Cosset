@@ -459,24 +459,56 @@ export async function getViewedPostIdsByCustomer(
 
     let rows: Array<{ targetId: number | string; viewedAt: Date | string | null }>;
 
-    if (ownerCustomerId && ownerCustomerId.trim() !== '' && (targetType === 'blog' || targetType === 'album')) {
-      const ownerTableName = targetType === 'blog' ? 'blogs' : 'albums';
-      const ownerIdColumn = targetType === 'blog' ? 'customer_id' : 'user_id';
+    if (ownerCustomerId && ownerCustomerId.trim() !== '') {
+      if (targetType === 'blog' || targetType === 'album') {
+        const ownerTableName = targetType === 'blog' ? 'blogs' : 'albums';
+        const ownerIdColumn = targetType === 'blog' ? 'customer_id' : 'user_id';
 
-      rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
-        `
-          SELECT
-            pr.target_id as "targetId",
-            pr.viewed_at as "viewedAt"
-          FROM ${TABLE_NAME} pr
-          INNER JOIN ${ownerTableName} o ON o.id = pr.target_id
-          WHERE pr.target_type = $1
-            AND pr.customer_id = $2
-            AND pr.viewed_at IS NOT NULL
-            AND o.${ownerIdColumn} = $3
-        `,
-        [targetType, normalizedCustomerId, ownerCustomerId],
-      );
+        rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
+          `
+            SELECT
+              pr.target_id as "targetId",
+              pr.viewed_at as "viewedAt"
+            FROM ${TABLE_NAME} pr
+            INNER JOIN ${ownerTableName} o ON o.id = pr.target_id
+            WHERE pr.target_type = $1
+              AND pr.customer_id = $2
+              AND pr.viewed_at IS NOT NULL
+              AND o.${ownerIdColumn} = $3
+          `,
+          [targetType, normalizedCustomerId, ownerCustomerId],
+        );
+      } else if (targetType === 'drawer') {
+        // Drawer target includes multiple entities. For gift viewed badges/counts,
+        // scope to the owner's gifts to avoid unrelated drawer records.
+        rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
+          `
+            SELECT
+              pr.target_id as "targetId",
+              pr.viewed_at as "viewedAt"
+            FROM ${TABLE_NAME} pr
+            INNER JOIN gifts g ON g.id = pr.target_id
+            WHERE pr.target_type = $1
+              AND pr.customer_id = $2
+              AND pr.viewed_at IS NOT NULL
+              AND g.user_id = $3
+          `,
+          [targetType, normalizedCustomerId, ownerCustomerId],
+        );
+      } else {
+        rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
+          `
+            SELECT
+              target_id as "targetId",
+              viewed_at as "viewedAt"
+            FROM ${TABLE_NAME}
+            WHERE target_type = $1
+              AND customer_id = $2
+              AND viewed_at IS NOT NULL
+          `,
+          [targetType, normalizedCustomerId],
+        );
+      }
     } else {
       rows = await queryMany<{ targetId: number | string; viewedAt: Date | string | null }>(
         `

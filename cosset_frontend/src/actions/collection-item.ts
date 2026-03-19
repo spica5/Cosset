@@ -23,6 +23,10 @@ type CollectionItemData = {
   collectionItem?: ICollectionDrawerItem;
 };
 
+type ViewedCollectionItemsData = {
+  viewedCollectionItemIds?: number[];
+};
+
 const getCollectionItems = (data?: CollectionItemsData) => data?.collectionItems || data?.items || [];
 
 const toCollectionItemsData = (items: ICollectionDrawerItem[]): CollectionItemsData => ({
@@ -118,6 +122,28 @@ export function useGetCollectionItem(itemId: string | number | '') {
   );
 }
 
+export function useGetViewedCollectionItemIds(ownerCustomerId?: string | number) {
+  const url = ownerCustomerId
+    ? `${endpoints.collectionItem.view}?ownerCustomerId=${encodeURIComponent(String(ownerCustomerId))}`
+    : endpoints.collectionItem.view;
+
+  const { data, isLoading, error, isValidating } = useSWR<ViewedCollectionItemsData>(
+    url,
+    fetcher,
+    swrOptions,
+  );
+
+  return useMemo(
+    () => ({
+      viewedCollectionItemIds: data?.viewedCollectionItemIds || [],
+      viewedCollectionItemIdsLoading: isLoading,
+      viewedCollectionItemIdsError: error,
+      viewedCollectionItemIdsValidating: isValidating,
+    }),
+    [data?.viewedCollectionItemIds, error, isLoading, isValidating],
+  );
+}
+
 export async function createCollectionItem(item: Omit<ICollectionDrawerItem, 'id' | 'updatedAt'>) {
   const res = await axios.post(endpoints.collectionItem.add, { item });
   const created = (res.data as CollectionItemData).collectionItem || (res.data as CollectionItemData).item;
@@ -197,4 +223,30 @@ export async function deleteCollectionItem(
   }
 
   return res.data;
+}
+
+type CollectionItemViewData = {
+  totalViews: number;
+  alreadyViewed: boolean;
+  viewedAt: string | null;
+};
+
+/**
+ * Record a collection item view.
+ * The backend increments total_views only when this customer has not viewed it before.
+ */
+export async function recordCollectionItemView(
+  itemId: string | number,
+): Promise<CollectionItemViewData | undefined> {
+  try {
+    const res = await axios.post<CollectionItemViewData>(endpoints.collectionItem.view, {
+      collectionItemId: Number(itemId),
+    });
+
+    mutate(endpoints.collectionItem.details(itemId));
+
+    return res.data;
+  } catch {
+    return undefined;
+  }
 }

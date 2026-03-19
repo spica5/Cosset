@@ -5,14 +5,6 @@ import type { IconButtonProps } from '@mui/material/IconButton';
 import { m } from 'framer-motion';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-import {
-  deleteAllNotifications,
-  deleteNotification,
-  archiveNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from 'src/actions/notification';
-
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -24,6 +16,14 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
+import {
+  deleteAllNotifications,
+  deleteNotification,
+  archiveNotification,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from 'src/actions/notification';
+
 import { useBoolean } from 'src/hooks/use-boolean';
 
 import { Label } from 'src/components/dashboard/label';
@@ -33,7 +33,6 @@ import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { CustomTabs } from 'src/components/dashboard/custom-tabs';
 
 import { NotificationItem } from './notification-item';
-
 import type { NotificationItemProps } from './notification-item';
 
 // ----------------------------------------------------------------------

@@ -20,6 +20,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetBlog, recordBlogView } from 'src/actions/blog';
+import { recordActivityNotification } from 'src/actions/notification';
 import {
   reactToBlogForLoggedInCustomer,
   unreactToBlogForLoggedInCustomer,
@@ -166,6 +167,21 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
         await unreactToBlogForLoggedInCustomer(blogId);
       } else {
         await reactToBlogForLoggedInCustomer(blogId, nextReaction);
+
+        const visitorId = user?.id ? String(user.id) : null;
+        const visitorName =
+          user?.displayName ||
+          `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+          user?.email ||
+          'A visitor';
+        const visitorAvatar = user?.photoURL || null;
+        recordActivityNotification({
+          ownerId: customerId,
+          visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+          title: `<p><strong>${visitorName}</strong> reacted <strong>${nextReaction}</strong> to your blog <strong>${blog?.title || `#${blogId}`}</strong></p>`,
+          content: `${visitorName} reacted "${nextReaction}" to your blog "${blog?.title || `#${blogId}`}"`,
+          sessionKey: `activity:react:blog:${blogId}:${nextReaction}:${visitorId ?? 'anon'}`,
+        }).catch(console.error);
       }
     } catch (error) {
       console.error('Failed to update blog reaction', error);
@@ -233,7 +249,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
 
             <Link
               component={RouterLink}
-              href={paths.universe.view(customerId)}
+              href={`${paths.universe.view(customerId)}#blogs-section`}
               underline="none"
               sx={{
                 display: 'inline-flex',

@@ -18,6 +18,8 @@ export type DrawerSharedItem = {
   key: string;
   label: string;
   count: number;
+  viewedCount?: number;
+  unreadCount?: number;
   href?: string;
   icon?: string;
 };
@@ -130,8 +132,24 @@ export function UniverseLandingDrawer({ items = [], loading = false, sx, ...othe
                         <Stack direction="row" spacing={0.75} alignItems="center">
                           <Iconify icon="eva:layers-fill" width={14} sx={{ color: 'text.secondary' }} />
                           <Typography variant="body2" color="text.secondary">
-                            {item.count} item{item.count === 1 ? '' : 's'} shared
+                            Total {item.count} item{item.count === 1 ? '' : 's'}
                           </Typography>
+                        </Stack>
+                          <Stack direction="row" spacing={2} alignItems="center">
+
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Iconify icon="eva:eye-fill" width={14} sx={{ color: 'success.main' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {item.viewedCount ?? 0} viewed
+                            </Typography>
+                          </Stack>
+
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Iconify icon="eva:eye-off-fill" width={14} sx={{ color: 'warning.main' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {item.unreadCount ?? item.count} unread
+                            </Typography>
+                          </Stack>
                         </Stack>
 
                         {item.href ? (

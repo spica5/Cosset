@@ -10,7 +10,7 @@ import { paths } from 'src/routes/paths';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { useGiftCount } from 'src/actions/gift';
+import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
 import { useGetBlogs } from 'src/actions/blog';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetUsers } from 'src/actions/user';
@@ -59,8 +59,14 @@ export function UniverseLandingView({
   const [albumsLoading, setAlbumsLoading] = useState(false);
 
   const giftCountData = useGiftCount(customerId, 'Public', 'gift');
+  const letterCountData = useGiftCount(customerId, 'Public', 'letter');
   const goodMemoCountData = useGiftCount(customerId, 'Public', 'goodMemo');
   const sadMemoCountData = useGiftCount(customerId, 'Public', 'sadMemo');
+
+  const viewedGiftData = useGetViewedGiftIds(customerId, 'Public', 'gift');
+  const viewedLetterData = useGetViewedGiftIds(customerId, 'Public', 'letter');
+  const viewedGoodMemoData = useGetViewedGiftIds(customerId, 'Public', 'goodMemo');
+  const viewedSadMemoData = useGetViewedGiftIds(customerId, 'Public', 'sadMemo');
 
   useEffect(() => {
     let mounted = true;
@@ -369,12 +375,19 @@ export function UniverseLandingView({
 
   const drawerSettings = useMemo(() => {
     if (!guestarea?.drawer) {
-      return { gift: false, goodMemo: false, sadMemo: false, collectionItems: {} as Record<string, boolean> };
+      return {
+        gift: false,
+        letter: false,
+        goodMemo: false,
+        sadMemo: false,
+        collectionItems: {} as Record<string, boolean>,
+      };
     }
 
     try {
       const parsed = JSON.parse(guestarea.drawer) as {
         gift?: boolean;
+        letter?: boolean;
         goodMemo?: boolean;
         sadMemo?: boolean;
         collectionItems?: Record<string, unknown>;
@@ -390,12 +403,19 @@ export function UniverseLandingView({
 
       return {
         gift: !!parsed.gift,
+        letter: !!parsed.letter,
         goodMemo: !!parsed.goodMemo,
         sadMemo: !!parsed.sadMemo,
         collectionItems,
       };
     } catch {
-      return { gift: false, goodMemo: false, sadMemo: false, collectionItems: {} as Record<string, boolean> };
+      return {
+        gift: false,
+        letter: false,
+        goodMemo: false,
+        sadMemo: false,
+        collectionItems: {} as Record<string, boolean>,
+      };
     }
   }, [guestarea?.drawer]);
 
@@ -433,11 +453,23 @@ export function UniverseLandingView({
     () => [
       {
         key: 'gift',
-        label: 'Gifts and Souvenir',
+        label: 'Gifts and Souvenirs',
         icon: 'solar:gift-bold',
         enabled: drawerSettings.gift,
         count: giftCountData.count,
+        viewedCount: viewedGiftData.viewedGiftIds.length,
+        unreadCount: Math.max(0, giftCountData.count - viewedGiftData.viewedGiftIds.length),
         href: paths.universe.drawer.item(customerId, 'gift'),
+      },
+      {
+        key: 'letter',
+        label: 'Letters',
+        icon: 'solar:file-text-bold',
+        enabled: drawerSettings.letter,
+        count: letterCountData.count,
+        viewedCount: viewedLetterData.viewedGiftIds.length,
+        unreadCount: Math.max(0, letterCountData.count - viewedLetterData.viewedGiftIds.length),
+        href: paths.universe.drawer.item(customerId, 'letter'),
       },
       {
         key: 'goodMemo',
@@ -445,6 +477,8 @@ export function UniverseLandingView({
         icon: 'solar:sun-bold',
         enabled: drawerSettings.goodMemo,
         count: goodMemoCountData.count,
+        viewedCount: viewedGoodMemoData.viewedGiftIds.length,
+        unreadCount: Math.max(0, goodMemoCountData.count - viewedGoodMemoData.viewedGiftIds.length),
         href: paths.universe.drawer.item(customerId, 'goodMemo'),
       },
       {
@@ -453,17 +487,25 @@ export function UniverseLandingView({
         icon: 'solar:cloudy-bold',
         enabled: drawerSettings.sadMemo,
         count: sadMemoCountData.count,
+        viewedCount: viewedSadMemoData.viewedGiftIds.length,
+        unreadCount: Math.max(0, sadMemoCountData.count - viewedSadMemoData.viewedGiftIds.length),
         href: paths.universe.drawer.item(customerId, 'sadMemo'),
       },
     ],
     [
       customerId,
       drawerSettings.gift,
+      drawerSettings.letter,
       drawerSettings.goodMemo,
       drawerSettings.sadMemo,
       giftCountData.count,
+      letterCountData.count,
       goodMemoCountData.count,
       sadMemoCountData.count,
+      viewedGiftData.viewedGiftIds.length,
+      viewedLetterData.viewedGiftIds.length,
+      viewedGoodMemoData.viewedGiftIds.length,
+      viewedSadMemoData.viewedGiftIds.length,
     ]
   );
 
@@ -513,8 +555,13 @@ export function UniverseLandingView({
 
   const drawerLoading =
     giftCountData.loading ||
+    letterCountData.loading ||
     goodMemoCountData.loading ||
-    sadMemoCountData.loading;
+    sadMemoCountData.loading ||
+    viewedGiftData.viewedGiftIdsLoading ||
+    viewedLetterData.viewedGiftIdsLoading ||
+    viewedGoodMemoData.viewedGiftIdsLoading ||
+    viewedSadMemoData.viewedGiftIdsLoading;
 
   return (
     <>

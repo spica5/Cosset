@@ -1,14 +1,21 @@
 'use client';
 
 import type { Slide } from 'yet-another-react-lightbox';
+import type { ReactionType } from 'src/actions/reaction';
+import type { ICollectionDrawerItem } from 'src/types/collection-item';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useInView } from 'framer-motion';
+import { useRef, useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -19,16 +26,61 @@ import { RouterLink } from 'src/routes/components';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { useGetCollection } from 'src/actions/collection';
-import { useGetCollectionItems } from 'src/actions/collection-item';
+import { recordActivityNotification } from 'src/actions/notification';
+import {
+  reactToCollectionItem,
+  useGetReactionSummary,
+  unreactToCollectionItem,
+} from 'src/actions/reaction';
+import {
+  useGetCollectionItems,
+  useGetViewedCollectionItemIds,
+  recordCollectionItemView,
+} from 'src/actions/collection-item';
 
+import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
 type Props = {
   customerId: string;
   collectionId: string;
+};
+
+const REACTION_OPTIONS: Array<{ type: ReactionType; label: string; icon: string }> = [
+  { type: 'like', label: 'Like', icon: 'mdi:thumb-up' },
+  { type: 'love', label: 'Love', icon: 'mdi:heart' },
+  { type: 'haha', label: 'Haha', icon: 'mdi:emoticon-happy-outline' },
+  { type: 'wow', label: 'Wow', icon: 'mdi:emoticon-excited-outline' },
+  { type: 'sad', label: 'Sad', icon: 'mdi:emoticon-sad-outline' },
+  { type: 'angry', label: 'Angry', icon: 'mdi:emoticon-angry-outline' },
+];
+
+const createEmptyReactionCounts = (): Record<ReactionType, number> => ({
+  like: 0,
+  love: 0,
+  haha: 0,
+  wow: 0,
+  sad: 0,
+  angry: 0,
+});
+
+const toReactionCounts = (counts?: Partial<Record<ReactionType, number>>) => {
+  const next = createEmptyReactionCounts();
+
+  if (!counts) {
+    return next;
+  }
+
+  REACTION_OPTIONS.forEach((option) => {
+    const raw = counts[option.type];
+    next[option.type] = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  });
+
+  return next;
 };
 
 type MediaKind = 'image' | 'video';
@@ -55,6 +107,38 @@ const formatDate = (value: unknown) => {
   }
 
   return parsed.toLocaleDateString();
+};
+
+const normalizeCounterValue = (value: unknown) => {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 0;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.trunc(parsed));
+  }
+
+  return 0;
+};
+
+const getCollectionItemLabel = (item: Pick<ICollectionDrawerItem, 'id' | 'title'>) => {
+  const title = typeof item.title === 'string' ? item.title.trim() : '';
+
+  return title || `Item #${item.id}`;
 };
 
 const parseSerializedItems = (value?: string | null): string[] => {
@@ -325,9 +409,351 @@ function CollectionItemMediaGallery({ imageKeys, videoKeys }: CollectionItemMedi
   );
 }
 
+type CollectionItemCardProps = {
+  item: ICollectionDrawerItem;
+  authenticated: boolean;
+  viewerId?: string;
+  visitorId: string | null;
+  visitorName: string;
+  visitorAvatar: string | null;
+  ownerCustomerId: string;
+  isInitiallyViewed: boolean;
+  viewedFlagLoading: boolean;
+};
+
+function CollectionItemCard({
+  item,
+  authenticated,
+  viewerId,
+  visitorId,
+  visitorName,
+  visitorAvatar,
+  ownerCustomerId,
+  isInitiallyViewed,
+  viewedFlagLoading,
+}: CollectionItemCardProps) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const hasRecordedViewRef = useRef(false);
+  const isInView = useInView(cardRef, { once: true, amount: 0.35 });
+  const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
+  const [totalViews, setTotalViews] = useState(() => normalizeCounterValue(item.totalViews));
+  const [isViewed, setIsViewed] = useState(isInitiallyViewed);
+
+  const itemLabel = getCollectionItemLabel(item);
+  const ownerId = item.customerId ? String(item.customerId) : ownerCustomerId;
+
+  const imageKeys = useMemo(() => parseSerializedItems(item.images), [item.images]);
+  const videoKeys = useMemo(() => parseSerializedItems(item.videos), [item.videos]);
+  const fileKeys = useMemo(() => parseSerializedItems(item.files), [item.files]);
+
+  const imageCount = imageKeys.length;
+  const videoCount = videoKeys.length;
+  const fileCount = fileKeys.length;
+
+  const { reactionSummary, reactionSummaryLoading, reactionSummaryValidating } = useGetReactionSummary(
+    'collection-item',
+    item.id,
+    authenticated ? viewerId : undefined,
+  );
+
+  const [optimisticReaction, setOptimisticReaction] = useState<ReactionType | null>(
+    reactionSummary?.myReaction ?? null,
+  );
+  const [optimisticCounts, setOptimisticCounts] = useState<Record<ReactionType, number>>(
+    toReactionCounts(reactionSummary?.counts),
+  );
+
+  useEffect(() => {
+    setOptimisticReaction(reactionSummary?.myReaction ?? null);
+    setOptimisticCounts(toReactionCounts(reactionSummary?.counts));
+  }, [reactionSummary]);
+
+  useEffect(() => {
+    setTotalViews(normalizeCounterValue(item.totalViews));
+  }, [item.totalViews]);
+
+  useEffect(() => {
+    setIsViewed(isInitiallyViewed);
+  }, [isInitiallyViewed, item.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!isInView || hasRecordedViewRef.current) {
+      return () => {
+        active = false;
+      };
+    }
+
+    hasRecordedViewRef.current = true;
+
+    const recordView = async () => {
+      const result = await recordCollectionItemView(item.id);
+
+      if (!active) {
+        return;
+      }
+
+      if (result) {
+        setTotalViews(normalizeCounterValue(result.totalViews));
+      }
+
+      if (authenticated) {
+        setIsViewed(true);
+      }
+
+      recordActivityNotification({
+        ownerId,
+        visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+        title: `<p><strong>${visitorName}</strong> viewed your collection item <strong>${itemLabel}</strong></p>`,
+        content: `${visitorName} viewed your collection item "${itemLabel}"`,
+        sessionKey: `activity:collection_item_view:${item.id}:${visitorId ?? 'anon'}`,
+      }).catch(console.error);
+    };
+
+    recordView();
+
+    return () => {
+      active = false;
+    };
+  }, [authenticated, isInView, item.id, itemLabel, ownerId, visitorAvatar, visitorId, visitorName]);
+
+  const handleReaction = async (reactionType: ReactionType) => {
+    if (!authenticated || isSubmittingReaction) {
+      return;
+    }
+
+    const previousReaction = optimisticReaction;
+    const previousCounts = { ...optimisticCounts };
+    const nextReaction = previousReaction === reactionType ? null : reactionType;
+
+    setOptimisticReaction(nextReaction);
+    setOptimisticCounts((prev) => {
+      const next = { ...prev };
+
+      if (previousReaction) {
+        next[previousReaction] = Math.max(0, (next[previousReaction] ?? 0) - 1);
+      }
+
+      if (nextReaction) {
+        next[nextReaction] = Math.max(0, (next[nextReaction] ?? 0) + 1);
+      }
+
+      return next;
+    });
+
+    try {
+      setIsSubmittingReaction(true);
+
+      if (nextReaction === null) {
+        await unreactToCollectionItem(item.id);
+      } else {
+        await reactToCollectionItem(item.id, nextReaction);
+
+        recordActivityNotification({
+          ownerId,
+          visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+          title: `<p><strong>${visitorName}</strong> reacted <strong>${nextReaction}</strong> to your collection item <strong>${itemLabel}</strong></p>`,
+          content: `${visitorName} reacted "${nextReaction}" to your collection item "${itemLabel}"`,
+          sessionKey: `activity:react:collection-item:${item.id}:${nextReaction}:${visitorId ?? 'anon'}`,
+        }).catch(console.error);
+      }
+    } catch (error) {
+      console.error('Failed to update collection item reaction', error);
+      setOptimisticReaction(previousReaction);
+      setOptimisticCounts(previousCounts);
+    } finally {
+      setIsSubmittingReaction(false);
+    }
+  };
+
+  const totalReactionCount = REACTION_OPTIONS.reduce(
+    (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
+    0,
+  );
+
+  return (
+    <Card ref={cardRef} sx={{ border: '1px solid', borderColor: 'divider' }}>
+      <CardContent>
+        <Stack spacing={1.5}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Stack direction="row" spacing={0.9} alignItems="center" sx={{ minWidth: 0 }}>
+              <Iconify
+                icon="solar:bookmark-square-minimalistic-bold"
+                width={16}
+                sx={{ color: 'primary.main' }}
+              />
+              <Typography variant="h6" noWrap>
+                {itemLabel}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+              {authenticated && !viewedFlagLoading ? (
+                <Label
+                  color={isViewed ? 'success' : 'warning'}
+                  variant="soft"
+                  title={isViewed ? 'Viewed' : 'Unread'}
+                  sx={{
+                    minWidth: 28,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={18} />
+                </Label>
+              ) : null}
+
+              <Stack direction="row" spacing={0.4} alignItems="center" sx={{ color: 'info.dark' }}>
+                {/* <Iconify icon="eva:eye-fill" width={14} /> */}
+                <Typography variant="caption" color="text.secondary">
+                  total {totalViews} viewed
+                </Typography>
+              </Stack>
+            </Stack>
+          </Stack>
+
+          {item.description ? (
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+              {item.description}
+            </Typography>
+          ) : null}
+
+          <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
+            <Stack direction="row" spacing={0.6} alignItems="center">
+              <Iconify icon="eva:calendar-outline" width={14} sx={{ color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary">
+                {formatDate(item.date || item.updatedAt)}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={0.6} alignItems="center">
+              <Iconify icon="eva:image-fill" width={14} sx={{ color: 'info.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                {imageCount} image{imageCount === 1 ? '' : 's'}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={0.6} alignItems="center">
+              <Iconify
+                icon="solar:video-frame-play-horizontal-bold"
+                width={14}
+                sx={{ color: 'warning.main' }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {videoCount} video{videoCount === 1 ? '' : 's'}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={0.6} alignItems="center">
+              <Iconify icon="solar:file-text-bold" width={14} sx={{ color: 'success.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                {fileCount} file{fileCount === 1 ? '' : 's'}
+              </Typography>
+            </Stack>
+          </Stack>
+
+          <Divider />
+
+          <Stack spacing={1.25}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1.5}
+              useFlexGap
+              flexWrap="wrap"
+            >
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {REACTION_OPTIONS.map((option) => {
+                  const count = optimisticCounts[option.type] ?? 0;
+                  const active = optimisticReaction === option.type;
+
+                  return (
+                    <Stack key={option.type} spacing={0.5} alignItems="center">
+                      <Tooltip title={option.label}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color={active ? 'primary' : 'default'}
+                            onClick={() => handleReaction(option.type)}
+                            disabled={!authenticated || isSubmittingReaction}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: active ? 'primary.main' : 'divider',
+                              bgcolor: active ? 'action.selected' : 'transparent',
+                            }}
+                          >
+                            <Iconify icon={option.icon} width={20} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 600,
+                          color: active ? 'primary.main' : 'text.secondary',
+                        }}
+                      >
+                        {count}
+                      </Typography>
+                    </Stack>
+                  );
+                })}
+              </Stack>
+
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Chip
+                  size="small"
+                  icon={<Iconify icon="eva:heart-fill" width={14} />}
+                  label={`${totalReactionCount} reaction${totalReactionCount === 1 ? '' : 's'}`}
+                  variant="outlined"
+                  color="default"
+                />
+              </Stack>
+            </Stack>
+
+            {authenticated && optimisticReaction ? (
+              <Typography variant="caption" color="text.secondary">
+                You reacted with <strong>{optimisticReaction}</strong>. Click the same reaction again to remove it.
+              </Typography>
+            ) : null}
+
+            {reactionSummaryLoading || reactionSummaryValidating ? (
+              <Typography variant="caption" color="text.secondary">
+                Refreshing reactions...
+              </Typography>
+            ) : null}
+          </Stack>
+
+          <CollectionItemMediaGallery imageKeys={imageKeys} videoKeys={videoKeys} />
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function UniverseCollectionItemListView({ customerId, collectionId }: Props) {
   const { collection, collectionLoading } = useGetCollection(collectionId);
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collectionId, customerId);
+  const { viewedCollectionItemIds, viewedCollectionItemIdsLoading } =
+    useGetViewedCollectionItemIds(customerId);
+  const { user, authenticated } = useAuthContext();
+  const viewerId = authenticated && user?.id ? String(user.id) : undefined;
+  const visitorId = user?.id ? String(user.id) : null;
+  const visitorName =
+    user?.displayName ||
+    `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+    user?.email ||
+    'A visitor';
+  const visitorAvatar = user?.photoURL || null;
+
+  const viewedItemIdSet = useMemo(
+    () => new Set(viewedCollectionItemIds.map(String)),
+    [viewedCollectionItemIds],
+  );
 
   const publicItems = useMemo(
     () =>
@@ -354,7 +780,7 @@ export function UniverseCollectionItemListView({ customerId, collectionId }: Pro
         <Stack spacing={3} sx={{ maxWidth: 980, mx: 'auto' }}>
           <Link
             component={RouterLink}
-            href={paths.universe.view(customerId)}
+            href={`${paths.universe.view(customerId)}#collection-items-section`}
             underline="none"
             sx={{
               display: 'inline-flex',
@@ -375,6 +801,15 @@ export function UniverseCollectionItemListView({ customerId, collectionId }: Pro
             </Typography>
           </Stack>
 
+          {!authenticated ? (
+            <Typography variant="body2" color="text.secondary">
+              Sign in to add reactions to collection items.{' '}
+              <Link component={RouterLink} href={paths.auth.signIn} underline="hover">
+                Sign in
+              </Link>
+            </Typography>
+          ) : null}
+
           {isLoading ? (
             <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" sx={{ py: 8 }}>
               <CircularProgress size={24} />
@@ -384,72 +819,20 @@ export function UniverseCollectionItemListView({ customerId, collectionId }: Pro
             <Typography color="text.secondary">No shared items found for this collection.</Typography>
           ) : (
             <Stack spacing={2}>
-              {publicItems.map((item) => {
-                const imageKeys = parseSerializedItems(item.images);
-                const videoKeys = parseSerializedItems(item.videos);
-                const fileKeys = parseSerializedItems(item.files);
-
-                const imageCount = imageKeys.length;
-                const videoCount = videoKeys.length;
-                const fileCount = fileKeys.length;
-
-                return (
-                  <Card key={item.id} sx={{ border: '1px solid', borderColor: 'divider' }}>
-                    <CardContent>
-                      <Stack spacing={1.2}>
-                        <Stack direction="row" spacing={0.9} alignItems="center">
-                          <Iconify
-                            icon="solar:bookmark-square-minimalistic-bold"
-                            width={16}
-                            sx={{ color: 'primary.main' }}
-                          />
-                          <Typography variant="h6" noWrap>
-                            {(item.title || '').trim() || `Item #${item.id}`}
-                          </Typography>
-                        </Stack>
-
-                        {item.description ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                            {item.description}
-                          </Typography>
-                        ) : null}
-
-                        <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
-                          <Stack direction="row" spacing={0.6} alignItems="center">
-                            <Iconify icon="eva:calendar-outline" width={14} sx={{ color: 'text.secondary' }} />
-                            <Typography variant="caption" color="text.secondary">
-                              {formatDate(item.date || item.updatedAt)}
-                            </Typography>
-                          </Stack>
-
-                          <Stack direction="row" spacing={0.6} alignItems="center">
-                            <Iconify icon="eva:image-fill" width={14} sx={{ color: 'info.main' }} />
-                            <Typography variant="caption" color="text.secondary">
-                              {imageCount} image{imageCount === 1 ? '' : 's'}
-                            </Typography>
-                          </Stack>
-
-                          <Stack direction="row" spacing={0.6} alignItems="center">
-                            <Iconify icon="solar:video-frame-play-horizontal-bold" width={14} sx={{ color: 'warning.main' }} />
-                            <Typography variant="caption" color="text.secondary">
-                              {videoCount} video{videoCount === 1 ? '' : 's'}
-                            </Typography>
-                          </Stack>
-
-                          <Stack direction="row" spacing={0.6} alignItems="center">
-                            <Iconify icon="solar:file-text-bold" width={14} sx={{ color: 'success.main' }} />
-                            <Typography variant="caption" color="text.secondary">
-                              {fileCount} file{fileCount === 1 ? '' : 's'}
-                            </Typography>
-                          </Stack>
-                        </Stack>
-
-                        <CollectionItemMediaGallery imageKeys={imageKeys} videoKeys={videoKeys} />
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {publicItems.map((item) => (
+                <CollectionItemCard
+                  key={item.id}
+                  item={item}
+                  authenticated={authenticated}
+                  viewerId={viewerId}
+                  visitorId={visitorId}
+                  visitorName={visitorName}
+                  visitorAvatar={visitorAvatar}
+                  ownerCustomerId={customerId}
+                  isInitiallyViewed={viewedItemIdSet.has(String(item.id))}
+                  viewedFlagLoading={viewedCollectionItemIdsLoading}
+                />
+              ))}
             </Stack>
           )}
         </Stack>

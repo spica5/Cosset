@@ -8,19 +8,19 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
+import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogContent from '@mui/material/DialogContent';
 import { alpha as hexAlpha } from '@mui/material/styles';
 
-import CloseIcon from '@mui/icons-material/Close';
-
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { CONFIG } from 'src/config-global';
-import { varAlpha, bgGradient } from 'src/theme/dashboard/styles';
 
 import { useGetCurrentUser } from 'src/actions/user';
+
+import { varAlpha, bgGradient } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';
 

@@ -2,7 +2,7 @@
 
 import type { ICollectionItem } from 'src/types/collection';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -20,6 +20,9 @@ import { RouterLink } from 'src/routes/components';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetCollectionItems } from 'src/actions/collection-item';
 import { useGetGuestArea } from 'src/actions/guestarea';
+
+import { useAuthContext } from 'src/auth/hooks';
+import { recordActivityNotification } from 'src/actions/notification';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -153,6 +156,7 @@ function UniverseCollectionListCard({ customerId, collection }: CollectionCardPr
 }
 
 export function UniverseCollectionListView({ customerId }: Props) {
+  const { user } = useAuthContext();
   const { guestarea } = useGetGuestArea(customerId);
   const { collections, collectionsLoading } = useGetCollections(customerId);
 
@@ -178,13 +182,33 @@ export function UniverseCollectionListView({ customerId }: Props) {
     [collections, sharedCollectionMap],
   );
 
+  // Notify owner when a visitor views their collections.
+  useEffect(() => {
+    if (collectionsLoading) return;
+    const visitorId = user?.id ? String(user.id) : null;
+    const visitorName =
+      user?.displayName ||
+      `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+      user?.email ||
+      'A visitor';
+    const visitorAvatar = user?.photoURL || null;
+    recordActivityNotification({
+      ownerId: customerId,
+      visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+      title: `<p><strong>${visitorName}</strong> viewed your collections</p>`,
+      content: `${visitorName} viewed your collections`,
+      sessionKey: `activity:collection_view:${customerId}:${visitorId ?? 'anon'}`,
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionsLoading]);
+
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>
       <Container>
         <Stack spacing={3}>
           <Link
             component={RouterLink}
-            href={paths.universe.view(customerId)}
+            href={`${paths.universe.view(customerId)}#collection-items-section`}
             underline="none"
             sx={{
               display: 'inline-flex',
