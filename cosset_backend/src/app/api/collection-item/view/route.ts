@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 
 import { JWT_SECRET } from 'src/config-global';
-import { getCollectionItemById, incrementCollectionItemViews } from 'src/models/collection-items';
+import { getCollectionItemById, getCollectionItems, incrementCollectionItemViews } from 'src/models/collection-items';
 import { getViewedPostIdsByCustomer, markPostAsViewed } from 'src/models/post-reactions';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
@@ -101,6 +101,17 @@ const getCustomerIdFromToken = async (req: NextRequest): Promise<number | null> 
   }
 };
 
+const getNonEmptyQueryParam = (req: NextRequest, key: string): string | undefined => {
+  const value = req.nextUrl.searchParams.get(key);
+
+  if (value === null) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
+
 /** **************************************
  * GET /api/collection-item/view
  * Returns viewed collection item ids for the logged-in visitor.
@@ -113,7 +124,23 @@ export async function GET(req: NextRequest) {
       return response({ viewedCollectionItemIds: [] }, STATUS.OK);
     }
 
-    const viewedCollectionItemIds = await getViewedPostIdsByCustomer('drawer', viewerCustomerId);
+    const ownerCustomerId = getNonEmptyQueryParam(req, 'ownerCustomerId');
+    const collectionIdParam = getNonEmptyQueryParam(req, 'collectionId');
+
+    let viewedCollectionItemIds = await getViewedPostIdsByCustomer('drawer', viewerCustomerId);
+
+    if (ownerCustomerId && collectionIdParam) {
+      const collectionId = parseStrictInteger(collectionIdParam);
+
+      if (collectionId === null || collectionId <= 0) {
+        return response({ viewedCollectionItemIds: [] }, STATUS.OK);
+      }
+
+      const collectionItems = await getCollectionItems(collectionId, ownerCustomerId, 5000, 0);
+      const allowedIdSet = new Set(collectionItems.map((item) => String(item.id)));
+
+      viewedCollectionItemIds = viewedCollectionItemIds.filter((id) => allowedIdSet.has(String(id)));
+    }
 
     return response({ viewedCollectionItemIds }, STATUS.OK);
   } catch (error) {

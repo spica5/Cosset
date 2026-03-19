@@ -122,10 +122,24 @@ export function useGetCollectionItem(itemId: string | number | '') {
   );
 }
 
-export function useGetViewedCollectionItemIds(ownerCustomerId?: string | number) {
-  const url = ownerCustomerId
-    ? `${endpoints.collectionItem.view}?ownerCustomerId=${encodeURIComponent(String(ownerCustomerId))}`
-    : endpoints.collectionItem.view;
+export function useGetViewedCollectionItemIds(
+  ownerCustomerId?: string | number,
+  collectionId?: string | number,
+) {
+  let url = endpoints.collectionItem.view;
+  const params: string[] = [];
+
+  if (ownerCustomerId !== undefined && ownerCustomerId !== null) {
+    params.push(`ownerCustomerId=${encodeURIComponent(String(ownerCustomerId))}`);
+  }
+
+  if (collectionId !== undefined && collectionId !== null && collectionId !== '') {
+    params.push(`collectionId=${encodeURIComponent(String(collectionId))}`);
+  }
+
+  if (params.length) {
+    url += `?${params.join('&')}`;
+  }
 
   const { data, isLoading, error, isValidating } = useSWR<ViewedCollectionItemsData>(
     url,

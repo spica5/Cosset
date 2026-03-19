@@ -1,6 +1,7 @@
 'use client';
 
 import type { IAlbumItem } from 'src/types/album';
+import type { ICollectionDrawerItem } from 'src/types/collection-item';
 import type { IUniverseProps } from 'src/types/universe';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -12,6 +13,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
 import { useGetBlogs } from 'src/actions/blog';
+import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
@@ -39,6 +41,31 @@ type VisitorItem = {
   avatarUrl: string;
 };
 
+const DRAWER_COLLECTION_MAP = {
+  letter: 4,
+  goodMemo: 1,
+  sadMemo: 2,
+} as const;
+
+const buildDrawerCollectionStats = (
+  collectionItems: ICollectionDrawerItem[],
+  viewedCollectionItemIds: number[],
+) => {
+  const publicItemIds = collectionItems
+    .filter((item) => item.isPublic === 1)
+    .map((item) => String(item.id));
+
+  const viewedIdSet = new Set(viewedCollectionItemIds.map(String));
+  const viewedCount = publicItemIds.filter((id) => viewedIdSet.has(id)).length;
+  const count = publicItemIds.length;
+
+  return {
+    count,
+    viewedCount,
+    unreadCount: Math.max(0, count - viewedCount),
+  };
+};
+
 export function UniverseLandingView({
   customerId,
   universe,
@@ -59,14 +86,45 @@ export function UniverseLandingView({
   const [albumsLoading, setAlbumsLoading] = useState(false);
 
   const giftCountData = useGiftCount(customerId, 'Public', 'gift');
-  const letterCountData = useGiftCount(customerId, 'Public', 'letter');
-  const goodMemoCountData = useGiftCount(customerId, 'Public', 'goodMemo');
-  const sadMemoCountData = useGiftCount(customerId, 'Public', 'sadMemo');
 
   const viewedGiftData = useGetViewedGiftIds(customerId, 'Public', 'gift');
-  const viewedLetterData = useGetViewedGiftIds(customerId, 'Public', 'letter');
-  const viewedGoodMemoData = useGetViewedGiftIds(customerId, 'Public', 'goodMemo');
-  const viewedSadMemoData = useGetViewedGiftIds(customerId, 'Public', 'sadMemo');
+
+  const { collectionItems: letterCollectionItems, collectionItemsLoading: letterCollectionItemsLoading } =
+    useGetCollectionItems(DRAWER_COLLECTION_MAP.letter, customerId);
+  const { collectionItems: goodMemoCollectionItems, collectionItemsLoading: goodMemoCollectionItemsLoading } =
+    useGetCollectionItems(DRAWER_COLLECTION_MAP.goodMemo, customerId);
+  const { collectionItems: sadMemoCollectionItems, collectionItemsLoading: sadMemoCollectionItemsLoading } =
+    useGetCollectionItems(DRAWER_COLLECTION_MAP.sadMemo, customerId);
+
+  const {
+    viewedCollectionItemIds: viewedLetterCollectionItemIds,
+    viewedCollectionItemIdsLoading: viewedLetterCollectionItemIdsLoading,
+  } = useGetViewedCollectionItemIds(customerId, DRAWER_COLLECTION_MAP.letter);
+
+  const {
+    viewedCollectionItemIds: viewedGoodMemoCollectionItemIds,
+    viewedCollectionItemIdsLoading: viewedGoodMemoCollectionItemIdsLoading,
+  } = useGetViewedCollectionItemIds(customerId, DRAWER_COLLECTION_MAP.goodMemo);
+
+  const {
+    viewedCollectionItemIds: viewedSadMemoCollectionItemIds,
+    viewedCollectionItemIdsLoading: viewedSadMemoCollectionItemIdsLoading,
+  } = useGetViewedCollectionItemIds(customerId, DRAWER_COLLECTION_MAP.sadMemo);
+
+  const letterDrawerStats = useMemo(
+    () => buildDrawerCollectionStats(letterCollectionItems, viewedLetterCollectionItemIds),
+    [letterCollectionItems, viewedLetterCollectionItemIds],
+  );
+
+  const goodMemoDrawerStats = useMemo(
+    () => buildDrawerCollectionStats(goodMemoCollectionItems, viewedGoodMemoCollectionItemIds),
+    [goodMemoCollectionItems, viewedGoodMemoCollectionItemIds],
+  );
+
+  const sadMemoDrawerStats = useMemo(
+    () => buildDrawerCollectionStats(sadMemoCollectionItems, viewedSadMemoCollectionItemIds),
+    [sadMemoCollectionItems, viewedSadMemoCollectionItemIds],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -466,9 +524,9 @@ export function UniverseLandingView({
         label: 'Letters',
         icon: 'solar:file-text-bold',
         enabled: drawerSettings.letter,
-        count: letterCountData.count,
-        viewedCount: viewedLetterData.viewedGiftIds.length,
-        unreadCount: Math.max(0, letterCountData.count - viewedLetterData.viewedGiftIds.length),
+        count: letterDrawerStats.count,
+        viewedCount: letterDrawerStats.viewedCount,
+        unreadCount: letterDrawerStats.unreadCount,
         href: paths.universe.drawer.item(customerId, 'letter'),
       },
       {
@@ -476,9 +534,9 @@ export function UniverseLandingView({
         label: 'Good Memories',
         icon: 'solar:sun-bold',
         enabled: drawerSettings.goodMemo,
-        count: goodMemoCountData.count,
-        viewedCount: viewedGoodMemoData.viewedGiftIds.length,
-        unreadCount: Math.max(0, goodMemoCountData.count - viewedGoodMemoData.viewedGiftIds.length),
+        count: goodMemoDrawerStats.count,
+        viewedCount: goodMemoDrawerStats.viewedCount,
+        unreadCount: goodMemoDrawerStats.unreadCount,
         href: paths.universe.drawer.item(customerId, 'goodMemo'),
       },
       {
@@ -486,9 +544,9 @@ export function UniverseLandingView({
         label: 'Sad Memories',
         icon: 'solar:cloudy-bold',
         enabled: drawerSettings.sadMemo,
-        count: sadMemoCountData.count,
-        viewedCount: viewedSadMemoData.viewedGiftIds.length,
-        unreadCount: Math.max(0, sadMemoCountData.count - viewedSadMemoData.viewedGiftIds.length),
+        count: sadMemoDrawerStats.count,
+        viewedCount: sadMemoDrawerStats.viewedCount,
+        unreadCount: sadMemoDrawerStats.unreadCount,
         href: paths.universe.drawer.item(customerId, 'sadMemo'),
       },
     ],
@@ -499,13 +557,16 @@ export function UniverseLandingView({
       drawerSettings.goodMemo,
       drawerSettings.sadMemo,
       giftCountData.count,
-      letterCountData.count,
-      goodMemoCountData.count,
-      sadMemoCountData.count,
       viewedGiftData.viewedGiftIds.length,
-      viewedLetterData.viewedGiftIds.length,
-      viewedGoodMemoData.viewedGiftIds.length,
-      viewedSadMemoData.viewedGiftIds.length,
+      letterDrawerStats.count,
+      letterDrawerStats.unreadCount,
+      letterDrawerStats.viewedCount,
+      goodMemoDrawerStats.count,
+      goodMemoDrawerStats.unreadCount,
+      goodMemoDrawerStats.viewedCount,
+      sadMemoDrawerStats.count,
+      sadMemoDrawerStats.unreadCount,
+      sadMemoDrawerStats.viewedCount,
     ]
   );
 
@@ -555,13 +616,13 @@ export function UniverseLandingView({
 
   const drawerLoading =
     giftCountData.loading ||
-    letterCountData.loading ||
-    goodMemoCountData.loading ||
-    sadMemoCountData.loading ||
+    letterCollectionItemsLoading ||
+    goodMemoCollectionItemsLoading ||
+    sadMemoCollectionItemsLoading ||
     viewedGiftData.viewedGiftIdsLoading ||
-    viewedLetterData.viewedGiftIdsLoading ||
-    viewedGoodMemoData.viewedGiftIdsLoading ||
-    viewedSadMemoData.viewedGiftIdsLoading;
+    viewedLetterCollectionItemIdsLoading ||
+    viewedGoodMemoCollectionItemIdsLoading ||
+    viewedSadMemoCollectionItemIdsLoading;
 
   return (
     <>

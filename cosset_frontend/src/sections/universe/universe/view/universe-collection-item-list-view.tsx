@@ -47,7 +47,9 @@ import { useAuthContext } from 'src/auth/hooks';
 
 type Props = {
   customerId: string;
-  collectionId: string;
+  collectionId: string | number;
+  headingOverride?: string;
+  backSectionAnchor?: string;
 };
 
 const REACTION_OPTIONS: Array<{ type: ReactionType; label: string; icon: string }> = [
@@ -735,11 +737,16 @@ function CollectionItemCard({
   );
 }
 
-export function UniverseCollectionItemListView({ customerId, collectionId }: Props) {
+export function UniverseCollectionItemListView({
+  customerId,
+  collectionId,
+  headingOverride,
+  backSectionAnchor = 'collection-items-section',
+}: Props) {
   const { collection, collectionLoading } = useGetCollection(collectionId);
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collectionId, customerId);
   const { viewedCollectionItemIds, viewedCollectionItemIdsLoading } =
-    useGetViewedCollectionItemIds(customerId);
+    useGetViewedCollectionItemIds(customerId, collectionId);
   const { user, authenticated } = useAuthContext();
   const viewerId = authenticated && user?.id ? String(user.id) : undefined;
   const visitorId = user?.id ? String(user.id) : null;
@@ -772,7 +779,7 @@ export function UniverseCollectionItemListView({ customerId, collectionId }: Pro
   );
 
   const isLoading = collectionLoading || collectionItemsLoading;
-  const heading = collection?.name || `Collection #${collectionId}`;
+  const heading = headingOverride || collection?.name || `Collection #${collectionId}`;
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>
@@ -780,7 +787,7 @@ export function UniverseCollectionItemListView({ customerId, collectionId }: Pro
         <Stack spacing={3} sx={{ maxWidth: 980, mx: 'auto' }}>
           <Link
             component={RouterLink}
-            href={`${paths.universe.view(customerId)}#collection-items-section`}
+            href={`${paths.universe.view(customerId)}#${backSectionAnchor}`}
             underline="none"
             sx={{
               display: 'inline-flex',
