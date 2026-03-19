@@ -2,17 +2,21 @@
 
 import type { IBlogItem } from 'src/types/blog';
 
-import { useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 
 import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Popover from '@mui/material/Popover';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
+import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
+import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -74,6 +78,31 @@ const defaultValues: BlogFormValues = {
   backgroundPreset: DEFAULT_BLOG_CONTENT_APPEARANCE.backgroundPreset,
 };
 
+const BLOG_EMOTICON_OPTIONS = [
+  { label: 'Smile', value: '😀' },
+  { label: 'Love', value: '😍' },
+  { label: 'Laugh', value: '😂' },
+  { label: 'Sad', value: '😢' },
+  { label: 'Heart', value: '❤️' },
+  { label: 'Party', value: '🎉' },
+  { label: 'Thanks', value: '🙏' },
+] as const;
+
+const BLOG_TEMPLATE_OPTIONS = [
+  {
+    label: 'Greeting',
+    value: 'Hello everyone,\n\nI hope you are doing well today.\n\n',
+  },
+  {
+    label: 'Warm Welcome',
+    value: 'Hi everyone,\n\nWelcome to this new post.\n\n',
+  },
+  {
+    label: 'Closing',
+    value: 'Thank you for reading.\n\nBest regards,\n',
+  },
+] as const;
+
 export function BlogCreateView({ blogId }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
@@ -86,17 +115,132 @@ export function BlogCreateView({ blogId }: Props) {
     handleSubmit,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<BlogFormValues>({ defaultValues });
+
+  const contentField = register('content');
+  const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   const selectedFontPreset = watch('fontPreset');
   const selectedBackgroundPreset = watch('backgroundPreset');
   const contentPreview = watch('content');
+  const [emoticonAnchorEl, setEmoticonAnchorEl] = useState<HTMLElement | null>(null);
+  const [templateAnchorEl, setTemplateAnchorEl] = useState<HTMLElement | null>(null);
+  const emoticonCloseTimerRef = useRef<number | null>(null);
+  const templateCloseTimerRef = useRef<number | null>(null);
 
   const currentUserId = String(user?.id || '');
   const ownerId = String(blog?.customerId || '');
   const isOwner = !isEditMode || !blog ? true : !!currentUserId && ownerId === currentUserId;
   const isReadOnly = isEditMode && !isOwner;
+
+  const clearEmoticonCloseTimer = useCallback(() => {
+    if (emoticonCloseTimerRef.current !== null) {
+      window.clearTimeout(emoticonCloseTimerRef.current);
+      emoticonCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const clearTemplateCloseTimer = useCallback(() => {
+    if (templateCloseTimerRef.current !== null) {
+      window.clearTimeout(templateCloseTimerRef.current);
+      templateCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCloseEmoticonPopover = useCallback(() => {
+    clearEmoticonCloseTimer();
+    emoticonCloseTimerRef.current = window.setTimeout(() => {
+      setEmoticonAnchorEl(null);
+    }, 260);
+  }, [clearEmoticonCloseTimer]);
+
+  const scheduleCloseTemplatePopover = useCallback(() => {
+    clearTemplateCloseTimer();
+    templateCloseTimerRef.current = window.setTimeout(() => {
+      setTemplateAnchorEl(null);
+    }, 260);
+  }, [clearTemplateCloseTimer]);
+
+  const openEmoticonPopover = useCallback(
+    (anchor: HTMLElement) => {
+      clearEmoticonCloseTimer();
+      setTemplateAnchorEl(null);
+      setEmoticonAnchorEl(anchor);
+    },
+    [clearEmoticonCloseTimer],
+  );
+
+  const openTemplatePopover = useCallback(
+    (anchor: HTMLElement) => {
+      clearTemplateCloseTimer();
+      setEmoticonAnchorEl(null);
+      setTemplateAnchorEl(anchor);
+    },
+    [clearTemplateCloseTimer],
+  );
+
+  const insertTextIntoContent = useCallback(
+    (text: string, appendSeparator: string) => {
+      if (isReadOnly || !text) {
+        return;
+      }
+
+      const input = contentInputRef.current;
+      const currentValue = getValues('content') || '';
+
+      if (!input) {
+        const appended = `${currentValue}${currentValue ? appendSeparator : ''}${text}`;
+        setValue('content', appended, { shouldDirty: true, shouldTouch: true });
+        return;
+      }
+
+      const selectionStart = input.selectionStart ?? currentValue.length;
+      const selectionEnd = input.selectionEnd ?? selectionStart;
+      const nextValue = `${currentValue.slice(0, selectionStart)}${text}${currentValue.slice(selectionEnd)}`;
+      const nextCaretPosition = selectionStart + text.length;
+
+      setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
+      setEmoticonAnchorEl(null);
+      setTemplateAnchorEl(null);
+
+      window.requestAnimationFrame(() => {
+        const target = contentInputRef.current;
+
+        if (!target) {
+          return;
+        }
+
+        target.focus();
+        target.setSelectionRange(nextCaretPosition, nextCaretPosition);
+      });
+    },
+    [getValues, isReadOnly, setValue],
+  );
+
+  const handleInsertEmoticon = useCallback(
+    (emoticon: string) => {
+      insertTextIntoContent(emoticon, ' ');
+    },
+    [insertTextIntoContent],
+  );
+
+  const handleInsertTemplate = useCallback(
+    (template: string) => {
+      insertTextIntoContent(template, '\n\n');
+    },
+    [insertTextIntoContent],
+  );
+
+  useEffect(
+    () => () => {
+      clearEmoticonCloseTimer();
+      clearTemplateCloseTimer();
+    },
+    [clearEmoticonCloseTimer, clearTemplateCloseTimer],
+  );
 
   useEffect(() => {
     if (!isEditMode || !blog) {
@@ -308,21 +452,122 @@ export function BlogCreateView({ blogId }: Props) {
             label="Description"
             placeholder="Short description"
             multiline
-            minRows={3}
+            minRows={2}
             InputLabelProps={{ shrink: true }}
             {...register('description')}
             disabled={isReadOnly}
           />
 
-          <TextField
-            label="Content"
-            placeholder="Write your post content"
-            multiline
-            minRows={12}
-            InputLabelProps={{ shrink: true }}
-            {...register('content')}
-            disabled={isReadOnly}
-          />
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Insert emoticons or templates
+              </Typography>
+
+              <IconButton
+                type="button"
+                size="small"
+                color="primary"
+                aria-label="Insert emoticon"
+                disabled={isReadOnly}
+                onClick={(event) => openEmoticonPopover(event.currentTarget)}
+              >
+                <InsertEmoticonRoundedIcon fontSize="small" />
+              </IconButton>
+
+              <IconButton
+                type="button"
+                size="small"
+                color="primary"
+                aria-label="Insert template"
+                disabled={isReadOnly}
+                onClick={(event) => openTemplatePopover(event.currentTarget)}
+              >
+                <TextSnippetRoundedIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+
+            <Popover
+              open={Boolean(emoticonAnchorEl)}
+              anchorEl={emoticonAnchorEl}
+              onClose={() => setEmoticonAnchorEl(null)}
+              disableRestoreFocus
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              PaperProps={{
+                onMouseEnter: clearEmoticonCloseTimer,
+                onMouseLeave: scheduleCloseEmoticonPopover,
+                sx: { p: 1, maxWidth: 240 },
+              }}
+            >
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                {BLOG_EMOTICON_OPTIONS.map((option) => (
+                  <Button
+                    key={option.label}
+                    type="button"
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => handleInsertEmoticon(option.value)}
+                    sx={{ minWidth: 0, px: 1.1 }}
+                  >
+                    {option.value}
+                  </Button>
+                ))}
+              </Stack>
+            </Popover>
+
+            <Popover
+              open={Boolean(templateAnchorEl)}
+              anchorEl={templateAnchorEl}
+              onClose={() => setTemplateAnchorEl(null)}
+              disableRestoreFocus
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              PaperProps={{
+                onMouseEnter: clearTemplateCloseTimer,
+                onMouseLeave: scheduleCloseTemplatePopover,
+                sx: { p: 1, minWidth: 220 },
+              }}
+            >
+              <Stack spacing={0.5}>
+                {BLOG_TEMPLATE_OPTIONS.map((option) => (
+                  <Button
+                    key={option.label}
+                    type="button"
+                    size="small"
+                    variant="text"
+                    color="inherit"
+                    onClick={() => handleInsertTemplate(option.value)}
+                    sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </Stack>
+            </Popover>
+
+            <TextField
+              label="Content"
+              placeholder="Write your post content"
+              multiline
+              minRows={12}
+              InputLabelProps={{ shrink: true }}
+              name={contentField.name}
+              onBlur={contentField.onBlur}
+              onChange={contentField.onChange}
+              inputRef={(element) => {
+                contentField.ref(element);
+                contentInputRef.current = element;
+              }}
+              disabled={isReadOnly}
+              sx={{
+                '& textarea': {
+                  fontFamily: '"Trebuchet MS", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+                },
+              }}
+            />
+          </Stack>
 
           <Box
             sx={{

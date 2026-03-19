@@ -42,6 +42,10 @@ const BACKGROUND_SET = new Set<BlogContentBackgroundPreset>(
   BLOG_CONTENT_BACKGROUND_OPTIONS.map((item) => item.value)
 );
 
+const EMOJI_FONT_FALLBACK = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol"';
+
+const withEmojiFontFallback = (fontFamily: string) => `${fontFamily}, ${EMOJI_FONT_FALLBACK}`;
+
 export const isBlogContentFontPreset = (value: unknown): value is BlogContentFontPreset =>
   typeof value === 'string' && FONT_SET.has(value as BlogContentFontPreset);
 
@@ -147,21 +151,21 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
   switch (fontPreset) {
     case 'clean-sans':
       return {
-        fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
+        fontFamily: withEmojiFontFallback('"Trebuchet MS", "Segoe UI", sans-serif'),
         fontSize: 14,
         lineHeight: 1.85,
         letterSpacing: '0.01em',
       };
     case 'typewriter':
       return {
-        fontFamily: '"Courier New", Courier, monospace',
+        fontFamily: withEmojiFontFallback('"Courier New", Courier, monospace'),
         fontSize: 13,
         lineHeight: 1.9,
         letterSpacing: '0.02em',
       };
     case 'journal':
       return {
-        fontFamily: '"Palatino Linotype", Palatino, serif',
+        fontFamily: withEmojiFontFallback('"Palatino Linotype", Palatino, serif'),
         fontSize: 15,
         lineHeight: 1.95,
         letterSpacing: '0.005em',
@@ -169,7 +173,7 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
     case 'classic-serif':
     default:
       return {
-        fontFamily: 'Georgia, "Times New Roman", serif',
+        fontFamily: withEmojiFontFallback('Georgia, "Times New Roman", serif'),
         fontSize: 14,
         lineHeight: 2,
         letterSpacing: '0.01em',
