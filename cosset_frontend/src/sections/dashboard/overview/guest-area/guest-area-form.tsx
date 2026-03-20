@@ -29,12 +29,12 @@ import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
-const _motifs = ['Welcome guests', 'Be Away', 'I am back soon.'] as const;
+const _motifs = ['Welcome guests', 'Be away', 'Be back soon.'] as const;
 
 const _motifAvatars: Record<string, string> = {
   'Welcome guests': '👋',
-  'Be Away': '🚪',
-  'I am back soon.': '⏳',
+  'Be away': '🚪',
+  'Be back soon.': '⏳',
 };
 
 // ----------------------------------------------------------------------

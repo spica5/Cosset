@@ -21,6 +21,7 @@ import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
@@ -42,6 +43,7 @@ import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { useAuthContext } from 'src/auth/hooks';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 // ----------------------------------------------------------------------
 
@@ -743,6 +745,8 @@ export function UniverseCollectionItemListView({
   headingOverride,
   backSectionAnchor = 'collection-items-section',
 }: Props) {
+  const router = useRouter();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { collection, collectionLoading } = useGetCollection(collectionId);
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collectionId, customerId);
   const { viewedCollectionItemIds, viewedCollectionItemIdsLoading } =
@@ -780,6 +784,34 @@ export function UniverseCollectionItemListView({
 
   const isLoading = collectionLoading || collectionItemsLoading;
   const heading = headingOverride || collection?.name || `Collection #${collectionId}`;
+
+  useEffect(() => {
+    if (!isAccessLoading && isVisitorHomeSpaceOnly) {
+      router.replace(paths.universe.view(customerId));
+    }
+  }, [customerId, isAccessLoading, isVisitorHomeSpaceOnly, router]);
+
+  if (isAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>

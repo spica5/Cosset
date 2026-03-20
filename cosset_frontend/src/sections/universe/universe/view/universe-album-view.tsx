@@ -20,11 +20,14 @@ import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
+
 import { recordAlbumView } from 'src/actions/album';
+import { useGetGuestArea } from 'src/actions/guestarea';
 import {
   reactToAlbumForLoggedInCustomer,
   unreactToAlbumForLoggedInCustomer,
@@ -32,6 +35,7 @@ import {
 } from 'src/actions/reaction';
 import { recordActivityNotification } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
+import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
@@ -96,7 +100,8 @@ const formatAlbumDate = (value: unknown) => {
 };
 
 export function UniverseAlbumView({ albumId }: Props) {
-  const { user, authenticated } = useAuthContext();
+  const router = useRouter();
+  const { user, authenticated, loading: authLoading } = useAuthContext();
   const [album, setAlbum] = useState<IAlbumItem | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
   const [images, setImages] = useState<Array<IAlbumImage & { signedUrl?: string }>>([]);
@@ -165,6 +170,12 @@ export function UniverseAlbumView({ albumId }: Props) {
   const customerViewHref = album?.userId
     ? `${paths.universe.view(String(album.userId))}#albums-section`
     : paths.home;
+  const ownerCustomerId = album?.userId ? String(album.userId) : '';
+  const { guestarea, guestAreaLoading } = useGetGuestArea(ownerCustomerId);
+  const isOwner = !!viewerId && !!ownerCustomerId && viewerId === ownerCustomerId;
+  const isVisitorHomeSpaceOnly =
+    !!ownerCustomerId && !isOwner && isGuestAreaHomeSpaceOnlyMotif(guestarea?.motif);
+  const isOwnerAccessLoading = !loading && !!ownerCustomerId && (authLoading || guestAreaLoading);
 
   useEffect(() => {
     let mounted = true;
@@ -346,6 +357,12 @@ export function UniverseAlbumView({ albumId }: Props) {
 
   const totalImages = useMemo(() => images.length, [images.length]);
 
+  useEffect(() => {
+    if (!isOwnerAccessLoading && isVisitorHomeSpaceOnly && ownerCustomerId) {
+      router.replace(paths.universe.view(ownerCustomerId));
+    }
+  }, [isOwnerAccessLoading, isVisitorHomeSpaceOnly, ownerCustomerId, router]);
+
   if (loading) {
     return (
       <Container sx={{ py: 10 }}>
@@ -366,6 +383,28 @@ export function UniverseAlbumView({ albumId }: Props) {
           <Link component={RouterLink} href={customerViewHref} underline="none" sx={{ color: 'primary.main' }}>
             Back to home
           </Link>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isOwnerAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly && ownerCustomerId) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
         </Stack>
       </Container>
     );

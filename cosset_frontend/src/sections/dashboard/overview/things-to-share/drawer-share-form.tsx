@@ -20,6 +20,7 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
+import { useGetCollectionItems } from 'src/actions/collection-item';
 import { useGiftCount } from 'src/actions/gift';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -43,14 +44,46 @@ const CATEGORY_OPTIONS = [
 // derive type for keys
 type CategoryKey = typeof CATEGORY_OPTIONS[number]['key'];
 
+const DRAWER_COLLECTION_MAP = {
+  letter: 4,
+  goodMemo: 1,
+  sadMemo: 2,
+} as const;
+
+const DRAWER_VIEW_HREF_MAP: Record<CategoryKey, string> = {
+  gift: paths.dashboard.drawer.gift.root,
+  letter: paths.dashboard.drawer.letter,
+  goodMemo: paths.dashboard.drawer.goodMemo,
+  sadMemo: paths.dashboard.drawer.sadMemo,
+};
+
 export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   const { user } = useAuthContext();
   const router = useRouter();
+  const ownerCustomerId = user?.id ? String(user.id) : '';
 
   const giftCountData = useGiftCount(user?.id, '1');
-  const letterCountData = useGiftCount(user?.id, '1', 'letter');
-  const goodMemoCountData = useGiftCount(user?.id, '1', 'goodMemo');
-  const sadMemoCountData = useGiftCount(user?.id, '1', 'sadMemo');
+  const {
+    collectionItems: letterCollectionItems,
+    collectionItemsLoading: letterCollectionItemsLoading,
+  } = useGetCollectionItems(
+    ownerCustomerId ? DRAWER_COLLECTION_MAP.letter : '',
+    ownerCustomerId,
+  );
+  const {
+    collectionItems: goodMemoCollectionItems,
+    collectionItemsLoading: goodMemoCollectionItemsLoading,
+  } = useGetCollectionItems(
+    ownerCustomerId ? DRAWER_COLLECTION_MAP.goodMemo : '',
+    ownerCustomerId,
+  );
+  const {
+    collectionItems: sadMemoCollectionItems,
+    collectionItemsLoading: sadMemoCollectionItemsLoading,
+  } = useGetCollectionItems(
+    ownerCustomerId ? DRAWER_COLLECTION_MAP.sadMemo : '',
+    ownerCustomerId,
+  );
 
   const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
@@ -130,15 +163,15 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
 
   const totalCount =
     giftCountData.count +
-    letterCountData.count +
-    goodMemoCountData.count +
-    sadMemoCountData.count;
+    letterCollectionItems.length +
+    goodMemoCollectionItems.length +
+    sadMemoCollectionItems.length;
 
   const anyCountLoading =
     giftCountData.loading ||
-    letterCountData.loading ||
-    goodMemoCountData.loading ||
-    sadMemoCountData.loading;
+    letterCollectionItemsLoading ||
+    goodMemoCollectionItemsLoading ||
+    sadMemoCollectionItemsLoading;
 
   const notFound = totalCount === 0 && !anyCountLoading && !guestarea && !guestAreaLoading;
 
@@ -155,9 +188,9 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
             {CATEGORY_OPTIONS.map(({ label, key }) => {
               const countsMap: Record<CategoryKey, number> = {
                 gift: giftCountData.count,
-                letter: letterCountData.count,
-                goodMemo: goodMemoCountData.count,
-                sadMemo: sadMemoCountData.count,
+                letter: letterCollectionItems.length,
+                goodMemo: goodMemoCollectionItems.length,
+                sadMemo: sadMemoCollectionItems.length,
               };
               const count = countsMap[key];
               return (
@@ -185,10 +218,7 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
                       size="small"
                       variant="outlined"
                       fullWidth
-                      onClick={() => {
-                        const href = `${paths.dashboard.drawer.gift.root}?category=${key}`;
-                        router.push(href);
-                      }}
+                      onClick={() => router.push(DRAWER_VIEW_HREF_MAP[key])}
                     >
                       View
                     </Button>

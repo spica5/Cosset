@@ -117,6 +117,11 @@ export function CollectionItemsView({ collectionId }: Props) {
   const { user } = useAuthContext();
 
   const numericCollectionId = useMemo(() => Number.parseInt(String(collectionId), 10), [collectionId]);
+  const ownerCustomerId = user?.id ? String(user.id) : '';
+  const scopedCollectionId = useMemo(
+    () => (Number.isNaN(numericCollectionId) || !ownerCustomerId ? '' : numericCollectionId),
+    [numericCollectionId, ownerCustomerId],
+  );
 
   const [sortBy, setSortBy] = useState('latest');
   const [signedUrlMap, setSignedUrlMap] = useState<Record<string, string>>({});
@@ -128,7 +133,8 @@ export function CollectionItemsView({ collectionId }: Props) {
   );
 
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(
-    Number.isNaN(numericCollectionId) ? '' : numericCollectionId,
+    scopedCollectionId,
+    ownerCustomerId,
   );
 
   const search = useSetState<{

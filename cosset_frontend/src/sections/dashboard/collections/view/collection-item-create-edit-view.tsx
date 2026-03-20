@@ -102,6 +102,20 @@ const toDateInputValue = (value: unknown): string => {
   return parsed.toISOString().slice(0, 10);
 };
 
+const normalizePublicFieldValue = (value: unknown): string => {
+  if (
+    value === 1 ||
+    value === '1' ||
+    value === true ||
+    value === 'true' ||
+    String(value || '').toLowerCase() === 'public'
+  ) {
+    return '1';
+  }
+
+  return '0';
+};
+
 const uploadAcceptMap: Record<UploadFileType, string> = {
   image: 'image/*',
   video: 'video/*',
@@ -239,7 +253,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
       title: collectionItem.title || '',
       category: collectionItem.category != null ? String(collectionItem.category) : '',
       description: collectionItem.description || '',
-      isPublic: collectionItem.isPublic != null ? String(collectionItem.isPublic) : '0',
+      isPublic: normalizePublicFieldValue(collectionItem.isPublic),
       date: toDateInputValue(collectionItem.date),
       images: collectionItem.images || '',
       videos: collectionItem.videos || '',
@@ -643,7 +657,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
       title: form.title.trim(),
       category: parseNullableInteger(form.category),
       description: form.description.trim() || null,
-      isPublic: parseNullableInteger(form.isPublic) ?? 0,
+      isPublic: Number.parseInt(normalizePublicFieldValue(form.isPublic), 10),
       date: form.date || null,
       images: form.images.trim() || null,
       videos: form.videos.trim() || null,
@@ -734,10 +748,11 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
                 />
 
                 <TextField
-                  label="Visibility"
+                  label="Public / Private"
                   select
                   value={form.isPublic}
                   onChange={handleFieldChange('isPublic')}
+                  helperText="Private items are hidden from your universe visitors."
                   fullWidth
                 >
                   <MenuItem value="0">Private</MenuItem>

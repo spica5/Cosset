@@ -14,17 +14,18 @@ import { Typography } from '@mui/material';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
+import IconButton from '@mui/material/IconButton';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import IconButton from '@mui/material/IconButton';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
 
 import { varAlpha } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify/iconify';
+import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
 // ----------------------------------------------------------------------
 
@@ -224,7 +225,7 @@ export function UniverseLandingHero({
             {universe.name}
           </Typography>
 
-          <Typography variant="h2" component="h1" sx={{ maxWidth: { xs: 480, md: 800 } }}>
+          <Typography variant="h2" component="h1" sx={{ maxWidth: { xs: 480, md: 800 }, color: isGuestAreaHomeSpaceOnlyMotif(universe.motif) ? 'error.main' : 'inherit' }}>
             {universe.motif}
           </Typography>
 

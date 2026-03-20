@@ -12,6 +12,7 @@ import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { varAlpha } from 'src/theme/universe/styles';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Logo } from 'src/components/universe/logo';
 
@@ -36,6 +37,11 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
   const [showTopMenu, setShowTopMenu] = useState(true);
 
   const isUniverseViewPage = pathname?.includes('/universe/') && pathname?.includes('/view');
+  const universeViewMatch = pathname?.match(/^\/universe\/([^/]+)\/view(?:\/|$)/);
+  const universeCustomerId = universeViewMatch?.[1] ? decodeURIComponent(universeViewMatch[1]) : '';
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(universeCustomerId);
+  const showUniverseSectionLinks =
+    isUniverseViewPage && !isAccessLoading && !isVisitorHomeSpaceOnly;
   const currentPathWithHash = pathname || '/';
 
   useEffect(() => {
@@ -115,7 +121,7 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
                   <Logo />
                 </>
               ),
-              centerArea: isUniverseViewPage ? (
+              centerArea: showUniverseSectionLinks ? (
                 <Box gap={5} display="flex" alignItems="center" justifyContent="center">
                   <Link
                     component={RouterLink}

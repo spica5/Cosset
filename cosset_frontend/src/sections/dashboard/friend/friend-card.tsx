@@ -37,7 +37,7 @@ import { useAuthContext } from 'src/auth/hooks';
 const _motifAvatars: Record<string, string> = {
   'Welcome guests': '👋',
   'Be Away': '🚪',
-  'I am back soon.': '⏳',
+  'Be back soon.': '⏳',
 };
 
 const getMotifAvatar = (motif?: string) => {

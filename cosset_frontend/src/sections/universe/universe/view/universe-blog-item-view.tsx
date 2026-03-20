@@ -17,6 +17,7 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetBlog, recordBlogView } from 'src/actions/blog';
@@ -35,6 +36,7 @@ import {
   isBlogContentBackgroundPreset,
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -92,6 +94,8 @@ const formatDateTime = (value: unknown) => {
 };
 
 export function UniverseBlogItemView({ customerId, blogId }: Props) {
+  const router = useRouter();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { blog, blogLoading } = useGetBlog(blogId);
   const { user, authenticated } = useAuthContext();
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
@@ -191,6 +195,34 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
       setIsSubmittingReaction(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAccessLoading && isVisitorHomeSpaceOnly) {
+      router.replace(paths.universe.view(customerId));
+    }
+  }, [customerId, isAccessLoading, isVisitorHomeSpaceOnly, router]);
+
+  if (isAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
 
   if (blogLoading) {
     return (

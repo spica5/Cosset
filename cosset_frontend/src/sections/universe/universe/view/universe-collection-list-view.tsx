@@ -15,6 +15,7 @@ import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetCollections } from 'src/actions/collection';
@@ -23,6 +24,7 @@ import { useGetGuestArea } from 'src/actions/guestarea';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { recordActivityNotification } from 'src/actions/notification';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -156,7 +158,9 @@ function UniverseCollectionListCard({ customerId, collection }: CollectionCardPr
 }
 
 export function UniverseCollectionListView({ customerId }: Props) {
+  const router = useRouter();
   const { user } = useAuthContext();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { guestarea } = useGetGuestArea(customerId);
   const { collections, collectionsLoading } = useGetCollections(customerId);
 
@@ -201,6 +205,34 @@ export function UniverseCollectionListView({ customerId }: Props) {
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionsLoading]);
+
+  useEffect(() => {
+    if (!isAccessLoading && isVisitorHomeSpaceOnly) {
+      router.replace(paths.universe.view(customerId));
+    }
+  }, [customerId, isAccessLoading, isVisitorHomeSpaceOnly, router]);
+
+  if (isAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>

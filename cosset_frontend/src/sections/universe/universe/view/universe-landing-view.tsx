@@ -11,20 +11,22 @@ import { paths } from 'src/routes/paths';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
 import { useGetBlogs } from 'src/actions/blog';
-import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
-import { useGetCollections } from 'src/actions/collection';
 import { useGetUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
+import { useGetCollections } from 'src/actions/collection';
 import { createNotification } from 'src/actions/notification';
+import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
+import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
+
 import { useAuthContext } from 'src/auth/hooks';
 
 import { UniverseLandingHero } from '../landing/universe-landing-hero';
-import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
 import { UniverseLandingBlogs } from '../landing/universe-landing-blogs';
-import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
+import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
+import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
+import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
 // ----------------------------------------------------------------------
 
@@ -74,6 +76,7 @@ export function UniverseLandingView({
 }: Props) {
   const { guestarea } = useGetGuestArea(customerId);
   const { user, loading: userLoading, authenticated } = useAuthContext();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { users } = useGetUsers(100, 0, authenticated);
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const { collections } = useGetCollections(customerId);
@@ -571,7 +574,8 @@ export function UniverseLandingView({
   );
 
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
-  const sharedBlogViewItems = guestarea?.blog ? sharedBlogs : [];
+  const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
+  const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
 
   const visitors = useMemo<VisitorItem[]>(() => {
     const normalizedCustomerId = String(customerId || '');
@@ -638,30 +642,34 @@ export function UniverseLandingView({
         }}
       />
 
-      <UniverseLandingBlogs
-        blogs={sharedBlogViewItems}
-        blogsLoading={guestarea?.blog ? blogsLoading : false}
-        viewAllHref={paths.universe.blogs(customerId)}
-        ownerCustomerId={customerId}
-        getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
-      />
+      {allowVisitorSections ? (
+        <>
+          <UniverseLandingBlogs
+            blogs={sharedBlogViewItems}
+            blogsLoading={guestarea?.blog ? blogsLoading : false}
+            viewAllHref={paths.universe.blogs(customerId)}
+            ownerCustomerId={customerId}
+            getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
+          />
 
-      <UniverseLandingAlbums
-        albums={sharedAlbums}
-        albumsLoading={albumsLoading}
-        ownerUserId={customerId}
-      />
+          <UniverseLandingAlbums
+            albums={sharedAlbums}
+            albumsLoading={albumsLoading}
+            ownerUserId={customerId}
+          />
 
-      <UniverseLandingDrawer
-        items={sharedDrawerItems}
-        loading={drawerLoading}
-        sx={{ px: { xs: 2, md: 0 }, py: { xs: 5, md: 8 } }}
-      />  
+          <UniverseLandingDrawer
+            items={sharedDrawerItems}
+            loading={drawerLoading}
+            sx={{ px: { xs: 2, md: 0 }, py: { xs: 5, md: 8 } }}
+          />
 
-      <UniverseLandingCollectionItems
-        customerId={customerId}
-        collections={sharedCollections}
-      />
+          <UniverseLandingCollectionItems
+            customerId={customerId}
+            collections={sharedCollections}
+          />
+        </>
+      ) : null}
 
       
     </>

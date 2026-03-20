@@ -18,6 +18,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useGetBlogs } from 'src/actions/blog';
@@ -29,6 +30,7 @@ import {
   BLOG_CATEGORY_OPTIONS,
   getBlogCategoryLabel,
 } from 'src/sections/dashboard/blog/blog-categories';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 import {
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
@@ -166,7 +168,9 @@ const hasCollapsedOverflow = (node: HTMLParagraphElement, content: string) => {
 };
 
 export function UniverseBlogListView({ customerId }: Props) {
+  const router = useRouter();
   const { user } = useAuthContext();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -236,6 +240,34 @@ export function UniverseBlogListView({ customerId }: Props) {
     const key = String(blogId);
     setExpandedById((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  useEffect(() => {
+    if (!isAccessLoading && isVisitorHomeSpaceOnly) {
+      router.replace(paths.universe.view(customerId));
+    }
+  }, [customerId, isAccessLoading, isVisitorHomeSpaceOnly, router]);
+
+  if (isAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>

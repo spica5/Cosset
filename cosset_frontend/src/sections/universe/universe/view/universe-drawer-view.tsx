@@ -19,6 +19,7 @@ import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
@@ -34,6 +35,7 @@ import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 // ----------------------------------------------------------------------
 
@@ -257,6 +259,8 @@ function GiftReactionInfo({ giftId, totalViews, authenticated, viewerId }: GiftR
 }
 
 export function UniverseDrawerView({ customerId, categoryKey }: Props) {
+  const router = useRouter();
+  const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { user, authenticated } = useAuthContext();
   const [items, setItems] = useState<GiftWithImages[]>([]);
   const [loading, setLoading] = useState(true);
@@ -383,6 +387,34 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
   const lightbox = useLightBox(lightboxSlides);
 
   const customerViewHref = `${paths.universe.view(customerId)}#drawers-section`;
+
+  useEffect(() => {
+    if (!isAccessLoading && isVisitorHomeSpaceOnly) {
+      router.replace(paths.universe.view(customerId));
+    }
+  }, [customerId, isAccessLoading, isVisitorHomeSpaceOnly, router]);
+
+  if (isAccessLoading) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Checking access...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  if (isVisitorHomeSpaceOnly) {
+    return (
+      <Container sx={{ py: 10 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Redirecting to home space...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
 
   if (loading) {
     return (
