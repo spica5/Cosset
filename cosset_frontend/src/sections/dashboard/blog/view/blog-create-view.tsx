@@ -86,6 +86,16 @@ const BLOG_EMOTICON_OPTIONS = [
   { label: 'Heart', value: '❤️' },
   { label: 'Party', value: '🎉' },
   { label: 'Thanks', value: '🙏' },
+  { label: 'Cool', value: '😎' },
+  { label: 'Surprised', value: '😮' },
+  { label: 'Thinking', value: '🤔' },
+  { label: 'Clap', value: '👏' },
+  { label: 'Fire', value: '🔥' },
+  { label: 'Like', value: '👍' },
+  { label: 'Cry', value: '😭' },
+  { label: 'Angry', value: '😡' },
+  { label: 'Wow', value: '😲' },
+  { label: 'Kiss', value: '😘' },
 ] as const;
 
 const BLOG_TEMPLATE_OPTIONS = [
@@ -100,6 +110,42 @@ const BLOG_TEMPLATE_OPTIONS = [
   {
     label: 'Closing',
     value: 'Thank you for reading.\n\nBest regards,\n',
+  },
+  {
+    label: 'Daily Update',
+    value: 'Hello everyone,\n\nHere is a quick update for today.\n\n',
+  },
+  {
+    label: 'Announcement',
+    value: 'Hi everyone,\n\nI am excited to share an announcement with you.\n\n',
+  },
+  {
+    label: 'Motivation',
+    value: 'Hello everyone,\n\nKeep going and never give up. Every step forward matters.\n\n',
+  },
+  {
+    label: 'Appreciation',
+    value: 'Hi everyone,\n\nI just want to say thank you for your support and kindness.\n\n',
+  },
+  {
+    label: 'Event Invitation',
+    value: 'Hello everyone,\n\nYou are warmly invited to join this special event.\n\n',
+  },
+  {
+    label: 'Story Intro',
+    value: 'Hi everyone,\n\nToday I want to share a short story with you.\n\n',
+  },
+  {
+    label: 'Question Post',
+    value: 'Hello everyone,\n\nI would love to hear your thoughts on this topic.\n\n',
+  },
+  {
+    label: 'Celebration',
+    value: 'Hi everyone,\n\nLet us celebrate this wonderful moment together.\n\n',
+  },
+  {
+    label: 'Friendly Reminder',
+    value: 'Hello everyone,\n\nJust a friendly reminder about the following.\n\n',
   },
 ] as const;
 
@@ -592,22 +638,6 @@ export function BlogCreateView({ blogId }: Props) {
               {contentPreview?.trim() || 'Start typing content to preview your selected style.'}
             </Typography>
           </Box>
-
-          {/* <TextField
-            label="File"
-            placeholder="Image key or file URL"
-            InputLabelProps={{ shrink: true }}
-            {...register('file')}
-          /> */}
-
-          {/* <TextField
-            label="Comments"
-            placeholder="Optional comments text or JSON"
-            multiline
-            minRows={3}
-            InputLabelProps={{ shrink: true }}
-            {...register('comments')}
-          /> */}
 
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             <Button onClick={() => router.push(paths.dashboard.blog.list)} color="inherit" variant="outlined">
