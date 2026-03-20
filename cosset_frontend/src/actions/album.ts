@@ -15,6 +15,29 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
+const getAlbumsListKey = (userId?: string | number | null): string => {
+  if (userId === undefined || userId === null || String(userId).trim() === '') {
+    return ALBUM_ENDPOINT;
+  }
+
+  return `${ALBUM_ENDPOINT}?userId=${encodeURIComponent(String(userId))}`;
+};
+
+const isAlbumListKey = (key: unknown): key is string =>
+  typeof key === 'string' && key.startsWith(ALBUM_ENDPOINT);
+
+const revalidateAlbumLists = async () => {
+  try {
+    // Clear cache entries and trigger re-fetch.
+    // revalidate: true ensures mounted hooks re-fetch immediately (covers delete
+    // while the list is visible) and unmounted keys are cleared so the next
+    // mount always fetches fresh data (covers create → navigate back).
+    await mutate(isAlbumListKey, undefined, { revalidate: true });
+  } catch {
+    // Ignore cache refresh failures; CRUD already succeeded on the server.
+  }
+};
+
 // ----------------------------------------------------------------------
 
 type AlbumsData = {
@@ -22,7 +45,7 @@ type AlbumsData = {
 };
 
 export function useGetAlbums(userId?: string | number) {
-  const url = userId ? `${ALBUM_ENDPOINT}?userId=${encodeURIComponent(String(userId))}` : null;
+  const url = userId ? getAlbumsListKey(userId) : null;
 
   const { data, isLoading, error, isValidating } = useSWR<AlbumsData>(
     url,
@@ -106,11 +129,7 @@ export async function createAlbum(album: IAlbumItem) {
   const data = { album };
   const res = await axios.post(endpoints.album.create, data);
 
-  // Revalidate albums list
-  mutate(ALBUM_ENDPOINT);
-  if (album.userId) {
-    mutate(`${ALBUM_ENDPOINT}?userId=${album.userId}`);
-  }
+  await revalidateAlbumLists();
 
   return res.data;
 }
@@ -122,15 +141,9 @@ export async function updateAlbum(id: string | number, album: Partial<IAlbumItem
   const data = { album };
   const res = await axios.put(url, data);
 
-  const returned = res.data as { album?: IAlbumItem };
-  const userId = returned.album?.userId || album.userId;
-
   // Revalidate album detail and list
   mutate(endpoints.album.details(id));
-  mutate(ALBUM_ENDPOINT);
-  if (userId) {
-    mutate(`${ALBUM_ENDPOINT}?userId=${userId}`);
-  }
+  await revalidateAlbumLists();
 
   return res.data;
 }
@@ -141,11 +154,7 @@ export async function deleteAlbum(id: string | number, userId?: string | number)
   const url = endpoints.album.delete(id);
   const res = await axios.delete(url);
 
-  // Revalidate album list
-  mutate(ALBUM_ENDPOINT);
-  if (userId) {
-    mutate(`${ALBUM_ENDPOINT}?userId=${userId}`);
-  }
+  await revalidateAlbumLists();
 
   return res.data;
 }

@@ -5,8 +5,12 @@ import type { IAlbumItem } from 'src/types/album';
 import { useState, useCallback } from 'react';
 
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
+
+import { Iconify } from 'src/components/dashboard/iconify';
 
 import { useSetState } from 'src/hooks/use-set-state';
 
@@ -89,6 +93,16 @@ export function AlbumListView() {
           { name: 'Albums', href: paths.dashboard.album.root },
           { name: 'List' },
         ]}
+        action={
+          <Button
+            component={RouterLink}
+            href={paths.dashboard.album.new}
+            variant="contained"
+            startIcon={<Iconify icon="mingcute:add-line" />}
+          >
+            New Album
+          </Button>
+        }
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 

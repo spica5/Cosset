@@ -2,6 +2,8 @@ import type { IAlbumItem } from 'src/types/album';
 
 import { useState, useEffect } from 'react';
 
+import ListItemIcon from '@mui/material/ListItemIcon';
+
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
@@ -26,9 +28,10 @@ import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popov
 type Props = {
   album: IAlbumItem;
   onView: () => void;
+  onDelete: () => void;
 };
 
-export function AlbumItem({ album, onView }: Props) {
+export function AlbumItem({ album, onView, onDelete }: Props) {
   const popover = usePopover();
   const [coverUrl, setCoverUrl] = useState<string>('');
 
@@ -139,6 +142,17 @@ export function AlbumItem({ album, onView }: Props) {
           >
             <Iconify icon="solar:eye-bold" />
             View
+          </MenuItem>
+
+          <MenuItem
+            onClick={() => {
+              popover.onClose();
+              onDelete();
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <Iconify icon="solar:trash-bin-trash-bold" />
+            Delete
           </MenuItem>
         </MenuList>
       </CustomPopover>
