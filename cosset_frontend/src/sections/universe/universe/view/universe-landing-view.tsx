@@ -338,8 +338,8 @@ export function UniverseLandingView({
         type: 7,
         category: 1,
         isUnRead: true,
-        title: `<p><strong>${visitorName}</strong> visited your customer area</p>`,
-        content: `${visitorName} visited your customer area`,
+        title: `<p><strong>${visitorName}</strong> visited your Home space</p>`,
+        content: `${visitorName} visited your Home space`,
       });
 
       if (typeof window !== 'undefined') {

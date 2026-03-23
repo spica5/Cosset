@@ -17,7 +17,7 @@ export function HomeFooter({ sx, ...other }: BoxProps) {
           flexDirection: 'column',
         }}
       >
-        <Logo isSingle sx={{ mb: 1 }} />
+        <Logo sx={{ mb: 1 }} />
 
         <Box component="span" sx={{ color: 'text.secondary', typography: 'caption' }}>
           © All rights reserved.

@@ -348,6 +348,36 @@ export async function updateCommunityPost(
 // ----------------------------------------------------------------------
 
 /**
+ * Atomically increment total_views for a community post and return the updated count.
+ */
+export async function incrementCommunityPostViews(id: number): Promise<number> {
+  try {
+    const result = await queryOne<{ totalViews: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING total_views as "totalViews"
+      `,
+      [id],
+    );
+
+    return result?.totalViews ?? 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_COMMUNITY_POST_VIEWS_ERROR',
+        message: `Failed to increment community post views: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+// ----------------------------------------------------------------------
+
+/**
  * Delete a community post by ID.
  * Returns true if a row was deleted, false if not found.
  */

@@ -26,7 +26,7 @@ import { fDate } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { useGetViewedGiftIds } from 'src/actions/gift';
+import { recordGiftView, useGetViewedGiftIds } from 'src/actions/gift';
 import { recordActivityNotification } from 'src/actions/notification';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
 
@@ -364,6 +364,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
 
   const categoryLabel = categoryLabelMap[categoryKey] || categoryKey;
   const previewImageHeight = categoryKey === 'gift' ? 245 : 220;
+  const [viewCountOverrides, setViewCountOverrides] = useState<Record<string, number>>({});
   const viewedGiftIdSet = useMemo(() => new Set(viewedGiftIds.map(String)), [viewedGiftIds]);
   const viewedCount = useMemo(
     () => items.filter((item) => viewedGiftIdSet.has(String(item.id))).length,
@@ -385,6 +386,22 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
 
   const lightboxSlides: Slide[] = slideItems;
   const lightbox = useLightBox(lightboxSlides);
+
+  const handleCardClick = (firstImg: string, slideIdx: number, itemId: string | number) => {
+    if (firstImg && slideIdx >= 0) {
+      lightbox.setSelected(slideIdx);
+    }
+    recordGiftView(itemId)
+      .then((result) => {
+        if (result && typeof result.totalViews === 'number' && result.totalViews > 0) {
+          setViewCountOverrides((prev) => ({
+            ...prev,
+            [String(itemId)]: Math.max(prev[String(itemId)] ?? 0, result.totalViews!),
+          }));
+        }
+      })
+      .catch(() => {});
+  };
 
   const customerViewHref = `${paths.universe.view(customerId)}#drawers-section`;
 
@@ -496,11 +513,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
                 return (
                   <Grid item xs={12} sm={6} md={4} key={item.id}>
                     <Card
-                      onClick={() => {
-                        if (firstImage && slideStartIndex >= 0) {
-                          lightbox.setSelected(slideStartIndex);
-                        }
-                      }}
+                      onClick={() => handleCardClick(firstImage, slideStartIndex, item.id)}
                       sx={{
                         height: 1,
                         cursor: firstImage ? 'pointer' : 'default',
@@ -560,14 +573,15 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
                             {item.description || 'No description'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
+                            {item.sendTo ? `To ${item.sendTo} • ` : ''}
                             From {item.receivedFrom || 'Unknown'}
-                            {item.receivedDate ? ` • ${fDate(item.receivedDate)}` : ''}
+                            {item.eventAt ? ` • ${fDate(item.eventAt)}` : ''}
                           </Typography>
 
                           {categoryKey === 'gift' ? (
                             <GiftReactionInfo
                               giftId={item.id}
-                              totalViews={item.totalViews}
+                              totalViews={viewCountOverrides[String(item.id)] ?? item.totalViews}
                               authenticated={authenticated}
                               viewerId={viewerId}
                             />

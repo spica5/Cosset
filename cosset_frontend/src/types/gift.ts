@@ -10,7 +10,8 @@ export type IGiftItem = {
   title: string;
   description: string;
   category: string;
-  receivedDate: IDateValue;
+  eventAt: IDateValue;
+  sendTo?: string;
   receivedFrom: string;
   images: string;
   openness: IGiftOpenness;

@@ -14,21 +14,23 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
  */
 const TABLE_NAME = 'gifts';
 
-let ensureGiftViewsColumnPromise: Promise<void> | null = null;
+let ensureGiftColumnsPromise: Promise<void> | null = null;
 
-const ensureGiftViewsColumn = async (): Promise<void> => {
-  if (!ensureGiftViewsColumnPromise) {
-    ensureGiftViewsColumnPromise = executeQuery(
-      `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views BIGINT NOT NULL DEFAULT 0`,
-    )
+const ensureGiftColumns = async (): Promise<void> => {
+  if (!ensureGiftColumnsPromise) {
+    ensureGiftColumnsPromise = Promise.all([
+      executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views BIGINT NOT NULL DEFAULT 0`),
+      executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS send_to VARCHAR(255)`),
+      executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS event_at TIMESTAMP`),
+    ])
       .then(() => undefined)
       .catch((error) => {
-        ensureGiftViewsColumnPromise = null;
+        ensureGiftColumnsPromise = null;
         throw error;
       });
   }
 
-  await ensureGiftViewsColumnPromise;
+  await ensureGiftColumnsPromise;
 };
 
 /**
@@ -47,10 +49,12 @@ export interface Gift {
   category?: string | null;
   /** Image URLs (array of strings) */
   images?: string | null;
+  /** Send To */
+  sendTo?: string | null;
   /** Received From */
   receivedFrom: string | null;
-  /** Received date */
-  receivedDate?: Date | null;
+  /** Send/Received event date */
+  eventAt?: Date | null;
   /** Openness */
   openness?: string | number | boolean | null;
   /** Total views */
@@ -146,7 +150,7 @@ const normalizeGiftOpenness = (value: unknown): 0 | 1 | null => {
  */
 export async function getGiftById(id: number): Promise<Gift | null> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     const gift = await queryOne<Gift>(
       `
@@ -155,8 +159,9 @@ export async function getGiftById(id: number): Promise<Gift | null> {
           user_id as "userId",
           title,
           description,
+          send_to as "sendTo",
           received_from as "receivedFrom",
-          received_date as "receivedDate",
+          event_at as "eventAt",
           category,
           images,
           openness,
@@ -197,7 +202,7 @@ export async function getAllGifts(
   offset: number = 0,
 ): Promise<Gift[]> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     let query = `
       SELECT
@@ -205,8 +210,9 @@ export async function getAllGifts(
         user_id as "userId",
         title,
         description,
+        send_to as "sendTo",
         received_from as "receivedFrom",
-        received_date as "receivedDate",
+        event_at as "eventAt",
         category,
         images,
         openness,
@@ -253,7 +259,7 @@ export async function createGift(
   gift: Omit<Gift, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<Gift> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     const createdGift = await queryOne<Gift>(
       `
@@ -262,23 +268,25 @@ export async function createGift(
           title,
           description,
           category,
+          send_to,
           received_from,
-          received_date,
+          event_at,
           images,
           openness,
           total_views,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, NOW(), NOW())
         RETURNING
           id,
           user_id as "userId",
           title,
           description,
           category,
+          send_to as "sendTo",
           received_from as "receivedFrom",
-          received_date as "receivedDate",
+          event_at as "eventAt",
           images,
           openness,
           total_views as "totalViews",
@@ -290,8 +298,9 @@ export async function createGift(
         gift.title,
         gift.description || null,
         gift.category || null,
+        gift.sendTo || null,
         gift.receivedFrom || null,
-        gift.receivedDate || null,
+        gift.eventAt || null,
         gift.images || null,
         normalizeGiftOpenness(gift.openness),
       ],
@@ -330,7 +339,7 @@ export async function updateGift(
   gift: Partial<Omit<Gift, 'id' | 'createdAt' | 'updatedAt'>>,
 ): Promise<Gift> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -351,14 +360,19 @@ export async function updateGift(
       values.push(gift.category);
       paramIndex += 1;
     }
+    if (gift.sendTo !== undefined) {
+      fields.push(`send_to = $${paramIndex}`);
+      values.push(gift.sendTo);
+      paramIndex += 1;
+    }
     if (gift.receivedFrom !== undefined) {
       fields.push(`received_from = $${paramIndex}`);
       values.push(gift.receivedFrom);
       paramIndex += 1;
     }
-    if (gift.receivedDate !== undefined) {
-      fields.push(`received_date = $${paramIndex}`);
-      values.push(gift.receivedDate);
+    if (gift.eventAt !== undefined) {
+      fields.push(`event_at = $${paramIndex}`);
+      values.push(gift.eventAt);
       paramIndex += 1;
     }
     if (gift.images !== undefined) {
@@ -398,8 +412,9 @@ export async function updateGift(
           title,
           description,
           category,
+          send_to as "sendTo",
           received_from as "receivedFrom",
-          received_date as "receivedDate",
+          event_at as "eventAt",
           images,
           openness,
           total_views as "totalViews",
@@ -442,7 +457,7 @@ export async function getGiftCount(
   category?: string
 ): Promise<number> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     let query = `SELECT COUNT(*)::int AS count FROM ${TABLE_NAME}`;
     const params: unknown[] = [];
@@ -499,7 +514,7 @@ export async function getGiftIdsByFilters(
   category?: string,
 ): Promise<number[]> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     let query = `SELECT id FROM ${TABLE_NAME} WHERE user_id = $1`;
     const params: unknown[] = [userId];
@@ -565,7 +580,7 @@ export async function getGiftIdsByFilters(
 
 export async function deleteGift(id: number): Promise<boolean> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     const result = await queryOne<{ id: number }>(
       `
@@ -594,7 +609,7 @@ export async function deleteGift(id: number): Promise<boolean> {
  */
 export async function incrementGiftViews(id: number): Promise<number> {
   try {
-    await ensureGiftViewsColumn();
+    await ensureGiftColumns();
 
     const updated = await queryOne<{ totalViews: number | string | null }>(
       `

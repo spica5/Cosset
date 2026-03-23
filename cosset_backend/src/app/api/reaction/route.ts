@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
       return response(
         {
           message:
-            'targetType is required and must be one of blog, album, collection, drawer (or collection-item)',
+            'targetType is required and must be one of blog, album, collection, drawer, community (or collection-item)',
         },
         STATUS.BAD_REQUEST,
       );
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
       return response(
         {
           message:
-            'targetType is required and must be one of blog, album, collection, drawer (or collection-item)',
+            'targetType is required and must be one of blog, album, collection, drawer, community (or collection-item)',
         },
         STATUS.BAD_REQUEST,
       );
@@ -247,7 +247,7 @@ export async function DELETE(req: NextRequest) {
       return response(
         {
           message:
-            'targetType is required and must be one of blog, album, collection, drawer (or collection-item)',
+            'targetType is required and must be one of blog, album, collection, drawer, community (or collection-item)',
         },
         STATUS.BAD_REQUEST,
       );

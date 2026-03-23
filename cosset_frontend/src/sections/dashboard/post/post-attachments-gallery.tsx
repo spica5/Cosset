@@ -32,6 +32,7 @@ type Props = {
   videoWidth?: number;
   allowRemove?: boolean;
   onRemoveAttachment?: (key: string) => void;
+  onPreview?: () => void;
 };
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
@@ -109,6 +110,7 @@ export function PostAttachmentsGallery({
   videoWidth = 280,
   allowRemove = false,
   onRemoveAttachment,
+  onPreview,
 }: Props) {
   const [signedUrlMap, setSignedUrlMap] = useState<Record<string, string>>({});
   const [lightboxSlides, setLightboxSlides] = useState<Slide[]>([]);
@@ -289,6 +291,7 @@ export function PostAttachmentsGallery({
                   if (stopPropagation) {
                     event.stopPropagation();
                   }
+                  onPreview?.();
                   handleOpenLightbox(mediaSlides, index);
                 }}
                 sx={{
@@ -309,6 +312,7 @@ export function PostAttachmentsGallery({
                   if (stopPropagation) {
                     event.stopPropagation();
                   }
+                  onPreview?.();
                   handleOpenLightbox(mediaSlides, index);
                 }}
                 sx={{ minWidth: 0 }}
@@ -354,6 +358,7 @@ export function PostAttachmentsGallery({
                   if (stopPropagation) {
                     event.stopPropagation();
                   }
+                  onPreview?.();
                   handleOpenLightbox(mediaSlides, index);
                 }}
                 sx={{ alignSelf: 'flex-start', minWidth: 0 }}
@@ -378,6 +383,7 @@ export function PostAttachmentsGallery({
                 if (stopPropagation) {
                   event.stopPropagation();
                 }
+                onPreview?.();
               }}
             >
               View PDF {index + 1}

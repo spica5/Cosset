@@ -279,6 +279,32 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
   );
 
   const customerViewHref = customerId ? paths.universe.drawer.item(customerId, 'gift') : paths.home;
+  const giftInfoItems = [
+    {
+      key: 'category',
+      icon: 'solar:box-bold',
+      label: gift?.category || 'Uncategorized',
+      color: 'warning.main',
+    },
+    {
+      key: 'sendTo',
+      icon: 'solar:user-id-bold',
+      label: gift?.sendTo ? `To ${gift.sendTo}` : null,
+      color: 'success.main',
+    },
+    {
+      key: 'receivedFrom',
+      icon: 'eva:person-fill',
+      label: gift?.receivedFrom ? `From ${gift.receivedFrom}` : null,
+      color: 'secondary.main',
+    },
+    {
+      key: 'eventAt',
+      icon: 'solar:calendar-bold',
+      label: gift?.eventAt ? fDate(gift.eventAt) : null,
+      color: 'info.main',
+    },
+  ].filter((item): item is { key: string; icon: string; label: string; color: string } => true);
 
   useEffect(() => {
     if (!isAccessLoading && isVisitorHomeSpaceOnly) {
@@ -358,11 +384,16 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
             <Typography variant="body1" color="text.secondary">
               {gift.description || 'No description'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {gift.category || 'Uncategorized'}
-              {gift.receivedFrom ? ` • From ${gift.receivedFrom}` : ''}
-              {gift.receivedDate ? ` • ${fDate(gift.receivedDate)}` : ''}
-            </Typography>
+            <Stack direction="column" spacing={2.5}>
+              {giftInfoItems.map((item) => (
+                <Stack key={item.key} direction="row" spacing={0.75} alignItems="center">
+                  <Iconify icon={item.icon} width={16} sx={{ color: item.color }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {item.label}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
           </Stack>
 
           <Stack spacing={1} sx={{ maxWidth: 460 }}>

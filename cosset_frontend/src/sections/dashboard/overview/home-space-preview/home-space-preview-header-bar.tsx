@@ -90,6 +90,7 @@ export function HomeSpacePreviewHeaderBar({
       <Box gap={{ xs: 2, md: 4 }} display="flex" alignItems="center" flexWrap="wrap">
         <Logo
           disableLink
+          isSingle
           sx={{
             ml: { xs: 5, md: 10 },
             mr: { xs: 8, md: 12 },

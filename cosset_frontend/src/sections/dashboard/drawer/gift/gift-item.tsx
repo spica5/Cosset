@@ -257,16 +257,16 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
 
       {[
         {
+          icon: <Iconify icon="solar:user-id-bold" sx={{ color: 'success.main' }} />,
+          label: gift.sendTo,
+        },
+        {
           icon: <Iconify icon="eva:person-fill" sx={{ color: 'warning.main' }} />,
           label: gift.receivedFrom,
         },
         {
           icon: <Iconify icon="solar:calendar-bold" sx={{ color: 'info.main' }} />,
-          label: gift.receivedDate,
-        },
-        {
-          icon: <Iconify icon="solar:heart-bold" sx={{ color: 'primary.main' }} />,
-          label: gift.category,
+          label: gift.eventAt,
         },
       ].map((item, i) => (
         <Stack

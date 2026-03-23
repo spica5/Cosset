@@ -117,3 +117,30 @@ export async function deletePost(
 
   return res.data;
 }
+
+// ----------------------------------------------------------------------
+
+type PostViewData = {
+  totalViews?: number;
+  alreadyViewed?: boolean;
+  viewedAt?: string | null;
+};
+
+/**
+ * Record a view for a community post.
+ * The backend increments total_views only when this customer has not viewed it before.
+ */
+export async function recordPostView(postId: string | number): Promise<PostViewData> {
+  try {
+    const res = await axios.post<PostViewData>(endpoints.post.view, { postId: Number(postId) });
+
+    // Only revalidate the individual post detail cache.
+    // Mutating the full list triggers a re-fetch of all cards which can cause
+    // PostItemForm components to unmount/remount and reset localTotalViews state.
+    mutate(`${endpoints.post.details}?id=${encodeURIComponent(String(postId))}`);
+
+    return res.data;
+  } catch {
+    return {};
+  }
+}

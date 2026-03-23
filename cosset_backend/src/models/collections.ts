@@ -6,24 +6,9 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany, executeQuery } from '@/db/neon';
+import { queryOne, queryMany } from '@/db/neon';
 
 const TABLE_NAME = 'collections';
-
-let ensureCollectionViewsColumnPromise: Promise<void> | null = null;
-
-const ensureCollectionViewsColumn = async (): Promise<void> => {
-  if (!ensureCollectionViewsColumnPromise) {
-    ensureCollectionViewsColumnPromise = executeQuery(
-      `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views BIGINT NOT NULL DEFAULT 0`,
-    ).then(() => undefined).catch((error) => {
-      ensureCollectionViewsColumnPromise = null;
-      throw error;
-    });
-  }
-
-  await ensureCollectionViewsColumnPromise;
-};
 
 export interface Collection {
   id: number;
@@ -33,7 +18,6 @@ export interface Collection {
   category?: number | null;
   reference?: string | null;
   order?: number | null;
-  totalViews?: number | null;
   createdAt?: Date | null;
   updatedAt?: Date | null;
 }
@@ -100,8 +84,6 @@ export async function getAllCollections(
 
 export async function getCollectionById(id: number): Promise<Collection | null> {
   try {
-    await ensureCollectionViewsColumn();
-
     return await queryOne<Collection>(
       `
         SELECT
@@ -112,7 +94,6 @@ export async function getCollectionById(id: number): Promise<Collection | null> 
           category,
           reference,
           "order" as "order",
-          total_views as "totalViews",
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
@@ -282,36 +263,6 @@ export async function updateCollection(
       throw new DatabaseError({
         code: 'UPDATE_COLLECTION_ERROR',
         message: `Failed to update collection: ${error.message}`,
-        detail: error.detail,
-      });
-    }
-    throw error;
-  }
-}
-
-/**
- * Atomically increment total_views for a collection and return updated totalViews.
- */
-export async function incrementCollectionViews(id: number): Promise<number> {
-  try {
-    await ensureCollectionViewsColumn();
-
-    const result = await queryOne<{ totalViews: number }>(
-      `
-        UPDATE ${TABLE_NAME}
-        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
-        WHERE id = $1
-        RETURNING total_views as "totalViews"
-      `,
-      [id],
-    );
-
-    return result?.totalViews ?? 0;
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'INCREMENT_COLLECTION_VIEWS_ERROR',
-        message: `Failed to increment collection views: ${error.message}`,
         detail: error.detail,
       });
     }

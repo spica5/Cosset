@@ -166,7 +166,7 @@ const applyFilter = ({ inputData, sortBy }: ApplyFilterProps) => {
   }
 
   if (sortBy === 'recentlyReceived') {
-    inputData = orderBy(inputData, ['receivedDate'], ['desc']);
+    inputData = orderBy(inputData, ['eventAt'], ['desc']);
   }
 
   if (sortBy === 'titleASC') {

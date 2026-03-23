@@ -79,8 +79,9 @@ export function GiftForm({ currentGift, onClose }: Props) {
       title: '',
       description: '',
       category: '',
+      sendTo: '',
       receivedFrom: '',
-      receivedDate: undefined,
+      eventAt: undefined,
       images: undefined,
       openness: 'Private',
     },
@@ -95,8 +96,9 @@ export function GiftForm({ currentGift, onClose }: Props) {
         title: currentGift.title || '',
         description: currentGift.description || '',
         category: currentGift.category || '',
+        sendTo: currentGift.sendTo || '',
         receivedFrom: currentGift.receivedFrom || '',
-        receivedDate: formatDateForInput(currentGift.receivedDate) as any,
+        eventAt: formatDateForInput(currentGift.eventAt) as any,
         images: currentGift.images || undefined,
         openness: normalizeGiftOpenness(currentGift.openness),
       });
@@ -274,6 +276,15 @@ export function GiftForm({ currentGift, onClose }: Props) {
 
         <TextField
           fullWidth
+          label="Send To"
+          InputLabelProps={{ shrink: true }}
+          {...register('sendTo')}
+          error={!!errors.sendTo}
+          helperText={errors.sendTo?.message}
+        />
+
+        <TextField
+          fullWidth
           label="Received From"
           InputLabelProps={{ shrink: true }}
           {...register('receivedFrom')}
@@ -284,11 +295,11 @@ export function GiftForm({ currentGift, onClose }: Props) {
         <TextField
           fullWidth
           type="date"
-          label="Received Date"
+          label="Send/Received Date"
           InputLabelProps={{ shrink: true }}
-          {...register('receivedDate')}
-          error={!!errors.receivedDate}
-          helperText={errors.receivedDate?.message}
+          {...register('eventAt')}
+          error={!!errors.eventAt}
+          helperText={errors.eventAt?.message}
         />
 
         <TextField

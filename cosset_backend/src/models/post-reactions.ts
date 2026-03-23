@@ -3,7 +3,7 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'post_reactions';
 
-export const POST_REACTION_TARGET_TYPES = ['blog', 'album', 'collection', 'drawer'] as const;
+export const POST_REACTION_TARGET_TYPES = ['blog', 'album', 'collection', 'drawer', 'community'] as const;
 export const POST_REACTION_TYPES = ['like', 'love', 'haha', 'wow', 'sad', 'angry'] as const;
 
 export type PostReactionTargetType = (typeof POST_REACTION_TARGET_TYPES)[number];
@@ -83,12 +83,36 @@ const ensurePostReactionsTable = async (): Promise<void> => {
             id BIGSERIAL PRIMARY KEY,
             target_id BIGINT NOT NULL,
             customer_id BIGINT NOT NULL,
-            target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('blog', 'album', 'collection', 'drawer')),
+            target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('blog', 'album', 'collection', 'drawer', 'community')),
             reaction_type VARCHAR(20) CHECK (reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')),
             viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT uq_post_reaction UNIQUE (target_type, target_id, customer_id)
           )
+        `,
+      );
+
+      // Ensure target_type check constraint stays in sync for existing tables.
+      await executeQuery(
+        `
+          DO $$
+          DECLARE
+            current_constraint_name text;
+          BEGIN
+            FOR current_constraint_name IN
+              SELECT con.conname
+              FROM pg_constraint con
+              JOIN pg_class rel ON rel.oid = con.conrelid
+              WHERE rel.relname = '${TABLE_NAME}'
+                AND con.contype = 'c'
+                AND pg_get_constraintdef(con.oid) ILIKE '%target_type%'
+            LOOP
+              EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', '${TABLE_NAME}', current_constraint_name);
+            END LOOP;
+
+            EXECUTE 'ALTER TABLE ${TABLE_NAME} ADD CONSTRAINT ck_post_reactions_target_type CHECK (target_type IN (''blog'', ''album'', ''collection'', ''drawer'', ''community''))';
+          END
+          $$;
         `,
       );
 

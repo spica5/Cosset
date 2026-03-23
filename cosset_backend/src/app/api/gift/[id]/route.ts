@@ -79,8 +79,9 @@ export async function PUT(
     const updatedGift = await updateGift(giftId, {
       title: updates.title,
       description: updates.description ?? null,
+      sendTo: updates.sendTo ?? null,
       receivedFrom: updates.receivedFrom ?? null,
-      receivedDate: updates.receivedDate ?? null,
+      eventAt: updates.eventAt ?? null,
       category: updates.category ?? null,
       images: updates.images ?? null,
       openness: hasOpenness ? normalizeGiftOpenness(updates.openness) : undefined,

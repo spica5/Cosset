@@ -120,6 +120,7 @@ export const endpoints = {
     details: '/api/post/details',
     search: '/api/post/search',
     add: '/api/post/new',
+    view: '/api/post/view',
     update: (id: string | number) => `/api/post/${id}`,
     delete: (id: string | number) => `/api/post/${id}`,
   },

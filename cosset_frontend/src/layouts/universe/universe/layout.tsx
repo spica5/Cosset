@@ -118,7 +118,7 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
               leftArea: (
                 <>
                   {/* -- Logo -- */}
-                  <Logo />
+                  <Logo isSingle />
                 </>
               ),
               centerArea: showUniverseSectionLinks ? (

@@ -3,7 +3,7 @@ import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
-export type ReactionTargetType = 'blog' | 'album' | 'collection' | 'drawer';
+export type ReactionTargetType = 'blog' | 'album' | 'collection' | 'drawer' | 'community';
 export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
 export type PostReaction = {
@@ -207,6 +207,29 @@ export async function unreactToCollection(
   customerId?: string | number,
 ) {
   return removeReaction({ targetType: 'collection', targetId: collectionId, customerId });
+}
+
+export async function reactToCommunityPost(
+  postId: string | number,
+  reactionType: ReactionType,
+  customerId?: string | number,
+) {
+  return setReaction({ targetType: 'community', targetId: postId, reactionType, customerId });
+}
+
+export async function unreactToCommunityPost(postId: string | number, customerId?: string | number) {
+  return removeReaction({ targetType: 'community', targetId: postId, customerId });
+}
+
+export async function reactToCommunityPostForLoggedInCustomer(
+  postId: string | number,
+  reactionType: ReactionType,
+) {
+  return setReaction({ targetType: 'community', targetId: postId, reactionType });
+}
+
+export async function unreactToCommunityPostForLoggedInCustomer(postId: string | number) {
+  return removeReaction({ targetType: 'community', targetId: postId });
 }
 
 export async function reactToDrawer(
