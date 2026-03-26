@@ -1,9 +1,11 @@
 import type { ICollectionDrawerItem } from 'src/types/collection-item';
+import type { IPostCommentItem } from 'src/types/post';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
+import { addPostComment, useGetPostComments } from 'src/actions/post';
 
 const COLLECTION_ITEM_LIST_ENDPOINT = endpoints.collectionItem.list;
 
@@ -263,4 +265,41 @@ export async function recordCollectionItemView(
   } catch {
     return undefined;
   }
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetCollectionItemComments(itemId: string | number | '') {
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  } = useGetPostComments(itemId, 'drawer');
+
+  return {
+    comments: comments as IPostCommentItem[],
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  };
+}
+
+export async function addCollectionItemComment(params: {
+  itemId: string | number;
+  comment: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  return addPostComment({
+    targetId: params.itemId,
+    targetType: 'drawer',
+    comment: params.comment,
+    customerId: params.customerId,
+    prevCustomer: params.prevCustomer,
+  });
 }

@@ -1,9 +1,11 @@
 import type { ICollectionItem } from 'src/types/collection';
+import type { IPostCommentItem } from 'src/types/post';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
+import { addPostComment, useGetPostComments } from 'src/actions/post';
 
 const COLLECTION_LIST_ENDPOINT = endpoints.collection.list;
 
@@ -94,4 +96,41 @@ export async function deleteCollection(id: string | number, customerId?: string 
   }
 
   return res.data;
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetCollectionComments(collectionId: string | number | '') {
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  } = useGetPostComments(collectionId, 'collection');
+
+  return {
+    comments: comments as IPostCommentItem[],
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  };
+}
+
+export async function addCollectionComment(params: {
+  collectionId: string | number;
+  comment: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  return addPostComment({
+    targetId: params.collectionId,
+    targetType: 'collection',
+    comment: params.comment,
+    customerId: params.customerId,
+    prevCustomer: params.prevCustomer,
+  });
 }

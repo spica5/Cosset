@@ -1,4 +1,4 @@
-import type { IPostItem } from 'src/types/post';
+import type { IPostItem, IPostCommentItem } from 'src/types/post';
 
 import useSWR, { mutate } from 'swr';
 import { useMemo, useCallback } from 'react';
@@ -8,6 +8,7 @@ import axios, { fetcher, endpoints } from 'src/utils/axios';
 // ----------------------------------------------------------------------
 
 const POST_LIST_ENDPOINT = endpoints.post.list;
+const POST_COMMENTS_ENDPOINT = endpoints.post.comments;
 
 const swrOptions = {
   revalidateIfStale: false,
@@ -143,4 +144,55 @@ export async function recordPostView(postId: string | number): Promise<PostViewD
   } catch {
     return {};
   }
+}
+
+// ----------------------------------------------------------------------
+
+type PostCommentsData = {
+  comments?: IPostCommentItem[];
+};
+
+export function useGetPostComments(postId: string | number | '', targetType: string = 'community') {
+  const url = postId
+    ? `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(postId))}&targetType=${encodeURIComponent(targetType)}`
+    : null;
+
+  const { data, isLoading, error, isValidating } = useSWR<PostCommentsData>(url, fetcher, swrOptions);
+
+  const memoizedValue = useMemo(
+    () => ({
+      comments: data?.comments || [],
+      commentsLoading: isLoading,
+      commentsError: error,
+      commentsValidating: isValidating,
+      commentsEmpty: !isLoading && !(data?.comments || []).length,
+      refreshComments: () => (url ? mutate(url) : Promise.resolve(undefined)),
+    }),
+    [data?.comments, error, isLoading, isValidating, url],
+  );
+
+  return memoizedValue;
+}
+
+export async function addPostComment(params: {
+  targetId: string | number;
+  comment: string;
+  targetType?: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  const payload = {
+    targetId: Number(params.targetId),
+    targetType: params.targetType || 'community',
+    comment: params.comment,
+    customerId: params.customerId ?? undefined,
+    prevCustomer: params.prevCustomer ?? undefined,
+  };
+
+  const res = await axios.post(endpoints.post.comments, payload);
+
+  const commentsUrl = `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(params.targetId))}&targetType=${encodeURIComponent(payload.targetType)}`;
+  mutate(commentsUrl);
+
+  return res.data;
 }

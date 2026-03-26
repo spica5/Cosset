@@ -1,9 +1,11 @@
 import type { IAlbumItem } from 'src/types/album';
+import type { IPostCommentItem } from 'src/types/post';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
+import { addPostComment, useGetPostComments } from 'src/actions/post';
 
 // ----------------------------------------------------------------------
 
@@ -182,4 +184,41 @@ export async function recordAlbumView(
     // Silently ignore view-count errors — they should not block the page.
     return undefined;
   }
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetAlbumComments(albumId: string | number | '') {
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  } = useGetPostComments(albumId, 'album');
+
+  return {
+    comments: comments as IPostCommentItem[],
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  };
+}
+
+export async function addAlbumComment(params: {
+  albumId: string | number;
+  comment: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  return addPostComment({
+    targetId: params.albumId,
+    targetType: 'album',
+    comment: params.comment,
+    customerId: params.customerId,
+    prevCustomer: params.prevCustomer,
+  });
 }

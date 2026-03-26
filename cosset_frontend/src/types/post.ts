@@ -22,3 +22,18 @@ export type IPostItem = {
   createdAt?: IDateValue;
   updatedAt?: IDateValue;
 };
+
+export type IPostCommentItem = {
+  id: number;
+  targetId: number;
+  customerId?: string | null;
+  prevCustomer?: string | null;
+  targetType: string;
+  comment: string;
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
+  customerDisplayName?: string | null;
+  customerEmail?: string | null;
+  customerPhotoURL?: string | null;
+  createdAt?: IDateValue;
+};

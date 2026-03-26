@@ -1,9 +1,11 @@
 import type { IGiftItem } from 'src/types/gift';
+import type { IPostCommentItem } from 'src/types/post';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
+import { addPostComment, useGetPostComments } from 'src/actions/post';
 
 // ----------------------------------------------------------------------
 
@@ -246,4 +248,41 @@ export async function recordGiftView(giftId: string | number): Promise<GiftViewD
   } catch {
     return undefined;
   }
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetDrawerComments(targetId: string | number | '') {
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  } = useGetPostComments(targetId, 'drawer');
+
+  return {
+    comments: comments as IPostCommentItem[],
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  };
+}
+
+export async function addDrawerComment(params: {
+  targetId: string | number;
+  comment: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  return addPostComment({
+    targetId: params.targetId,
+    targetType: 'drawer',
+    comment: params.comment,
+    customerId: params.customerId,
+    prevCustomer: params.prevCustomer,
+  });
 }

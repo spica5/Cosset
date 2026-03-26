@@ -1,9 +1,11 @@
 import type { IBlogItem } from 'src/types/blog';
+import type { IPostCommentItem } from 'src/types/post';
 
 import useSWR, { mutate } from 'swr';
 import { useMemo, useCallback } from 'react';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
+import { addPostComment, useGetPostComments } from 'src/actions/post';
 
 // ----------------------------------------------------------------------
 
@@ -162,4 +164,41 @@ export async function recordBlogView(blogId: string | number): Promise<void> {
   } catch {
     // Silently ignore view-count errors — they should not block the page.
   }
+}
+
+// ----------------------------------------------------------------------
+
+export function useGetBlogComments(blogId: string | number | '') {
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  } = useGetPostComments(blogId, 'blog');
+
+  return {
+    comments: comments as IPostCommentItem[],
+    commentsLoading,
+    commentsError,
+    commentsValidating,
+    commentsEmpty,
+    refreshComments,
+  };
+}
+
+export async function addBlogComment(params: {
+  blogId: string | number;
+  comment: string;
+  customerId?: string | number | null;
+  prevCustomer?: string | null;
+}) {
+  return addPostComment({
+    targetId: params.blogId,
+    targetType: 'blog',
+    comment: params.comment,
+    customerId: params.customerId,
+    prevCustomer: params.prevCustomer,
+  });
 }

@@ -10,6 +10,7 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
@@ -18,7 +19,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { deletePost, recordPostView } from 'src/actions/post';
+import { addPostComment, deletePost, recordPostView, useGetPostComments } from 'src/actions/post';
 import {
   reactToCommunityPostForLoggedInCustomer,
   unreactToCommunityPostForLoggedInCustomer,
@@ -112,6 +113,9 @@ export function PostItemForm({ post }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [localTotalViews, setLocalTotalViews] = useState<number>(post.totalViews ?? 0);
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const viewRecorded = useRef(false);
 
   const viewerId = user?.id ? String(user.id) : undefined;
@@ -127,6 +131,11 @@ export function PostItemForm({ post }: Props) {
   const [optimisticCounts, setOptimisticCounts] = useState<Record<ReactionType, number>>(
     toReactionCounts(reactionSummary?.counts),
   );
+  const {
+    comments,
+    commentsLoading,
+    commentsValidating,
+  } = useGetPostComments(post.id, 'community');
 
   useEffect(() => {
     setOptimisticReaction(reactionSummary?.myReaction ?? null);
@@ -270,6 +279,66 @@ export function PostItemForm({ post }: Props) {
     }
   };
 
+  const handleAddComment = async () => {
+    const normalizedComment = commentInput.trim();
+
+    if (!authenticated) {
+      toast.error('Please sign in to add a comment.');
+      return;
+    }
+
+    if (!normalizedComment) {
+      toast.error('Comment cannot be empty.');
+      return;
+    }
+
+    try {
+      setIsSubmittingComment(true);
+
+      const currentCustomerId = user?.id ? String(user.id) : undefined;
+      const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
+      const derivedPrevCustomer =
+        comments.length === 0 ? currentCustomerId : latestComment?.customerId || currentCustomerId;
+
+      await addPostComment({
+        targetId: post.id,
+        targetType: 'community',
+        comment: normalizedComment,
+        customerId: currentCustomerId,
+        prevCustomer: derivedPrevCustomer,
+      });
+
+      setCommentInput('');
+
+      const ownerCustomerId = String(post.customerId || '').trim();
+
+      if (ownerCustomerId) {
+        const visitorId = user?.id ? String(user.id) : null;
+        const visitorName =
+          user?.displayName ||
+          `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+          user?.email ||
+          'A visitor';
+        const visitorAvatar = user?.photoURL || null;
+
+        recordActivityNotification({
+          ownerId: ownerCustomerId,
+          visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
+          title: `<p><strong>${visitorName}</strong> commented on your community post <strong>${post.title || `#${post.id}`}</strong></p>`,
+          content: `${visitorName} commented on your community post "${post.title || `#${post.id}`}"`,
+          sessionKey: `activity:comment:community:${post.id}:${visitorId ?? 'anon'}`,
+        }).catch(console.error);
+      }
+
+      toast.success('Comment added.');
+    } catch (error) {
+      console.error('Failed to add post comment:', error);
+      toast.error('Failed to add comment.');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
   const totalReactions = REACTION_OPTIONS.reduce(
     (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
     0,
@@ -309,6 +378,13 @@ export function PostItemForm({ post }: Props) {
                 <Iconify width={16} icon="mdi:heart" sx={{ color: 'error.main' }} />
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Reactions: {totalReactions}
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Iconify width={16} icon="solar:chat-round-dots-bold" sx={{ color: 'warning.main' }} />
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Comments: {comments.length}
                 </Typography>
               </Stack>
 
@@ -444,6 +520,107 @@ export function PostItemForm({ post }: Props) {
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                 Refreshing reactions...
               </Typography>
+            ) : null}
+          </Stack>
+
+          <Divider />
+
+          <Stack spacing={1.25}>
+            <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="space-between">
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Iconify icon="solar:chat-round-dots-bold" sx={{ color: 'warning.main' }} />
+                <Typography variant="subtitle2">Comments ({comments.length})</Typography>
+              </Stack>
+
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setCommentsExpanded((prev) => !prev)}
+                endIcon={
+                  <Iconify
+                    width={14}
+                    icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
+                  />
+                }
+              >
+                {commentsExpanded ? 'Collapse' : 'Expand'}
+              </Button>
+            </Stack>
+
+            {commentsExpanded ? (
+              <>
+                <Stack spacing={0.75} sx={{ maxHeight: 180, overflowY: 'auto', pr: 0.5 }}>
+                  {comments.map((comment) => {
+                    const authorName =
+                      comment.customerDisplayName ||
+                      `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
+                      comment.customerEmail ||
+                      comment.customerId ||
+                      'Customer';
+
+                    return (
+                      <Box
+                        key={comment.id}
+                        sx={{
+                          p: 1,
+                          borderRadius: 1,
+                          bgcolor: 'background.neutral',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                          <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                            {authorName}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                            {formatDate(comment.createdAt)}
+                          </Typography>
+                        </Stack>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.4, whiteSpace: 'pre-wrap' }}>
+                          {comment.comment}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+
+                  {!commentsLoading && comments.length === 0 ? (
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      No comments yet.
+                    </Typography>
+                  ) : null}
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder={authenticated ? 'Write a comment...' : 'Sign in to write a comment'}
+                    value={commentInput}
+                    onChange={(event) => setCommentInput(event.target.value)}
+                    disabled={!authenticated || isSubmittingComment}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleAddComment}
+                    disabled={!authenticated || isSubmittingComment || !commentInput.trim()}
+                  >
+                    {isSubmittingComment ? 'Sending...' : 'Comment'}
+                  </Button>
+                </Stack>
+
+                {commentsLoading || commentsValidating ? (
+                  <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                    Refreshing comments...
+                  </Typography>
+                ) : null}
+              </>
             ) : null}
           </Stack>
         </Stack>
