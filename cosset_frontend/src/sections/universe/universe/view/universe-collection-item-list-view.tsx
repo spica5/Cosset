@@ -40,12 +40,12 @@ import {
   useGetViewedCollectionItemIds,
   recordCollectionItemView,
   useGetCollectionItemComments,
-  addCollectionItemComment,
 } from 'src/actions/collection-item';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { CommentsSection } from 'src/components/universe/comment-section';
 import { useAuthContext } from 'src/auth/hooks';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
@@ -444,9 +444,6 @@ function CollectionItemCard({
   const hasRecordedViewRef = useRef(false);
   const isInView = useInView(cardRef, { once: true, amount: 0.35 });
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [commentInput, setCommentInput] = useState('');
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
   const [totalViews, setTotalViews] = useState(() => normalizeCounterValue(item.totalViews));
   const [isViewed, setIsViewed] = useState(isInitiallyViewed);
@@ -476,6 +473,18 @@ function CollectionItemCard({
     toReactionCounts(reactionSummary?.counts),
   );
   const { comments, commentsLoading, commentsValidating } = useGetCollectionItemComments(item.id);
+
+  // Transform comments to match CommentsSection expected type
+  const transformedComments = comments.map((comment) => ({
+    id: comment.id,
+    comment: comment.comment,
+    createdAt: comment.createdAt ? formatDate(comment.createdAt) : '',
+    customerId: comment.customerId ?? undefined,
+    customerDisplayName: comment.customerDisplayName ?? undefined,
+    customerFirstName: comment.customerFirstName ?? undefined,
+    customerLastName: comment.customerLastName ?? undefined,
+    customerEmail: comment.customerEmail ?? undefined,
+  }));
 
   useEffect(() => {
     setOptimisticReaction(reactionSummary?.myReaction ?? null);
@@ -585,38 +594,6 @@ function CollectionItemCard({
     (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
     0,
   );
-
-  const handleAddComment = async () => {
-    const normalizedComment = commentInput.trim();
-
-    if (!authenticated || !viewerId) {
-      return;
-    }
-
-    if (!normalizedComment) {
-      return;
-    }
-
-    try {
-      setIsSubmittingComment(true);
-
-      const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
-      const derivedPrevCustomer = comments.length === 0 ? viewerId : latestComment?.customerId || viewerId;
-
-      await addCollectionItemComment({
-        itemId: item.id,
-        comment: normalizedComment,
-        customerId: viewerId,
-        prevCustomer: derivedPrevCustomer,
-      });
-
-      setCommentInput('');
-    } catch (error) {
-      console.error('Failed to add collection item comment', error);
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
 
   return (
     <Card ref={cardRef} sx={{ border: '1px solid', borderColor: 'divider' }}>
@@ -795,106 +772,17 @@ function CollectionItemCard({
           ) : null}
 
           {commentsVisible ? (
-            <Stack spacing={1.25}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                <Stack direction="row" spacing={0.6} alignItems="center">
-                  <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
-                  <Typography variant="subtitle2">Comments ({comments.length})</Typography>
-                </Stack>
-
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setCommentsExpanded((prev) => !prev)}
-                  endIcon={
-                    <Iconify
-                      width={14}
-                      icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                    />
-                  }
-                >
-                  {commentsExpanded ? 'Collapse' : 'Expand'}
-                </Button>
-              </Stack>
-
-              {commentsExpanded ? (
-                <>
-                  <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
-                    {comments.map((comment) => {
-                      const authorName =
-                        comment.customerDisplayName ||
-                        `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
-                        comment.customerEmail ||
-                        comment.customerId ||
-                        'Customer';
-
-                      return (
-                        <Box
-                          key={comment.id}
-                          sx={{
-                            p: 1,
-                            borderRadius: 1,
-                            bgcolor: 'background.neutral',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                          }}
-                        >
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                              {authorName}
-                            </Typography>
-                            <Typography variant="caption" color="text.disabled">
-                              {formatDate(comment.createdAt)}
-                            </Typography>
-                          </Stack>
-
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4, whiteSpace: 'pre-wrap' }}>
-                            {comment.comment}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-
-                    {!commentsLoading && comments.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
-                        No comments yet.
-                      </Typography>
-                    ) : null}
-                  </Stack>
-
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder={authenticated ? 'Write a comment...' : 'Sign in to write a comment'}
-                      value={commentInput}
-                      onChange={(event) => setCommentInput(event.target.value)}
-                      disabled={!authenticated || isSubmittingComment}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault();
-                          handleAddComment();
-                        }
-                      }}
-                    />
-
-                    <Button
-                      variant="contained"
-                      onClick={handleAddComment}
-                      disabled={!authenticated || isSubmittingComment || !commentInput.trim()}
-                    >
-                      {isSubmittingComment ? 'Sending...' : 'Comment'}
-                    </Button>
-                  </Stack>
-
-                  {commentsLoading || commentsValidating ? (
-                    <Typography variant="caption" color="text.secondary">
-                      Refreshing comments...
-                    </Typography>
-                  ) : null}
-                </>
-              ) : null}
-            </Stack>
+            <CommentsSection
+              targetType="collection-item"
+              targetId={String(item.id)}
+              comments={transformedComments}
+              commentsLoading={commentsLoading}
+              commentsValidating={commentsValidating}
+              authenticated={authenticated}
+              viewerId={viewerId}
+              isOwner={isOwner}
+              formatDate={formatDate}
+            />
           ) : null}
         </Stack>
       </CardContent>

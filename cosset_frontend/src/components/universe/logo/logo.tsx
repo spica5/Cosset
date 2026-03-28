@@ -4,6 +4,7 @@ import type { CSSObject } from '@mui/material/styles';
 import { forwardRef } from 'react';
 
 import Box from '@mui/material/Box';
+import { useTheme } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
 
@@ -21,24 +22,41 @@ export type LogoProps = BoxProps & {
 
 export const Logo = forwardRef<HTMLDivElement, LogoProps>(
   ({ href = '/', isSingle = false, disableLink = false, sx, className, ...other }, ref) => {
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
+
+    const singleLogoSrc = `${CONFIG.universe.assetsDir}/logo/logo-single${isDarkMode ? '-dark' : ''}.png`;
+    const fullLogoSrc = `${CONFIG.universe.assetsDir}/logo/logo-full${isDarkMode ? '-dark' : ''}.png`;
+
+    const handleImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = event.currentTarget as HTMLImageElement;
+      // Fallback to light logo if dark version fails to load
+      if (isDarkMode && img.src.includes('-dark')) {
+        img.src = img.src.replace('-dark', '');
+      }
+    };
 
     const singleLogo = (
       <Box
+        key={`single-${isDarkMode}`}
         alt="Single logo"
         component="img"
-        src={`${CONFIG.universe.assetsDir}/logo/logo-single.png`}
+        src={singleLogoSrc}
         width="100%"
         height="100%"
+        onError={handleImageError}
       />
     );
 
     const fullLogo = (
       <Box
+        key={`full-${isDarkMode}`}
         alt="Full logo"
         component="img"
-        src={`${CONFIG.universe.assetsDir}/logo/logo-full.png`}
+        src={fullLogoSrc}
         width="100%"
         height="100%"
+        onError={handleImageError}
       />
     );
 

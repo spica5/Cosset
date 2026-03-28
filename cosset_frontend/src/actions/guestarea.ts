@@ -49,7 +49,11 @@ export function useGetGuestArea(customerId: string | number | '') {
   const { data, isLoading, error, isValidating } = useSWR<GuestAreaApiResponse>(
     url,
     fetcher,
-    swrOptions
+    {
+      revalidateIfStale: true,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
   );
 
   const memoizedValue = useMemo(

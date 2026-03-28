@@ -17,9 +17,16 @@ export function UniverseFooter({ sx, ...other }: BoxProps) {
           flexDirection: 'column',
         }}
       >
-        <Logo sx={{ mb: 1 }} />
+        <Logo sx={{ mb: 1, width: 200, height: 70 }} />
 
-        <Box component="span" sx={{ color: 'text.secondary', typography: 'caption' }}>
+        <Box
+          component="span"
+          sx={{
+            color: 'text.secondary',
+            typography: 'body2',
+            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+          }}
+        >
           © All rights reserved.
         </Box>
       </Container>

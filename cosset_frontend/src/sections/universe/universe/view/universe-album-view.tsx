@@ -4,7 +4,7 @@ import type { Slide } from 'yet-another-react-lightbox';
 import type { IAlbumItem, IAlbumImage } from 'src/types/album';
 import type { ReactionType } from 'src/actions/reaction';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,7 +13,6 @@ import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Container from '@mui/material/Container';
@@ -28,7 +27,7 @@ import { RouterLink } from 'src/routes/components';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { addAlbumComment, recordAlbumView, useGetAlbumComments } from 'src/actions/album';
+import { recordAlbumView, useGetAlbumComments } from 'src/actions/album';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import {
   reactToAlbumForLoggedInCustomer,
@@ -41,6 +40,7 @@ import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
+import { CommentsSection } from 'src/components/universe/comment-section';
 
 // ----------------------------------------------------------------------
 
@@ -109,9 +109,6 @@ export function UniverseAlbumView({ albumId }: Props) {
   const [images, setImages] = useState<Array<IAlbumImage & { signedUrl?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [commentInput, setCommentInput] = useState('');
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
 
   const viewerId = user?.id ? String(user.id) : undefined;
@@ -362,38 +359,6 @@ export function UniverseAlbumView({ albumId }: Props) {
     }
   };
 
-  const handleAddComment = async () => {
-    const normalizedComment = commentInput.trim();
-
-    if (!authenticated || !viewerId) {
-      return;
-    }
-
-    if (!normalizedComment) {
-      return;
-    }
-
-    try {
-      setIsSubmittingComment(true);
-
-      const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
-      const derivedPrevCustomer = comments.length === 0 ? viewerId : latestComment?.customerId || viewerId;
-
-      await addAlbumComment({
-        albumId,
-        comment: normalizedComment,
-        customerId: viewerId,
-        prevCustomer: derivedPrevCustomer,
-      });
-
-      setCommentInput('');
-    } catch (error) {
-      console.error('Failed to add album comment', error);
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
-
   const totalImages = useMemo(() => images.length, [images.length]);
 
   useEffect(() => {
@@ -457,6 +422,18 @@ export function UniverseAlbumView({ albumId }: Props) {
     typeof album.totalViews === 'number' && Number.isFinite(album.totalViews)
       ? Math.max(0, Math.trunc(album.totalViews))
       : 0;
+
+  // Transform comments to match CommentsSection expected type
+  const transformedComments = comments.map((comment) => ({
+    id: comment.id,
+    comment: comment.comment,
+    createdAt: comment.createdAt ? formatAlbumDate(comment.createdAt) : '',
+    customerId: comment.customerId ?? undefined,
+    customerDisplayName: comment.customerDisplayName ?? undefined,
+    customerFirstName: comment.customerFirstName ?? undefined,
+    customerLastName: comment.customerLastName ?? undefined,
+    customerEmail: comment.customerEmail ?? undefined,
+  }));
 
   return (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>
@@ -755,129 +732,18 @@ export function UniverseAlbumView({ albumId }: Props) {
             </Stack>
           </Card>
 
-          {isOwner ? (
-            <Card sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Stack spacing={1}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                  <Typography variant="subtitle2">Comments visibility</Typography>
-                  <Button
-                    size="small"
-                    variant={commentsVisible ? 'contained' : 'outlined'}
-                    onClick={() => setCommentsVisible((prev) => !prev)}
-                  >
-                    {commentsVisible ? 'Visible' : 'Hidden'}
-                  </Button>
-                </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  {commentsVisible ? 'Comments are visible to visitors' : 'Comments are hidden from visitors'}
-                </Typography>
-              </Stack>
-            </Card>
-          ) : null}
-
           {commentsVisible ? (
-            <Card sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Stack spacing={1.25}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                  <Stack direction="row" spacing={0.6} alignItems="center">
-                    <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
-                    <Typography variant="subtitle2">Comments ({comments.length})</Typography>
-                  </Stack>
-
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setCommentsExpanded((prev) => !prev)}
-                    endIcon={
-                      <Iconify
-                        width={14}
-                        icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                      />
-                    }
-                  >
-                    {commentsExpanded ? 'Collapse' : 'Expand'}
-                  </Button>
-                </Stack>
-
-                {commentsExpanded ? (
-                  <>
-                    <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
-                      {comments.map((comment) => {
-                        const authorName =
-                          comment.customerDisplayName ||
-                          `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
-                          comment.customerEmail ||
-                          comment.customerId ||
-                          'Customer';
-
-                        return (
-                          <Box
-                            key={comment.id}
-                            sx={{
-                              p: 1,
-                              borderRadius: 1,
-                              bgcolor: 'background.neutral',
-                              border: '1px solid',
-                              borderColor: 'divider',
-                            }}
-                          >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                {authorName}
-                              </Typography>
-                              <Typography variant="caption" color="text.disabled">
-                                {formatAlbumDate(comment.createdAt)}
-                              </Typography>
-                            </Stack>
-
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4, whiteSpace: 'pre-wrap' }}>
-                              {comment.comment}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-
-                      {!commentsLoading && comments.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary">
-                          No comments yet.
-                        </Typography>
-                      ) : null}
-                    </Stack>
-
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        placeholder={authenticated ? 'Write a comment...' : 'Sign in to write a comment'}
-                        value={commentInput}
-                        onChange={(event) => setCommentInput(event.target.value)}
-                        disabled={!authenticated || isSubmittingComment}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault();
-                            handleAddComment();
-                          }
-                        }}
-                      />
-
-                      <Button
-                        variant="contained"
-                        onClick={handleAddComment}
-                        disabled={!authenticated || isSubmittingComment || !commentInput.trim()}
-                      >
-                        {isSubmittingComment ? 'Sending...' : 'Comment'}
-                      </Button>
-                    </Stack>
-
-                    {commentsLoading || commentsValidating ? (
-                      <Typography variant="caption" color="text.secondary">
-                        Refreshing comments...
-                      </Typography>
-                    ) : null}
-                  </>
-                ) : null}
-              </Stack>
-            </Card>
+            <CommentsSection
+              targetType="album"
+              targetId={albumId}
+              comments={transformedComments}
+              commentsLoading={commentsLoading}
+              commentsValidating={commentsValidating}
+              authenticated={authenticated}
+              viewerId={viewerId}
+              isOwner={isOwner}
+              formatDate={formatAlbumDate}
+            />
           ) : null}
         </Stack>
       </Container>

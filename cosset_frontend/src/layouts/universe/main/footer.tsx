@@ -239,7 +239,12 @@ export function Footer({ layoutQuery, sx, ...other }: FooterProps) {
           flexDirection: { xs: 'column', md: 'row' },
         }}
       >
-        <Typography variant="caption"> © All rights reserved.</Typography>
+        <Typography
+          variant="body2"
+          sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, lineHeight: 1.4 }}
+        >
+          © All rights reserved.
+        </Typography>
 
         <Box component="span" gap={1.5} display="flex" alignItems="center" justifyContent="center">
           <Link variant="caption" color="inherit">

@@ -2,7 +2,7 @@
 
 import type { ReactionType } from 'src/actions/reaction';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,7 +22,7 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { addBlogComment, useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
+import { useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
 import { recordActivityNotification } from 'src/actions/notification';
 import {
   reactToBlogForLoggedInCustomer,
@@ -41,6 +41,7 @@ import {
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Iconify } from 'src/components/universe/iconify';
+import { CommentsSection } from 'src/components/universe/comment-section';
 
 // ----------------------------------------------------------------------
 
@@ -101,9 +102,6 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
   const { blog, blogLoading } = useGetBlog(blogId);
   const { user, authenticated } = useAuthContext();
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [commentInput, setCommentInput] = useState('');
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
 
   const viewerId = user?.id ? String(user.id) : undefined;
@@ -122,6 +120,18 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
     toReactionCounts(reactionSummary?.counts),
   );
   const { comments, commentsLoading, commentsValidating } = useGetBlogComments(blogId);
+
+  // Transform comments to match CommentsSection expected type
+  const transformedComments = comments.map((comment) => ({
+    id: comment.id,
+    comment: comment.comment,
+    createdAt: comment.createdAt ? formatDateTime(comment.createdAt) : '',
+    customerId: comment.customerId ?? undefined,
+    customerDisplayName: comment.customerDisplayName ?? undefined,
+    customerFirstName: comment.customerFirstName ?? undefined,
+    customerLastName: comment.customerLastName ?? undefined,
+    customerEmail: comment.customerEmail ?? undefined,
+  }));
 
   useEffect(() => {
     setOptimisticReaction(reactionSummary?.myReaction ?? null);
@@ -201,38 +211,6 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
       setOptimisticCounts(previousCounts);
     } finally {
       setIsSubmittingReaction(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    const normalizedComment = commentInput.trim();
-
-    if (!authenticated || !viewerId) {
-      return;
-    }
-
-    if (!normalizedComment) {
-      return;
-    }
-
-    try {
-      setIsSubmittingComment(true);
-
-      const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
-      const derivedPrevCustomer = comments.length === 0 ? viewerId : latestComment?.customerId || viewerId;
-
-      await addBlogComment({
-        blogId,
-        comment: normalizedComment,
-        customerId: viewerId,
-        prevCustomer: derivedPrevCustomer,
-      });
-
-      setCommentInput('');
-    } catch (error) {
-      console.error('Failed to add blog comment', error);
-    } finally {
-      setIsSubmittingComment(false);
     }
   };
 
@@ -461,129 +439,18 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
             </Stack>
           </Card>
 
-          {isOwner ? (
-            <Card sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Stack spacing={1}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                  <Typography variant="subtitle2">Comments visibility</Typography>
-                  <Button
-                    size="small"
-                    variant={commentsVisible ? 'contained' : 'outlined'}
-                    onClick={() => setCommentsVisible((prev) => !prev)}
-                  >
-                    {commentsVisible ? 'Visible' : 'Hidden'}
-                  </Button>
-                </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  {commentsVisible ? 'Comments are visible to visitors' : 'Comments are hidden from visitors'}
-                </Typography>
-              </Stack>
-            </Card>
-          ) : null}
-
           {commentsVisible ? (
-            <Card sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Stack spacing={1.25}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                  <Stack direction="row" spacing={0.6} alignItems="center">
-                    <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
-                    <Typography variant="subtitle2">Comments ({comments.length})</Typography>
-                  </Stack>
-
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setCommentsExpanded((prev) => !prev)}
-                    endIcon={
-                      <Iconify
-                        width={14}
-                        icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                      />
-                    }
-                  >
-                    {commentsExpanded ? 'Collapse' : 'Expand'}
-                  </Button>
-                </Stack>
-
-                {commentsExpanded ? (
-                  <>
-                    <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
-                      {comments.map((comment) => {
-                        const authorName =
-                          comment.customerDisplayName ||
-                          `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
-                          comment.customerEmail ||
-                          comment.customerId ||
-                          'Customer';
-
-                        return (
-                          <Box
-                            key={comment.id}
-                            sx={{
-                              p: 1,
-                              borderRadius: 1,
-                              bgcolor: 'background.neutral',
-                              border: '1px solid',
-                              borderColor: 'divider',
-                            }}
-                          >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                {authorName}
-                              </Typography>
-                              <Typography variant="caption" color="text.disabled">
-                                {formatDateTime(comment.createdAt)}
-                              </Typography>
-                            </Stack>
-
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4, whiteSpace: 'pre-wrap' }}>
-                              {comment.comment}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-
-                      {!commentsLoading && comments.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary">
-                          No comments yet.
-                        </Typography>
-                      ) : null}
-                    </Stack>
-
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        placeholder={authenticated ? 'Write a comment...' : 'Sign in to write a comment'}
-                        value={commentInput}
-                        onChange={(event) => setCommentInput(event.target.value)}
-                        disabled={!authenticated || isSubmittingComment}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault();
-                            handleAddComment();
-                          }
-                        }}
-                      />
-
-                      <Button
-                        variant="contained"
-                        onClick={handleAddComment}
-                        disabled={!authenticated || isSubmittingComment || !commentInput.trim()}
-                      >
-                        {isSubmittingComment ? 'Sending...' : 'Comment'}
-                      </Button>
-                    </Stack>
-
-                    {commentsLoading || commentsValidating ? (
-                      <Typography variant="caption" color="text.secondary">
-                        Refreshing comments...
-                      </Typography>
-                    ) : null}
-                  </>
-                ) : null}
-              </Stack>
-            </Card>
+            <CommentsSection
+              targetType="blog"
+              targetId={blogId}
+              comments={transformedComments}
+              commentsLoading={commentsLoading}
+              commentsValidating={commentsValidating}
+              authenticated={authenticated}
+              viewerId={viewerId}
+              isOwner={isOwner}
+              formatDate={formatDateTime}
+            />
           ) : null}
         </Stack>
       </Container>
