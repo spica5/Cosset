@@ -18,7 +18,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { deletePost, recordPostView, useGetPostComments } from 'src/actions/post';
+import { deletePost, recordPostView, useGetPostComments, updatePostCommentVisibility } from 'src/actions/post';
 import {
   reactToCommunityPostForLoggedInCustomer,
   unreactToCommunityPostForLoggedInCustomer,
@@ -113,6 +113,8 @@ export function PostItemForm({ post }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [localTotalViews, setLocalTotalViews] = useState<number>(post.totalViews ?? 0);
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
+  const [commentsVisible, setCommentsVisible] = useState(true);
+  const [togglingCommentVisibility, setTogglingCommentVisibility] = useState(false);
   const viewRecorded = useRef(false);
 
   const viewerId = user?.id ? String(user.id) : undefined;
@@ -273,6 +275,22 @@ export function PostItemForm({ post }: Props) {
       toast.error('Failed to update reaction.');
     } finally {
       setIsSubmittingReaction(false);
+    }
+  };
+
+  const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
+    try {
+      setTogglingCommentVisibility(true);
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId: post.id,
+        targetType: 'community',
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setTogglingCommentVisibility(false);
     }
   };
 
@@ -474,6 +492,7 @@ export function PostItemForm({ post }: Props) {
               customerFirstName: comment.customerFirstName ?? undefined,
               customerLastName: comment.customerLastName ?? undefined,
               customerEmail: comment.customerEmail ?? undefined,
+              visible: comment.visible,
             }))}
             commentsLoading={commentsLoading}
             commentsValidating={commentsValidating}
@@ -481,6 +500,10 @@ export function PostItemForm({ post }: Props) {
             viewerId={viewerId}
             isOwner={isOwner}
             formatDate={formatDate}
+            commentsHidden={!commentsVisible}
+            onCommentsVisibilityChange={(visible) => setCommentsVisible(visible)}
+            onCommentVisibilityToggle={handleToggleCommentVisibility}
+            togglingCommentVisibility={togglingCommentVisibility}
           />
         </Stack>
       </Card>

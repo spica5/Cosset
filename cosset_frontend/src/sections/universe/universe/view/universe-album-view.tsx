@@ -35,6 +35,7 @@ import {
   useGetReactionSummary,
 } from 'src/actions/reaction';
 import { recordActivityNotification } from 'src/actions/notification';
+import { updatePostCommentVisibility } from 'src/actions/post';
 import { useAuthContext } from 'src/auth/hooks';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
@@ -110,6 +111,7 @@ export function UniverseAlbumView({ albumId }: Props) {
   const [loading, setLoading] = useState(true);
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
+  const [togglingCommentVisibility, setTogglingCommentVisibility] = useState(false);
 
   const viewerId = user?.id ? String(user.id) : undefined;
   const { reactionSummary, reactionSummaryLoading, reactionSummaryValidating } = useGetReactionSummary(
@@ -359,6 +361,22 @@ export function UniverseAlbumView({ albumId }: Props) {
     }
   };
 
+  const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
+    try {
+      setTogglingCommentVisibility(true);
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId: albumId,
+        targetType: 'album',
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setTogglingCommentVisibility(false);
+    }
+  };
+
   const totalImages = useMemo(() => images.length, [images.length]);
 
   useEffect(() => {
@@ -433,6 +451,7 @@ export function UniverseAlbumView({ albumId }: Props) {
     customerFirstName: comment.customerFirstName ?? undefined,
     customerLastName: comment.customerLastName ?? undefined,
     customerEmail: comment.customerEmail ?? undefined,
+    visible: comment.visible,
   }));
 
   return (
@@ -732,19 +751,21 @@ export function UniverseAlbumView({ albumId }: Props) {
             </Stack>
           </Card>
 
-          {commentsVisible ? (
-            <CommentsSection
-              targetType="album"
-              targetId={albumId}
-              comments={transformedComments}
-              commentsLoading={commentsLoading}
-              commentsValidating={commentsValidating}
-              authenticated={authenticated}
-              viewerId={viewerId}
-              isOwner={isOwner}
-              formatDate={formatAlbumDate}
-            />
-          ) : null}
+          <CommentsSection
+            targetType="album"
+            targetId={albumId}
+            comments={transformedComments}
+            commentsLoading={commentsLoading}
+            commentsValidating={commentsValidating}
+            authenticated={authenticated}
+            viewerId={viewerId}
+            isOwner={isOwner}
+            formatDate={formatAlbumDate}
+            commentsHidden={!commentsVisible}
+            onCommentsVisibilityChange={(visible) => setCommentsVisible(visible)}
+            onCommentVisibilityToggle={handleToggleCommentVisibility}
+            togglingCommentVisibility={togglingCommentVisibility}
+          />
         </Stack>
       </Container>
 

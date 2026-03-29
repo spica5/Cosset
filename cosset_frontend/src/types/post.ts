@@ -36,4 +36,5 @@ export type IPostCommentItem = {
   customerEmail?: string | null;
   customerPhotoURL?: string | null;
   createdAt?: IDateValue;
+  visible?: boolean | null;
 };

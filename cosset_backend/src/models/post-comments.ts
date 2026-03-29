@@ -3,7 +3,7 @@ import { executeQuery, queryMany, queryOne } from '@/db/neon';
 
 const TABLE_NAME = 'post_comments';
 const USERS_TABLE_NAME = 'cosset_users';
-const ALLOWED_TARGET_TYPES = ['blog', 'album', 'collection', 'drawer', 'community'] as const;
+const ALLOWED_TARGET_TYPES = ['blog', 'album', 'collection', 'collection-item', 'drawer', 'community'] as const;
 
 type PostCommentTargetType = (typeof ALLOWED_TARGET_TYPES)[number];
 
@@ -14,6 +14,7 @@ export interface PostComment {
   prevCustomer?: string | null;
   targetType: PostCommentTargetType;
   comment: string;
+  visible?: boolean | null;
   customerFirstName?: string | null;
   customerLastName?: string | null;
   customerDisplayName?: string | null;
@@ -113,6 +114,7 @@ export async function getPostComments(
           pc.prev_customer as "prevCustomer",
           pc.target_type as "targetType",
           pc.comment,
+          pc.visible,
           cu.first_name as "customerFirstName",
           cu.last_name as "customerLastName",
           COALESCE(
@@ -253,6 +255,7 @@ export async function createPostComment(params: {
           pc.prev_customer as "prevCustomer",
           pc.target_type as "targetType",
           pc.comment,
+          pc.visible,
           cu.first_name as "customerFirstName",
           cu.last_name as "customerLastName",
           COALESCE(
@@ -284,6 +287,179 @@ export async function createPostComment(params: {
       throw new DatabaseError({
         code: 'CREATE_POST_COMMENT_ERROR',
         message: `Failed to create post comment: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function getPostCommentById(commentId: number): Promise<PostComment | null> {
+  try {
+    await ensurePostCommentsTable();
+
+    const normalizedCommentId = parseInteger(commentId);
+
+    if (normalizedCommentId === null) {
+      throw new DatabaseError({
+        code: 'INVALID_COMMENT_ID',
+        message: 'commentId must be a valid integer',
+      });
+    }
+
+    const row = await queryOne<PostComment>(
+      `
+        SELECT
+          pc.id,
+          pc.target_id as "targetId",
+          pc.customer_id as "customerId",
+          pc.prev_customer as "prevCustomer",
+          pc.target_type as "targetType",
+          pc.comment,
+          pc.visible,
+          cu.first_name as "customerFirstName",
+          cu.last_name as "customerLastName",
+          COALESCE(
+            NULLIF(TRIM(COALESCE(cu.first_name, '') || ' ' || COALESCE(cu.last_name, '')), ''),
+            cu.email,
+            'Customer'
+          ) as "customerDisplayName",
+          cu.email as "customerEmail",
+          cu.photo_url as "customerPhotoURL",
+          pc.created_at as "createdAt"
+        FROM ${TABLE_NAME} pc
+        LEFT JOIN ${USERS_TABLE_NAME} cu ON cu.id = pc.customer_id
+        WHERE pc.id = $1
+        LIMIT 1
+      `,
+      [normalizedCommentId],
+    );
+
+    return row ?? null;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_POST_COMMENT_BY_ID_ERROR',
+        message: `Failed to fetch post comment: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function deletePostCommentById(commentId: number): Promise<boolean> {
+  try {
+    await ensurePostCommentsTable();
+
+    const normalizedCommentId = parseInteger(commentId);
+
+    if (normalizedCommentId === null) {
+      throw new DatabaseError({
+        code: 'INVALID_COMMENT_ID',
+        message: 'commentId must be a valid integer',
+      });
+    }
+
+    const deleted = await queryOne<{ id: number }>(
+      `
+        DELETE FROM ${TABLE_NAME}
+        WHERE id = $1
+        RETURNING id
+      `,
+      [normalizedCommentId],
+    );
+
+    return !!deleted?.id;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'DELETE_POST_COMMENT_ERROR',
+        message: `Failed to delete post comment: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function updatePostCommentVisibility(
+  commentId: number,
+  visible: boolean,
+): Promise<PostComment | null> {
+  try {
+    await ensurePostCommentsTable();
+
+    const normalizedCommentId = parseInteger(commentId);
+
+    if (normalizedCommentId === null) {
+      throw new DatabaseError({
+        code: 'INVALID_COMMENT_ID',
+        message: 'commentId must be a valid integer',
+      });
+    }
+
+    const normalizedVisible = visible ? 1 : 0;
+
+    const updated = await queryOne<PostComment>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET visible = $1
+        WHERE id = $2
+        RETURNING
+          id,
+          target_id as "targetId",
+          customer_id as "customerId",
+          prev_customer as "prevCustomer",
+          target_type as "targetType",
+          comment,
+          visible,
+          created_at as "createdAt"
+      `,
+      [normalizedVisible, normalizedCommentId],
+    );
+
+    if (!updated) {
+      return null;
+    }
+
+    const withUserInfo = await queryOne<PostComment>(
+      `
+        SELECT
+          pc.id,
+          pc.target_id as "targetId",
+          pc.customer_id as "customerId",
+          pc.prev_customer as "prevCustomer",
+          pc.target_type as "targetType",
+          pc.comment,
+          pc.visible,
+          cu.first_name as "customerFirstName",
+          cu.last_name as "customerLastName",
+          COALESCE(
+            NULLIF(TRIM(COALESCE(cu.first_name, '') || ' ' || COALESCE(cu.last_name, '')), ''),
+            cu.email,
+            'Customer'
+          ) as "customerDisplayName",
+          cu.email as "customerEmail",
+          cu.photo_url as "customerPhotoURL",
+          pc.created_at as "createdAt"
+        FROM ${TABLE_NAME} pc
+        LEFT JOIN ${USERS_TABLE_NAME} cu ON cu.id = pc.customer_id
+        WHERE pc.id = $1
+        LIMIT 1
+      `,
+      [normalizedCommentId],
+    );
+
+    return withUserInfo ?? null;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'UPDATE_POST_COMMENT_VISIBILITY_ERROR',
+        message: `Failed to update post comment visibility: ${error.message}`,
         detail: error.detail,
       });
     }

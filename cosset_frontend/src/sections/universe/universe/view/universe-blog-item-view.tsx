@@ -29,6 +29,7 @@ import {
   unreactToBlogForLoggedInCustomer,
   useGetReactionSummary,
 } from 'src/actions/reaction';
+import { updatePostCommentVisibility } from 'src/actions/post';
 import { useAuthContext } from 'src/auth/hooks';
 import { getBlogCategoryLabel } from 'src/sections/dashboard/blog/blog-categories';
 import {
@@ -103,6 +104,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
   const { user, authenticated } = useAuthContext();
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
+  const [togglingCommentVisibility, setTogglingCommentVisibility] = useState(false);
 
   const viewerId = user?.id ? String(user.id) : undefined;
   const isOwner = viewerId === customerId;
@@ -131,6 +133,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
     customerFirstName: comment.customerFirstName ?? undefined,
     customerLastName: comment.customerLastName ?? undefined,
     customerEmail: comment.customerEmail ?? undefined,
+    visible: comment.visible,
   }));
 
   useEffect(() => {
@@ -211,6 +214,22 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
       setOptimisticCounts(previousCounts);
     } finally {
       setIsSubmittingReaction(false);
+    }
+  };
+
+  const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
+    try {
+      setTogglingCommentVisibility(true);
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId: blogId,
+        targetType: 'blog',
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setTogglingCommentVisibility(false);
     }
   };
 
@@ -439,19 +458,21 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
             </Stack>
           </Card>
 
-          {commentsVisible ? (
-            <CommentsSection
-              targetType="blog"
-              targetId={blogId}
-              comments={transformedComments}
-              commentsLoading={commentsLoading}
-              commentsValidating={commentsValidating}
-              authenticated={authenticated}
-              viewerId={viewerId}
-              isOwner={isOwner}
-              formatDate={formatDateTime}
-            />
-          ) : null}
+          <CommentsSection
+            targetType="blog"
+            targetId={blogId}
+            comments={transformedComments}
+            commentsLoading={commentsLoading}
+            commentsValidating={commentsValidating}
+            authenticated={authenticated}
+            viewerId={viewerId}
+            isOwner={isOwner}
+            formatDate={formatDateTime}
+            commentsHidden={!commentsVisible}
+            onCommentsVisibilityChange={(visible) => setCommentsVisible(visible)}
+            onCommentVisibilityToggle={handleToggleCommentVisibility}
+            togglingCommentVisibility={togglingCommentVisibility}
+          />
         </Stack>
       </Container>
     </Box>

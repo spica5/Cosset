@@ -152,6 +152,8 @@ type PostCommentsData = {
   comments?: IPostCommentItem[];
 };
 
+const normalizeCommentVisible = (visible: unknown): boolean => visible === 1;
+
 export function useGetPostComments(postId: string | number | '', targetType: string = 'community') {
   const url = postId
     ? `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(postId))}&targetType=${encodeURIComponent(targetType)}`
@@ -161,7 +163,10 @@ export function useGetPostComments(postId: string | number | '', targetType: str
 
   const memoizedValue = useMemo(
     () => ({
-      comments: data?.comments || [],
+      comments: (data?.comments || []).map((comment) => ({
+        ...comment,
+        visible: normalizeCommentVisible(comment.visible),
+      })),
       commentsLoading: isLoading,
       commentsError: error,
       commentsValidating: isValidating,
@@ -192,6 +197,40 @@ export async function addPostComment(params: {
   const res = await axios.post(endpoints.post.comments, payload);
 
   const commentsUrl = `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(params.targetId))}&targetType=${encodeURIComponent(payload.targetType)}`;
+  mutate(commentsUrl);
+
+  return res.data;
+}
+
+export async function deletePostComment(params: {
+  commentId: string | number;
+  targetId: string | number;
+  targetType?: string;
+}) {
+  const normalizedTargetType = params.targetType || 'community';
+  const res = await axios.delete(
+    `${endpoints.post.comments}?commentId=${encodeURIComponent(String(params.commentId))}`,
+  );
+
+  const commentsUrl = `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(params.targetId))}&targetType=${encodeURIComponent(normalizedTargetType)}`;
+  mutate(commentsUrl);
+
+  return res.data;
+}
+
+export async function updatePostCommentVisibility(params: {
+  commentId: string | number;
+  visible: boolean;
+  targetId: string | number;
+  targetType?: string;
+}) {
+  const normalizedTargetType = params.targetType || 'community';
+  const res = await axios.patch(endpoints.post.comments, {
+    commentId: Number(params.commentId),
+    visible: params.visible,
+  });
+
+  const commentsUrl = `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(params.targetId))}&targetType=${encodeURIComponent(normalizedTargetType)}`;
   mutate(commentsUrl);
 
   return res.data;

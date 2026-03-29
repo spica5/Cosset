@@ -1,16 +1,14 @@
-import type { ReactNode } from 'react';
-
 import { useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-import { addPostComment } from 'src/actions/post';
-import { useAuthContext } from 'src/auth/hooks';
+import { addPostComment, deletePostComment, updatePostCommentVisibility } from 'src/actions/post';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -111,6 +109,16 @@ export function CommentInput({
 // ----------------------------------------------------------------------
 
 type CommentItemProps = {
+  id: string | number;
+  visible?: boolean | null;
+  customerId?: string | number | null;
+  viewerId?: string;
+  canDelete?: boolean;
+  canToggleVisibility?: boolean;
+  deleting?: boolean;
+  togglingVisibility?: boolean;
+  onDelete?: (commentId: string | number) => void;
+  onToggleVisibility?: (commentId: string | number, visible: boolean) => void;
   authorName: string;
   createdAt: string;
   comment: string;
@@ -118,26 +126,74 @@ type CommentItemProps = {
 };
 
 export function CommentItem({
+  id,
+  visible,
+  customerId,
+  viewerId,
+  canDelete = false,
+  canToggleVisibility = false,
+  deleting = false,
+  togglingVisibility = false,
+  onDelete,
+  onToggleVisibility,
   authorName,
   createdAt,
   comment,
   formatDate = (date) => date,
 }: CommentItemProps) {
+  const isCommentOwner = !!viewerId && !!customerId && String(viewerId) === String(customerId);
+  const isVisible = visible !== false;
+
+  // If comment is hidden and current user is neither the comment owner nor the page owner (canToggleVisibility),
+  // don't render it at all
+  if (!isVisible && !isCommentOwner && !canToggleVisibility) {
+    return null;
+  }
+
   return (
     <Box
       sx={{
         p: 1,
         borderRadius: 1,
-        bgcolor: 'background.neutral',
+        bgcolor: isVisible ? 'background.neutral' : 'action.disabled',
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: isVisible ? 'divider' : 'divider',
+        opacity: isVisible ? 1 : 0.6,
       }}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-          {authorName}
-        </Typography>
-        <Typography variant="caption" color="text.disabled">
+        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }} noWrap>
+            {authorName}
+          </Typography>
+
+          {canToggleVisibility && onToggleVisibility ? (
+            <IconButton
+              size="small"
+              color={isVisible ? 'info' : 'inherit'}
+              onClick={() => onToggleVisibility?.(id, !isVisible)}
+              disabled={togglingVisibility}
+              sx={{ p: 0.25 }}
+              title={isVisible ? 'Hide from universe page' : 'Show on universe page'}
+            >
+              <Iconify icon={isVisible ? 'mdi:eye' : 'mdi:eye-off'} width={14} />
+            </IconButton>
+          ) : null}
+
+          {canDelete && isCommentOwner ? (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete?.(id)}
+              disabled={deleting}
+              sx={{ p: 0.25 }}
+            >
+              <Iconify icon="solar:trash-bin-trash-bold" width={14} />
+            </IconButton>
+          ) : null}
+        </Stack>
+
+        <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0 }}>
           {formatDate(createdAt)}
         </Typography>
       </Stack>
@@ -145,6 +201,12 @@ export function CommentItem({
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4, whiteSpace: 'pre-wrap' }}>
         {comment}
       </Typography>
+
+      {!isVisible ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          (Hidden from universe page)
+        </Typography>
+      ) : null}
     </Box>
   );
 }
@@ -163,6 +225,7 @@ type CommentsSectionProps = {
     customerFirstName?: string | null;
     customerLastName?: string | null;
     customerEmail?: string | null;
+    visible?: boolean | null;
   }>;
   commentsLoading?: boolean;
   commentsValidating?: boolean;
@@ -172,6 +235,10 @@ type CommentsSectionProps = {
   formatDate?: (date: any) => string;
   emptyMessage?: string;
   emojiOptions?: string[];
+  onCommentsVisibilityChange?: (visible: boolean) => void;
+  onCommentVisibilityToggle?: (commentId: string | number, visible: boolean) => void;
+  commentsHidden?: boolean;
+  togglingCommentVisibility?: boolean;
 };
 
 export function CommentsSection({
@@ -186,11 +253,27 @@ export function CommentsSection({
   formatDate = (date) => date,
   emptyMessage = 'No comments yet.',
   emojiOptions = ['😊', '😂', '❤️', '😮', '😢', '😡'],
+  onCommentsVisibilityChange,
+  onCommentVisibilityToggle,
+  commentsHidden = false,
+  togglingCommentVisibility = false,
 }: CommentsSectionProps) {
-  const { user } = useAuthContext();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | number | null>(null);
+  const [isTogglingCommentVisibility, setIsTogglingCommentVisibility] = useState(false);
+
+  const isCommentVisible = (visible: unknown): boolean => visible === true || Number(visible) === 1;
+
+  const commentsForViewer = comments.filter((comment) => {
+    const commentOwner =
+      !!viewerId && !!comment.customerId && String(viewerId) === String(comment.customerId);
+
+    return isCommentVisible(comment.visible) || isOwner || commentOwner;
+  });
+
+  const visibleCommentsCount = commentsForViewer.filter((comment) => isCommentVisible(comment.visible)).length;
 
   const handleSubmitComment = async () => {
     const normalizedComment = commentInput.trim();
@@ -220,76 +303,138 @@ export function CommentsSection({
       setIsSubmittingComment(false);
     }
   };
+
+  const canDeleteOwnComments = authenticated;
+
+  const handleDeleteComment = async (commentId: string | number) => {
+    if (!viewerId || !canDeleteOwnComments) {
+      return;
+    }
+
+    try {
+      setDeletingCommentId(commentId);
+      await deletePostComment({
+        commentId,
+        targetId,
+        targetType,
+      });
+    } catch (error) {
+      console.error('Failed to delete comment', error);
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  const handleToggleVisibility = async (commentId: string | number, visible: boolean) => {
+    if (!viewerId) {
+      return;
+    }
+
+    try {
+      setIsTogglingCommentVisibility(true);
+
+      if (onCommentVisibilityToggle) {
+        await onCommentVisibilityToggle(commentId, visible);
+        return;
+      }
+
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId,
+        targetType,
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setIsTogglingCommentVisibility(false);
+    }
+  };
+
   return (
-    <Card sx={{ p: { xs: 2, md: 2.5 } }}>
-      <Stack spacing={1.25}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-          <Stack direction="row" spacing={0.6} alignItems="center">
-            <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
-            <Typography variant="subtitle2">Comments ({comments.length})</Typography>
-          </Stack>
+    <>
+      {!commentsHidden ? (
+        <Card sx={{ p: { xs: 2, md: 2.5 } }}>
+          <Stack spacing={1.25}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+              <Stack direction="row" spacing={0.6} alignItems="center">
+                <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
+                <Typography variant="subtitle2">Comments ({visibleCommentsCount})</Typography>
+              </Stack>
 
-          <Button
-            size="small"
-            variant="text"
-            onClick={() => setCommentsExpanded((prev) => !prev)}
-            endIcon={
-              <Iconify
-                width={14}
-                icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-              />
-            }
-          >
-            {commentsExpanded ? 'Collapse' : 'Expand'}
-          </Button>
-        </Stack>
-
-        {commentsExpanded ? (
-          <>
-            <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
-              {comments.map((comment) => {
-                const authorName =
-                  comment.customerDisplayName ||
-                  `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
-                  comment.customerEmail ||
-                  String(comment.customerId || 'Customer');
-
-                return (
-                  <CommentItem
-                    key={comment.id}
-                    authorName={authorName}
-                    createdAt={comment.createdAt instanceof Date ? comment.createdAt.toISOString() : String(comment.createdAt || '')}
-                    comment={comment.comment}
-                    formatDate={formatDate}
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setCommentsExpanded((prev) => !prev)}
+                endIcon={
+                  <Iconify
+                    width={14}
+                    icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
                   />
-                );
-              })}
-
-              {!commentsLoading && comments.length === 0 ? (
-                <Typography variant="caption" color="text.secondary">
-                  {emptyMessage}
-                </Typography>
-              ) : null}
+                }
+              >
+                {commentsExpanded ? 'Collapse' : 'Expand'}
+              </Button>
             </Stack>
 
-            <CommentInput
-              value={commentInput}
-              onChange={setCommentInput}
-              onSubmit={handleSubmitComment}
-              disabled={!authenticated || isSubmittingComment}
-              submitting={isSubmittingComment}
-              authenticated={authenticated}
-              emojiOptions={emojiOptions}
-            />
+            {commentsExpanded ? (
+              <>
+                <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
+                  {commentsForViewer.map((comment) => {
+                    const authorName =
+                      comment.customerDisplayName ||
+                      `${comment.customerFirstName || ''} ${comment.customerLastName || ''}`.trim() ||
+                      comment.customerEmail ||
+                      String(comment.customerId || 'Customer');
 
-            {commentsLoading || commentsValidating ? (
-              <Typography variant="caption" color="text.secondary">
-                Refreshing comments...
-              </Typography>
+                    return (
+                      <CommentItem
+                        key={comment.id}
+                        id={comment.id}
+                        visible={comment.visible}
+                        customerId={comment.customerId}
+                        viewerId={viewerId}
+                        canDelete={canDeleteOwnComments}
+                        canToggleVisibility={isOwner}
+                        deleting={deletingCommentId === comment.id}
+                        togglingVisibility={togglingCommentVisibility || isTogglingCommentVisibility}
+                        onDelete={handleDeleteComment}
+                        onToggleVisibility={handleToggleVisibility}
+                        authorName={authorName}
+                        createdAt={comment.createdAt instanceof Date ? comment.createdAt.toISOString() : String(comment.createdAt || '')}
+                        comment={comment.comment}
+                        formatDate={formatDate}
+                      />
+                    );
+                  })}
+
+                  {!commentsLoading && commentsForViewer.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {emptyMessage}
+                    </Typography>
+                  ) : null}
+                </Stack>
+
+                <CommentInput
+                  value={commentInput}
+                  onChange={setCommentInput}
+                  onSubmit={handleSubmitComment}
+                  disabled={!authenticated || isSubmittingComment}
+                  submitting={isSubmittingComment}
+                  authenticated={authenticated}
+                  emojiOptions={emojiOptions}
+                />
+
+                {commentsLoading || commentsValidating ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Refreshing comments...
+                  </Typography>
+                ) : null}
+              </>
             ) : null}
-          </>
-        ) : null}
-      </Stack>
-    </Card>
+          </Stack>
+        </Card>
+      ) : null}
+    </>
   );
 }

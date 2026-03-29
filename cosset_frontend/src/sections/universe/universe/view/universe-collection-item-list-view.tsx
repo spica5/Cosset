@@ -41,6 +41,7 @@ import {
   recordCollectionItemView,
   useGetCollectionItemComments,
 } from 'src/actions/collection-item';
+import { updatePostCommentVisibility } from 'src/actions/post';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
@@ -445,6 +446,7 @@ function CollectionItemCard({
   const isInView = useInView(cardRef, { once: true, amount: 0.35 });
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
+  const [togglingCommentVisibility, setTogglingCommentVisibility] = useState(false);
   const [totalViews, setTotalViews] = useState(() => normalizeCounterValue(item.totalViews));
   const [isViewed, setIsViewed] = useState(isInitiallyViewed);
 
@@ -484,6 +486,7 @@ function CollectionItemCard({
     customerFirstName: comment.customerFirstName ?? undefined,
     customerLastName: comment.customerLastName ?? undefined,
     customerEmail: comment.customerEmail ?? undefined,
+    visible: comment.visible,
   }));
 
   useEffect(() => {
@@ -587,6 +590,22 @@ function CollectionItemCard({
       setOptimisticCounts(previousCounts);
     } finally {
       setIsSubmittingReaction(false);
+    }
+  };
+
+  const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
+    try {
+      setTogglingCommentVisibility(true);
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId: item.id,
+        targetType: 'collection-item',
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setTogglingCommentVisibility(false);
     }
   };
 
@@ -753,37 +772,21 @@ function CollectionItemCard({
 
           <CollectionItemMediaGallery imageKeys={imageKeys} videoKeys={videoKeys} />
 
-          {isOwner ? (
-            <Stack spacing={1}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                <Typography variant="subtitle2">Comments visibility</Typography>
-                <Button
-                  size="small"
-                  variant={commentsVisible ? 'contained' : 'outlined'}
-                  onClick={() => setCommentsVisible((prev) => !prev)}
-                >
-                  {commentsVisible ? 'Visible' : 'Hidden'}
-                </Button>
-              </Stack>
-              <Typography variant="caption" color="text.secondary">
-                {commentsVisible ? 'Comments are visible to visitors' : 'Comments are hidden from visitors'}
-              </Typography>
-            </Stack>
-          ) : null}
-
-          {commentsVisible ? (
-            <CommentsSection
-              targetType="collection-item"
-              targetId={String(item.id)}
-              comments={transformedComments}
-              commentsLoading={commentsLoading}
-              commentsValidating={commentsValidating}
-              authenticated={authenticated}
-              viewerId={viewerId}
-              isOwner={isOwner}
-              formatDate={formatDate}
-            />
-          ) : null}
+          <CommentsSection
+            targetType="collection-item"
+            targetId={String(item.id)}
+            comments={transformedComments}
+            commentsLoading={commentsLoading}
+            commentsValidating={commentsValidating}
+            authenticated={authenticated}
+            viewerId={viewerId}
+            isOwner={isOwner}
+            formatDate={formatDate}
+            commentsHidden={!commentsVisible}
+            onCommentsVisibilityChange={(visible) => setCommentsVisible(visible)}
+            onCommentVisibilityToggle={handleToggleCommentVisibility}
+            togglingCommentVisibility={togglingCommentVisibility}
+          />
         </Stack>
       </CardContent>
     </Card>

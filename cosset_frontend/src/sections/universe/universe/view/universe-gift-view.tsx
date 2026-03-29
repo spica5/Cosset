@@ -29,6 +29,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { recordGiftView, useGetDrawerComments } from 'src/actions/gift';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
+import { updatePostCommentVisibility } from 'src/actions/post';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
@@ -100,6 +101,7 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
   const [totalViews, setTotalViews] = useState(0);
   const [commentsVisible, setCommentsVisible] = useState(true);
+  const [togglingCommentVisibility, setTogglingCommentVisibility] = useState(false);
 
   const viewerId = authenticated && user?.id ? String(user.id) : undefined;
   const isOwner = viewerId === customerId;
@@ -128,6 +130,7 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
     customerFirstName: comment.customerFirstName ?? undefined,
     customerLastName: comment.customerLastName ?? undefined,
     customerEmail: comment.customerEmail ?? undefined,
+    visible: comment.visible,
   }));
 
   useEffect(() => {
@@ -283,6 +286,22 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
       setOptimisticCounts(previousCounts);
     } finally {
       setIsSubmittingReaction(false);
+    }
+  };
+
+  const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
+    try {
+      setTogglingCommentVisibility(true);
+      await updatePostCommentVisibility({
+        commentId,
+        visible,
+        targetId: giftId,
+        targetType: 'drawer',
+      });
+    } catch (error) {
+      console.error('Failed to toggle comment visibility', error);
+    } finally {
+      setTogglingCommentVisibility(false);
     }
   };
 
@@ -550,19 +569,21 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
             </Grid>
           )}
 
-          {commentsVisible ? (
-            <CommentsSection
-              targetType="drawer"
-              targetId={giftId}
-              comments={transformedComments}
-              commentsLoading={commentsLoading}
-              commentsValidating={commentsValidating}
-              authenticated={authenticated}
-              viewerId={viewerId}
-              isOwner={isOwner}
-              formatDate={(date) => fDate(date) || ''}
-            />
-          ) : null}
+          <CommentsSection
+            targetType="drawer"
+            targetId={giftId}
+            comments={transformedComments}
+            commentsLoading={commentsLoading}
+            commentsValidating={commentsValidating}
+            authenticated={authenticated}
+            viewerId={viewerId}
+            isOwner={isOwner}
+            formatDate={(date) => fDate(date) || ''}
+            commentsHidden={!commentsVisible}
+            onCommentsVisibilityChange={(visible) => setCommentsVisible(visible)}
+            onCommentVisibilityToggle={handleToggleCommentVisibility}
+            togglingCommentVisibility={togglingCommentVisibility}
+          />
         </Stack>
       </Container>
 
