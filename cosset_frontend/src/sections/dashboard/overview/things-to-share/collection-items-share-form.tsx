@@ -230,6 +230,7 @@ export function CollectionItemsShareForm() {
             href={paths.dashboard.collections.manage}
             size="small"
             variant="outlined"
+            sx={{ width: { xs: 1, sm: 'auto' } }}
           >
             Manage Collections
           </Button>
@@ -257,12 +258,13 @@ export function CollectionItemsShareForm() {
       </Box>
 
       <Box sx={{ p: 3, pt: 0 }}>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             startIcon={isSaving && <CircularProgress size={20} />}
+            sx={{ width: { xs: 1, sm: 'auto' } }}
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>

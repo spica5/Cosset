@@ -407,8 +407,8 @@ export function DesignSpaceForm({ currentArea }: Props) {
           />
         
           <Divider />
-          <Box sx={{ p: 3, display: 'flex', gap: 3 }}>
-            <Box sx={{ width: "45%", spacing: 1.5 }}>
+          <Box sx={{ p: 3, display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+            <Box sx={{ width: { xs: 1, md: '45%' }, spacing: 1.5 }}>
               <Typography variant="subtitle1">Add Images</Typography>
               <Upload
                 multiple
@@ -430,15 +430,15 @@ export function DesignSpaceForm({ currentArea }: Props) {
               />
             </Box>
 
-            <Box sx={{ width: "55%", spacing: 1.5, ml: 1 }}>
+            <Box sx={{ width: { xs: 1, md: '55%' }, spacing: 1.5, ml: { xs: 0, md: 1 } }}>
               <Typography variant="subtitle1">Template Images</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
                 {templateImages.map((template) => (
-                  <Box key={template.url} sx={{ textAlign: 'center', width: 120 }}>
+                  <Box key={template.url} sx={{ textAlign: 'center', width: { xs: 100, sm: 120 } }}>
                     <Image 
                       alt={template.name}
                       src={template.url}
-                      style={{ width: 110, height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
+                      style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
                     />
                     <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
                       {template.name}
@@ -483,18 +483,16 @@ export function DesignSpaceForm({ currentArea }: Props) {
           <Divider />
         </Card>
 
-        <Box display="flex" alignItems="center" flexWrap="wrap" justifyContent="flex-end">
-          <div>
-            <LoadingButton
-              type="submit"
-              variant="contained"
-              size="large"
-              loading={isSubmitting}
-              sx={{ ml: 2 }}
-            >
-              Save changes
-            </LoadingButton>
-          </div>
+        <Box display="flex" alignItems="center" flexWrap="wrap" justifyContent={{ xs: 'stretch', sm: 'flex-end' }}>
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            size="large"
+            loading={isSubmitting}
+            sx={{ width: { xs: 1, sm: 'auto' }, ml: { xs: 0, sm: 2 } }}
+          >
+            Save changes
+          </LoadingButton>
         </Box>
       </Stack>
     </Form>

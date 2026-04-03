@@ -16,6 +16,8 @@ import TableCell from '@mui/material/TableCell';
 import TableBody from '@mui/material/TableBody';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useTheme from '@mui/material/styles/useTheme';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -92,6 +94,8 @@ const formatDate = (value: unknown) => {
 
 export function CollectionsManageView() {
   const { user } = useAuthContext();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const searchParams = useSearchParams();
   const selectedCollectionId = searchParams.get('collectionId');
   const [sortBy, setSortBy] = useState('order');
@@ -248,7 +252,7 @@ export function CollectionsManageView() {
       />
 
       <Stack spacing={3}>
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: { xs: 2, md: 3 } }}>
           <Stack spacing={2}>
             <Typography variant="h6">{editingId ? 'Edit Collection' : 'Create Collection'}</Typography>
 
@@ -303,11 +307,20 @@ export function CollectionsManageView() {
               fullWidth
             /> */}
 
-            <Stack direction="row" spacing={1.5}>
-              <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
+            >
+              <Button
+                variant="contained"
+                onClick={handleSubmit}
+                disabled={submitting}
+                fullWidth={isMobile}
+              >
                 {editingId ? 'Update' : 'Create'}
               </Button>
-              <Button variant="outlined" onClick={resetForm} disabled={submitting}>
+              <Button variant="outlined" onClick={resetForm} disabled={submitting} fullWidth={isMobile}>
                 Clear
               </Button>
             </Stack>
@@ -328,9 +341,61 @@ export function CollectionsManageView() {
             </Box>
           ) : dataFiltered.length === 0 ? (
             <EmptyContent title={emptyListTitle} filled sx={{ py: 8 }} />
+          ) : isMobile ? (
+            <Stack spacing={1.5} sx={{ p: 1.5 }}>
+              {dataFiltered.map((item) => (
+                <Card key={item.id} variant="outlined" sx={{ p: 1.5 }}>
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle1">{item.name || '-'}</Typography>
+
+                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Customer: {item.customerId || '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Category: {item.category ?? '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Order: {item.order ?? '-'}
+                      </Typography>
+                    </Stack>
+
+                    <Typography variant="body2" sx={{ color: 'text.secondary', wordBreak: 'break-word' }}>
+                      Reference: {item.reference || '-'}
+                    </Typography>
+
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Updated: {formatDate(item.updatedAt || item.createdAt)}
+                    </Typography>
+
+                    <Stack direction="row" spacing={1} justifyContent="flex-end" useFlexGap flexWrap="wrap">
+                      <Button
+                        size="small"
+                        variant="text"
+                        component={RouterLink}
+                        href={paths.dashboard.collections.items(item.id)}
+                      >
+                        Items
+                      </Button>
+                      <Button size="small" variant="text" onClick={() => handleEdit(item)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="error"
+                        onClick={() => handleDelete(item)}
+                      >
+                        Delete
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Card>
+              ))}
+            </Stack>
           ) : (
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 820 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>

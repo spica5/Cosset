@@ -264,18 +264,16 @@ export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Prop
   );
 
   const renderActions = (
-    <Box display="flex" alignItems="center" flexWrap="wrap" justifyContent="flex-end">
-      <div>
-        <LoadingButton
-          type="submit"
-          variant="contained"
-          size="large"
-          loading={isSubmitting}
-          sx={{ ml: 2 }}
-        >
-          Save changes
-        </LoadingButton>
-      </div>
+    <Box display="flex" alignItems="center" flexWrap="wrap" justifyContent={{ xs: 'stretch', sm: 'flex-end' }}>
+      <LoadingButton
+        type="submit"
+        variant="contained"
+        size="large"
+        loading={isSubmitting}
+        sx={{ width: { xs: 1, sm: 'auto' }, ml: { xs: 0, sm: 2 } }}
+      >
+        Save changes
+      </LoadingButton>
     </Box>
   );
 

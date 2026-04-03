@@ -10,6 +10,9 @@ import axios, { fetcher, endpoints } from 'src/utils/axios';
 const POST_LIST_ENDPOINT = endpoints.post.list;
 const POST_COMMENTS_ENDPOINT = endpoints.post.comments;
 
+const normalizeCommentTargetType = (targetType?: string) =>
+  targetType === 'collection-item' ? 'drawer' : targetType || 'community';
+
 const swrOptions = {
   revalidateIfStale: false,
   revalidateOnFocus: false,
@@ -155,8 +158,9 @@ type PostCommentsData = {
 const normalizeCommentVisible = (visible: unknown): boolean => visible === 1;
 
 export function useGetPostComments(postId: string | number | '', targetType: string = 'community') {
+  const normalizedTargetType = normalizeCommentTargetType(targetType);
   const url = postId
-    ? `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(postId))}&targetType=${encodeURIComponent(targetType)}`
+    ? `${POST_COMMENTS_ENDPOINT}?targetId=${encodeURIComponent(String(postId))}&targetType=${encodeURIComponent(normalizedTargetType)}`
     : null;
 
   const { data, isLoading, error, isValidating } = useSWR<PostCommentsData>(url, fetcher, swrOptions);
@@ -185,13 +189,16 @@ export async function addPostComment(params: {
   targetType?: string;
   customerId?: string | number | null;
   prevCustomer?: string | null;
+  visible?: boolean;
 }) {
+  const normalizedTargetType = normalizeCommentTargetType(params.targetType);
   const payload = {
     targetId: Number(params.targetId),
-    targetType: params.targetType || 'community',
+    targetType: normalizedTargetType,
     comment: params.comment,
     customerId: params.customerId ?? undefined,
     prevCustomer: params.prevCustomer ?? undefined,
+    visible: params.visible ?? true,
   };
 
   const res = await axios.post(endpoints.post.comments, payload);
@@ -207,7 +214,7 @@ export async function deletePostComment(params: {
   targetId: string | number;
   targetType?: string;
 }) {
-  const normalizedTargetType = params.targetType || 'community';
+  const normalizedTargetType = normalizeCommentTargetType(params.targetType);
   const res = await axios.delete(
     `${endpoints.post.comments}?commentId=${encodeURIComponent(String(params.commentId))}`,
   );
@@ -224,7 +231,7 @@ export async function updatePostCommentVisibility(params: {
   targetId: string | number;
   targetType?: string;
 }) {
-  const normalizedTargetType = params.targetType || 'community';
+  const normalizedTargetType = normalizeCommentTargetType(params.targetType);
   const res = await axios.patch(endpoints.post.comments, {
     commentId: Number(params.commentId),
     visible: params.visible,

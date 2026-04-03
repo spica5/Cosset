@@ -75,6 +75,10 @@ const ensurePostCommentsTable = async (): Promise<void> => {
       await executeQuery(
         `CREATE INDEX IF NOT EXISTS idx_post_comments_customer ON ${TABLE_NAME} (customer_id)`,
       );
+
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS visible SMALLINT NOT NULL DEFAULT 1`,
+      );
     })().catch((error) => {
       ensurePostCommentsTablePromise = null;
       throw error;
@@ -196,6 +200,7 @@ export async function createPostComment(params: {
   prevCustomer?: string | null;
   targetType?: PostCommentTargetType | string;
   comment: string;
+  visible?: boolean | null;
 }): Promise<PostComment> {
   try {
     await ensurePostCommentsTable();
@@ -217,6 +222,8 @@ export async function createPostComment(params: {
       });
     }
 
+    const normalizedVisible = params.visible === false ? 0 : 1;
+
     const created = await queryOne<{ id: number }>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -225,9 +232,10 @@ export async function createPostComment(params: {
           prev_customer,
           target_type,
           comment,
+          visible,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
         RETURNING id
       `,
       [
@@ -236,6 +244,7 @@ export async function createPostComment(params: {
         params.prevCustomer ?? null,
         normalizeTargetType(params.targetType),
         normalizedComment,
+        normalizedVisible,
       ],
     );
 

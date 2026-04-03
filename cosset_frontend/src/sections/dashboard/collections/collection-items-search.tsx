@@ -85,7 +85,7 @@ export function CollectionItemsSearch<T extends SearchOption>({
 
   return (
     <Autocomplete
-      sx={{ width: { xs: 100, sm: 400 } }}
+      sx={{ width: { xs: 1, sm: 400 } }}
       autoHighlight
       popupIcon={null}
       options={state.results}
@@ -94,7 +94,7 @@ export function CollectionItemsSearch<T extends SearchOption>({
       noOptionsText={<SearchNotFound query={state.query} />}
       isOptionEqualToValue={(option, value) => option.id === value.id}
       slotProps={{
-        popper: { placement: 'bottom-start', sx: { minWidth: 400 } },
+        popper: { placement: 'bottom-start', sx: { minWidth: { xs: 280, sm: 400 } } },
         paper: { sx: { [` .${autocompleteClasses.option}`]: { pl: 0.75 } } },
       }}
       renderInput={(params) => (

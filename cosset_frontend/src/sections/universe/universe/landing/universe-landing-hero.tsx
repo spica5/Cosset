@@ -13,6 +13,7 @@ import Dialog from '@mui/material/Dialog';
 import { Typography } from '@mui/material';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -55,6 +56,7 @@ export function UniverseLandingHero({
   ...other
 }: Props) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [showRoomInfo, setShowRoomInfo] = useState(true);
   const [showTopMenu, setShowTopMenu] = useState(true);
   const [openGallery, setOpenGallery] = useState(false);
@@ -151,6 +153,7 @@ export function UniverseLandingHero({
       sx={{
         position: 'relative',
         bgcolor: 'common.black',
+        overflow: 'hidden',
         ...sx,
       }}
       {...other}
@@ -174,6 +177,7 @@ export function UniverseLandingHero({
               theme.vars.palette.common.black
             } 125%)`,
           },
+          minHeight: { xs: 520, sm: 620 },
           [theme.breakpoints.up('md')]: {
             minHeight: 760,
             height: '100vh',
@@ -221,15 +225,15 @@ export function UniverseLandingHero({
             <CloseIcon fontSize="small" />
           </IconButton>
 
-          <Typography variant="h1" sx={{ color: 'info.main' }}>
+          <Typography variant="h1" sx={{ color: 'info.main', fontSize: { xs: '1.6rem', sm: '2rem', md: '2.5rem' } }}>
             {universe.name}
           </Typography>
 
-          <Typography variant="h2" component="h1" sx={{ maxWidth: { xs: 480, md: 800 }, color: isGuestAreaHomeSpaceOnlyMotif(universe.motif) ? 'error.main' : 'inherit' }}>
+          <Typography variant="h2" component="h1" sx={{ maxWidth: { xs: '100%', md: 800 }, fontSize: { xs: '1.15rem', sm: '1.5rem', md: '1.875rem' }, wordBreak: 'break-word', color: isGuestAreaHomeSpaceOnlyMotif(universe.motif) ? 'error.main' : 'inherit' }}>
             {universe.motif}
           </Typography>
 
-          <Typography variant="h3" component="h1" sx={{ maxWidth: 480 }}>
+          <Typography variant="h3" component="h1" sx={{ maxWidth: { xs: '100%', md: 480 }, fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' }, wordBreak: 'break-word' }}>
             {universe.mood}
           </Typography>
 
@@ -273,7 +277,8 @@ export function UniverseLandingHero({
             zIndex: 10,
             px: 1.5,
             py: 1.25,
-            minWidth: 220,
+            minWidth: { xs: 180, sm: 220 },
+            maxWidth: { xs: 'calc(100vw - 24px)', sm: 260 },
             position: 'absolute',
             bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
             border: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
@@ -399,14 +404,44 @@ export function UniverseLandingHero({
         </IconButton>
       </Box>
 
-      <Dialog open={openGallery} onClose={() => setOpenGallery(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Design Space Gallery</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ pt: 0.5 }}>
+      <Dialog
+        open={openGallery}
+        onClose={() => setOpenGallery(false)}
+        fullScreen={isMobile}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 4 },
+            borderRadius: { xs: 0, sm: 1 },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            px: { xs: 2, sm: 3 },
+            py: { xs: 1.5, sm: 2 },
+          }}
+        >
+          Design Space Gallery
+          <IconButton size="small" onClick={() => setOpenGallery(false)} aria-label="close gallery">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: { xs: 1.5, sm: 3 }, pb: { xs: 2, sm: 3 }, overflowX: 'hidden' }}>
+          <Grid
+            container
+            rowSpacing={{ xs: 1.5, sm: 2 }}
+            columnSpacing={{ xs: 1.5, sm: 2 }}
+            sx={{ pt: 0.5, mx: 0, width: '100%' }}
+          >
             {galleryImages.map((image) => (
               <Grid item xs={12} sm={6} md={4} key={image}>
                 <Card variant="outlined">
-                  <CardMedia component="img" image={image} alt="Design space" sx={{ height: 180 }} />
+                  <CardMedia component="img" image={image} alt="Design space" sx={{ height: { xs: 160, sm: 180 } }} />
                   <Box sx={{ p: 1.5 }}>
                     <Button
                       fullWidth

@@ -18,6 +18,8 @@ import TableCell from '@mui/material/TableCell';
 import TableBody from '@mui/material/TableBody';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import useTheme from '@mui/material/styles/useTheme';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -115,6 +117,8 @@ const getVideoMimeType = (value: string) => {
 
 export function CollectionItemsView({ collectionId }: Props) {
   const { user } = useAuthContext();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const numericCollectionId = useMemo(() => Number.parseInt(String(collectionId), 10), [collectionId]);
   const ownerCustomerId = user?.id ? String(user.id) : '';
@@ -405,18 +409,51 @@ export function CollectionItemsView({ collectionId }: Props) {
           { name: 'Items' },
         ]}
         action={
-          <Stack direction="row" spacing={1.5}>
-            <Button component={RouterLink} href={paths.dashboard.collections.manage} variant="outlined">
-              Back to Manage Collections
-            </Button>
-            <Button
-              component={RouterLink}
-              href={paths.dashboard.collections.newItem(numericCollectionId)}
-              variant="contained"
-            >
-              New Item
-            </Button>
-          </Stack>
+          isMobile ? (
+            <Stack direction="row" spacing={1} sx={{ width: 1, justifyContent: 'flex-end' }}>
+              <IconButton
+                component={RouterLink}
+                href={paths.dashboard.collections.manage}
+                aria-label="Back to Manage Collections"
+                sx={{ border: 1, borderColor: 'divider', borderRadius: 1.2 }}
+              >
+                <Iconify icon="solar:arrow-left-outline" width={20} />
+              </IconButton>
+
+              <IconButton
+                component={RouterLink}
+                href={paths.dashboard.collections.newItem(numericCollectionId)}
+                aria-label="New Item"
+                sx={{
+                  borderRadius: 1.2,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                }}
+              >
+                <Iconify icon="solar:add-circle-outline" width={20} />
+              </IconButton>
+            </Stack>
+          ) : (
+            <Stack direction="row" spacing={1.5}>
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.collections.manage}
+                variant="outlined"
+                startIcon={<Iconify icon="solar:arrow-left-outline" width={18} />}
+              >
+                Back to Manage Collections
+              </Button>
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.collections.newItem(numericCollectionId)}
+                variant="contained"
+                startIcon={<Iconify icon="solar:add-circle-outline" width={18} />}
+              >
+                New Item
+              </Button>
+            </Stack>
+          )
         }
         sx={{ mb: { xs: 3, md: 5 } }}
       />
@@ -430,7 +467,7 @@ export function CollectionItemsView({ collectionId }: Props) {
         <Stack
           spacing={3}
           justifyContent="space-between"
-          alignItems={{ xs: 'flex-end', sm: 'center' }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
           direction={{ xs: 'column', sm: 'row' }}
         >
           <CollectionItemsSearch
@@ -456,9 +493,74 @@ export function CollectionItemsView({ collectionId }: Props) {
             </Box>
           ) : dataFiltered.length === 0 ? (
             <EmptyContent title={emptyListTitle} filled sx={{ py: 8 }} />
+          ) : isMobile ? (
+            <Stack spacing={1.5} sx={{ p: 1.5 }}>
+              {dataFiltered.map((item) => (
+                <Card key={item.id} variant="outlined" sx={{ p: 1.5 }}>
+                  <Stack spacing={1}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <Typography variant="subtitle1" sx={{ minWidth: 0 }}>
+                        {item.title || '-'}
+                      </Typography>
+                      {item.isPublic == null ? null : (
+                        <Chip
+                          label={item.isPublic === 1 ? 'Public' : 'Private'}
+                          size="small"
+                          color={item.isPublic === 1 ? 'success' : 'default'}
+                        />
+                      )}
+                    </Stack>
+
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {item.description || '-'}
+                    </Typography>
+
+                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                      <Chip size="small" variant="outlined" label={`Date: ${formatDate(item.date)}`} />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Updated: ${formatDate(item.updatedAt)}`}
+                      />
+                    </Stack>
+
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Attachments
+                      </Typography>
+                      {renderItemAttachmentLinks(item)}
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <IconButton
+                        size="small"
+                        component={RouterLink}
+                        href={paths.dashboard.collections.editItem(numericCollectionId, item.id)}
+                        aria-label={`Edit item ${item.title || item.id}`}
+                      >
+                        <Iconify icon="solar:pen-2-outline" width={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(item)}
+                        aria-label={`Delete item ${item.title || item.id}`}
+                      >
+                        <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Card>
+              ))}
+            </Stack>
           ) : (
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 960 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Title</TableCell>

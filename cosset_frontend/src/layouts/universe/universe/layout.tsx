@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
@@ -15,6 +17,7 @@ import { varAlpha } from 'src/theme/universe/styles';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Logo } from 'src/components/universe/logo';
+import { MenuButton } from 'src/layouts/universe/components/menu-button';
 
 import { Main } from './main';
 import { UniverseFooter } from './universe-footer';
@@ -35,6 +38,7 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
   const layoutQuery: Breakpoint = 'md';
   const pathname = usePathname();
   const [showTopMenu, setShowTopMenu] = useState(true);
+  const [mobileMenuAnchorEl, setMobileMenuAnchorEl] = useState<HTMLElement | null>(null);
 
   const isUniverseViewPage = pathname?.includes('/universe/') && pathname?.includes('/view');
   const universeViewMatch = pathname?.match(/^\/universe\/([^/]+)\/view(?:\/|$)/);
@@ -43,6 +47,15 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
   const showUniverseSectionLinks =
     isUniverseViewPage && !isAccessLoading && !isVisitorHomeSpaceOnly;
   const currentPathWithHash = pathname || '/';
+  const mobileMenuOpen = Boolean(mobileMenuAnchorEl);
+
+  const handleOpenMobileMenu = (event: { currentTarget: HTMLElement }) => {
+    setMobileMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseMobileMenu = () => {
+    setMobileMenuAnchorEl(null);
+  };
 
   useEffect(() => {
     const handleToggleTopMenu = () => {
@@ -80,14 +93,16 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
   }, [isUniverseViewPage]);
 
   const menuLinkSx = {
-    px: 3,
-    py: 0.75,
+    px: { xs: 1.5, sm: 3 },
+    py: { xs: 0.5, sm: 0.75 },
     borderRadius: 1,
     border: 1,
     borderColor: 'text.secondary',
     bgcolor: (theme: Theme) => varAlpha(theme.vars.palette.common.blackChannel, 0.5),
     color: 'info.main',
     typography: 'subtitle1',
+    fontSize: { xs: '0.75rem', sm: '1rem' },
+    whiteSpace: 'nowrap',
     transition: (theme: Theme) =>
       theme.transitions.create(['background-color', 'border-color', 'color'], {
         duration: theme.transitions.duration.shorter,
@@ -118,11 +133,31 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
               leftArea: (
                 <>
                   {/* -- Logo -- */}
-                  <Logo isSingle />
+                  <Logo
+                    isSingle
+                    sx={{
+                      width: { xs: 60, sm: 72, md: 84 },
+                      height: { xs: 34, sm: 40, md: 48 },
+                      flexShrink: 0,
+                    }}
+                  />
                 </>
               ),
               centerArea: showUniverseSectionLinks ? (
-                <Box gap={5} display="flex" alignItems="center" justifyContent="center">
+                <Box
+                  gap={{ xs: 1.5, sm: 3, md: 5 }}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{
+                    display: { xs: 'none', md: 'flex' },
+                    overflowX: 'auto',
+                    flexWrap: 'nowrap',
+                    maxWidth: '100%',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    scrollbarWidth: 'none',
+                  }}
+                >
                   <Link
                     component={RouterLink}
                     href={`${currentPathWithHash}#blogs-section`}
@@ -162,7 +197,68 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
                   </Link>
                 </Box>
               ) : null,
-              rightArea: <Box gap={{ [layoutQuery]: 1 }} display="flex" alignItems="center" />,
+              rightArea: (
+                <Box gap={{ [layoutQuery]: 1 }} display="flex" alignItems="center">
+                  {showUniverseSectionLinks ? (
+                    <>
+                      <MenuButton
+                        aria-label="open section menu"
+                        onClick={handleOpenMobileMenu}
+                        sx={{
+                          ml: 0.5,
+                          display: { xs: 'inline-flex', md: 'none' },
+                        }}
+                      />
+
+                      <Menu
+                        anchorEl={mobileMenuAnchorEl}
+                        open={mobileMenuOpen}
+                        onClose={handleCloseMobileMenu}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        slotProps={{
+                          paper: {
+                            sx: {
+                              minWidth: 180,
+                              border: 1,
+                              borderColor: 'divider',
+                            },
+                          },
+                        }}
+                      >
+                        <MenuItem
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#blogs-section`}
+                          onClick={handleCloseMobileMenu}
+                        >
+                          Blogs
+                        </MenuItem>
+                        <MenuItem
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#albums-section`}
+                          onClick={handleCloseMobileMenu}
+                        >
+                          Albums
+                        </MenuItem>
+                        <MenuItem
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#drawers-section`}
+                          onClick={handleCloseMobileMenu}
+                        >
+                          Drawers
+                        </MenuItem>
+                        <MenuItem
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#collection-items-section`}
+                          onClick={handleCloseMobileMenu}
+                        >
+                          Collections
+                        </MenuItem>
+                      </Menu>
+                    </>
+                  ) : null}
+                </Box>
+              ),
             }}
           />
         )

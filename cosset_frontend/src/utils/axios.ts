@@ -101,6 +101,13 @@ export const endpoints = {
     details: (id: string | number) => `/api/collection-item/${id}`,
     view: '/api/collection-item/view',
   },
+  coffeeShop: {
+    list: '/api/coffee-shop/list',
+    add: '/api/coffee-shop/new',
+    details: (id: string | number) => `/api/coffee-shop/${id}`,
+    update: (id: string | number) => `/api/coffee-shop/${id}`,
+    delete: (id: string | number) => `/api/coffee-shop/${id}`,
+  },
   reaction: {
     root: '/api/reaction',
   },

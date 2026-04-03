@@ -4,16 +4,17 @@ import { useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
+import Menu from '@mui/material/Menu';
 import Tooltip from '@mui/material/Tooltip';
+import MenuItem from '@mui/material/MenuItem';
 import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import { RouterLink } from 'src/routes/components';
 import { Logo } from 'src/components/universe/logo';
+import { MenuButton } from 'src/layouts/universe/components/menu-button';
 
 import { varAlpha } from 'src/theme/universe/styles';
 
@@ -31,6 +32,16 @@ export function HomeSpacePreviewHeaderBar({
   onToggleFullScreen,
 }: Props) {
   const theme = useTheme();
+  const [mobileMenuAnchorEl, setMobileMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const mobileMenuOpen = Boolean(mobileMenuAnchorEl);
+
+  const handleOpenMobileMenu = (event: { currentTarget: HTMLElement }) => {
+    setMobileMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseMobileMenu = () => {
+    setMobileMenuAnchorEl(null);
+  };
  
   const menuLinkSx = {
     px: 2,
@@ -75,7 +86,7 @@ export function HomeSpacePreviewHeaderBar({
       sx={{
         top: { xs: 12, md: 20 },
         left: { xs: 12, md: 20 },
-        right: { xs: 250, md: 300 },
+        right: { xs: 12, md: 300 },
         zIndex: 12,
         position: 'absolute',
         display: 'flex',
@@ -87,15 +98,27 @@ export function HomeSpacePreviewHeaderBar({
         mb: 0,
       }}
     >
-      <Box gap={{ xs: 2, md: 4 }} display="flex" alignItems="center" flexWrap="wrap">
+      <Box
+        gap={{ xs: 1, md: 4 }}
+        display="flex"
+        alignItems="center"
+        flexWrap="nowrap"
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          overflowX: 'auto',
+          pr: 0.5,
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
         <Logo
           disableLink
           isSingle
           sx={{
-            ml: { xs: 5, md: 10 },
-            mr: { xs: 8, md: 12 },
+            ml: { xs: 0, md: 10 },
+            mr: { xs: 1, md: 12 },
             width: { xs: 70, md: 80 },
             height: { xs: 42, md: 50 },
+            flexShrink: 0,
           }}
         />
 
@@ -140,12 +163,64 @@ export function HomeSpacePreviewHeaderBar({
         </Link>
       </Box>
 
-      <Box display="none" alignItems="center" gap={2}>
+      <Box display="flex" alignItems="center" gap={1}>
+        <MenuButton
+          aria-label="open section menu"
+          onClick={handleOpenMobileMenu}
+          sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+        />
+
+        <Menu
+          anchorEl={mobileMenuAnchorEl}
+          open={mobileMenuOpen}
+          onClose={handleCloseMobileMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: 180,
+                border: 1,
+                borderColor: 'divider',
+              },
+            },
+          }}
+        >
+          <MenuItem
+            component={RouterLink}
+            href={`${currentPath}#blogs-section`}
+            onClick={handleCloseMobileMenu}
+          >
+            Blogs
+          </MenuItem>
+          <MenuItem
+            component={RouterLink}
+            href={`${currentPath}#albums-section`}
+            onClick={handleCloseMobileMenu}
+          >
+            Albums
+          </MenuItem>
+          <MenuItem
+            component={RouterLink}
+            href={`${currentPath}#drawers-section`}
+            onClick={handleCloseMobileMenu}
+          >
+            Drawers
+          </MenuItem>
+          <MenuItem
+            component={RouterLink}
+            href={`${currentPath}#collection-items-section`}
+            onClick={handleCloseMobileMenu}
+          >
+            Collections
+          </MenuItem>
+        </Menu>
+
         <Tooltip title={isFullScreen ? 'Exit full screen' : 'Enter full screen'}>
           <IconButton
             aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
             onClick={onToggleFullScreen}
-            sx={actionButtonSx}
+            sx={{ ...actionButtonSx, display: { xs: 'none', md: 'none' } }}
           >
             {isFullScreen ? (
               <FullscreenExitIcon fontSize="small" />

@@ -181,8 +181,8 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
         {notFound ? (
           <EmptyContent filled />
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 840 }}>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                   <TableCell>ID</TableCell>
@@ -260,12 +260,13 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
 
       {albums.length > 0 && (
         <Box sx={{ p: 3, pt: 0 }}>
-          <Stack direction="row" spacing={1}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
             <Button
               variant="contained"
               onClick={handleSave}
               disabled={!hasChanges || isSaving}
               startIcon={isSaving && <CircularProgress size={20} />}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>

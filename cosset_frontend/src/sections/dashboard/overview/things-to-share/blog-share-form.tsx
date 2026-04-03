@@ -166,7 +166,7 @@ export function BlogShareForm() {
           sx={{ mb: 2 }}
         >
 
-          <Stack direction="row" spacing={5} alignItems="center">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Typography variant="h6">Blogs</Typography>
 
             <Stack direction="row" spacing={2} alignItems="center">
@@ -190,8 +190,8 @@ export function BlogShareForm() {
         ) : notFound ? (
           <EmptyContent filled />
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 860 }}>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                   <TableCell>ID</TableCell>
@@ -280,12 +280,14 @@ export function BlogShareForm() {
       </Box>
 
       <Box sx={{ p: 3, pt: 0 }}>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             startIcon={isSaving && <CircularProgress size={20} />}
+            fullWidth={false}
+            sx={{ width: { xs: 1, sm: 'auto' } }}
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>

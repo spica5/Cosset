@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
 
     const comment = typeof body.comment === 'string' ? body.comment.trim() : '';
     const targetType = normalizeTargetType(body.targetType ?? 'community');
+    const visible = typeof body.visible === 'boolean' ? body.visible : true;
 
     if (!targetType) {
       return response(
@@ -190,6 +191,7 @@ export async function POST(req: NextRequest) {
       prevCustomer,
       targetType,
       comment,
+      visible,
     });
 
     return response({ comment: created }, STATUS.OK);
