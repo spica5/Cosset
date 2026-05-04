@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    //"baseUrl": ".",
+    //"ignoreDeprecations": "5.0",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"],
+      "src/*": ["./src/*"]
     },
     "target": "ES2020", //"es5" 
     "lib": ["dom", "esnext", "dom.iterable"],
