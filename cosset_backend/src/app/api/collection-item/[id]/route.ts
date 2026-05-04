@@ -58,6 +58,7 @@ export async function PUT(
       customerId: updates.customerId,
       collectionId: updates.collectionId,
       title: updates.title,
+      order: updates.order,
       category: updates.category,
       description: updates.description,
       isPublic: updates.isPublic,

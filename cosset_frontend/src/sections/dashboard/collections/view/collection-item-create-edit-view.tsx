@@ -58,6 +58,7 @@ const MAX_UPLOAD_FILE_SIZE_BYTES: Record<UploadFileType, number> = {
 type CollectionItemFormState = {
   customerId: string;
   title: string;
+  order: string;
   category: string;
   description: string;
   isPublic: string;
@@ -70,6 +71,7 @@ type CollectionItemFormState = {
 const emptyForm: CollectionItemFormState = {
   customerId: '',
   title: '',
+  order: '',
   category: '',
   description: '',
   isPublic: '0',
@@ -251,6 +253,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
     setForm({
       customerId: collectionItem.customerId ? String(collectionItem.customerId) : '',
       title: collectionItem.title || '',
+      order: collectionItem.order != null ? String(collectionItem.order) : '',
       category: collectionItem.category != null ? String(collectionItem.category) : '',
       description: collectionItem.description || '',
       isPublic: normalizePublicFieldValue(collectionItem.isPublic),
@@ -655,6 +658,7 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
       customerId: form.customerId.trim() || null,
       collectionId: numericCollectionId,
       title: form.title.trim(),
+      order: parseNullableInteger(form.order),
       category: parseNullableInteger(form.category),
       description: form.description.trim() || null,
       isPublic: Number.parseInt(normalizePublicFieldValue(form.isPublic), 10),
@@ -744,6 +748,14 @@ export function CollectionItemCreateEditView({ collectionId, itemId }: Props) {
                   value={form.title}
                   onChange={handleFieldChange('title')}
                   required
+                  fullWidth
+                />
+
+                <TextField
+                  label="Order"
+                  value={form.order}
+                  onChange={handleFieldChange('order')}
+                  type="number"
                   fullWidth
                 />
 

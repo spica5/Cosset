@@ -23,6 +23,8 @@ import {
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
+import { stylesMode } from 'src/theme/universe/styles';
+
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -272,6 +274,7 @@ export function UniverseLandingBlogs({
                           noWrap
                           sx={{
                             color: '#3c2a1a',
+                            [stylesMode.dark]: { color: '#e8d5c0' },
                             fontFamily: 'Georgia, "Times New Roman", serif',
                           }}
                         >
@@ -310,6 +313,7 @@ export function UniverseLandingBlogs({
                           variant="body2"
                           sx={{
                             color: '#3c2a1a',
+                            [stylesMode.dark]: { color: '#e8d5c0' },
                             ...getBlogContentFontSx(contentAppearance.fontPreset),
                             whiteSpace: 'pre-line',
                           }}

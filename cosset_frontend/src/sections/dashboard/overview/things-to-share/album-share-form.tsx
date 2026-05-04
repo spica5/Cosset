@@ -106,6 +106,14 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
     };
   }, [albums]);
 
+  const handleBulkOpenness = (newOpenness: AlbumOpenness) => {
+    const next: Record<AlbumIdKey, AlbumOpenness> = {};
+    albums.forEach((album) => {
+      next[toAlbumIdKey(album.id)] = newOpenness;
+    });
+    setAlbumUpdates(next);
+  };
+
   const handleOpennessChange = (albumId: string | number, newOpenness: AlbumOpenness) => {
     const albumIdKey = toAlbumIdKey(albumId);
     const originalAlbum = albums.find((album) => toAlbumIdKey(album.id) === albumIdKey);
@@ -175,9 +183,17 @@ export function AlbumShareForm({ onSaveSuccess }: AlbumShareFormProps) {
   return (
     <Card>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Albums
-        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="h6">Albums</Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="outlined" color="success" onClick={() => handleBulkOpenness(1)} disabled={isSaving || !albums.length}>
+              Enable All
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => handleBulkOpenness(0)} disabled={isSaving || !albums.length}>
+              Disable All
+            </Button>
+          </Stack>
+        </Stack>
         {notFound ? (
           <EmptyContent filled />
         ) : (

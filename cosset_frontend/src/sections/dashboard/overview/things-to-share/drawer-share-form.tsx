@@ -116,6 +116,10 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
     setCategorySwitches((prev) => ({ ...prev, [category]: checked }));
   };
 
+  const handleBulkCategory = (enabled: boolean) => {
+    setCategorySwitches({ gift: enabled, letter: enabled, goodMemo: enabled, sadMemo: enabled });
+  };
+
   const handleSave = async () => {
     if (!guestarea) {
       toast.error('Guest area not found');
@@ -178,9 +182,17 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   return (
     <Card>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Drawers
-        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="h6">Drawers</Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="outlined" color="success" onClick={() => handleBulkCategory(true)} disabled={isSaving}>
+              Enable All
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => handleBulkCategory(false)} disabled={isSaving}>
+              Disable All
+            </Button>
+          </Stack>
+        </Stack>
         {notFound ? (
           <EmptyContent filled />
         ) : (

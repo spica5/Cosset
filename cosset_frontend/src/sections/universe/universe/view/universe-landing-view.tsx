@@ -545,7 +545,7 @@ export function UniverseLandingView({
       {
         key: 'sadMemo',
         label: 'Sad Memories',
-        icon: 'solar:cloudy-bold',
+        icon: 'solar:cloud-bold',
         enabled: drawerSettings.sadMemo,
         count: sadMemoDrawerStats.count,
         viewedCount: sadMemoDrawerStats.viewedCount,

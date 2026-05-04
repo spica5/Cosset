@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       customerId: item.customerId ?? null,
       collectionId,
       title: item.title ?? null,
+      order: item.order ?? null,
       category: item.category ?? null,
       description: item.description ?? null,
       isPublic: item.isPublic ?? 0,

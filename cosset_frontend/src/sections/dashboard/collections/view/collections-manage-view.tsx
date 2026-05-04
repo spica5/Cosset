@@ -15,6 +15,7 @@ import TableHead from '@mui/material/TableHead';
 import TableCell from '@mui/material/TableCell';
 import TableBody from '@mui/material/TableBody';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import useTheme from '@mui/material/styles/useTheme';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -39,6 +40,7 @@ import {
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { toast } from 'src/components/dashboard/snackbar';
+import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
@@ -102,6 +104,7 @@ export function CollectionsManageView() {
   const [form, setForm] = useState<CollectionFormState>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [movingCollectionId, setMovingCollectionId] = useState<number | null>(null);
 
   const { collections, collectionsLoading } = useGetCollections(user?.id);
 
@@ -127,6 +130,37 @@ export function CollectionsManageView() {
       }),
     [collections, hasSearchQuery, search.state.results, sortBy],
   );
+
+  const reorderEntries = useMemo(() => {
+    const orderedCollections = applyFilter({ inputData: collections, sortBy: 'order' });
+
+    let cursor = 0;
+
+    return orderedCollections.map((item) => {
+      const rawOrder =
+        typeof item.order === 'number' && Number.isFinite(item.order)
+          ? Math.trunc(item.order)
+          : null;
+
+      const resolvedOrder = rawOrder !== null && rawOrder > cursor ? rawOrder : cursor + 1;
+      cursor = resolvedOrder;
+
+      return {
+        item,
+        resolvedOrder,
+      };
+    });
+  }, [collections]);
+
+  const reorderIndexById = useMemo(() => {
+    const indexMap = new Map<string, number>();
+
+    reorderEntries.forEach((entry, index) => {
+      indexMap.set(String(entry.item.id), index);
+    });
+
+    return indexMap;
+  }, [reorderEntries]);
 
   
   const handleFieldChange = useCallback(
@@ -231,6 +265,42 @@ export function CollectionsManageView() {
       }
     },
     [editingId, resetForm, user?.id],
+  );
+
+  const handleMoveOrder = useCallback(
+    async (item: ICollectionItem, direction: 'up' | 'down') => {
+      const currentIndex = reorderIndexById.get(String(item.id));
+
+      if (currentIndex === undefined) {
+        return;
+      }
+
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= reorderEntries.length) {
+        return;
+      }
+
+      const currentEntry = reorderEntries[currentIndex];
+      const targetEntry = reorderEntries[targetIndex];
+
+      try {
+        setMovingCollectionId(item.id);
+
+        await Promise.all([
+          updateCollection(currentEntry.item.id, { order: targetEntry.resolvedOrder }),
+          updateCollection(targetEntry.item.id, { order: currentEntry.resolvedOrder }),
+        ]);
+
+        toast.success(`Moved "${item.name || `Collection #${item.id}`}" ${direction}.`);
+      } catch (error) {
+        console.error('Failed to update collection order:', error);
+        toast.error('Failed to change collection order.');
+      } finally {
+        setMovingCollectionId(null);
+      }
+    },
+    [reorderEntries, reorderIndexById],
   );
 
   const emptyListTitle = collections.length === 0
@@ -369,25 +439,77 @@ export function CollectionsManageView() {
                     </Typography>
 
                     <Stack direction="row" spacing={1} justifyContent="flex-end" useFlexGap flexWrap="wrap">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleMoveOrder(item, 'up')}
+                        disabled={
+                          movingCollectionId !== null
+                          || reorderIndexById.get(String(item.id)) === undefined
+                          || reorderIndexById.get(String(item.id)) === 0
+                        }
+                        aria-label={`Move collection ${item.name || item.id} up`}
+                        sx={{
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          bgcolor: 'primary.lighter',
+                          color: 'primary.main',
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'text.disabled',
+                            borderColor: 'action.disabledBackground',
+                          },
+                        }}
+                      >
+                        <Iconify icon="eva:arrow-upward-fill" width={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleMoveOrder(item, 'down')}
+                        disabled={
+                          movingCollectionId !== null
+                          || reorderIndexById.get(String(item.id)) === undefined
+                          || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                        }
+                        aria-label={`Move collection ${item.name || item.id} down`}
+                        sx={{
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          bgcolor: 'primary.lighter',
+                          color: 'primary.main',
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'text.disabled',
+                            borderColor: 'action.disabledBackground',
+                          },
+                        }}
+                      >
+                        <Iconify icon="eva:arrow-downward-fill" width={18} />
+                      </IconButton>
                       <Button
                         size="small"
                         variant="text"
                         component={RouterLink}
                         href={paths.dashboard.collections.items(item.id)}
                       >
-                        Items
+                        Go Page
                       </Button>
-                      <Button size="small" variant="text" onClick={() => handleEdit(item)}>
-                        Edit
-                      </Button>
-                      <Button
+                      <IconButton
                         size="small"
-                        variant="text"
+                        onClick={() => handleEdit(item)}
+                        aria-label={`Edit collection ${item.name || item.id}`}
+                      >
+                        <Iconify icon="solar:pen-2-outline" width={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
                         color="error"
                         onClick={() => handleDelete(item)}
+                        aria-label={`Delete collection ${item.name || item.id}`}
                       >
-                        Delete
-                      </Button>
+                        <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                      </IconButton>
                     </Stack>
                   </Stack>
                 </Card>
@@ -403,6 +525,7 @@ export function CollectionsManageView() {
                     <TableCell>Order</TableCell>
                     <TableCell>Reference</TableCell>
                     <TableCell>Updated At</TableCell>
+                    <TableCell>View Order</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -425,25 +548,81 @@ export function CollectionsManageView() {
                       <TableCell>{formatDate(item.updatedAt || item.createdAt)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMoveOrder(item, 'up')}
+                            disabled={
+                              movingCollectionId !== null
+                              || reorderIndexById.get(String(item.id)) === undefined
+                              || reorderIndexById.get(String(item.id)) === 0
+                            }
+                            aria-label={`Move collection ${item.name || item.id} up`}
+                            sx={{
+                              border: 1,
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              bgcolor: 'primary.lighter',
+                              color: 'primary.main',
+                              '&.Mui-disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'text.disabled',
+                                borderColor: 'action.disabledBackground',
+                              },
+                            }}
+                          >
+                            <Iconify icon="eva:arrow-upward-fill" width={18} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMoveOrder(item, 'down')}
+                            disabled={
+                              movingCollectionId !== null
+                              || reorderIndexById.get(String(item.id)) === undefined
+                              || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                            }
+                            aria-label={`Move collection ${item.name || item.id} down`}
+                            sx={{
+                              border: 1,
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              bgcolor: 'primary.lighter',
+                              color: 'primary.main',
+                              '&.Mui-disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'text.disabled',
+                                borderColor: 'action.disabledBackground',
+                              },
+                            }}
+                          >
+                            <Iconify icon="eva:arrow-downward-fill" width={18} />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
                           <Button
                             size="small"
                             variant="text"
                             component={RouterLink}
                             href={paths.dashboard.collections.items(item.id)}
                           >
-                            Items
+                            Go Page
                           </Button>
-                          <Button size="small" variant="text" onClick={() => handleEdit(item)}>
-                            Edit
-                          </Button>
-                          <Button
+                          <IconButton
                             size="small"
-                            variant="text"
+                            onClick={() => handleEdit(item)}
+                            aria-label={`Edit collection ${item.name || item.id}`}
+                          >
+                            <Iconify icon="solar:pen-2-outline" width={18} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
                             color="error"
                             onClick={() => handleDelete(item)}
+                            aria-label={`Delete collection ${item.name || item.id}`}
                           >
-                            Delete
-                          </Button>
+                            <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                          </IconButton>
                         </Stack>
                       </TableCell>
                     </TableRow>

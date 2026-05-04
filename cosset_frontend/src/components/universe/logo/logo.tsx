@@ -4,7 +4,6 @@ import type { CSSObject } from '@mui/material/styles';
 import { forwardRef } from 'react';
 
 import Box from '@mui/material/Box';
-import { useTheme } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
 
@@ -22,43 +21,8 @@ export type LogoProps = BoxProps & {
 
 export const Logo = forwardRef<HTMLDivElement, LogoProps>(
   ({ href = '/', isSingle = false, disableLink = false, sx, className, ...other }, ref) => {
-    const theme = useTheme();
-    const isDarkMode = theme.palette.mode === 'dark';
-
-    const singleLogoSrc = `${CONFIG.universe.assetsDir}/logo/logo-single${isDarkMode ? '-dark' : ''}.png`;
-    const fullLogoSrc = `${CONFIG.universe.assetsDir}/logo/logo-full${isDarkMode ? '-dark' : ''}.png`;
-
-    const handleImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
-      const img = event.currentTarget as HTMLImageElement;
-      // Fallback to light logo if dark version fails to load
-      if (isDarkMode && img.src.includes('-dark')) {
-        img.src = img.src.replace('-dark', '');
-      }
-    };
-
-    const singleLogo = (
-      <Box
-        key={`single-${isDarkMode}`}
-        alt="Single logo"
-        component="img"
-        src={singleLogoSrc}
-        width="100%"
-        height="100%"
-        onError={handleImageError}
-      />
-    );
-
-    const fullLogo = (
-      <Box
-        key={`full-${isDarkMode}`}
-        alt="Full logo"
-        component="img"
-        src={fullLogoSrc}
-        width="100%"
-        height="100%"
-        onError={handleImageError}
-      />
-    );
+    const lightSrc = `${CONFIG.universe.assetsDir}/logo/${isSingle ? 'logo-single' : 'logo-full'}.png`;
+    const darkSrc = `${CONFIG.universe.assetsDir}/logo/${isSingle ? 'logo-single' : 'logo-full'}-dark.png`;
 
     const baseStyles = {
       flexShrink: 0,
@@ -83,7 +47,30 @@ export const Logo = forwardRef<HTMLDivElement, LogoProps>(
         }}
         {...other}
       >
-        {isSingle ? singleLogo : fullLogo}
+        {/* Light logo — hidden in dark mode */}
+        <Box
+          alt="logo"
+          component="img"
+          src={lightSrc}
+          width="100%"
+          height="100%"
+          sx={{
+            display: 'block',
+            '[data-mui-color-scheme="dark"] &': { display: 'none' },
+          }}
+        />
+        {/* Dark logo — shown only in dark mode */}
+        <Box
+          alt="logo"
+          component="img"
+          src={darkSrc}
+          width="100%"
+          height="100%"
+          sx={{
+            display: 'none',
+            '[data-mui-color-scheme="dark"] &': { display: 'block' },
+          }}
+        />
       </Box>
     );
   }

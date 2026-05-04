@@ -24,6 +24,8 @@ import {
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
+import { stylesMode } from 'src/theme/dashboard/styles';
+
 import { Label } from 'src/components/dashboard/label';
 import { Iconify } from 'src/components/dashboard/iconify';
 
@@ -177,6 +179,7 @@ export function BlogListItem({ blog, isExpanded, canExpand, onToggleContent, onD
             variant="body2"
             sx={{
               color: '#3c2a1a',
+              [stylesMode.dark]: { color: '#e8d5c0' },
               ...getBlogContentFontSx(contentAppearance.fontPreset),
               textIndent: '0.25em',
               whiteSpace: isExpanded ? 'pre-wrap' : 'pre-line',

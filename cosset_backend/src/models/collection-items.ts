@@ -11,6 +11,7 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 const TABLE_NAME = 'collection_items';
 
 let ensureCollectionItemViewsColumnPromise: Promise<void> | null = null;
+let ensureCollectionItemOrderColumnPromise: Promise<void> | null = null;
 
 const ensureCollectionItemViewsColumn = async (): Promise<void> => {
   if (!ensureCollectionItemViewsColumnPromise) {
@@ -27,11 +28,27 @@ const ensureCollectionItemViewsColumn = async (): Promise<void> => {
   await ensureCollectionItemViewsColumnPromise;
 };
 
+const ensureCollectionItemOrderColumn = async (): Promise<void> => {
+  if (!ensureCollectionItemOrderColumnPromise) {
+    ensureCollectionItemOrderColumnPromise = executeQuery(
+      `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS "order" INTEGER`,
+    )
+      .then(() => undefined)
+      .catch((error) => {
+        ensureCollectionItemOrderColumnPromise = null;
+        throw error;
+      });
+  }
+
+  await ensureCollectionItemOrderColumnPromise;
+};
+
 export interface CollectionItem {
   id: number;
   customerId?: string | null;
   collectionId: number;
   title?: string | null;
+  order?: number | null;
   category?: number | null;
   description?: string | null;
   isPublic?: number | null;
@@ -141,6 +158,7 @@ export async function getCollectionItems(
 ): Promise<CollectionItem[]> {
   try {
     await ensureCollectionItemViewsColumn();
+    await ensureCollectionItemOrderColumn();
 
     let query = `
       SELECT
@@ -148,6 +166,7 @@ export async function getCollectionItems(
         customer_id as "customerId",
         collection_id as "collectionId",
         title,
+        "order" as "order",
         category,
         description,
         "public" as "isPublic",
@@ -165,10 +184,10 @@ export async function getCollectionItems(
 
     if (customerId !== undefined && customerId !== null) {
       query += ` AND customer_id = $2`;
-      query += ` ORDER BY "date" DESC NULLS LAST, updated_at DESC, id DESC LIMIT $3 OFFSET $4`;
+      query += ` ORDER BY "order" ASC NULLS LAST, "date" DESC NULLS LAST, updated_at DESC, id DESC LIMIT $3 OFFSET $4`;
       params.push(customerId, limit, offset);
     } else {
-      query += ` ORDER BY "date" DESC NULLS LAST, updated_at DESC, id DESC LIMIT $2 OFFSET $3`;
+      query += ` ORDER BY "order" ASC NULLS LAST, "date" DESC NULLS LAST, updated_at DESC, id DESC LIMIT $2 OFFSET $3`;
       params.push(limit, offset);
     }
 
@@ -189,6 +208,7 @@ export async function getCollectionItems(
 export async function getCollectionItemById(id: number): Promise<CollectionItem | null> {
   try {
     await ensureCollectionItemViewsColumn();
+    await ensureCollectionItemOrderColumn();
 
     const item = await queryOne<CollectionItem>(
       `
@@ -197,6 +217,7 @@ export async function getCollectionItemById(id: number): Promise<CollectionItem 
           customer_id as "customerId",
           collection_id as "collectionId",
           title,
+          "order" as "order",
           category,
           description,
           "public" as "isPublic",
@@ -230,6 +251,7 @@ export async function createCollectionItem(
 ): Promise<CollectionItem> {
   try {
     await ensureCollectionItemViewsColumn();
+    await ensureCollectionItemOrderColumn();
 
     const created = await queryOne<CollectionItem>(
       `
@@ -237,6 +259,7 @@ export async function createCollectionItem(
           customer_id,
           collection_id,
           title,
+          "order",
           category,
           description,
           "public",
@@ -246,12 +269,13 @@ export async function createCollectionItem(
           files,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
         RETURNING
           id,
           customer_id as "customerId",
           collection_id as "collectionId",
           title,
+          "order" as "order",
           category,
           description,
           "public" as "isPublic",
@@ -266,6 +290,7 @@ export async function createCollectionItem(
         item.customerId ?? null,
         item.collectionId,
         item.title ?? null,
+        normalizeNullableInteger(item.order),
         normalizeNullableInteger(item.category),
         item.description ?? null,
         normalizeNullableInteger(item.isPublic),
@@ -302,6 +327,7 @@ export async function updateCollectionItem(
 ): Promise<CollectionItem> {
   try {
     await ensureCollectionItemViewsColumn();
+    await ensureCollectionItemOrderColumn();
 
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -322,6 +348,12 @@ export async function updateCollectionItem(
     if (updates.title !== undefined) {
       fields.push(`title = $${paramIndex}`);
       values.push(updates.title ?? null);
+      paramIndex += 1;
+    }
+
+    if (updates.order !== undefined) {
+      fields.push(`"order" = $${paramIndex}`);
+      values.push(normalizeNullableInteger(updates.order));
       paramIndex += 1;
     }
 
@@ -391,6 +423,7 @@ export async function updateCollectionItem(
           customer_id as "customerId",
           collection_id as "collectionId",
           title,
+          "order" as "order",
           category,
           description,
           "public" as "isPublic",

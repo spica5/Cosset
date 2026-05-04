@@ -5,6 +5,7 @@ export type ICollectionDrawerItem = {
   customerId?: string | null;
   collectionId: number;
   title?: string | null;
+  order?: number | null;
   category?: number | null;
   description?: string | null;
   isPublic?: number | null;

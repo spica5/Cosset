@@ -38,6 +38,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
   deleteCollectionItem,
+  updateCollectionItem,
   useGetCollectionItems,
 } from 'src/actions/collection-item';
 
@@ -55,6 +56,7 @@ type Props = {
 };
 
 const COLLECTION_ITEM_SORT_OPTIONS = [
+  { label: 'Order', value: 'order' },
   { label: 'Latest', value: 'latest' },
   { label: 'Oldest', value: 'oldest' },
   { label: 'Title (A-Z)', value: 'title' },
@@ -127,10 +129,11 @@ export function CollectionItemsView({ collectionId }: Props) {
     [numericCollectionId, ownerCustomerId],
   );
 
-  const [sortBy, setSortBy] = useState('latest');
+  const [sortBy, setSortBy] = useState('order');
   const [signedUrlMap, setSignedUrlMap] = useState<Record<string, string>>({});
   const [lightboxSlides, setLightboxSlides] = useState<Slide[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [movingItemId, setMovingItemId] = useState<number | null>(null);
 
   const { collection, collectionLoading } = useGetCollection(
     Number.isNaN(numericCollectionId) ? '' : numericCollectionId,
@@ -156,6 +159,37 @@ export function CollectionItemsView({ collectionId }: Props) {
       }),
     [collectionItems, hasSearchQuery, search.state.results, sortBy],
   );
+
+  const reorderEntries = useMemo(() => {
+    const orderedItems = applyFilter({ inputData: collectionItems, sortBy: 'order' });
+
+    let cursor = 0;
+
+    return orderedItems.map((item) => {
+      const rawOrder =
+        typeof item.order === 'number' && Number.isFinite(item.order)
+          ? Math.trunc(item.order)
+          : null;
+
+      const resolvedOrder = rawOrder !== null && rawOrder > cursor ? rawOrder : cursor + 1;
+      cursor = resolvedOrder;
+
+      return {
+        item,
+        resolvedOrder,
+      };
+    });
+  }, [collectionItems]);
+
+  const reorderIndexById = useMemo(() => {
+    const indexMap = new Map<string, number>();
+
+    reorderEntries.forEach((entry, index) => {
+      indexMap.set(String(entry.item.id), index);
+    });
+
+    return indexMap;
+  }, [reorderEntries]);
 
   const handleSortBy = useCallback((newValue: string) => {
     setSortBy(newValue);
@@ -303,6 +337,42 @@ export function CollectionItemsView({ collectionId }: Props) {
       }
     },
     [user?.id],
+  );
+
+  const handleMoveOrder = useCallback(
+    async (item: ICollectionDrawerItem, direction: 'up' | 'down') => {
+      const currentIndex = reorderIndexById.get(String(item.id));
+
+      if (currentIndex === undefined) {
+        return;
+      }
+
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= reorderEntries.length) {
+        return;
+      }
+
+      const currentEntry = reorderEntries[currentIndex];
+      const targetEntry = reorderEntries[targetIndex];
+
+      try {
+        setMovingItemId(item.id);
+
+        await Promise.all([
+          updateCollectionItem(currentEntry.item.id, { order: targetEntry.resolvedOrder }),
+          updateCollectionItem(targetEntry.item.id, { order: currentEntry.resolvedOrder }),
+        ]);
+
+        toast.success(`Moved "${item.title || `Item #${item.id}`}" ${direction}.`);
+      } catch (error) {
+        console.error('Failed to update item order:', error);
+        toast.error('Failed to change item order.');
+      } finally {
+        setMovingItemId(null);
+      }
+    },
+    [reorderEntries, reorderIndexById],
   );
 
   const renderItemAttachmentLinks = useCallback(
@@ -521,6 +591,7 @@ export function CollectionItemsView({ collectionId }: Props) {
                     </Typography>
 
                     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                      <Chip size="small" variant="outlined" label={`Order: ${item.order ?? '-'}`} />
                       <Chip size="small" variant="outlined" label={`Date: ${formatDate(item.date)}`} />
                       <Chip
                         size="small"
@@ -537,6 +608,30 @@ export function CollectionItemsView({ collectionId }: Props) {
                     </Stack>
 
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleMoveOrder(item, 'up')}
+                        disabled={
+                          movingItemId !== null
+                          || reorderIndexById.get(String(item.id)) === undefined
+                          || reorderIndexById.get(String(item.id)) === 0
+                        }
+                        aria-label={`Move item ${item.title || item.id} up`}
+                      >
+                        <Iconify icon="eva:arrow-upward-fill" width={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleMoveOrder(item, 'down')}
+                        disabled={
+                          movingItemId !== null
+                          || reorderIndexById.get(String(item.id)) === undefined
+                          || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                        }
+                        aria-label={`Move item ${item.title || item.id} down`}
+                      >
+                        <Iconify icon="eva:arrow-downward-fill" width={18} />
+                      </IconButton>
                       <IconButton
                         size="small"
                         component={RouterLink}
@@ -564,6 +659,7 @@ export function CollectionItemsView({ collectionId }: Props) {
                 <TableHead>
                   <TableRow>
                     <TableCell>Title</TableCell>
+                    <TableCell>Order</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell>Public</TableCell>
                     <TableCell>Date</TableCell>
@@ -583,6 +679,7 @@ export function CollectionItemsView({ collectionId }: Props) {
                           </Typography> */}
                         </Stack>
                       </TableCell>
+                      <TableCell>{item.order ?? '-'}</TableCell>
                       <TableCell>{item.description || '-'}</TableCell>
                       <TableCell>
                         {item.isPublic == null ? (
@@ -600,6 +697,30 @@ export function CollectionItemsView({ collectionId }: Props) {
                       <TableCell>{formatDate(item.updatedAt)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMoveOrder(item, 'up')}
+                            disabled={
+                              movingItemId !== null
+                              || reorderIndexById.get(String(item.id)) === undefined
+                              || reorderIndexById.get(String(item.id)) === 0
+                            }
+                            aria-label={`Move item ${item.title || item.id} up`}
+                          >
+                            <Iconify icon="eva:arrow-upward-fill" width={18} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleMoveOrder(item, 'down')}
+                            disabled={
+                              movingItemId !== null
+                              || reorderIndexById.get(String(item.id)) === undefined
+                              || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                            }
+                            aria-label={`Move item ${item.title || item.id} down`}
+                          >
+                            <Iconify icon="eva:arrow-downward-fill" width={18} />
+                          </IconButton>
                           <IconButton
                             size="small"
                             component={RouterLink}
@@ -657,6 +778,26 @@ const getItemDateTime = (value: unknown) => {
 };
 
 const applyFilter = ({ inputData, sortBy }: ApplyFilterProps) => {
+  if (sortBy === 'order') {
+    return [...inputData].sort((a, b) => {
+      const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+
+      if (aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+
+      const aTime = getItemDateTime(a.date);
+      const bTime = getItemDateTime(b.date);
+
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
+
   if (sortBy === 'latest') {
     return [...inputData].sort((a, b) => {
       const aTime = getItemDateTime(a.date);

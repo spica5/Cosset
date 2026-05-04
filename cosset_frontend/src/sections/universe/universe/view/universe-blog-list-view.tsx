@@ -39,6 +39,7 @@ import {
   isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
+import { stylesMode } from 'src/theme/universe/styles';
 import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
@@ -452,6 +453,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                           variant="body2"
                           sx={{
                             color: '#3c2a1a',
+                            [stylesMode.dark]: { color: '#e8d5c0' },
                             ...getBlogContentFontSx(contentAppearance.fontPreset),
                             textIndent: '0.25em',
                             whiteSpace: isExpanded ? 'pre-wrap' : 'pre-line',

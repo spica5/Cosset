@@ -89,6 +89,14 @@ export function BlogShareForm() {
   const hasGuestAreaChange = showBlogs !== currentBlogSetting;
   const hasChanges = hasVisibilityChanges || hasGuestAreaChange;
 
+  const handleBulkVisibility = (nextVisibility: BlogVisibility) => {
+    const next: Record<BlogIdKey, BlogVisibility> = {};
+    blogs.forEach((blog) => {
+      next[toBlogIdKey(blog.id)] = nextVisibility;
+    });
+    setBlogUpdates(next);
+  };
+
   const handleVisibilityChange = (blogId: string | number, nextVisibility: BlogVisibility) => {
     const blogIdKey = toBlogIdKey(blogId);
     const originalBlog = blogs.find((blog) => toBlogIdKey(blog.id) === blogIdKey);
@@ -178,9 +186,17 @@ export function BlogShareForm() {
             </Stack>
           </Stack>
 
-          <Button component={RouterLink} href={paths.dashboard.blog.list} size="small" variant="outlined">
-            Manage Blogs
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button size="small" variant="outlined" color="success" onClick={() => handleBulkVisibility(1)} disabled={isSaving || !blogs.length}>
+              Enable All
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => handleBulkVisibility(0)} disabled={isSaving || !blogs.length}>
+              Disable All
+            </Button>
+            <Button component={RouterLink} href={paths.dashboard.blog.list} size="small" variant="outlined">
+              Manage Blogs
+            </Button>
+          </Stack>
         </Stack>
 
         {blogsLoading ? (

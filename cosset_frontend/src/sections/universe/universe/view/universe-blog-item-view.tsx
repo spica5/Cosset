@@ -41,6 +41,7 @@ import {
 } from 'src/sections/dashboard/blog/blog-content-style';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
+import { stylesMode } from 'src/theme/universe/styles';
 import { Iconify } from 'src/components/universe/iconify';
 import { CommentsSection } from 'src/components/universe/comment-section';
 
@@ -449,6 +450,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
                 variant="body1"
                 sx={{
                   color: '#3c2a1a',
+                  [stylesMode.dark]: { color: '#e8d5c0' },
                   whiteSpace: 'pre-wrap',
                   ...getBlogContentFontSx(contentAppearance.fontPreset),
                 }}

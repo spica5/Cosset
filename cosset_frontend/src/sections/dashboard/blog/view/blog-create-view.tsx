@@ -24,6 +24,8 @@ import { useRouter } from 'src/routes/hooks';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { createBlog, updateBlog, useGetBlog } from 'src/actions/blog';
+import { stylesMode } from 'src/theme/dashboard/styles';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
 import {
@@ -631,6 +633,7 @@ export function BlogCreateView({ blogId }: Props) {
               variant="body2"
               sx={{
                 color: '#3c2a1a',
+                [stylesMode.dark]: { color: '#e8d5c0' },
                 ...getBlogContentFontSx(selectedFontPreset),
                 whiteSpace: 'pre-wrap',
               }}

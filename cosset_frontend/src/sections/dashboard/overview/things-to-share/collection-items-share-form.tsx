@@ -168,6 +168,14 @@ export function CollectionItemsShareForm() {
     setCollectionSwitches((prev) => ({ ...prev, [key]: checked }));
   };
 
+  const handleBulkCollections = (enabled: boolean) => {
+    const next = orderedCollections.reduce<Record<string, boolean>>((acc, collection) => {
+      acc[String(collection.id)] = enabled;
+      return acc;
+    }, {});
+    setCollectionSwitches(next);
+  };
+
   const hasChanges = orderedCollections.some((collection) => {
     const key = String(collection.id);
     return !!collectionSwitches[key] !== !!initialCollectionSwitches[key];
@@ -223,17 +231,25 @@ export function CollectionItemsShareForm() {
           justifyContent="space-between"
           sx={{ mb: 2 }}
         >
-          <Typography variant="h6">Collection Items</Typography>
+          <Typography variant="h6">Collections</Typography>
 
-          <Button
-            component={RouterLink}
-            href={paths.dashboard.collections.manage}
-            size="small"
-            variant="outlined"
-            sx={{ width: { xs: 1, sm: 'auto' } }}
-          >
-            Manage Collections
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button size="small" variant="outlined" color="success" onClick={() => handleBulkCollections(true)} disabled={isSaving || !orderedCollections.length}>
+              Enable All
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => handleBulkCollections(false)} disabled={isSaving || !orderedCollections.length}>
+              Disable All
+            </Button>
+            <Button
+              component={RouterLink}
+              href={paths.dashboard.collections.manage}
+              size="small"
+              variant="outlined"
+              sx={{ width: { xs: 1, sm: 'auto' } }}
+            >
+              Manage Collections
+            </Button>
+          </Stack>
         </Stack>
 
         {collectionsLoading ? (
