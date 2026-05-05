@@ -50,9 +50,21 @@ export const paths = {
         details: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}`,
         edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/gift/${id}/edit`,
       },
-      letter: `${ROOTS.DASHBOARD}/drawer/letter`,
-      goodMemo: `${ROOTS.DASHBOARD}/drawer/goodMemo`,      
-      sadMemo: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
+      letter: {
+        root: `${ROOTS.DASHBOARD}/drawer/letter`,
+        new: `${ROOTS.DASHBOARD}/drawer/letter/new`,
+        edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/letter/${id}/edit`,
+      },
+      goodMemo: {
+        root: `${ROOTS.DASHBOARD}/drawer/goodMemo`,
+        new: `${ROOTS.DASHBOARD}/drawer/goodMemo/new`,
+        edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/goodMemo/${id}/edit`,
+      },
+      sadMemo: {
+        root: `${ROOTS.DASHBOARD}/drawer/sadMemo`,
+        new: `${ROOTS.DASHBOARD}/drawer/sadMemo/new`,
+        edit: (id: string | number) => `${ROOTS.DASHBOARD}/drawer/sadMemo/${id}/edit`,
+      },
     },
     collections: {
       root: `${ROOTS.DASHBOARD}/collections`,
@@ -82,7 +94,7 @@ export const paths = {
         list: `${ROOTS.DASHBOARD}/community/coffee-shop`,
         new: `${ROOTS.DASHBOARD}/community/coffee-shop/new`,
         edit: (id: string | number) => `${ROOTS.DASHBOARD}/community/coffee-shop/${id}`,
-        view: (id: string | number) => `${ROOTS.DASHBOARD}/community/coffee-shop/${id}/view`,
+        view: (id: string | number) => `${ROOTS.UNIVERSE}/community/coffee-shop/${id}/view`,
       },
       cinema:  `${ROOTS.DASHBOARD}/community/cinema`,
     },

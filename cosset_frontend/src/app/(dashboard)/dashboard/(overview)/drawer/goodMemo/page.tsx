@@ -1,11 +1,11 @@
 import { CONFIG } from 'src/config-global';
 
-import { CollectionItemsView } from 'src/sections/dashboard/collections/view';
+import { MemoriesItemView } from 'src/sections/dashboard/drawer/memo/view';
 
 // ----------------------------------------------------------------------
 
 export const metadata = { title: `Good Memories - ${CONFIG.appName}` };
 
 export default function Page() {
-  return <CollectionItemsView collectionId={1} />;
+  return <MemoriesItemView collectionId={1} />;
 }

@@ -51,8 +51,28 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 import { CollectionItemsSort } from '../collection-items-sort';
 import { CollectionItemsSearch } from '../collection-items-search';
 
+type BreadcrumbLink = { name: string; href?: string };
+
 type Props = {
   collectionId: string | number;
+  /** Override the page heading */
+  heading?: string;
+  /** Override breadcrumb links */
+  breadcrumbLinks?: BreadcrumbLink[];
+  /** Override the back button href */
+  backHref?: string;
+  /** Override the back button label */
+  backLabel?: string;
+  /** Override the new-item href */
+  newItemHref?: string;
+  /** Override the new-item button text */
+  newItemLabel?: string;
+  /** Override the edit-item base href (e.g. /dashboard/drawer/letter) */
+  editItemBaseHref?: string;
+  /** Show back-to-list button in header */
+  showBackButton?: boolean;
+  /** Show move up/down actions */
+  showReorderControls?: boolean;
 };
 
 const COLLECTION_ITEM_SORT_OPTIONS = [
@@ -117,7 +137,18 @@ const getVideoMimeType = (value: string) => {
   return 'video/mp4';
 };
 
-export function CollectionItemsView({ collectionId }: Props) {
+export function CollectionItemsView({
+  collectionId,
+  heading,
+  breadcrumbLinks,
+  backHref,
+  backLabel,
+  newItemHref,
+  newItemLabel,
+  editItemBaseHref,
+  showBackButton = true,
+  showReorderControls = true,
+}: Props) {
   const { user } = useAuthContext();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -471,8 +502,8 @@ export function CollectionItemsView({ collectionId }: Props) {
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading={collection?.name ? `${collection.name} - Items` : 'Collection Items'}
-        links={[
+        heading={heading ?? (collection?.name ? `${collection.name} - Items` : 'Collection Items')}
+        links={breadcrumbLinks ?? [
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Collections', href: paths.dashboard.collections.root },
           { name: 'Manage', href: paths.dashboard.collections.manage },
@@ -481,19 +512,21 @@ export function CollectionItemsView({ collectionId }: Props) {
         action={
           isMobile ? (
             <Stack direction="row" spacing={1} sx={{ width: 1, justifyContent: 'flex-end' }}>
-              <IconButton
-                component={RouterLink}
-                href={paths.dashboard.collections.manage}
-                aria-label="Back to Manage Collections"
-                sx={{ border: 1, borderColor: 'divider', borderRadius: 1.2 }}
-              >
-                <Iconify icon="solar:arrow-left-outline" width={20} />
-              </IconButton>
+              {showBackButton && (
+                <IconButton
+                  component={RouterLink}
+                  href={backHref ?? paths.dashboard.collections.manage}
+                  aria-label={backLabel ?? 'Back to Manage Collections'}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1.2 }}
+                >
+                  <Iconify icon="solar:arrow-left-outline" width={20} />
+                </IconButton>
+              )}
 
               <IconButton
                 component={RouterLink}
-                href={paths.dashboard.collections.newItem(numericCollectionId)}
-                aria-label="New Item"
+                href={newItemHref ?? paths.dashboard.collections.newItem(numericCollectionId)}
+                aria-label={newItemLabel ?? 'New Item'}
                 sx={{
                   borderRadius: 1.2,
                   bgcolor: 'primary.main',
@@ -506,21 +539,23 @@ export function CollectionItemsView({ collectionId }: Props) {
             </Stack>
           ) : (
             <Stack direction="row" spacing={1.5}>
+              {showBackButton && (
+                <Button
+                  component={RouterLink}
+                  href={backHref ?? paths.dashboard.collections.manage}
+                  variant="outlined"
+                  startIcon={<Iconify icon="solar:arrow-left-outline" width={18} />}
+                >
+                  {backLabel ?? 'Back to Manage Collections'}
+                </Button>
+              )}
               <Button
                 component={RouterLink}
-                href={paths.dashboard.collections.manage}
-                variant="outlined"
-                startIcon={<Iconify icon="solar:arrow-left-outline" width={18} />}
-              >
-                Back to Manage Collections
-              </Button>
-              <Button
-                component={RouterLink}
-                href={paths.dashboard.collections.newItem(numericCollectionId)}
+                href={newItemHref ?? paths.dashboard.collections.newItem(numericCollectionId)}
                 variant="contained"
                 startIcon={<Iconify icon="solar:add-circle-outline" width={18} />}
               >
-                New Item
+                {newItemLabel ?? 'New Item'}
               </Button>
             </Stack>
           )
@@ -608,34 +643,40 @@ export function CollectionItemsView({ collectionId }: Props) {
                     </Stack>
 
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveOrder(item, 'up')}
-                        disabled={
-                          movingItemId !== null
-                          || reorderIndexById.get(String(item.id)) === undefined
-                          || reorderIndexById.get(String(item.id)) === 0
-                        }
-                        aria-label={`Move item ${item.title || item.id} up`}
-                      >
-                        <Iconify icon="eva:arrow-upward-fill" width={18} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleMoveOrder(item, 'down')}
-                        disabled={
-                          movingItemId !== null
-                          || reorderIndexById.get(String(item.id)) === undefined
-                          || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
-                        }
-                        aria-label={`Move item ${item.title || item.id} down`}
-                      >
-                        <Iconify icon="eva:arrow-downward-fill" width={18} />
-                      </IconButton>
+                      {showReorderControls && (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMoveOrder(item, 'up')}
+                          disabled={
+                            movingItemId !== null
+                            || reorderIndexById.get(String(item.id)) === undefined
+                            || reorderIndexById.get(String(item.id)) === 0
+                          }
+                          aria-label={`Move item ${item.title || item.id} up`}
+                        >
+                          <Iconify icon="eva:arrow-upward-fill" width={18} />
+                        </IconButton>
+                      )}
+                      {showReorderControls && (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMoveOrder(item, 'down')}
+                          disabled={
+                            movingItemId !== null
+                            || reorderIndexById.get(String(item.id)) === undefined
+                            || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                          }
+                          aria-label={`Move item ${item.title || item.id} down`}
+                        >
+                          <Iconify icon="eva:arrow-downward-fill" width={18} />
+                        </IconButton>
+                      )}
                       <IconButton
                         size="small"
                         component={RouterLink}
-                        href={paths.dashboard.collections.editItem(numericCollectionId, item.id)}
+                        href={editItemBaseHref
+                          ? `${editItemBaseHref}/${item.id}/edit`
+                          : paths.dashboard.collections.editItem(numericCollectionId, item.id)}
                         aria-label={`Edit item ${item.title || item.id}`}
                       >
                         <Iconify icon="solar:pen-2-outline" width={18} />
@@ -697,34 +738,40 @@ export function CollectionItemsView({ collectionId }: Props) {
                       <TableCell>{formatDate(item.updatedAt)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleMoveOrder(item, 'up')}
-                            disabled={
-                              movingItemId !== null
-                              || reorderIndexById.get(String(item.id)) === undefined
-                              || reorderIndexById.get(String(item.id)) === 0
-                            }
-                            aria-label={`Move item ${item.title || item.id} up`}
-                          >
-                            <Iconify icon="eva:arrow-upward-fill" width={18} />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleMoveOrder(item, 'down')}
-                            disabled={
-                              movingItemId !== null
-                              || reorderIndexById.get(String(item.id)) === undefined
-                              || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
-                            }
-                            aria-label={`Move item ${item.title || item.id} down`}
-                          >
-                            <Iconify icon="eva:arrow-downward-fill" width={18} />
-                          </IconButton>
+                          {showReorderControls && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleMoveOrder(item, 'up')}
+                              disabled={
+                                movingItemId !== null
+                                || reorderIndexById.get(String(item.id)) === undefined
+                                || reorderIndexById.get(String(item.id)) === 0
+                              }
+                              aria-label={`Move item ${item.title || item.id} up`}
+                            >
+                              <Iconify icon="eva:arrow-upward-fill" width={18} />
+                            </IconButton>
+                          )}
+                          {showReorderControls && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleMoveOrder(item, 'down')}
+                              disabled={
+                                movingItemId !== null
+                                || reorderIndexById.get(String(item.id)) === undefined
+                                || reorderIndexById.get(String(item.id)) === reorderEntries.length - 1
+                              }
+                              aria-label={`Move item ${item.title || item.id} down`}
+                            >
+                              <Iconify icon="eva:arrow-downward-fill" width={18} />
+                            </IconButton>
+                          )}
                           <IconButton
                             size="small"
                             component={RouterLink}
-                            href={paths.dashboard.collections.editItem(
+                            href={editItemBaseHref
+                              ? `${editItemBaseHref}/${item.id}/edit`
+                              : paths.dashboard.collections.editItem(
                               numericCollectionId,
                               item.id,
                             )}

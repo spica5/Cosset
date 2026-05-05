@@ -52,9 +52,9 @@ const DRAWER_COLLECTION_MAP = {
 
 const DRAWER_VIEW_HREF_MAP: Record<CategoryKey, string> = {
   gift: paths.dashboard.drawer.gift.root,
-  letter: paths.dashboard.drawer.letter,
-  goodMemo: paths.dashboard.drawer.goodMemo,
-  sadMemo: paths.dashboard.drawer.sadMemo,
+  letter: paths.dashboard.drawer.letter.root,
+  goodMemo: paths.dashboard.drawer.goodMemo.root,
+  sadMemo: paths.dashboard.drawer.sadMemo.root,
 };
 
 export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {

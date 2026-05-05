@@ -101,9 +101,9 @@ export const navData = [
         icon: ICONS.drawer,
         children: [
           { title: 'Gifts and Souvenirs', path: paths.dashboard.drawer.gift.root, icon: ICONS.gift },
-          { title: 'Letters', path: paths.dashboard.drawer.letter, icon: ICONS.letter },
-          { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo, icon: ICONS.goodMemo },          
-          { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo, icon: ICONS.sadMemo },
+          { title: 'Letters', path: paths.dashboard.drawer.letter.root, icon: ICONS.letter },
+          { title: 'Good Memories', path: paths.dashboard.drawer.goodMemo.root, icon: ICONS.goodMemo },          
+          { title: 'Sad Memories', path: paths.dashboard.drawer.sadMemo.root, icon: ICONS.sadMemo },
         ],
       },
       {

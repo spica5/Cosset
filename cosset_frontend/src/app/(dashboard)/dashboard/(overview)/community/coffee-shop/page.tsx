@@ -1,6 +1,6 @@
 import { CONFIG } from 'src/config-global';
 
-import { CoffeeShopListView } from '../../../../../../sections/dashboard/coffee-shop/view/coffee-shop-list-view';
+import { CoffeeShopListView } from 'src/sections/dashboard/coffee-shop/view/coffee-shop-list-view';
 
 // ----------------------------------------------------------------------
 
