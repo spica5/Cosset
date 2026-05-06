@@ -552,7 +552,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
                       <CardContent
                         onClick={(event) => {
                           event.stopPropagation();
-                          router.push(paths.universe.gift(customerId, item.id));
+                          window.open(paths.universe.gift(customerId, item.id), '_blank');
                         }}
                         sx={{
                           bgcolor: 'background.neutral',
