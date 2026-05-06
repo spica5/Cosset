@@ -231,7 +231,7 @@ export function GiftItem({ gift, onView, onDelete }: Props) {
       sx={{ p: (theme) => theme.spacing(2.5, 2.5, 2, 2.5) }}
       primary={`Created date: ${fDateTime(gift.createdAt)}`}
       secondary={
-        <Link component={RouterLink} href={paths.dashboard.drawer.gift.details(String(gift.id))} color="inherit">
+        <Link component={RouterLink} href={paths.dashboard.drawer.gift.edit(String(gift.id))} color="inherit">
           {gift.title}
         </Link>
       }

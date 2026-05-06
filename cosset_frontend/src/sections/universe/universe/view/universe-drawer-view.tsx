@@ -550,10 +550,15 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
                         }}
                       />
                       <CardContent
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(paths.universe.gift(customerId, item.id));
+                        }}
                         sx={{
                           bgcolor: 'background.neutral',
                           borderTop: '1px dashed',
                           borderColor: 'divider',
+                          cursor: 'pointer',
                         }}
                       >
                         <Stack spacing={0.75}>
