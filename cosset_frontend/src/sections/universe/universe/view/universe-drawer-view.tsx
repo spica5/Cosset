@@ -26,7 +26,7 @@ import { fDate } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { recordGiftView, useGetViewedGiftIds } from 'src/actions/gift';
+import { recordGiftView, useGetDrawerComments, useGetViewedGiftIds } from 'src/actions/gift';
 import { recordActivityNotification } from 'src/actions/notification';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
 
@@ -191,6 +191,9 @@ function GiftReactionInfo({ giftId, totalViews, authenticated, viewerId }: GiftR
     0,
   );
 
+  const { comments } = useGetDrawerComments(giftId);
+  const commentCount = comments?.length ?? 0;
+
   return (
     <Stack spacing={1}>
       <Stack direction="row" spacing={1.25} alignItems="center" useFlexGap flexWrap="wrap">
@@ -205,6 +208,13 @@ function GiftReactionInfo({ giftId, totalViews, authenticated, viewerId }: GiftR
           <Iconify icon="eva:heart-fill" width={16} sx={{ color: 'error.main' }} />
           <Typography variant="caption" color="text.secondary">
             {totalReactionCount} reaction{totalReactionCount === 1 ? '' : 's'}
+          </Typography>
+        </Stack>
+
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Iconify icon="eva:message-circle-fill" width={16} sx={{ color: 'success.main' }} />
+          <Typography variant="caption" color="text.secondary">
+            {commentCount} comment{commentCount === 1 ? '' : 's'}
           </Typography>
         </Stack>
       </Stack>

@@ -15,11 +15,13 @@ import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
-import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
 import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
+import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+
+import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -30,6 +32,7 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
 import {
   BLOG_CONTENT_BACKGROUND_OPTIONS,
+  BLOG_CONTENT_FONT_COLOR,
   BLOG_CONTENT_FONT_OPTIONS,
   DEFAULT_BLOG_CONTENT_APPEARANCE,
   getBlogContentAppearance,
@@ -79,26 +82,6 @@ const defaultValues: BlogFormValues = {
   fontPreset: DEFAULT_BLOG_CONTENT_APPEARANCE.fontPreset,
   backgroundPreset: DEFAULT_BLOG_CONTENT_APPEARANCE.backgroundPreset,
 };
-
-const BLOG_EMOTICON_OPTIONS = [
-  { label: 'Smile', value: '😀' },
-  { label: 'Love', value: '😍' },
-  { label: 'Laugh', value: '😂' },
-  { label: 'Sad', value: '😢' },
-  { label: 'Heart', value: '❤️' },
-  { label: 'Party', value: '🎉' },
-  { label: 'Thanks', value: '🙏' },
-  { label: 'Cool', value: '😎' },
-  { label: 'Surprised', value: '😮' },
-  { label: 'Thinking', value: '🤔' },
-  { label: 'Clap', value: '👏' },
-  { label: 'Fire', value: '🔥' },
-  { label: 'Like', value: '👍' },
-  { label: 'Cry', value: '😭' },
-  { label: 'Angry', value: '😡' },
-  { label: 'Wow', value: '😲' },
-  { label: 'Kiss', value: '😘' },
-] as const;
 
 const BLOG_TEMPLATE_OPTIONS = [
   {
@@ -549,7 +532,7 @@ export function BlogCreateView({ blogId }: Props) {
               }}
             >
               <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                {BLOG_EMOTICON_OPTIONS.map((option) => (
+                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
                   <Button
                     key={option.label}
                     type="button"
@@ -632,8 +615,7 @@ export function BlogCreateView({ blogId }: Props) {
             <Typography
               variant="body2"
               sx={{
-                color: '#3c2a1a',
-                [stylesMode.dark]: { color: '#e8d5c0' },
+                color: BLOG_CONTENT_FONT_COLOR,
                 ...getBlogContentFontSx(selectedFontPreset),
                 whiteSpace: 'pre-wrap',
               }}

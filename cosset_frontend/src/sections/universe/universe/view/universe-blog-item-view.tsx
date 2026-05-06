@@ -33,6 +33,7 @@ import { updatePostCommentVisibility } from 'src/actions/post';
 import { useAuthContext } from 'src/auth/hooks';
 import { getBlogCategoryLabel } from 'src/sections/dashboard/blog/blog-categories';
 import {
+  BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   getBlogContentFontSx,
@@ -449,8 +450,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
               <Typography
                 variant="body1"
                 sx={{
-                  color: '#3c2a1a',
-                  [stylesMode.dark]: { color: '#e8d5c0' },
+                  color: BLOG_CONTENT_FONT_COLOR,
                   whiteSpace: 'pre-wrap',
                   ...getBlogContentFontSx(contentAppearance.fontPreset),
                 }}

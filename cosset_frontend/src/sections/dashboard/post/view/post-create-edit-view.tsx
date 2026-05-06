@@ -2,7 +2,7 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 
 import Box from '@mui/material/Box';
@@ -10,14 +10,19 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Popover from '@mui/material/Popover';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import CircularProgress from '@mui/material/CircularProgress';
+import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+
+import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
@@ -154,9 +159,13 @@ export function PostCreateEditView({ postId }: Props) {
     formState: { errors, isSubmitting },
   } = useForm<PostFormValues>({ defaultValues });
 
+  const contentField = register('content');
+  const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
   const [uploadType, setUploadType] = useState<UploadFileType>('image');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [emoticonAnchorEl, setEmoticonAnchorEl] = useState<HTMLElement | null>(null);
 
   const currentUserId = String(user?.id || '');
   const ownerId = String(post?.customerId || '');
@@ -275,6 +284,40 @@ export function PostCreateEditView({ postId }: Props) {
       setValue('files', stringifyStorageKeys(nextKeys), { shouldDirty: true });
     },
     [getValues, setValue],
+  );
+
+  const handleInsertEmoticon = useCallback(
+    (emoticon: string) => {
+      if (isReadOnly) return;
+
+      const input = contentInputRef.current;
+      const currentValue = getValues('content') || '';
+
+      if (!input) {
+        setValue('content', `${currentValue}${currentValue ? ' ' : ''}${emoticon}`, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+        setEmoticonAnchorEl(null);
+        return;
+      }
+
+      const selectionStart = input.selectionStart ?? currentValue.length;
+      const selectionEnd = input.selectionEnd ?? selectionStart;
+      const nextValue = `${currentValue.slice(0, selectionStart)}${emoticon}${currentValue.slice(selectionEnd)}`;
+      const nextCaretPosition = selectionStart + emoticon.length;
+
+      setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
+      setEmoticonAnchorEl(null);
+
+      window.requestAnimationFrame(() => {
+        const target = contentInputRef.current;
+        if (!target) return;
+        target.focus();
+        target.setSelectionRange(nextCaretPosition, nextCaretPosition);
+      });
+    },
+    [getValues, isReadOnly, setValue],
   );
 
   const onSubmit = handleSubmit(async (values) => {
@@ -431,15 +474,66 @@ export function PostCreateEditView({ postId }: Props) {
             disabled={isReadOnly}
           />
 
-          <TextField
-            label="Content"
-            placeholder="Write your post content"
-            multiline
-            minRows={12}
-            InputLabelProps={{ shrink: true }}
-            {...register('content')}
-            disabled={isReadOnly}
-          />
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Insert emoticons
+              </Typography>
+
+              <IconButton
+                type="button"
+                size="small"
+                color="primary"
+                aria-label="Insert emoticon"
+                disabled={isReadOnly}
+                onClick={(event) => setEmoticonAnchorEl(event.currentTarget)}
+              >
+                <InsertEmoticonRoundedIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+
+            <Popover
+              open={Boolean(emoticonAnchorEl)}
+              anchorEl={emoticonAnchorEl}
+              onClose={() => setEmoticonAnchorEl(null)}
+              disableRestoreFocus
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              PaperProps={{ sx: { p: 1, maxWidth: 240 } }}
+            >
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
+                  <Button
+                    key={option.label}
+                    type="button"
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => handleInsertEmoticon(option.value)}
+                    sx={{ minWidth: 0, px: 1.1 }}
+                  >
+                    {option.value}
+                  </Button>
+                ))}
+              </Stack>
+            </Popover>
+
+            <TextField
+              label="Content"
+              placeholder="Write your post content"
+              multiline
+              minRows={12}
+              InputLabelProps={{ shrink: true }}
+              name={contentField.name}
+              onBlur={contentField.onBlur}
+              onChange={contentField.onChange}
+              inputRef={(element) => {
+                contentField.ref(element);
+                contentInputRef.current = element;
+              }}
+              disabled={isReadOnly}
+            />
+          </Stack>
 
           <Stack
             spacing={1.5}

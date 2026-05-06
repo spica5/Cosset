@@ -16,6 +16,7 @@ import CardContent from '@mui/material/CardContent';
 
 import { RouterLink } from 'src/routes/components';
 import {
+  BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   getBlogContentFontSx,
@@ -273,8 +274,7 @@ export function UniverseLandingBlogs({
                           variant="h6"
                           noWrap
                           sx={{
-                            color: '#3c2a1a',
-                            [stylesMode.dark]: { color: '#e8d5c0' },
+                            color: BLOG_CONTENT_FONT_COLOR,
                             fontFamily: 'Georgia, "Times New Roman", serif',
                           }}
                         >
@@ -312,8 +312,7 @@ export function UniverseLandingBlogs({
                         <Typography
                           variant="body2"
                           sx={{
-                            color: '#3c2a1a',
-                            [stylesMode.dark]: { color: '#e8d5c0' },
+                            color: BLOG_CONTENT_FONT_COLOR,
                             ...getBlogContentFontSx(contentAppearance.fontPreset),
                             whiteSpace: 'pre-line',
                           }}

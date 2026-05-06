@@ -17,6 +17,7 @@ import {
   getBlogCategoryLabel,
 } from 'src/sections/dashboard/blog/blog-categories';
 import {
+  BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   getBlogContentFontSx,
@@ -178,8 +179,7 @@ export function BlogListItem({ blog, isExpanded, canExpand, onToggleContent, onD
           <Typography
             variant="body2"
             sx={{
-              color: '#3c2a1a',
-              [stylesMode.dark]: { color: '#e8d5c0' },
+              color: BLOG_CONTENT_FONT_COLOR,
               ...getBlogContentFontSx(contentAppearance.fontPreset),
               textIndent: '0.25em',
               whiteSpace: isExpanded ? 'pre-wrap' : 'pre-line',

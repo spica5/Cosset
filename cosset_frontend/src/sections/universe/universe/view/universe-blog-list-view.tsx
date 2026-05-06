@@ -32,6 +32,7 @@ import {
 } from 'src/sections/dashboard/blog/blog-categories';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 import {
+  BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   getBlogContentFontSx,
@@ -452,8 +453,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                           }}
                           variant="body2"
                           sx={{
-                            color: '#3c2a1a',
-                            [stylesMode.dark]: { color: '#e8d5c0' },
+                            color: BLOG_CONTENT_FONT_COLOR,
                             ...getBlogContentFontSx(contentAppearance.fontPreset),
                             textIndent: '0.25em',
                             whiteSpace: isExpanded ? 'pre-wrap' : 'pre-line',

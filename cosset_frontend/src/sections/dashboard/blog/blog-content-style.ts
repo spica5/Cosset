@@ -2,6 +2,9 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 // ----------------------------------------------------------------------
 
+/** Shared blog content text color — used across dashboard and universe. */
+export const BLOG_CONTENT_FONT_COLOR = '#1C252E';
+
 export type BlogContentFontPreset =
   | 'clean-sans'
   | 'typewriter'
@@ -341,7 +344,7 @@ export function getBlogContentBackgroundSx(
     default:
       return {
         borderColor: 'rgba(125, 90, 57, 0.28)',
-        bgcolor: '#fdf4e6',
+        backgroundColor: '#fdf4e6 !important',
         backgroundImage:
           "linear-gradient(to bottom, rgba(255,255,255,0.82), rgba(255,255,255,0.82)), repeating-linear-gradient(to bottom, rgba(141, 99, 63, 0.16) 0, rgba(141, 99, 63, 0.16) 1px, transparent 1px, transparent 30px), url('/universe/assets/background/texture-1.webp')",
         backgroundSize: 'auto, 100% 30px, cover',

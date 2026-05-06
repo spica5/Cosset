@@ -11,7 +11,6 @@ import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
@@ -305,9 +304,6 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
     }
   };
 
-  const selectedReaction =
-    REACTION_OPTIONS.find((option) => option.type === optimisticReaction) ?? null;
-
   const totalReactionCount = REACTION_OPTIONS.reduce(
     (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
     0,
@@ -476,30 +472,6 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
                 );
               })}
             </Box>
-
-            <Button
-              variant="outlined"
-              disabled={!authenticated || isSubmittingReaction}
-              onClick={() => handleReaction('like')}
-              startIcon={
-                <Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>
-                  {selectedReaction?.emoji || '👍'}
-                </Box>
-              }
-              sx={{
-                justifyContent: 'center',
-                textTransform: 'none',
-                bgcolor: 'action.hover',
-                borderColor: 'transparent',
-                color: selectedReaction ? 'text.primary' : 'text.secondary',
-                '&:hover': {
-                  bgcolor: 'action.selected',
-                  borderColor: 'transparent',
-                },
-              }}
-            >
-              {selectedReaction?.label || 'Like'}
-            </Button>
 
             <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="center">
               <Stack direction="row" spacing={0.5} alignItems="center">
