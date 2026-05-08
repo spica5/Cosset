@@ -15,6 +15,7 @@ type Props = {
   onAccept?: (friend: IFriendCard) => void | Promise<void>;
   onReject?: (friend: IFriendCard) => void | Promise<void>;
   onCancel?: (friend: IFriendCard) => void | Promise<void>;
+  onRemove?: (friend: IFriendCard) => void | Promise<void>;
 };
 
 export function FriendCardList({
@@ -23,6 +24,7 @@ export function FriendCardList({
   onAccept,
   onReject,
   onCancel,
+  onRemove,
 }: Props) {
   const [page, setPage] = useState(1);
 
@@ -49,6 +51,7 @@ export function FriendCardList({
               onAccept={() => onAccept?.(friend)}
               onReject={() => onReject?.(friend)}
               onCancel={() => onCancel?.(friend)}
+              onRemove={() => onRemove?.(friend)}
             />
           ))}
       </Box>

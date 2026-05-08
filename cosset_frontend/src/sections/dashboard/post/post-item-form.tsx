@@ -111,6 +111,7 @@ export function PostItemForm({ post }: Props) {
   const popover = usePopover();
   const [expanded, setExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
   const [localTotalViews, setLocalTotalViews] = useState<number>(post.totalViews ?? 0);
   const [isSubmittingReaction, setIsSubmittingReaction] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(true);
@@ -278,6 +279,34 @@ export function PostItemForm({ post }: Props) {
     }
   };
 
+  const handleShare = async () => {
+    const title = post.title || `Community Post #${post.id}`;
+    const text = post.description || post.content?.slice(0, 120) || '';
+    const url = typeof window !== 'undefined'
+      ? `${window.location.origin}${paths.dashboard.community.post.list}`
+      : paths.dashboard.community.post.list;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        setShareLoading(true);
+        await navigator.share({ title, text, url });
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast.error('Failed to share post.');
+        }
+      } finally {
+        setShareLoading(false);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${title}\n${url}`);
+        toast.success('Post link copied to clipboard.');
+      } catch {
+        toast.error('Sharing is not supported in this browser.');
+      }
+    }
+  };
+
   const handleToggleCommentVisibility = async (commentId: string | number, visible: boolean) => {
     try {
       setTogglingCommentVisibility(true);
@@ -348,6 +377,16 @@ export function PostItemForm({ post }: Props) {
                   <Iconify icon="eva:more-vertical-fill" sx={{ color: 'text.secondary' }} />
                 </IconButton>
               ) : null}
+
+              <IconButton
+                size="small"
+                aria-label="Share post"
+                disabled={shareLoading}
+                onClick={handleShare}
+                sx={{ mt: -0.5 }}
+              >
+                <Iconify icon="solar:share-bold" width={18} sx={{ color: 'text.secondary' }} />
+              </IconButton>
             </Stack>
           </Stack>
 

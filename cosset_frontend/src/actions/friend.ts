@@ -126,6 +126,14 @@ export async function cancelFriendRequest(friendId: number, actorUserId: string)
   return updateFriendStatus(friendId, actorUserId, 'cancelled');
 }
 
+export async function removeFriend(friendId: number, userId: string) {
+  const res = await axiosInstance.delete(`${endpoints.friend.details(friendId)}?userId=${userId}`);
+
+  await revalidateFriendCaches(userId);
+
+  return res.data;
+}
+
 export async function acceptFriendInviteLink(inviterUserId: string, inviteeEmail: string) {
   const res = await axiosInstance.post(endpoints.friend.inviteAccept, {
     inviterUserId,

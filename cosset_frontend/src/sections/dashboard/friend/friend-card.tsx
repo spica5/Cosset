@@ -8,16 +8,17 @@ import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
 import Avatar from '@mui/material/Avatar';
-import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
+import Divider from '@mui/material/Divider';
+import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
 import ListItemText from '@mui/material/ListItemText';
 import DialogContent from '@mui/material/DialogContent';
-
-import CloseIcon from '@mui/icons-material/Close';
+import DialogActions from '@mui/material/DialogActions';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -58,6 +59,7 @@ type Props = CardProps & {
   onAccept?: () => void | Promise<void>;
   onReject?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
+  onRemove?: () => void | Promise<void>;
   actionLoading?: boolean;
 };
 
@@ -66,6 +68,7 @@ export function FriendCard({
   onAccept,
   onReject,
   onCancel,
+  onRemove,
   actionLoading = false,
   sx,
   ...other
@@ -78,6 +81,7 @@ export function FriendCard({
   const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
   const [signedCoverUrl, setSignedCoverUrl] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+  const [openRemoveConfirm, setOpenRemoveConfirm] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -280,6 +284,52 @@ export function FriendCard({
           </Box>
         </Box>
       ) : null}
+
+      {friend.relationStatus === 'accepted' && !isCurrentUser ? (
+        <Box sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            sx={{ width: '50%' }}
+            disabled={actionLoading}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenRemoveConfirm(true);
+            }}
+          >
+            Remove Friend
+          </Button>
+        </Box>
+      ) : null}
+
+      <Dialog
+        open={openRemoveConfirm}
+        onClose={() => setOpenRemoveConfirm(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Remove Friend</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Are you sure you want to remove <strong>{friend.name}</strong> from your friends?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRemoveConfirm(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={actionLoading}
+            onClick={() => {
+              setOpenRemoveConfirm(false);
+              onRemove?.();
+            }}
+          >
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Divider sx={{ borderStyle: 'dashed' }} />
 

@@ -11,6 +11,7 @@ import { CONFIG } from 'src/config-global';
 import { useGetUsers } from 'src/actions/user';
 import {
   useGetFriends,
+  removeFriend,
   acceptFriendRequest,
   rejectFriendRequest,
   cancelFriendRequest,
@@ -59,6 +60,15 @@ export function FriendCardsView() {
     );
   }, [acceptedRelations, canLoadFriends, currentUserId]);
 
+  const acceptedRelationIdByOtherUserId = useMemo(() => {
+    const map = new Map<string, number>();
+    acceptedRelations.forEach((item) => {
+      const otherUserId = item.userId1 === currentUserId ? item.userId2 : item.userId1;
+      map.set(otherUserId, item.id);
+    });
+    return map;
+  }, [acceptedRelations, currentUserId]);
+
   const pendingRelationsByOtherUserId = useMemo(() => {
     const map = new Map<string, { relationId: number; direction: 'incoming' | 'outgoing' }>();
 
@@ -102,6 +112,7 @@ export function FriendCardsView() {
 
     return {
       id: user.id,
+        relationId: acceptedRelationIdByOtherUserId.get(String(user.id)),
         relationStatus: 'accepted' as const,
       name: fullName || user.email || 'Unknown User',
       email: user.email,
@@ -196,6 +207,19 @@ export function FriendCardsView() {
     [currentUserId]
   );
 
+  const handleRemove = useCallback(
+    async (relationId?: number) => {
+      if (!relationId || !currentUserId) return;
+      setProcessingRelationId(relationId);
+      try {
+        await removeFriend(relationId, currentUserId);
+      } finally {
+        setProcessingRelationId(null);
+      }
+    },
+    [currentUserId]
+  );
+
   return (
     <DashboardContent>
       <CustomBreadcrumbs
@@ -226,6 +250,7 @@ export function FriendCardsView() {
           onAccept={(friend) => handleAccept(friend.relationId)}
           onReject={(friend) => handleReject(friend.relationId)}
           onCancel={(friend) => handleCancel(friend.relationId)}
+          onRemove={(friend) => handleRemove(friend.relationId)}
         />
       )}
     </DashboardContent>
