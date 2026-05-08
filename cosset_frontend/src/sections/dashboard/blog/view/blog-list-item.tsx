@@ -117,8 +117,8 @@ export function BlogListItem({ blog, isExpanded, canExpand, onToggleContent, onD
           flexWrap="wrap"
         >
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Label variant="soft" color={blog.isPublic === 1 ? 'info' : 'default'}>
-              {blog.isPublic === 1 ? 'Public' : 'Private'}
+            <Label variant="soft" color={blog.isPublic === 1 ? 'info' : blog.isPublic === 2 ? 'error' : 'default'}>
+              {blog.isPublic === 1 ? 'Public' : blog.isPublic === 2 ? 'Draft' : 'Private'}
             </Label>
 
             <Typography variant="h6" title={fullTitle}>

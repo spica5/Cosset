@@ -18,9 +18,9 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetCollectionItems } from 'src/actions/collection-item';
-import { useGetGuestArea } from 'src/actions/guestarea';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { recordActivityNotification } from 'src/actions/notification';

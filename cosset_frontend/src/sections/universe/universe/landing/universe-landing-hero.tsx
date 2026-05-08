@@ -4,29 +4,27 @@ import type { IUniverseProps } from 'src/types/universe';
 import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import { Typography } from '@mui/material';
+import Collapse from '@mui/material/Collapse';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import DialogTitle from '@mui/material/DialogTitle';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import LinkIcon from '@mui/icons-material/Link';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 import { varAlpha } from 'src/theme/universe/styles';
@@ -47,10 +45,6 @@ type Props = BoxProps & {
   requestingFriend?: boolean;
   canRequestFriend?: boolean;
   onRequestFriend?: () => void | Promise<void>;
-  canCopyInviteLink?: boolean;
-  inviteLinkCopied?: boolean;
-  copyingInviteLink?: boolean;
-  onCopyInviteLink?: () => void | Promise<void>;
   visitors?: {
     id: string;
     name: string;
@@ -67,10 +61,6 @@ export function UniverseLandingHero({
   requestingFriend = false,
   canRequestFriend = false,
   onRequestFriend,
-  canCopyInviteLink = false,
-  inviteLinkCopied = false,
-  copyingInviteLink = false,
-  onCopyInviteLink,
   visitors = [],
   isFullScreen = false,
   onToggleFullScreen,
@@ -84,6 +74,7 @@ export function UniverseLandingHero({
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
   const [showControlsPanel, setShowControlsPanel] = useState(false);
+  const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
 
   const galleryImages = useMemo(() => {
     const gallery = (universe?.gallery || []).filter(Boolean);
@@ -247,7 +238,6 @@ export function UniverseLandingHero({
           >
             <CloseIcon fontSize="small" />
           </IconButton>
-
           <Typography variant="h1" sx={{ color: 'info.main', fontSize: { xs: '1.6rem', sm: '2rem', md: '2.5rem' } }}>
             {universe.name}
           </Typography>
@@ -295,14 +285,17 @@ export function UniverseLandingHero({
 
         <Card
           sx={{
-            top: { xs: 12, md: 20 },
-            right: { xs: 12, md: 20 },
+            top: {
+              xs: showTopMenu ? 70 : 12,
+              md: showTopMenu ? 80 : 20,
+            },
+            right: { xs: 15, md: 30 },
             zIndex: 10,
             px: 1.5,
             py: 1.25,
             minWidth: { xs: 180, sm: 220 },
             maxWidth: { xs: 'calc(100vw - 24px)', sm: 260 },
-            position: 'absolute',
+            position: 'fixed',
             bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
             border: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
             color: 'common.white',
@@ -324,7 +317,15 @@ export function UniverseLandingHero({
               <Avatar
                 src={customer?.avatarUrl || undefined}
                 alt={customer?.name || 'Customer'}
-                sx={{ width: 45, height: 45, bgcolor: 'grey.700' }}
+                onClick={() => { if (customer?.avatarUrl) setOpenAvatarPreview(true); }}
+                sx={{
+                  width: 45,
+                  height: 45,
+                  bgcolor: 'grey.700',
+                  cursor: customer?.avatarUrl ? 'pointer' : 'default',
+                  transition: 'opacity 0.2s',
+                  '&:hover': customer?.avatarUrl ? { opacity: 0.8 } : {},
+                }}
               />
               <Box sx={{ minWidth: 0 }}>
                 <Typography variant="body1" noWrap>
@@ -333,59 +334,29 @@ export function UniverseLandingHero({
               </Box>
             </Stack>
 
-            {canCopyInviteLink || onToggleFullScreen ? (
-              <Stack direction="row" spacing={0.5}>
-                {canCopyInviteLink ? (
-                  <Tooltip title={inviteLinkCopied ? 'Copied' : 'Copy invite link'}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label="copy invite link"
-                        disabled={copyingInviteLink}
-                        onClick={() => onCopyInviteLink?.()}
-                        sx={{
-                          border: 1,
-                          borderColor: 'text.secondary',
-                          color: inviteLinkCopied ? 'success.light' : 'info.main',
-                          bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
-                          '&:hover': {
-                            borderColor: 'text.secondary',
-                            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
-                            color: inviteLinkCopied ? 'success.light' : 'info.lighter',
-                          },
-                        }}
-                      >
-                        <LinkIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                ) : null}
-
-                {onToggleFullScreen ? (
-                  <IconButton
-                    size="small"
-                    aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
-                    onClick={onToggleFullScreen}
-                    sx={{
-                      border: 1,
-                      borderColor: 'text.secondary',
-                      color: 'info.main',
-                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
-                      '&:hover': {
-                        borderColor: 'text.secondary',
-                        bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
-                        color: 'info.lighter',
-                      },
-                    }}
-                  >
-                    {isFullScreen ? (
-                      <FullscreenExitIcon fontSize="small" />
-                    ) : (
-                      <FullscreenIcon fontSize="small" />
-                    )}
-                  </IconButton>
-                ) : null}
-              </Stack>
+            {onToggleFullScreen ? (
+              <IconButton
+                size="small"
+                aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
+                onClick={onToggleFullScreen}
+                sx={{
+                  border: 1,
+                  borderColor: 'text.secondary',
+                  color: 'info.main',
+                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                  '&:hover': {
+                    borderColor: 'text.secondary',
+                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                    color: 'info.lighter',
+                  },
+                }}
+              >
+                {isFullScreen ? (
+                  <FullscreenExitIcon fontSize="small" />
+                ) : (
+                  <FullscreenIcon fontSize="small" />
+                )}
+              </IconButton>
             ) : null}
           </Stack>
 
@@ -570,6 +541,53 @@ export function UniverseLandingHero({
             ))}
           </Grid>
         </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={openAvatarPreview}
+        onClose={() => setOpenAvatarPreview(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            bgcolor: 'transparent',
+            boxShadow: 'none',
+            m: 2,
+            overflow: 'visible',
+          },
+        }}
+      >
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+          <IconButton
+            size="small"
+            onClick={() => setOpenAvatarPreview(false)}
+            sx={{
+              position: 'absolute',
+              top: -16,
+              right: -16,
+              zIndex: 1,
+              color: 'common.white',
+              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+              '&:hover': {
+                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.75),
+              },
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+          <Box
+            component="img"
+            src={customer?.avatarUrl || undefined}
+            alt={customer?.name || 'Avatar'}
+            sx={{
+              display: 'block',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              width: 'auto',
+              height: 'auto',
+              borderRadius: 2,
+            }}
+          />
+        </Box>
       </Dialog>
     </Box>
   )

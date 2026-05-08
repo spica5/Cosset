@@ -357,6 +357,7 @@ export function UniverseLandingCollectionItems({
                   }}
                 >
                   Collections
+                  {badgeCount > 0 && (
                   <Label
                     color={totalUnreadCollectionItems > 0 ? 'error' : 'success'}
                     variant="filled"
@@ -372,6 +373,7 @@ export function UniverseLandingCollectionItems({
                   >
                     {badgeCount}
                   </Label>
+                  )}
                 </Box>
               </Typography>
             </Stack>

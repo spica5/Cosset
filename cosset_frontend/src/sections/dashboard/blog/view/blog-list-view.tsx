@@ -14,7 +14,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
+import { useRouter } from 'src/routes/hooks';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { deleteBlog, useGetBlogs } from 'src/actions/blog';
@@ -48,9 +48,19 @@ const getContent = (blog: IBlogItem) => {
 const getContentLineCount = (content: string) => content.split(/\r?\n/).length;
 
 export function BlogListView() {
+  const router = useRouter();
   const { user } = useAuthContext();
   const { blogs, blogsLoading, refreshBlogs } = useGetBlogs(user?.id);
   const [query, setQuery] = useState('');
+
+  const handleNewBlogPost = () => {
+    const draft = blogs.find((b) => b.isPublic === 2);
+    if (draft) {
+      router.push(paths.dashboard.blog.edit(draft.id));
+    } else {
+      router.push(paths.dashboard.blog.new);
+    }
+  };
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
   const [canExpandById, setCanExpandById] = useState<Record<string, boolean>>({});
@@ -192,10 +202,9 @@ export function BlogListView() {
         ]}
         action={
           <Button
-            component={RouterLink}
-            href={paths.dashboard.blog.new}
             variant="contained"
             startIcon={<Iconify icon="eva:plus-fill" />}
+            onClick={handleNewBlogPost}
           >
             New Blog Post
           </Button>

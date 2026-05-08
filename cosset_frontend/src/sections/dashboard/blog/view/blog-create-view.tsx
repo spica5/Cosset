@@ -157,6 +157,7 @@ export function BlogCreateView({ blogId }: Props) {
   const selectedFontPreset = watch('fontPreset');
   const selectedBackgroundPreset = watch('backgroundPreset');
   const contentPreview = watch('content');
+  const [savingDraft, setSavingDraft] = useState(false);
   const [emoticonAnchorEl, setEmoticonAnchorEl] = useState<HTMLElement | null>(null);
   const [templateAnchorEl, setTemplateAnchorEl] = useState<HTMLElement | null>(null);
   const emoticonCloseTimerRef = useRef<number | null>(null);
@@ -361,6 +362,57 @@ export function BlogCreateView({ blogId }: Props) {
     }
   });
 
+  const saveAsDraft = async () => {
+    const values = getValues();
+    if (!values.title?.trim()) {
+      toast.error('Please enter a title before saving as draft.');
+      return;
+    }
+    try {
+      setSavingDraft(true);
+      if (isEditMode && blog) {
+        await updateBlog(blogId!, {
+          customerId: blog.customerId || user?.id || null,
+          title: values.title.trim(),
+          category: values.category,
+          description: values.description.trim() || null,
+          content: values.content.trim() || null,
+          file: values.file.trim() || null,
+          isPublic: 2,
+          totalViews: values.totalViews,
+          following: values.following,
+          fontPreset: values.fontPreset,
+          backgroundPreset: values.backgroundPreset,
+          comments: values.comments.trim() || null,
+        });
+        toast.success('Draft saved successfully.');
+        router.refresh();
+      } else {
+        await createBlog({
+          customerId: user?.id || null,
+          title: values.title.trim(),
+          category: values.category,
+          description: values.description.trim() || null,
+          content: values.content.trim() || null,
+          file: values.file.trim() || null,
+          isPublic: 2,
+          totalViews: values.totalViews,
+          following: values.following,
+          fontPreset: values.fontPreset,
+          backgroundPreset: values.backgroundPreset,
+          comments: values.comments.trim() || null,
+        });
+        toast.success('Draft saved successfully.');
+        router.push(paths.dashboard.blog.list);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save draft.');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   if (isEditMode && blogLoading) {
     return (
       <DashboardContent>
@@ -446,6 +498,7 @@ export function BlogCreateView({ blogId }: Props) {
             >
               <MenuItem value={1}>Public</MenuItem>
               <MenuItem value={0}>Private</MenuItem>
+              <MenuItem value={2}>Draft</MenuItem>
             </TextField>
 
             <TextField
@@ -629,7 +682,18 @@ export function BlogCreateView({ blogId }: Props) {
               {isEditMode ? 'Back' : 'Cancel'}
             </Button>
             {(!isEditMode || isOwner) && (
-              <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+              <LoadingButton
+                variant="outlined"
+                color="error"
+                loading={savingDraft}
+                disabled={isSubmitting}
+                onClick={saveAsDraft}
+              >
+                Save as Draft
+              </LoadingButton>
+            )}
+            {(!isEditMode || isOwner) && (
+              <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={savingDraft}>
                 {isEditMode ? 'Save Changes' : 'Create Blog Post'}
               </LoadingButton>
             )}

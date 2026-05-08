@@ -112,8 +112,8 @@ export function BlogDetailsView({ blogId }: Props) {
             </Stack>
             <Chip
               size="small"
-              color={blog.isPublic === 1 ? 'success' : 'default'}
-              label={blog.isPublic === 1 ? 'Public' : 'Private'}
+              color={blog.isPublic === 1 ? 'success' : blog.isPublic === 2 ? 'error' : 'default'}
+              label={blog.isPublic === 1 ? 'Public' : blog.isPublic === 2 ? 'Draft' : 'Private'}
             />
           </Stack>
 
