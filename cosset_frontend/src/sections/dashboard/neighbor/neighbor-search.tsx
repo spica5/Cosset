@@ -1,5 +1,4 @@
 import type { INeighborItem } from 'src/types/neighbor';
-import type { UseSetStateReturn } from 'src/hooks/use-set-state';
 
 import parse from 'autosuggest-highlight/parse';
 import match from 'autosuggest-highlight/match';
@@ -21,27 +20,25 @@ import { SearchNotFound } from 'src/components/dashboard/search-not-found';
 
 type Props = {
   onSearch: (inputValue: string) => void;
-  search: UseSetStateReturn<{
-    query: string;
-    results: INeighborItem[];
-  }>;
+  query: string;
+  results: INeighborItem[];
 };
 
-export function NeighborSearch({ search, onSearch }: Props) {
+export function NeighborSearch({ query, results, onSearch }: Props) {
   const router = useRouter();
-
-  const { state } = search;
 
   const handleClick = (id: string) => {
     router.push(paths.dashboard.community.neighbor.details(id));
   };
 
   const handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (state.query) {
+    if (query) {
       if (event.key === 'Enter') {
-        const selectProduct = state.results.filter((neighbor) => neighbor.name === state.query)[0];
+        const selectProduct = results.find((neighbor) => neighbor.name === query);
 
-        handleClick(selectProduct.id);
+        if (selectProduct) {
+          handleClick(selectProduct.id);
+        }
       }
     }
   };
@@ -51,10 +48,10 @@ export function NeighborSearch({ search, onSearch }: Props) {
       sx={{ width: { xs: 1, sm: 260 } }}
       autoHighlight
       popupIcon={null}
-      options={state.results}
+      options={results}
       onInputChange={(event, newValue) => onSearch(newValue)}
       getOptionLabel={(option) => option.name}
-      noOptionsText={<SearchNotFound query={state.query} />}
+      noOptionsText={<SearchNotFound query={query} />}
       isOptionEqualToValue={(option, value) => option.id === value.id}
       slotProps={{
         popper: { placement: 'bottom-start', sx: { minWidth: 320 } },

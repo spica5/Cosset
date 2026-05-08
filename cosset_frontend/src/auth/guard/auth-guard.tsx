@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import { paths } from 'src/routes/paths';
 import { useRouter, usePathname, useSearchParams } from 'src/routes/hooks';
 
 import { CONFIG } from 'src/config-global';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { SplashScreen } from 'src/components/dashboard/loading-screen';
 
 import { useAuthContext } from '../hooks';
@@ -27,6 +28,9 @@ export function AuthGuard({ children }: Props) {
   const { authenticated, loading } = useAuthContext();
 
   const [isChecking, setIsChecking] = useState<boolean>(true);
+  // Use a ref so the redirect handler always reads the latest value
+  // without depending on stale closures or extra re-renders.
+  const wasAuthenticatedRef = useRef<boolean>(false);
 
   const createQueryString = useCallback(
     (name: string, value: string) => {
@@ -38,12 +42,16 @@ export function AuthGuard({ children }: Props) {
     [searchParams]
   );
 
-  const checkPermissions = async (): Promise<void> => {
+  const checkPermissions = useCallback(async (): Promise<void> => {
     if (loading) {
       return;
     }
 
     if (!authenticated) {
+      if (wasAuthenticatedRef.current) {
+        toast.error('Your session has expired. Please sign in again.');
+      }
+
       const { method } = CONFIG.auth;
 
       const signInPath = {
@@ -56,13 +64,13 @@ export function AuthGuard({ children }: Props) {
       return;
     }
 
+    wasAuthenticatedRef.current = true;
     setIsChecking(false);
-  };
+  }, [authenticated, createQueryString, loading, pathname, router]);
 
   useEffect(() => {
     checkPermissions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, loading]);
+  }, [checkPermissions]);
 
   if (isChecking) {
     return <SplashScreen />;

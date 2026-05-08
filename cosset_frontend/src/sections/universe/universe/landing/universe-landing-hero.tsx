@@ -9,6 +9,8 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import { Typography } from '@mui/material';
 import CardMedia from '@mui/material/CardMedia';
@@ -16,11 +18,15 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import LinkIcon from '@mui/icons-material/Link';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 import { varAlpha } from 'src/theme/universe/styles';
@@ -37,6 +43,14 @@ type Props = BoxProps & {
     name: string;
     avatarUrl: string;
   };
+  friendshipState?: 'you' | 'friend' | 'none' | 'requested';
+  requestingFriend?: boolean;
+  canRequestFriend?: boolean;
+  onRequestFriend?: () => void | Promise<void>;
+  canCopyInviteLink?: boolean;
+  inviteLinkCopied?: boolean;
+  copyingInviteLink?: boolean;
+  onCopyInviteLink?: () => void | Promise<void>;
   visitors?: {
     id: string;
     name: string;
@@ -49,6 +63,14 @@ type Props = BoxProps & {
 export function UniverseLandingHero({
   universe,
   customer,
+  friendshipState = 'none',
+  requestingFriend = false,
+  canRequestFriend = false,
+  onRequestFriend,
+  canCopyInviteLink = false,
+  inviteLinkCopied = false,
+  copyingInviteLink = false,
+  onCopyInviteLink,
   visitors = [],
   isFullScreen = false,
   onToggleFullScreen,
@@ -61,6 +83,7 @@ export function UniverseLandingHero({
   const [showTopMenu, setShowTopMenu] = useState(true);
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
+  const [showControlsPanel, setShowControlsPanel] = useState(false);
 
   const galleryImages = useMemo(() => {
     const gallery = (universe?.gallery || []).filter(Boolean);
@@ -310,13 +333,79 @@ export function UniverseLandingHero({
               </Box>
             </Stack>
 
-            {onToggleFullScreen ? (
-              <IconButton
+            {canCopyInviteLink || onToggleFullScreen ? (
+              <Stack direction="row" spacing={0.5}>
+                {canCopyInviteLink ? (
+                  <Tooltip title={inviteLinkCopied ? 'Copied' : 'Copy invite link'}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label="copy invite link"
+                        disabled={copyingInviteLink}
+                        onClick={() => onCopyInviteLink?.()}
+                        sx={{
+                          border: 1,
+                          borderColor: 'text.secondary',
+                          color: inviteLinkCopied ? 'success.light' : 'info.main',
+                          bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                          '&:hover': {
+                            borderColor: 'text.secondary',
+                            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                            color: inviteLinkCopied ? 'success.light' : 'info.lighter',
+                          },
+                        }}
+                      >
+                        <LinkIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                ) : null}
+
+                {onToggleFullScreen ? (
+                  <IconButton
+                    size="small"
+                    aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
+                    onClick={onToggleFullScreen}
+                    sx={{
+                      border: 1,
+                      borderColor: 'text.secondary',
+                      color: 'info.main',
+                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                      '&:hover': {
+                        borderColor: 'text.secondary',
+                        bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                        color: 'info.lighter',
+                      },
+                    }}
+                  >
+                    {isFullScreen ? (
+                      <FullscreenExitIcon fontSize="small" />
+                    ) : (
+                      <FullscreenIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                ) : null}
+              </Stack>
+            ) : null}
+          </Stack>
+
+
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2">Friend</Typography>
+
+            {friendshipState === 'you' ? (
+              <Chip size="small" label="You" color="primary" />
+            ) : friendshipState === 'friend' ? (
+              <Chip size="small" label="Friend" color="success" />
+            ) : friendshipState === 'requested' ? (
+              <Chip size="small" label="Requested" color="warning" />
+            ) : (
+              <Button
                 size="small"
-                aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
-                onClick={onToggleFullScreen}
+                variant="outlined"
+                disabled={!canRequestFriend || requestingFriend}
+                onClick={() => onRequestFriend?.()}
                 sx={{
-                  border: 1,
                   borderColor: 'text.secondary',
                   color: 'info.main',
                   bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
@@ -327,24 +416,18 @@ export function UniverseLandingHero({
                   },
                 }}
               >
-                {isFullScreen ? (
-                  <FullscreenExitIcon fontSize="small" />
-                ) : (
-                  <FullscreenIcon fontSize="small" />
-                )}
-              </IconButton>
-            ) : null}
+                {requestingFriend ? 'Requesting...' : 'Request'}
+              </Button>
+            )}
           </Stack>
 
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2">Room Info</Typography>
+            <Typography variant="subtitle2">Controls</Typography>
             <Button
               size="small"
               variant="outlined"
-              startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-              onClick={() => {
-                window.dispatchEvent(new Event('toggle-room-info'));
-              }}
+              startIcon={showControlsPanel ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              onClick={() => setShowControlsPanel((prev) => !prev)}
               sx={{
                 borderColor: 'text.secondary',
                 color: 'info.main',
@@ -356,33 +439,61 @@ export function UniverseLandingHero({
                 },
               }}
             >
-              {showRoomInfo ? 'Hide' : 'View'}
+              {showControlsPanel ? 'Collapse' : 'Expand'}
             </Button>
           </Stack>
 
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2">Top Menu</Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={showTopMenu ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-              onClick={() => {
-                window.dispatchEvent(new Event('toggle-top-menu'));
-              }}
-              sx={{
-                borderColor: 'text.secondary',
-                color: 'info.main',
-                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
-                '&:hover': {
-                  borderColor: 'text.secondary',
-                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
-                  color: 'info.lighter',
-                },
-              }}
-            >
-              {showTopMenu ? 'Hide' : 'View'}
-            </Button>
-          </Stack>
+          <Collapse in={showControlsPanel} timeout="auto" unmountOnExit>
+            <Stack spacing={1} sx={{ mb: 1 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Typography variant="subtitle2">Room Info</Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  onClick={() => {
+                    window.dispatchEvent(new Event('toggle-room-info'));
+                  }}
+                  sx={{
+                    borderColor: 'text.secondary',
+                    color: 'info.main',
+                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    '&:hover': {
+                      borderColor: 'text.secondary',
+                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      color: 'info.lighter',
+                    },
+                  }}
+                >
+                  {showRoomInfo ? 'Hide' : 'View'}
+                </Button>
+              </Stack>
+
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Typography variant="subtitle2">Top Menu</Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={showTopMenu ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  onClick={() => {
+                    window.dispatchEvent(new Event('toggle-top-menu'));
+                  }}
+                  sx={{
+                    borderColor: 'text.secondary',
+                    color: 'info.main',
+                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    '&:hover': {
+                      borderColor: 'text.secondary',
+                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      color: 'info.lighter',
+                    },
+                  }}
+                >
+                  {showTopMenu ? 'Hide' : 'View'}
+                </Button>
+              </Stack>
+            </Stack>
+          </Collapse>
         </Card>
 
         <IconButton

@@ -13,6 +13,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { useGetBlogs } from 'src/actions/blog';
 import { useGetUsers } from 'src/actions/user';
+import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
 import { createNotification } from 'src/actions/notification';
@@ -76,14 +77,28 @@ export function UniverseLandingView({
 }: Props) {
   const { guestarea } = useGetGuestArea(customerId);
   const { user, loading: userLoading, authenticated } = useAuthContext();
+  const viewerId = String(user?.id || '').trim();
+  const isCurrentCustomer = !!viewerId && viewerId === String(customerId || '').trim();
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { users } = useGetUsers(100, 0, authenticated);
+  const { friends: acceptedFriends, friendsLoading: acceptedFriendsLoading } = useGetFriends(
+    viewerId,
+    'accepted',
+    authenticated && !!viewerId
+  );
+  const { friends: pendingFriends, friendsLoading: pendingFriendsLoading } = useGetFriends(
+    viewerId,
+    'pending',
+    authenticated && !!viewerId
+  );
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const { collections } = useGetCollections(customerId);
   const [heroUrl, setHeroUrl] = useState('');
   const [customerName, setCustomerName] = useState('Customer');
   const [customerAvatarKey, setCustomerAvatarKey] = useState('');
   const [customerAvatarUrl, setCustomerAvatarUrl] = useState('');
+  const [requestingFriend, setRequestingFriend] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
   const [designGalleryUrls, setDesignGalleryUrls] = useState<string[]>([]);
   const [sharedAlbums, setSharedAlbums] = useState<(IAlbumItem & { signedCoverUrl?: string })[]>([]);
   const [albumsLoading, setAlbumsLoading] = useState(false);
@@ -628,6 +643,72 @@ export function UniverseLandingView({
     viewedGoodMemoCollectionItemIdsLoading ||
     viewedSadMemoCollectionItemIdsLoading;
 
+  const isFriend = useMemo(() => {
+    const targetId = String(customerId || '').trim();
+    if (!viewerId || !targetId) return false;
+
+    return acceptedFriends.some(
+      (relation) => relation.userId1 === targetId || relation.userId2 === targetId
+    );
+  }, [acceptedFriends, customerId, viewerId]);
+
+  const hasPendingRequest = useMemo(() => {
+    const targetId = String(customerId || '').trim();
+    if (!viewerId || !targetId) return false;
+
+    return pendingFriends.some(
+      (relation) => relation.userId1 === targetId || relation.userId2 === targetId
+    );
+  }, [customerId, pendingFriends, viewerId]);
+
+  const friendshipState: 'you' | 'friend' | 'none' | 'requested' = isCurrentCustomer
+    ? 'you'
+    : isFriend
+      ? 'friend'
+      : requestSent || hasPendingRequest
+        ? 'requested'
+        : 'none';
+
+  const canRequestFriend =
+    authenticated &&
+    !!viewerId &&
+    !isCurrentCustomer &&
+    !isFriend &&
+    !hasPendingRequest &&
+    !requestSent &&
+    !acceptedFriendsLoading &&
+    !pendingFriendsLoading;
+
+  const handleRequestFriend = async () => {
+    if (!canRequestFriend || requestingFriend) {
+      return;
+    }
+
+    setRequestingFriend(true);
+
+    try {
+      await axiosInstance.post(endpoints.friend.new, {
+        userId1: viewerId,
+        userId2: String(customerId || '').trim(),
+      });
+
+      setRequestSent(true);
+    } catch (error) {
+      const message =
+        typeof error === 'string'
+          ? error
+          : typeof (error as { message?: unknown })?.message === 'string'
+            ? ((error as { message?: string }).message || '')
+            : '';
+
+      if (message.toLowerCase().includes('already exists')) {
+        setRequestSent(true);
+      }
+    } finally {
+      setRequestingFriend(false);
+    }
+  };
+
   return (
     <>
       <UniverseLandingHero
@@ -635,6 +716,10 @@ export function UniverseLandingView({
         visitors={visitors}
         isFullScreen={isFullScreen}
         onToggleFullScreen={onToggleFullScreen}
+        friendshipState={friendshipState}
+        canRequestFriend={canRequestFriend}
+        requestingFriend={requestingFriend}
+        onRequestFriend={handleRequestFriend}
         customer={{
           id: customerId,
           name: customerName,

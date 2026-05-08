@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo, useState, useCallback } from 'react';
+
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
@@ -7,12 +9,19 @@ import { paths } from 'src/routes/paths';
 import { CONFIG } from 'src/config-global';
 
 import { useGetUsers } from 'src/actions/user';
+import {
+  useGetFriends,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  cancelFriendRequest,
+} from 'src/actions/friend';
 import { useGetGuestAreas } from 'src/actions/guestarea';
 
 import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { FriendCardList } from '../friend-card-list';
@@ -20,10 +29,56 @@ import { FriendCardList } from '../friend-card-list';
 // ----------------------------------------------------------------------
 
 export function FriendCardsView() {
+  const [processingRelationId, setProcessingRelationId] = useState<number | null>(null);
+
   const { user: currentUser } = useAuthContext();
+  const currentUserId = String(currentUser?.id || '').trim();
+  const canLoadFriends = !!currentUserId;
+
+  const { friends: acceptedRelations, friendsLoading: acceptedFriendsLoading } = useGetFriends(
+    currentUserId,
+    'accepted',
+    canLoadFriends
+  );
+  const { friends: pendingRelations, friendsLoading: pendingFriendsLoading } = useGetFriends(
+    currentUserId,
+    'pending',
+    canLoadFriends
+  );
   const { users, usersLoading } = useGetUsers(200, 0);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`;
+
+  const acceptedFriendUserIds = useMemo(() => {
+    if (!canLoadFriends) return new Set<string>();
+
+    return new Set<string>(
+      acceptedRelations.map((item) =>
+        item.userId1 === currentUserId ? item.userId2 : item.userId1
+      )
+    );
+  }, [acceptedRelations, canLoadFriends, currentUserId]);
+
+  const pendingRelationsByOtherUserId = useMemo(() => {
+    const map = new Map<string, { relationId: number; direction: 'incoming' | 'outgoing' }>();
+
+    pendingRelations.forEach((item) => {
+      const isIncoming = item.userId2 === currentUserId;
+      const otherUserId = isIncoming ? item.userId1 : item.userId2;
+
+      map.set(otherUserId, {
+        relationId: item.id,
+        direction: isIncoming ? 'incoming' : 'outgoing',
+      });
+    });
+
+    return map;
+  }, [currentUserId, pendingRelations]);
+
+  const pendingUserIds = useMemo(
+    () => new Set<string>(Array.from(pendingRelationsByOtherUserId.keys())),
+    [pendingRelationsByOtherUserId]
+  );
 
   const guestAreaByCustomerId = guestAreas.reduce<
     Record<string, { coverUrl: string; title: string; motif: string; mood: string }>
@@ -39,12 +94,15 @@ export function FriendCardsView() {
     return acc;
   }, {});
 
-  const mappedFriends = users.map((user) => {
+  const mappedAcceptedFriends = users
+    .filter((user) => acceptedFriendUserIds.has(String(user.id)))
+    .map((user) => {
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
     const guestArea = guestAreaByCustomerId[user.id];
 
     return {
       id: user.id,
+        relationStatus: 'accepted' as const,
       name: fullName || user.email || 'Unknown User',
       email: user.email,
       phoneNumber: user.phoneNumber || '',
@@ -63,12 +121,80 @@ export function FriendCardsView() {
     };
   });
 
-  const friends = currentUser?.id
-    ? [
-        ...mappedFriends.filter((friend) => friend.id === currentUser.id),
-        ...mappedFriends.filter((friend) => friend.id !== currentUser.id),
-      ]
-    : mappedFriends;
+  const mappedPendingFriends = users
+    .filter((user) => pendingUserIds.has(String(user.id)))
+    .map((user) => {
+      const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+      const guestArea = guestAreaByCustomerId[user.id];
+      const relation = pendingRelationsByOtherUserId.get(String(user.id));
+
+      return {
+        id: user.id,
+        relationId: relation?.relationId,
+        relationStatus: 'pending' as const,
+        pendingDirection: relation?.direction,
+        requestMessage:
+          relation?.direction === 'incoming'
+            ? `${fullName || user.email || 'This user'} sent you a friend request.`
+            : `Friend request sent to ${fullName || user.email || 'this user'}.`,
+        name: fullName || user.email || 'Unknown User',
+        email: user.email,
+        phoneNumber: user.phoneNumber || '',
+        plan: user.plan || 'FREE',
+        country: user.country || '',
+        city: user.city || '',
+        universeName: guestArea?.title || 'No guest area title',
+        mood: guestArea?.mood || 'No guest area mood',
+        motif: guestArea?.motif || 'No guest area motif',
+        role: user.role || 'user',
+        coverUrl: guestArea?.coverUrl || defaultCoverImage,
+        avatarUrl: user.photoURL || '',
+        connections: 0,
+        ratingNumber: 0,
+        openness: user.isPublic ? 'Public' : 'Private',
+      };
+    });
+
+  const friends = [...mappedPendingFriends, ...mappedAcceptedFriends];
+
+  const handleAccept = useCallback(
+    async (relationId?: number) => {
+      if (!relationId || !currentUserId) return;
+      setProcessingRelationId(relationId);
+      try {
+        await acceptFriendRequest(relationId, currentUserId);
+      } finally {
+        setProcessingRelationId(null);
+      }
+    },
+    [currentUserId]
+  );
+
+  const handleReject = useCallback(
+    async (relationId?: number) => {
+      if (!relationId || !currentUserId) return;
+      setProcessingRelationId(relationId);
+      try {
+        await rejectFriendRequest(relationId, currentUserId);
+      } finally {
+        setProcessingRelationId(null);
+      }
+    },
+    [currentUserId]
+  );
+
+  const handleCancel = useCallback(
+    async (relationId?: number) => {
+      if (!relationId || !currentUserId) return;
+      setProcessingRelationId(relationId);
+      try {
+        await cancelFriendRequest(relationId, currentUserId);
+      } finally {
+        setProcessingRelationId(null);
+      }
+    },
+    [currentUserId]
+  );
 
   return (
     <DashboardContent>
@@ -82,12 +208,25 @@ export function FriendCardsView() {
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 
-      {usersLoading || guestAreasLoading ? (
+      {acceptedFriendsLoading || pendingFriendsLoading || usersLoading || guestAreasLoading ? (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Loading users...
+          Loading friends...
         </Typography>
+      ) : friends.length === 0 ? (
+        <EmptyContent
+          filled
+          title="No friends yet"
+          description="Add friends to see them here."
+          sx={{ py: 10 }}
+        />
       ) : (
-        <FriendCardList friends={friends} />
+        <FriendCardList
+          friends={friends}
+          processingRelationId={processingRelationId}
+          onAccept={(friend) => handleAccept(friend.relationId)}
+          onReject={(friend) => handleReject(friend.relationId)}
+          onCancel={(friend) => handleCancel(friend.relationId)}
+        />
       )}
     </DashboardContent>
   );

@@ -29,6 +29,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { recordGiftView, useGetDrawerComments, useGetViewedGiftIds } from 'src/actions/gift';
 import { recordActivityNotification } from 'src/actions/notification';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
+import { useGetCurrentUser } from 'src/actions/user';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
@@ -272,6 +273,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
   const router = useRouter();
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { user, authenticated } = useAuthContext();
+  const { user: currentUserProfile } = useGetCurrentUser();
   const [items, setItems] = useState<GiftWithImages[]>([]);
   const [loading, setLoading] = useState(true);
   const viewerId = authenticated && user?.id ? String(user.id) : undefined;
@@ -355,13 +357,16 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
   useEffect(() => {
     if (loading) return;
     const categoryLabel = categoryLabelMap[categoryKey] || categoryKey;
-    const visitorId = user?.id ? String(user.id) : null;
+    const visitorId = user?.id ? String(user.id) : currentUserProfile?.id ? String(currentUserProfile.id) : null;
     const visitorName =
       user?.displayName ||
       `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+      currentUserProfile?.displayName ||
+      `${currentUserProfile?.firstName || ''} ${currentUserProfile?.lastName || ''}`.trim() ||
       user?.email ||
+      currentUserProfile?.email ||
       'A visitor';
-    const visitorAvatar = user?.photoURL || null;
+    const visitorAvatar = user?.photoURL || currentUserProfile?.photoURL || null;
     recordActivityNotification({
       ownerId: customerId,
       visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
@@ -370,7 +375,7 @@ export function UniverseDrawerView({ customerId, categoryKey }: Props) {
       sessionKey: `activity:drawer_view:${customerId}:${categoryKey}:${visitorId ?? 'anon'}`,
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [categoryKey, customerId, currentUserProfile, loading, user]);
 
   const categoryLabel = categoryLabelMap[categoryKey] || categoryKey;
   const previewImageHeight = categoryKey === 'gift' ? 245 : 220;

@@ -2,6 +2,10 @@
 
 export type IFriendCard = {
   id: string;
+  relationId?: number;
+  relationStatus?: 'accepted' | 'pending';
+  pendingDirection?: 'incoming' | 'outgoing';
+  requestMessage?: string;
   name: string;
   email?: string;
   phoneNumber?: string;

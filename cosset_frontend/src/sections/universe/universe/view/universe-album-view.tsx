@@ -35,6 +35,7 @@ import {
   useGetReactionSummary,
 } from 'src/actions/reaction';
 import { recordActivityNotification } from 'src/actions/notification';
+import { useGetCurrentUser } from 'src/actions/user';
 import { updatePostCommentVisibility } from 'src/actions/post';
 import { useAuthContext } from 'src/auth/hooks';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
@@ -105,6 +106,7 @@ const formatAlbumDate = (value: unknown) => {
 export function UniverseAlbumView({ albumId }: Props) {
   const router = useRouter();
   const { user, authenticated, loading: authLoading } = useAuthContext();
+  const { user: currentUserProfile } = useGetCurrentUser();
   const [album, setAlbum] = useState<IAlbumItem | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
   const [images, setImages] = useState<Array<IAlbumImage & { signedUrl?: string }>>([]);
@@ -182,6 +184,18 @@ export function UniverseAlbumView({ albumId }: Props) {
   const isVisitorHomeSpaceOnly =
     !!ownerCustomerId && !isOwner && isGuestAreaHomeSpaceOnlyMotif(guestarea?.motif);
   const isOwnerAccessLoading = !loading && !!ownerCustomerId && (authLoading || guestAreaLoading);
+
+  const visitorId =
+    user?.id ? String(user.id) : currentUserProfile?.id ? String(currentUserProfile.id) : null;
+  const visitorName =
+    user?.displayName ||
+    `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+    currentUserProfile?.displayName ||
+    `${currentUserProfile?.firstName || ''} ${currentUserProfile?.lastName || ''}`.trim() ||
+    user?.email ||
+    currentUserProfile?.email ||
+    'A visitor';
+  const visitorAvatar = user?.photoURL || currentUserProfile?.photoURL || null;
 
   useEffect(() => {
     let mounted = true;
@@ -285,13 +299,6 @@ export function UniverseAlbumView({ albumId }: Props) {
   useEffect(() => {
     if (loading || !album?.userId) return;
     const ownerId = String(album.userId);
-    const visitorId = user?.id ? String(user.id) : null;
-    const visitorName =
-      user?.displayName ||
-      `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
-      user?.email ||
-      'A visitor';
-    const visitorAvatar = user?.photoURL || null;
     recordActivityNotification({
       ownerId,
       visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },
@@ -299,8 +306,7 @@ export function UniverseAlbumView({ albumId }: Props) {
       content: `${visitorName} viewed your album "${album.title || `#${albumId}`}"`,
       sessionKey: `activity:album_view:${albumId}:${visitorId ?? 'anon'}`,
     }).catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [album?.id, loading]);
+  }, [album?.id, album?.title, albumId, loading, visitorAvatar, visitorId, visitorName]);
 
   const handleReaction = async (reactionType: ReactionType) => {
     if (!authenticated || isSubmittingReaction) {
@@ -336,13 +342,6 @@ export function UniverseAlbumView({ albumId }: Props) {
 
         if (album?.userId) {
           const ownerId = String(album.userId);
-          const visitorId = user?.id ? String(user.id) : null;
-          const visitorName =
-            user?.displayName ||
-            `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
-            user?.email ||
-            'A visitor';
-          const visitorAvatar = user?.photoURL || null;
           recordActivityNotification({
             ownerId,
             visitor: { id: visitorId, name: visitorName, avatarUrl: visitorAvatar },

@@ -11,9 +11,19 @@ import { FriendCard } from './friend-card';
 
 type Props = {
   friends: IFriendCard[];
+  processingRelationId?: number | null;
+  onAccept?: (friend: IFriendCard) => void | Promise<void>;
+  onReject?: (friend: IFriendCard) => void | Promise<void>;
+  onCancel?: (friend: IFriendCard) => void | Promise<void>;
 };
 
-export function FriendCardList({ friends }: Props) {
+export function FriendCardList({
+  friends,
+  processingRelationId = null,
+  onAccept,
+  onReject,
+  onCancel,
+}: Props) {
   const [page, setPage] = useState(1);
 
   const rowsPerPage = 12;
@@ -32,7 +42,14 @@ export function FriendCardList({ friends }: Props) {
         {friends
           .slice((page - 1) * rowsPerPage, (page - 1) * rowsPerPage + rowsPerPage)
           .map((friend) => (
-            <FriendCard key={friend.id} friend={friend} />
+            <FriendCard
+              key={`${friend.id}-${friend.relationId ?? 'accepted'}`}
+              friend={friend}
+              actionLoading={friend.relationId != null && processingRelationId === friend.relationId}
+              onAccept={() => onAccept?.(friend)}
+              onReject={() => onReject?.(friend)}
+              onCancel={() => onCancel?.(friend)}
+            />
           ))}
       </Box>
 

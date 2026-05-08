@@ -1,18 +1,24 @@
 import type { INeighborItem } from 'src/types/neighbor';
 
+import { useState, useEffect } from 'react';
+
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import MenuList from '@mui/material/MenuList';
-import MenuItem from '@mui/material/MenuItem';
-import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import Avatar from '@mui/material/Avatar';
+import Typography from '@mui/material/Typography';
+
 import { fDateTime } from 'src/utils/format-time';
+import { getS3SignedUrl } from 'src/utils/helper';
+
+import { _moodIcons } from 'src/_mock/assets';
 
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -25,8 +31,56 @@ type Props = {
   onView: () => void;
 };
 
+const _motifAvatars: Record<string, string> = {
+  'Welcome guests': '👋',
+  'Be Away': '🚪',
+  'Be back soon.': '⏳',
+};
+
+const getMotifAvatar = (motif?: string) => _motifAvatars[motif || ''] || '✨';
+const getMoodAvatar = (mood?: string) => _moodIcons[mood || ''] || '😊';
+
+// ----------------------------------------------------------------------
+
 export function NeighborItem({ neighbor, onView }: Props) {
   const popover = usePopover();
+  const universeHref = paths.universe.view(neighbor.id);
+
+  const [signedCoverUrl, setSignedCoverUrl] = useState('');
+  const [signedImage1, setSignedImage1] = useState('');
+  const [signedImage2, setSignedImage2] = useState('');
+  const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveImage = async (
+      key: string,
+      setter: (url: string) => void
+    ) => {
+      if (!key) {
+        if (mounted) setter('');
+        return;
+      }
+
+      if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) {
+        if (mounted) setter(key);
+        return;
+      }
+
+      const signed = await getS3SignedUrl(key);
+      if (mounted) setter(signed || '');
+    };
+
+    resolveImage(neighbor.images?.[0] || '', setSignedCoverUrl);
+    resolveImage(neighbor.images?.[1] || '', setSignedImage1);
+    resolveImage(neighbor.images?.[2] || '', setSignedImage2);
+    resolveImage(neighbor.avatarUrl || '', setSignedAvatarUrl);
+
+    return () => {
+      mounted = false;
+    };
+  }, [neighbor.images, neighbor.avatarUrl]);
 
   const renderRating = (
     <Stack
@@ -40,10 +94,24 @@ export function NeighborItem({ neighbor, onView }: Props) {
         position: 'absolute',
         p: '2px 6px 2px 4px',
         typography: 'subtitle2',
-        bgcolor: 'warning.lighter',
+        bgcolor: neighbor.isFriend ? 'success.lighter' : 'warning.lighter',
+        color: 'grey.900',
       }}
     >
-      <Iconify icon="eva:star-fill" sx={{ color: 'warning.main', mr: 0.25 }} /> {neighbor.ratingNumber}
+      <Iconify
+        icon={
+          neighbor.isCurrentUser
+            ? 'solar:user-bold'
+            : neighbor.isFriend
+              ? 'solar:verified-check-bold'
+              : 'eva:star-fill'
+        }
+        sx={{
+          color: neighbor.isCurrentUser ? 'primary.dark' : neighbor.isFriend ? 'success.dark' : 'warning.dark',
+          mr: 0.25,
+        }}
+      />
+      {neighbor.isCurrentUser ? 'You' : neighbor.isFriend ? 'Friend' : neighbor.ratingNumber}
     </Stack>
   );
 
@@ -71,24 +139,24 @@ export function NeighborItem({ neighbor, onView }: Props) {
     <Box gap={0.5} display="flex" sx={{ p: 1 }}>
       <Box flexGrow={1} sx={{ position: 'relative' }}>
         {renderName}
-        {renderRating}
+        {(neighbor.isCurrentUser || neighbor.isFriend) ? renderRating : null}
         <Image
-          alt={neighbor.images[0]}
-          src={neighbor.images[0]}
+          alt={neighbor.universeName}
+          src={signedCoverUrl}
           sx={{ width: 1, height: 164, borderRadius: 1 }}
         />
       </Box>
 
       <Box gap={0.5} display="flex" flexDirection="column">
         <Image
-          alt={neighbor.images[1]}
-          src={neighbor.images[1]}
+          alt={neighbor.universeName}
+          src={signedImage1}
           ratio="1/1"
           sx={{ borderRadius: 1, width: 80, height: 80 }}
         />
         <Image
-          alt={neighbor.images[2]}
-          src={neighbor.images[2]}
+          alt={neighbor.universeName}
+          src={signedImage2}
           ratio="1/1"
           sx={{ borderRadius: 1, width: 80, height: 80 }}
         />
@@ -97,23 +165,59 @@ export function NeighborItem({ neighbor, onView }: Props) {
   );
 
   const renderTexts = (
-    <ListItemText
-      sx={{ p: (theme) => theme.spacing(2.5, 2.5, 2, 2.5) }}
-      primary={`Created date: ${fDateTime(neighbor.createdAt)}`}
-      secondary={
-        <Link component={RouterLink} href={paths.dashboard.community.neighbor.details(neighbor.id)} color="inherit">
-          {neighbor.name}
-        </Link>
-      }
-      primaryTypographyProps={{ typography: 'caption', color: 'text.disabled' }}
-      secondaryTypographyProps={{
-        mt: 1,
-        noWrap: true,
-        component: 'span',
-        color: 'text.primary',
-        typography: 'subtitle1',
+    <Box
+      sx={{
+        p: (theme) => theme.spacing(1, 2.5, 1, 2.5),
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
       }}
-    />
+    >
+      <ListItemText
+        sx={{ minWidth: 0, flexGrow: 1 }}
+        primary={neighbor.email}
+        secondary={
+          <Stack direction="row" alignItems="center" spacing={1} component="span">
+            <Link
+              component={RouterLink}
+              href={universeHref}
+              color="inherit"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {neighbor.name}
+            </Link>
+            {neighbor.isCurrentUser ? <Chip label="You" size="small" color="primary" /> : null}
+          </Stack>
+        }
+        primaryTypographyProps={{ typography: 'caption', color: 'text.disabled' }}
+        secondaryTypographyProps={{
+          mt: 1,
+          noWrap: true,
+          component: 'span',
+          color: 'text.primary',
+          typography: 'subtitle1',
+        }}
+      />
+
+      <Avatar
+        alt={neighbor.name}
+        src={signedAvatarUrl || undefined}
+        onClick={(event) => event.stopPropagation()}
+        sx={{
+          width: 56,
+          height: 56,
+          flexShrink: 0,
+          border: '2px solid',
+          borderColor: neighbor.isCurrentUser
+            ? 'primary.main'
+            : neighbor.isFriend
+              ? 'success.main'
+              : 'transparent',
+        }}
+      />
+    </Box>
   );
 
   const renderInfo = (
@@ -121,66 +225,50 @@ export function NeighborItem({ neighbor, onView }: Props) {
       spacing={1.5}
       sx={{ position: 'relative', p: (theme) => theme.spacing(0, 2.5, 2.5, 2.5) }}
     >
-      <IconButton onClick={popover.onOpen} sx={{ position: 'absolute', bottom: 20, right: 8 }}>
-        <Iconify icon="eva:more-vertical-fill" />
-      </IconButton>
+      <Stack spacing={1} direction="row" alignItems="center">
+        <Avatar sx={{ width: 20, height: 20, fontSize: 12 }}>{getMotifAvatar(neighbor.motif)}</Avatar>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
+          {neighbor.motif}
+        </Typography>
+      </Stack>
 
-      {[
-        {
-          icon: <Iconify icon="solar:info-square-bold" sx={{ color: 'error.main' }} />,
-          label: neighbor.motif,
-        },
-        {
-          icon: <Iconify icon="solar:menu-dots-square-bold" sx={{ color: 'info.main' }} />,
-          label: neighbor.mood,
-        },
-        {
-          icon: <Iconify icon="solar:heart-unlock-bold" sx={{ color: 'primary.main' }} />,
-          label: neighbor.openness,
-        },
-      ].map((item, i) => (
-        <Stack
-          key={`info-${i}`}
-          spacing={1}
-          direction="row"
-          alignItems="center"
-          sx={{ typography: 'body2' }}
-        >
-          {item.icon}
-          {item.label}
+      <Stack spacing={1} direction="row" alignItems="center">
+        <Avatar sx={{ width: 20, height: 20, fontSize: 12 }}>{getMoodAvatar(neighbor.mood)}</Avatar>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
+          {neighbor.mood}
+        </Typography>
+      </Stack>
+
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 2 }}>
+        <Stack spacing={1} direction="row" alignItems="center" sx={{ minWidth: 0 }}>
+          <Iconify icon="solar:users-group-rounded-bold" sx={{ color: 'warning.main', width: 20, height: 20 }} />
+          <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
+            {neighbor.friends.length} Friends
+          </Typography>
         </Stack>
-      ))}
+
+        <Stack spacing={1} direction="row" alignItems="center" sx={{ minWidth: 0 }}>
+          <Iconify icon="solar:heart-unlock-bold" sx={{ color: 'primary.main', width: 20, height: 20 }} />
+          <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
+            {neighbor.openness}
+          </Typography>
+        </Stack>
+      </Stack>
     </Stack>
   );
 
   return (
     <>
-      <Card>
+      <Card
+        onClick={() => window.open(universeHref, '_blank', 'noopener,noreferrer')}
+        sx={{ cursor: 'pointer' }}
+      >
         {renderImages}
 
         {renderTexts}
 
         {renderInfo}
       </Card>
-
-      <CustomPopover
-        open={popover.open}
-        anchorEl={popover.anchorEl}
-        onClose={popover.onClose}
-        slotProps={{ arrow: { placement: 'right-top' } }}
-      >
-        <MenuList>
-          <MenuItem
-            onClick={() => {
-              popover.onClose();
-              onView();
-            }}
-          >
-            <Iconify icon="solar:eye-bold" />
-            View
-          </MenuItem>
-        </MenuList>
-      </CustomPopover>
     </>
   );
 }

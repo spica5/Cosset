@@ -23,6 +23,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
+import { paths } from 'src/routes/paths';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -49,8 +50,10 @@ export function ProfileForm() {
   const { checkUserSession } = useAuthContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCopyingInviteLink, setIsCopyingInviteLink] = useState(false);
   const [signedPhotoUrl, setSignedPhotoUrl] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -185,6 +188,58 @@ export function ProfileForm() {
 
   const isChanged =
     JSON.stringify(formData) !== JSON.stringify(initialFormData);
+
+  const inviteLink =
+    typeof window !== 'undefined' && user?.id
+      ? `${window.location.origin}${paths.auth.signUp}?inviteFrom=${encodeURIComponent(
+          String(user.id)
+        )}&inviteEmail=${encodeURIComponent(inviteEmail.trim().toLowerCase())}`
+      : '';
+
+  const handleCopyInviteLink = async () => {
+    if (!user?.id || isCopyingInviteLink) {
+      return;
+    }
+
+    const normalizedInviteEmail = inviteEmail.trim().toLowerCase();
+
+    if (!normalizedInviteEmail) {
+      toast.error('Please enter an invitee email first');
+      return;
+    }
+
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedInviteEmail);
+
+    if (!isValidEmail) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setIsCopyingInviteLink(true);
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = inviteLink;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      toast.success('Invite link copied');
+    } catch (error) {
+      console.error('Failed to copy invite link', error);
+      toast.error('Failed to copy invite link');
+    } finally {
+      setIsCopyingInviteLink(false);
+    }
+  };
 
   if (userLoading) {
     return (
@@ -381,6 +436,43 @@ export function ProfileForm() {
                   rows={4}
                   helperText="Tell us about yourself"
                 />
+              </Card>
+
+              <Divider />
+
+              <Card sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                  Invite Link
+                </Typography>
+
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="Invitee Email"
+                    placeholder="friend@example.com"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    type="email"
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Generated Invite Link"
+                    value={inviteLink}
+                    InputProps={{ readOnly: true }}
+                    helperText="This link auto-creates user by email if not registered and connects friendship."
+                  />
+
+                  <Stack direction="row" justifyContent="flex-end">
+                    <Button
+                      variant="outlined"
+                      onClick={handleCopyInviteLink}
+                      disabled={!inviteEmail.trim() || isCopyingInviteLink}
+                    >
+                      {isCopyingInviteLink ? 'Copying...' : 'Copy Invite Link'}
+                    </Button>
+                  </Stack>
+                </Stack>
               </Card>
 
               <Divider />

@@ -43,6 +43,12 @@ export const endpoints = {
     list: '/api/user/list',
     details: (id: string | number) => `/api/user/${id}`,
   },
+  friend: {
+    list: '/api/friend/list',
+    new: '/api/friend/new',
+    inviteAccept: '/api/friend/invite/accept',
+    details: (id: string | number) => `/api/friend/${id}`,
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',

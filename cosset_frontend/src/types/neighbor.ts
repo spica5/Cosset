@@ -9,7 +9,11 @@ export type INeighborFriend = {
 
 export type INeighborItem = {
   id: string;
+  isCurrentUser: boolean;
   name: string;
+  email: string;
+  avatarUrl: string;
+  isFriend: boolean;
   universeName: string;
   mood: string;
   motif: string;

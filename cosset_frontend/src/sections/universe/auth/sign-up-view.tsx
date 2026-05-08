@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -10,6 +11,7 @@ import { Form } from 'src/components/universe/hook-form';
 
 import { signUp } from 'src/auth/context/jwt/action';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+import { acceptFriendInviteLink } from 'src/actions/friend';
 
 import { FormHead } from './components/form-head';
 import { SignUpSchema } from './components/schema';
@@ -24,11 +26,14 @@ import type { SignUpSchemaType } from './components/schema';
 
 export function SignUpView() {
   const { checkUserSession } = useAuthContext();
-  
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
+
   const defaultValues = {
     firstName: '',
     lastName: '',
-    email: '',
+    email: prefilledEmail,
     password: '',
     confirmPassword: '',
   };
@@ -42,16 +47,29 @@ export function SignUpView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const createdUser = await signUp({
+      await signUp({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
       });
           
-      console.log('DATA', createdUser);
       reset();
       await checkUserSession?.();
+
+      // Process invite link if present
+      const inviteFrom = String(searchParams.get('inviteFrom') || '').trim();
+      const inviteEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
+
+      if (inviteFrom && inviteEmail) {
+        try {
+          await acceptFriendInviteLink(inviteFrom, inviteEmail);
+        } catch (inviteError) {
+          console.error('Failed to process invite after sign-up', inviteError);
+        }
+      }
+
+      router.replace(paths.dashboard.root);
     } catch (error) {
       console.error(error);
     }

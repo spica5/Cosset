@@ -10,6 +10,7 @@ import Card from '@mui/material/Card';
 import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
+import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -54,9 +55,21 @@ const getMoodAvatar = (mood?: string) => {
 
 type Props = CardProps & {
   friend: IFriendCard;
+  onAccept?: () => void | Promise<void>;
+  onReject?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
+  actionLoading?: boolean;
 };
 
-export function FriendCard({ friend, sx, ...other }: Props) {
+export function FriendCard({
+  friend,
+  onAccept,
+  onReject,
+  onCancel,
+  actionLoading = false,
+  sx,
+  ...other
+}: Props) {
   const { user } = useAuthContext();
   const isCurrentUser = user?.id === friend.id;
   const motifLabel = friend.motif || 'No guest area motif';
@@ -215,6 +228,58 @@ export function FriendCard({ friend, sx, ...other }: Props) {
         }}
         secondaryTypographyProps={{ component: 'span', mt: 0.5 }}
       />
+
+      {friend.relationStatus === 'pending' ? (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
+            {friend.requestMessage || 'Friend request pending'}
+          </Typography>
+
+          <Box sx={{ mt: 1, display: 'flex', gap: 1, justifyContent: 'center' }}>
+            {friend.pendingDirection === 'incoming' ? (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  disabled={actionLoading}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAccept?.();
+                  }}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  disabled={actionLoading}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onReject?.();
+                  }}
+                >
+                  Reject
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                disabled={actionLoading}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCancel?.();
+                }}
+              >
+                Cancel Request
+              </Button>
+            )}
+          </Box>
+        </Box>
+      ) : null}
 
       <Divider sx={{ borderStyle: 'dashed' }} />
 
