@@ -40,7 +40,7 @@ export function NeighborListView() {
   const { friends: acceptedRelations, friendsLoading } = useGetFriends(undefined, 'accepted', true);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const { designSpaces, designSpacesLoading } = useGetDesignSpaces();
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
   const friendCountByUserId = acceptedRelations.reduce<Record<string, number>>((acc, relation) => {
     const userId1 = String(relation.userId1 || '');

@@ -8,6 +8,7 @@ import { useMemo, useState, useEffect } from 'react';
 
 import { paths } from 'src/routes/paths';
 
+import { CONFIG } from 'src/config-global';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
@@ -103,6 +104,8 @@ export function UniverseLandingView({
   const [sharedAlbums, setSharedAlbums] = useState<(IAlbumItem & { signedCoverUrl?: string })[]>([]);
   const [albumsLoading, setAlbumsLoading] = useState(false);
 
+  const defaultCoverImage = `${CONFIG.universe.assetsDir}/assets/images/guest-area/cosset_default.png`;
+
   const giftCountData = useGiftCount(customerId, 'Public', 'gift');
 
   const viewedGiftData = useGetViewedGiftIds(customerId, 'Public', 'gift');
@@ -150,7 +153,7 @@ export function UniverseLandingView({
     const resolveCover = async () => {
       const key = guestarea?.coverUrl;
       if (!key) {
-        if (mounted) setHeroUrl('');
+        if (mounted) setHeroUrl(defaultCoverImage);
         return;
       }
 
@@ -161,7 +164,7 @@ export function UniverseLandingView({
 
       const signedUrl = await getS3SignedUrl(key);
       if (mounted) {
-        setHeroUrl(signedUrl || '');
+        setHeroUrl(signedUrl || defaultCoverImage);
       }
     };
 
@@ -170,7 +173,7 @@ export function UniverseLandingView({
     return () => {
       mounted = false;
     };
-  }, [guestarea?.coverUrl]);
+  }, [guestarea?.coverUrl, defaultCoverImage]);
 
   useEffect(() => {
     let mounted = true;
@@ -419,21 +422,57 @@ export function UniverseLandingView({
     };
   }, [customerId]);
 
-  const resolvedUniverse = useMemo<IUniverseProps | undefined>(() => {
-    if (!guestarea) return universe;
+  const resolvedUniverse = useMemo<IUniverseProps>(() => {
+    const hero = heroUrl || universe?.heroUrl || defaultCoverImage;
+    const gallery = designGalleryUrls.length ? designGalleryUrls : [hero];
+
+    if (!guestarea) {
+      if (universe) {
+        return {
+          ...universe,
+          heroUrl: universe.heroUrl || hero,
+          coverUrl: universe.coverUrl || hero,
+          gallery: universe.gallery?.length ? universe.gallery : gallery,
+        };
+      }
+
+      const now = new Date().toISOString();
+      return {
+        id: customerId,
+        name: 'My Universe',
+        heroUrl: hero,
+        coverUrl: hero,
+        mood: '',
+        motif: '',
+        duration: '',
+        connections: 0,
+        gallery,
+        favorited: false,
+        description: '',
+        ratingNumber: 0,
+        totalReviews: 0,
+        highlights: [],
+        createdAt: now,
+        openness: 'Private',
+        available: {
+          start: now,
+          end: now,
+        },
+        program: [],
+      };
+    }
 
     const now = new Date().toISOString();
-
     return {
       id: String(guestarea.id ?? customerId),
       name: guestarea.title || 'My Universe',
-      heroUrl: heroUrl || '',
-      coverUrl: heroUrl || '',
+      heroUrl: hero,
+      coverUrl: hero,
       mood: guestarea.mood || '',
       motif: guestarea.motif || '',
       duration: '',
       connections: 0,
-      gallery: designGalleryUrls.length ? designGalleryUrls : heroUrl ? [heroUrl] : [],
+      gallery,
       favorited: false,
       description: guestarea.designSpace || '',
       ratingNumber: 0,

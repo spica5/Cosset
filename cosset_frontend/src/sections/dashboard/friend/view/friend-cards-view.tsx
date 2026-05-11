@@ -48,7 +48,7 @@ export function FriendCardsView() {
   );
   const { users, usersLoading } = useGetUsers(200, 0);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
   const acceptedFriendUserIds = useMemo(() => {
     if (!canLoadFriends) return new Set<string>();

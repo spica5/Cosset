@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 import { paths } from 'src/routes/paths';
 
+import { CONFIG } from 'src/config-global';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -24,13 +25,15 @@ export function OverviewGuestAreaView() {
 
   const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+
   useEffect(() => {
     let isMounted = true;
 
     const loadGuestArea = async () => {
       if (!guestarea) return;
 
-      let coverUrl: string | '' = '';
+      let coverUrl: string | '' = defaultCoverImage;
 
       if (guestarea.coverUrl) {
         try {
