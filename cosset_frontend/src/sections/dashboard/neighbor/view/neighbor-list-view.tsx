@@ -78,6 +78,9 @@ export function NeighborListView() {
     if (!value) return [];
 
     const trimmed = value.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+      return [];
+    }
 
     if (!trimmed.startsWith('[')) {
       return [trimmed];
@@ -87,7 +90,10 @@ export function NeighborListView() {
       const parsed = JSON.parse(trimmed);
       if (!Array.isArray(parsed)) return [];
 
-      return parsed.filter((item): item is string => typeof item === 'string' && !!item.trim());
+      return parsed.filter(
+        (item): item is string =>
+          typeof item === 'string' && !!item.trim() && item.trim() !== 'null' && item.trim() !== 'undefined'
+      );
     } catch {
       return [];
     }
@@ -129,8 +135,8 @@ export function NeighborListView() {
     const backgroundImages = parseImageList(designSpace?.background);
     const roomImages = parseImageList(designSpace?.rooms);
 
-    const image1 = backgroundImages[0] || roomImages[0] || coverUrl;
-    const image2 = backgroundImages[1] || roomImages[1] || image1 || coverUrl;
+    const image1 = backgroundImages[0] || roomImages[0];
+    const image2 = backgroundImages[1] || roomImages[1];
     const friendCount = friendCountByUserId[userId] || 0;
     const isFriend = currentUserId ? currentUserFriendIds.has(userId) : false;
 

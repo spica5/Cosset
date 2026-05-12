@@ -9,6 +9,8 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import ListItemText from '@mui/material/ListItemText';
 
+import { CONFIG } from 'src/config-global';
+
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
@@ -46,9 +48,10 @@ export function NeighborItem({ neighbor, onView }: Props) {
   const popover = usePopover();
   const universeHref = paths.universe.view(neighbor.id);
 
-  const [signedCoverUrl, setSignedCoverUrl] = useState('');
-  const [signedImage1, setSignedImage1] = useState('');
-  const [signedImage2, setSignedImage2] = useState('');
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const [signedCoverUrl, setSignedCoverUrl] = useState(defaultCoverImage);
+  const [signedImage1, setSignedImage1] = useState(defaultCoverImage);
+  const [signedImage2, setSignedImage2] = useState(defaultCoverImage);
   const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
 
   useEffect(() => {
@@ -56,10 +59,11 @@ export function NeighborItem({ neighbor, onView }: Props) {
 
     const resolveImage = async (
       key: string,
-      setter: (url: string) => void
+      setter: (url: string) => void,
+      fallback = ''
     ) => {
       if (!key) {
-        if (mounted) setter('');
+        if (mounted) setter(fallback);
         return;
       }
 
@@ -69,12 +73,12 @@ export function NeighborItem({ neighbor, onView }: Props) {
       }
 
       const signed = await getS3SignedUrl(key);
-      if (mounted) setter(signed || '');
+      if (mounted) setter(signed || fallback);
     };
 
-    resolveImage(neighbor.images?.[0] || '', setSignedCoverUrl);
-    resolveImage(neighbor.images?.[1] || '', setSignedImage1);
-    resolveImage(neighbor.images?.[2] || '', setSignedImage2);
+    resolveImage(neighbor.images?.[0] || '', setSignedCoverUrl, defaultCoverImage);
+    resolveImage(neighbor.images?.[1] || '', setSignedImage1, defaultCoverImage);
+    resolveImage(neighbor.images?.[2] || '', setSignedImage2, defaultCoverImage);
     resolveImage(neighbor.avatarUrl || '', setSignedAvatarUrl);
 
     return () => {

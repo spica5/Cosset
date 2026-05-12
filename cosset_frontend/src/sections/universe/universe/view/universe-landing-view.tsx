@@ -34,7 +34,6 @@ import { UniverseLandingCollectionItems } from '../landing/universe-landing-coll
 
 type Props = {
   customerId: string;
-  universe?: IUniverseProps;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
 };
@@ -72,7 +71,6 @@ const buildDrawerCollectionStats = (
 
 export function UniverseLandingView({
   customerId,
-  universe,
   isFullScreen = false,
   onToggleFullScreen,
 }: Props) {
@@ -147,13 +145,14 @@ export function UniverseLandingView({
     [sadMemoCollectionItems, viewedSadMemoCollectionItemIds],
   );
 
+  // set cover url
   useEffect(() => {
     let mounted = true;
 
     const resolveCover = async () => {
       const key = guestarea?.coverUrl;
       if (!key) {
-        if (mounted) setHeroUrl(defaultCoverImage);
+        if (mounted) setHeroUrl('');
         return;
       }
 
@@ -164,7 +163,7 @@ export function UniverseLandingView({
 
       const signedUrl = await getS3SignedUrl(key);
       if (mounted) {
-        setHeroUrl(signedUrl || defaultCoverImage);
+        setHeroUrl(signedUrl || '');
       }
     };
 
@@ -173,7 +172,7 @@ export function UniverseLandingView({
     return () => {
       mounted = false;
     };
-  }, [guestarea?.coverUrl, defaultCoverImage]);
+  }, [guestarea?.coverUrl]);
 
   useEffect(() => {
     let mounted = true;
@@ -261,6 +260,7 @@ export function UniverseLandingView({
     };
   }, [customerAvatarKey]);
 
+  // set design space gallery
   useEffect(() => {
     let mounted = true;
 
@@ -310,11 +310,12 @@ export function UniverseLandingView({
 
         if (!mounted) return;
 
-        setDesignGalleryUrls(Array.from(new Set(resolvedUrls.filter(Boolean))));
+        const urls = Array.from(new Set(resolvedUrls.filter(Boolean)));
+        setDesignGalleryUrls(urls.length > 0 ? urls : (defaultCoverImage ? [defaultCoverImage] : []));
       } catch (error) {
         console.error('Failed to load design space gallery for universe view', error);
         if (mounted) {
-          setDesignGalleryUrls([]);
+          setDesignGalleryUrls(defaultCoverImage ? [defaultCoverImage] : []);
         }
       }
     };
@@ -423,19 +424,10 @@ export function UniverseLandingView({
   }, [customerId]);
 
   const resolvedUniverse = useMemo<IUniverseProps>(() => {
-    const hero = heroUrl || universe?.heroUrl || defaultCoverImage;
-    const gallery = designGalleryUrls.length ? designGalleryUrls : [hero];
+    const hero = designGalleryUrls.length > 0 ? designGalleryUrls[0] : (heroUrl || '');
+    const gallery = designGalleryUrls.length ? designGalleryUrls : [];
 
     if (!guestarea) {
-      if (universe) {
-        return {
-          ...universe,
-          heroUrl: universe.heroUrl || hero,
-          coverUrl: universe.coverUrl || hero,
-          gallery: universe.gallery?.length ? universe.gallery : gallery,
-        };
-      }
-
       const now = new Date().toISOString();
       return {
         id: customerId,
@@ -486,7 +478,7 @@ export function UniverseLandingView({
       },
       program: [],
     };
-  }, [customerId, designGalleryUrls, guestarea, heroUrl, universe]);
+  }, [customerId, designGalleryUrls, guestarea, heroUrl]);
 
   const drawerSettings = useMemo(() => {
     if (!guestarea?.drawer) {

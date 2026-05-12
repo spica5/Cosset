@@ -78,13 +78,12 @@ export function UniverseLandingHero({
 
   const galleryImages = useMemo(() => {
     const gallery = (universe?.gallery || []).filter(Boolean);
-    const sources = gallery.length ? gallery : [universe?.heroUrl].filter(Boolean);
-    return Array.from(new Set(sources));
-  }, [universe?.gallery, universe?.heroUrl]);
+    return Array.from(new Set(gallery));
+  }, [universe?.gallery]);
 
   useEffect(() => {
     if (!galleryImages.length) {
-      setSelectedBackground(universe?.heroUrl || '');
+      // setSelectedBackground(universe?.heroUrl || '');
       return;
     }
 
@@ -93,13 +92,13 @@ export function UniverseLandingHero({
         return prev;
       }
 
-      if (universe?.heroUrl && galleryImages.includes(universe.heroUrl)) {
-        return universe.heroUrl;
-      }
+      // if (universe?.heroUrl && galleryImages.includes(universe.heroUrl)) {
+      //   return universe.heroUrl;
+      // }
 
       return galleryImages[0];
     });
-  }, [galleryImages, universe?.heroUrl]);
+  }, [galleryImages]);
 
   useEffect(() => {
     const handleShowRoomInfo = () => {
@@ -268,20 +267,22 @@ export function UniverseLandingHero({
           </Box>
         </Box>
               
-        <Box
-          component="img"
-          alt={universe.name}
-          src={selectedBackground || universe.heroUrl}
-          sx={{
-            top: 0,
-            left: 0,
-            width: 1,
-            height: 1,
-            zIndex: 7,
-            objectFit: 'cover',
-            position: 'absolute',
-          }}
-        />
+        {selectedBackground ? (
+            <Box
+              component="img"
+              alt={universe.name}
+              src={selectedBackground}
+              sx={{
+                top: 0,
+                left: 0,
+                width: 1,
+                height: 1,
+                zIndex: 7,
+                objectFit: 'cover',
+                position: 'absolute',
+              }}
+            />
+          ) : null}
 
         <Card
           sx={{
