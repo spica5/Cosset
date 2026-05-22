@@ -72,6 +72,52 @@ export const signUp = async ({
   }
 };
 
+export type ForgotPasswordParams = {
+  email: string;
+};
+
+export type ForgotPasswordResult = {
+  message?: string;
+  devCode?: string;
+};
+
+export type ResetPasswordParams = {
+  email: string;
+  code: string;
+  password: string;
+};
+
+/** **************************************
+ * Forgot password
+ *************************************** */
+export const requestPasswordReset = async ({
+  email,
+}: ForgotPasswordParams): Promise<ForgotPasswordResult> => {
+  try {
+    const res = await axios.post(endpoints.auth.forgotPassword, { email });
+    return res.data as ForgotPasswordResult;
+  } catch (error) {
+    console.error('Error during password reset request:', error);
+    throw error;
+  }
+};
+
+/** **************************************
+ * Reset password
+ *************************************** */
+export const resetPassword = async ({
+  email,
+  code,
+  password,
+}: ResetPasswordParams): Promise<void> => {
+  try {
+    await axios.post(endpoints.auth.resetPassword, { email, code, password });
+  } catch (error) {
+    console.error('Error during password reset:', error);
+    throw error;
+  }
+};
+
 /** **************************************
  * Sign out
  *************************************** */

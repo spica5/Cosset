@@ -39,19 +39,27 @@ function getMimeType(ext: string) {
     m4v: "video/x-m4v",
     webm: "video/webm",
     pdf: "application/pdf",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    aac: "audio/aac",
+    ogg: "audio/ogg",
+    m4a: "audio/mp4",
+    flac: "audio/flac",
   };
   return map[ext.toLowerCase()] || "application/octet-stream";
 }
 
-type UploadFileKind = 'image' | 'video' | 'pdf' | 'unsupported';
+type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'unsupported';
 
 const IMAGE_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm']);
+const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac', 'oga']);
 
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
   image: 10 * 1024 * 1024,
   // Keep this in sync with frontend collection upload validation.
   video: 150 * 1024 * 1024,
+  audio: 25 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
 };
 
@@ -64,6 +72,10 @@ function getUploadFileKind(file: File): UploadFileKind {
 
   if (mime.startsWith('video/')) {
     return 'video';
+  }
+
+  if (mime.startsWith('audio/')) {
+    return 'audio';
   }
 
   if (mime === 'application/pdf') {
@@ -80,6 +92,10 @@ function getUploadFileKind(file: File): UploadFileKind {
     return 'video';
   }
 
+  if (AUDIO_FILE_EXTENSIONS.has(ext)) {
+    return 'audio';
+  }
+
   if (ext === 'pdf') {
     return 'pdf';
   }
@@ -93,7 +109,7 @@ function validateSingleUploadFile(file: File): { valid: true } | { valid: false;
   if (kind === 'unsupported') {
     return {
       valid: false,
-      message: 'Only image, video, or PDF files are supported',
+      message: 'Only image, video, audio, or PDF files are supported',
     };
   }
 

@@ -17,6 +17,7 @@ export const paths = {
     signIn: '/sign-in',
     signUp: '/sign-up',
     resetPassword: '/reset-password',
+    updatePassword: '/update-password',
   },
   // DASHBOARD
   dashboard: {
@@ -110,6 +111,7 @@ export const paths = {
       signIn: `${ROOTS.DASHBOARD}/sign-in`,
       signUp: `${ROOTS.DASHBOARD}/sign-up`,
       resetPassword: `${ROOTS.DASHBOARD}/reset-password`,
+      updatePassword: `${ROOTS.DASHBOARD}/update-password`,
     },
   },
   // UNIVERSE

@@ -11,6 +11,12 @@ export interface CoffeeShop {
   type?: number | null;
   background?: string | null;
   files?: string | null;
+  /** JSON array of drink menu items for universe ordering */
+  menu?: string | null;
+  /** JSON array of background music tracks for universe page */
+  music?: string | null;
+  /** Universe atmosphere: none | evening | sparkles | evening_sparkles */
+  atmosphere?: string | null;
   createdAt?: Date | null;
 }
 
@@ -50,10 +56,14 @@ const ensureCoffeeShopsTable = async (): Promise<void> => {
             type SMALLINT,
             background TEXT,
             files TEXT,
+            menu TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `,
       );
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS menu TEXT`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS music TEXT`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS atmosphere TEXT`);
     })().catch((error) => {
       ensureCoffeeShopsTablePromise = null;
       throw error;
@@ -83,6 +93,9 @@ export async function getAllCoffeeShops(
           type,
           background,
           files,
+          menu,
+          music,
+          atmosphere,
           created_at as "createdAt"
         FROM ${TABLE_NAME}
         ORDER BY created_at DESC, id DESC
@@ -126,6 +139,9 @@ export async function getCoffeeShopById(id: number): Promise<CoffeeShop | null> 
           type,
           background,
           files,
+          menu,
+          music,
+          atmosphere,
           created_at as "createdAt"
         FROM ${TABLE_NAME}
         WHERE id = $1
@@ -161,9 +177,12 @@ export async function createCoffeeShop(
           type,
           background,
           files,
+          menu,
+          music,
+          atmosphere,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         RETURNING
           id,
           name,
@@ -172,6 +191,9 @@ export async function createCoffeeShop(
           type,
           background,
           files,
+          menu,
+          music,
+          atmosphere,
           created_at as "createdAt"
       `,
       [
@@ -181,6 +203,9 @@ export async function createCoffeeShop(
         normalizeNullableInteger(coffeeShop.type),
         coffeeShop.background ?? null,
         coffeeShop.files ?? null,
+        coffeeShop.menu ?? null,
+        coffeeShop.music ?? null,
+        coffeeShop.atmosphere ?? null,
       ],
     );
 
@@ -261,6 +286,24 @@ export async function updateCoffeeShop(
       paramIndex += 1;
     }
 
+    if (updates.menu !== undefined) {
+      fields.push(`menu = $${paramIndex}`);
+      values.push(updates.menu ?? null);
+      paramIndex += 1;
+    }
+
+    if (updates.music !== undefined) {
+      fields.push(`music = $${paramIndex}`);
+      values.push(updates.music ?? null);
+      paramIndex += 1;
+    }
+
+    if (updates.atmosphere !== undefined) {
+      fields.push(`atmosphere = $${paramIndex}`);
+      values.push(updates.atmosphere ?? null);
+      paramIndex += 1;
+    }
+
     if (!fields.length) {
       const existing = await getCoffeeShopById(normalizedId);
       if (!existing) {
@@ -288,6 +331,9 @@ export async function updateCoffeeShop(
           type,
           background,
           files,
+          menu,
+          music,
+          atmosphere,
           created_at as "createdAt"
       `,
       values,

@@ -10,6 +10,8 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -17,6 +19,36 @@ import { useRouter } from 'src/routes/hooks';
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 import { getS3SignedUrl } from 'src/utils/helper';
+import {
+  isCoffeeShopGradientBackground,
+  parseCoffeeShopBackgroundImages,
+  serializeCoffeeShopBackgroundKeys,
+} from 'src/utils/coffee-shop-background';
+import {
+  createDraftMenuItem,
+  getCoffeeShopMenuItems,
+  serializeCoffeeShopMenuItems,
+  type CoffeeShopMenuItem,
+} from 'src/utils/coffee-shop-menu';
+import {
+  createDraftMusicTrack,
+  formatMusicTrackFileInfo,
+  getCoffeeShopMusicTracks,
+  serializeCoffeeShopMusicTracks,
+  titleFromAudioFileName,
+  type CoffeeShopMusicTrack,
+} from 'src/utils/coffee-shop-music';
+import {
+  COFFEE_SHOP_ATMOSPHERE_OPTIONS,
+  COFFEE_SHOP_EVENING_BACKGROUND_FILTER,
+  COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER,
+  DEFAULT_COFFEE_SHOP_ATMOSPHERE,
+  hasEveningAtmosphere,
+  parseCoffeeShopAtmosphere,
+  type CoffeeShopAtmosphereEffect,
+} from 'src/utils/coffee-shop-atmosphere';
+
+import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 
 import {
   useGetCoffeeShop,
@@ -29,6 +61,7 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
+import { Iconify } from 'src/components/dashboard/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -42,7 +75,6 @@ type FormState = {
   description: string;
   type: string;
   background: string;
-  files: string;
 };
 
 const DEFAULT_BACKGROUND = 'linear-gradient(120deg, #1d3557 0%, #457b9d 100%)';
@@ -53,7 +85,6 @@ const createInitialForm = (): FormState => ({
   description: '',
   type: '1',
   background: DEFAULT_BACKGROUND,
-  files: '',
 });
 
 export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
@@ -65,30 +96,19 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
   const [form, setForm] = useState<FormState>(createInitialForm());
   const [saving, setSaving] = useState(false);
   const [backgroundUploading, setBackgroundUploading] = useState(false);
-  const [filesUploading, setFilesUploading] = useState(false);
-  const [backgroundPreviewUrl, setBackgroundPreviewUrl] = useState('');
+  const [backgroundResolvedUrls, setBackgroundResolvedUrls] = useState<string[]>([]);
+  const [selectedBackgroundPreview, setSelectedBackgroundPreview] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
-
-  const parseFileKeys = (value: string): string[] => {
-    const normalized = value.trim();
-    if (!normalized) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(normalized) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || '').trim()).filter(Boolean);
-      }
-    } catch {
-      // fallback to delimiter parsing
-    }
-
-    return normalized
-      .split(/[\r\n,]+/)
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  };
+  const [menuItems, setMenuItems] = useState<CoffeeShopMenuItem[]>([]);
+  const [menuUploading, setMenuUploading] = useState(false);
+  const [menuResolvedUrls, setMenuResolvedUrls] = useState<string[]>([]);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [musicTracks, setMusicTracks] = useState<CoffeeShopMusicTrack[]>([]);
+  const [musicUploading, setMusicUploading] = useState(false);
+  const [musicError, setMusicError] = useState<string | null>(null);
+  const [atmosphere, setAtmosphere] = useState<CoffeeShopAtmosphereEffect>(
+    DEFAULT_COFFEE_SHOP_ATMOSPHERE,
+  );
 
   const uploadFileToStorage = async (file: File, folder: string): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
@@ -108,26 +128,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     return result.key || key;
   };
 
-  const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      setBackgroundUploading(true);
-      const uploadedKey = await uploadFileToStorage(file, 'background');
-      setForm((prev) => ({ ...prev, background: uploadedKey }));
-    } catch (error) {
-      console.error('Failed to upload background image:', error);
-    } finally {
-      setBackgroundUploading(false);
-      event.target.value = '';
-    }
-  };
-
-  const handleFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBackgroundImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
 
     if (!selectedFiles.length) {
@@ -135,22 +136,128 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     }
 
     try {
-      setFilesUploading(true);
+      setBackgroundUploading(true);
       const uploadedKeys = await Promise.all(
-        selectedFiles.map((file) => uploadFileToStorage(file, 'files')),
+        selectedFiles.map((file) => uploadFileToStorage(file, 'background')),
       );
 
       setForm((prev) => {
-        const existing = parseFileKeys(prev.files);
+        const cur = prev.background.trim();
+        const existing = cur.includes('gradient(') ? [] : parseCoffeeShopBackgroundImages(cur);
         const merged = [...existing, ...uploadedKeys];
-        return { ...prev, files: JSON.stringify(merged) };
+        return { ...prev, background: serializeCoffeeShopBackgroundKeys(merged) };
       });
     } catch (error) {
-      console.error('Failed to upload coffee shop files:', error);
+      console.error('Failed to upload background images:', error);
     } finally {
-      setFilesUploading(false);
+      setBackgroundUploading(false);
       event.target.value = '';
     }
+  };
+
+  const removeBackgroundImageKey = (keyToRemove: string) => {
+    setForm((prev) => {
+      const cur = prev.background.trim();
+      if (cur.includes('gradient(')) {
+        return prev;
+      }
+      const keys = parseCoffeeShopBackgroundImages(cur).filter((k) => k !== keyToRemove);
+      return {
+        ...prev,
+        background: keys.length ? serializeCoffeeShopBackgroundKeys(keys) : DEFAULT_BACKGROUND,
+      };
+    });
+  };
+
+  const handleUseGradientBackground = () => {
+    setForm((prev) => ({ ...prev, background: DEFAULT_BACKGROUND }));
+    setSelectedBackgroundPreview(0);
+  };
+
+  const handleMenuImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    try {
+      setMenuUploading(true);
+      const newItems = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const key = await uploadFileToStorage(file, 'menu');
+          return createDraftMenuItem(key);
+        }),
+      );
+
+      setMenuItems((prev) => [...prev, ...newItems]);
+      setMenuError(null);
+    } catch (error) {
+      console.error('Failed to upload menu images:', error);
+    } finally {
+      setMenuUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const removeMenuItem = (id: string) => {
+    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateMenuItemName = (id: string, name: string) => {
+    setMenuItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, name } : item)),
+    );
+  };
+
+  const updateMenuItemPrice = (id: string, price: string) => {
+    const parsed = price.trim() === '' ? null : Number.parseFloat(price);
+    setMenuItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, price: parsed != null && !Number.isNaN(parsed) ? parsed : null } : item,
+      ),
+    );
+  };
+
+  const handleMusicFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    try {
+      setMusicUploading(true);
+      const newTracks = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const key = await uploadFileToStorage(file, 'music');
+          const extension = file.name.split('.').pop()?.toLowerCase() || '';
+          return createDraftMusicTrack(key, titleFromAudioFileName(file.name), {
+            fileSize: file.size,
+            extension,
+          });
+        }),
+      );
+
+      setMusicTracks((prev) => [...prev, ...newTracks]);
+      setMusicError(null);
+    } catch (error) {
+      console.error('Failed to upload music files:', error);
+      setMusicError('Failed to upload one or more audio files.');
+    } finally {
+      setMusicUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const removeMusicTrack = (id: string) => {
+    setMusicTracks((prev) => prev.filter((track) => track.id !== id));
+  };
+
+  const updateMusicTrackTitle = (id: string, title: string) => {
+    setMusicTracks((prev) =>
+      prev.map((track) => (track.id === id ? { ...track, title } : track)),
+    );
   };
 
   useEffect(() => {
@@ -164,57 +271,116 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
       description: coffeeShop.description || '',
       type: String(coffeeShop.type ?? 1),
       background: coffeeShop.background || DEFAULT_BACKGROUND,
-      files: coffeeShop.files || '',
     });
+    setMenuItems(getCoffeeShopMenuItems(coffeeShop.menu, coffeeShop.files));
+    setMusicTracks(getCoffeeShopMusicTracks(coffeeShop.music));
+    setAtmosphere(parseCoffeeShopAtmosphere(coffeeShop.atmosphere));
   }, [coffeeShop, isEditMode]);
 
   useEffect(() => {
     let mounted = true;
 
-    const resolvePreview = async () => {
-      const normalized = form.background.trim();
-
-      if (!normalized) {
-        if (mounted) {
-          setBackgroundPreviewUrl('');
-        }
-        return;
-      }
-
-      if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-        if (mounted) {
-          setBackgroundPreviewUrl(normalized);
-        }
-        return;
-      }
-
-      if (normalized.includes('gradient(')) {
-        if (mounted) {
-          setBackgroundPreviewUrl('');
-        }
-        return;
-      }
-
-      const signedUrl = await getS3SignedUrl(normalized);
+    const resolveMenuImages = async () => {
+      const urls = await Promise.all(
+        menuItems.map(async (item) => {
+          const key = item.imageUrl.trim();
+          if (!key) {
+            return '';
+          }
+          if (key.startsWith('http://') || key.startsWith('https://')) {
+            return key;
+          }
+          return (await getS3SignedUrl(key)) || '';
+        }),
+      );
 
       if (mounted) {
-        setBackgroundPreviewUrl(signedUrl || '');
+        setMenuResolvedUrls(urls);
       }
     };
 
-    resolvePreview();
+    resolveMenuImages();
+
+    return () => {
+      mounted = false;
+    };
+  }, [menuItems]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveBackgroundImages = async () => {
+      const normalized = form.background.trim();
+
+      if (!normalized || normalized.includes('gradient(')) {
+        if (mounted) {
+          setBackgroundResolvedUrls([]);
+        }
+        return;
+      }
+
+      const keys = parseCoffeeShopBackgroundImages(normalized);
+      if (!keys.length) {
+        if (mounted) {
+          setBackgroundResolvedUrls([]);
+        }
+        return;
+      }
+
+      const urls = await Promise.all(
+        keys.map(async (key) => {
+          if (key.startsWith('http://') || key.startsWith('https://')) {
+            return key;
+          }
+          return (await getS3SignedUrl(key)) || '';
+        }),
+      );
+
+      if (mounted) {
+        setBackgroundResolvedUrls(urls.filter(Boolean));
+      }
+    };
+
+    resolveBackgroundImages();
 
     return () => {
       mounted = false;
     };
   }, [form.background]);
 
+  useEffect(() => {
+    setSelectedBackgroundPreview((i) => {
+      if (!backgroundResolvedUrls.length) {
+        return 0;
+      }
+      return Math.min(i, backgroundResolvedUrls.length - 1);
+    });
+  }, [backgroundResolvedUrls.length]);
+
   const heading = useMemo(
     () => (isEditMode ? 'Edit Coffee Shop' : 'Create Coffee Shop'),
     [isEditMode],
   );
 
-  const hasBackgroundPreview = backgroundPreviewUrl || form.background.includes('gradient(');
+  const backgroundKeysForThumbs = useMemo(() => {
+    if (isCoffeeShopGradientBackground(form.background)) {
+      return [];
+    }
+    return parseCoffeeShopBackgroundImages(form.background);
+  }, [form.background]);
+
+  const backgroundPreviewUrl =
+    backgroundResolvedUrls.length > 0
+      ? backgroundResolvedUrls[
+          Math.min(selectedBackgroundPreview, backgroundResolvedUrls.length - 1)
+        ] || ''
+      : '';
+
+  const hasBackgroundPreview =
+    Boolean(backgroundPreviewUrl) || isCoffeeShopGradientBackground(form.background);
+
+  const eveningPreviewTone = hasEveningAtmosphere(atmosphere);
+  const atmospherePreviewSeed = coffeeShopId || form.name || 'draft';
 
   const handleSave = async () => {
     const normalizedName = form.name.trim();
@@ -224,10 +390,31 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
       return;
     }
 
+    const itemsMissingName = menuItems.filter(
+      (item) => item.imageUrl.trim() && !item.name.trim(),
+    );
+    if (itemsMissingName.length) {
+      setMenuError('Enter a name for each uploaded drink before saving.');
+      return;
+    }
+
+    const tracksMissingTitle = musicTracks.filter(
+      (track) => track.audioUrl.trim() && !track.title.trim(),
+    );
+    if (tracksMissingTitle.length) {
+      setMusicError('Enter a title for each uploaded music file before saving.');
+      return;
+    }
+
     const parsedType = Number.parseInt(form.type, 10);
 
     try {
       setSaving(true);
+      setMenuError(null);
+      setMusicError(null);
+
+      const serializedMenu = serializeCoffeeShopMenuItems(menuItems);
+      const serializedMusic = serializeCoffeeShopMusicTracks(musicTracks);
 
       const payload = {
         name: normalizedName,
@@ -235,7 +422,9 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
         description: form.description.trim() || null,
         type: Number.isNaN(parsedType) ? 1 : parsedType,
         background: form.background.trim() || DEFAULT_BACKGROUND,
-        files: form.files.trim() || null,
+        menu: serializedMenu || null,
+        music: serializedMusic || null,
+        atmosphere,
       };
 
       if (isEditMode && coffeeShopId) {
@@ -325,23 +514,60 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
           />
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap">
             <Button variant="outlined" component="label" disabled={backgroundUploading || saving}>
-              {backgroundUploading ? 'Uploading Background...' : 'Upload Background Image'}
+              {backgroundUploading ? 'Uploading…' : 'Upload background images'}
               <input
                 hidden
                 type="file"
                 accept="image/*"
-                onChange={handleBackgroundUpload}
+                multiple
+                onChange={handleBackgroundImagesUpload}
               />
             </Button>
 
+            <Button variant="text" size="small" onClick={handleUseGradientBackground} disabled={saving}>
+              Use default gradient
+            </Button>
+
             <Typography variant="caption" color="text.secondary">
-              {backgroundPreviewUrl || form.background.includes('gradient(')
-                ? 'Background image is ready'
-                : 'Upload a background image'}
+              {isCoffeeShopGradientBackground(form.background)
+                ? 'Using CSS gradient'
+                : backgroundKeysForThumbs.length
+                  ? `${backgroundKeysForThumbs.length} image(s) — pick a thumbnail below to preview`
+                  : 'Add one or more images for the universe page background'}
             </Typography>
           </Stack>
+
+          <Typography variant="subtitle2">Universe atmosphere</Typography>
+
+          <ToggleButtonGroup
+            exclusive
+            value={atmosphere}
+            onChange={(_event, value: CoffeeShopAtmosphereEffect | null) => {
+              if (value) {
+                setAtmosphere(value);
+              }
+            }}
+            size="small"
+            sx={{ flexWrap: 'wrap', gap: 0.5 }}
+          >
+            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.map((option) => (
+              <ToggleButton
+                key={option.value}
+                value={option.value}
+                sx={{ textTransform: 'none', px: 1.5 }}
+              >
+                {option.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <Typography variant="caption" color="text.secondary">
+            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.find((o) => o.value === atmosphere)?.description}
+            {' — '}
+            Shown on the universe coffee-shop page.
+          </Typography>
 
           <Box
             onClick={() => {
@@ -350,6 +576,8 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
               }
             }}
             sx={{
+              position: 'relative',
+              overflow: 'hidden',
               width: '100%',
               maxWidth: 400,
               mx: 'auto',
@@ -357,22 +585,285 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
               borderRadius: 1.5,
               border: '1px solid',
               borderColor: 'divider',
-              display: 'grid',
-              placeItems: 'center',
-              bgcolor: 'background.neutral',
-              background: form.background.includes('gradient(') ? form.background : undefined,
-              backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              bgcolor: '#0b0f14',
               cursor: hasBackgroundPreview ? 'zoom-in' : 'default',
             }}
           >
-            {!backgroundPreviewUrl && !form.background.includes('gradient(') ? (
-              <Typography variant="caption" color="text.secondary">
-                Background preview will appear here
-              </Typography>
-            ) : null}
+            {hasBackgroundPreview ? (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: isCoffeeShopGradientBackground(form.background)
+                    ? form.background
+                    : undefined,
+                  backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  ...(eveningPreviewTone
+                    ? isCoffeeShopGradientBackground(form.background)
+                      ? { filter: COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER }
+                      : { filter: COFFEE_SHOP_EVENING_BACKGROUND_FILTER }
+                    : {}),
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  bgcolor: 'background.neutral',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  Background preview will appear here
+                </Typography>
+              </Box>
+            )}
+
+            <CoffeeShopAtmosphereLayers
+              atmosphere={atmosphere}
+              seed={atmospherePreviewSeed}
+              layout="contained"
+            />
           </Box>
+
+          {backgroundKeysForThumbs.length > 0 && (
+            <Stack direction="row" flexWrap="wrap" gap={1} justifyContent="center">
+              {backgroundKeysForThumbs.map((key, index) => {
+                const thumbUrl = backgroundResolvedUrls[index];
+                return (
+                  <Box
+                    key={key}
+                    sx={{
+                      position: 'relative',
+                      width: 72,
+                      height: 72,
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      border: '1px solid',
+                      borderColor:
+                        index === selectedBackgroundPreview ? 'primary.main' : 'divider',
+                      boxShadow:
+                        index === selectedBackgroundPreview
+                          ? (theme) => `0 0 0 2px ${theme.palette.primary.main}33`
+                          : 'none',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setSelectedBackgroundPreview(index)}
+                  >
+                    {thumbUrl ? (
+                      <Box
+                        component="img"
+                        alt=""
+                        src={thumbUrl}
+                        sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <Box sx={{ width: 1, height: 1, display: 'grid', placeItems: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          …
+                        </Typography>
+                      </Box>
+                    )}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeBackgroundImageKey(key);
+                      }}
+                      disabled={saving}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        bgcolor: 'rgba(0,0,0,0.45)',
+                        color: 'common.white',
+                        '&:hover': { bgcolor: 'rgba(0,0,0,0.6)' },
+                      }}
+                    >
+                      <Iconify icon="mingcute:close-line" width={14} />
+                    </IconButton>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+
+          <Typography variant="subtitle2">Coffee menu</Typography>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap">
+            <Button variant="outlined" component="label" disabled={menuUploading || saving}>
+              {menuUploading ? 'Uploading…' : 'Upload drink images'}
+              <input
+                hidden
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleMenuImagesUpload}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              {menuItems.length
+                ? 'Add a name and price for each uploaded drink below, then save.'
+                : 'Upload drink images first, then add name and price for each item.'}
+            </Typography>
+          </Stack>
+
+          {menuError ? (
+            <Typography variant="caption" color="error">
+              {menuError}
+            </Typography>
+          ) : null}
+
+{menuItems.length > 0 && (
+            <Stack direction="row" flexWrap="wrap" gap={2}>
+              {menuItems.map((item, index) => {
+                const thumbUrl = menuResolvedUrls[index];
+                return (
+                  <Stack key={item.id} spacing={0.75} sx={{ width: 160 }}>
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 160,
+                        height: 120,
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {thumbUrl ? (
+                        <Box
+                          component="img"
+                          alt={item.name}
+                          src={thumbUrl}
+                          sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <Box sx={{ width: 1, height: 1, display: 'grid', placeItems: 'center' }}>
+                          <CircularProgress size={20} />
+                        </Box>
+                      )}
+                      <IconButton
+                        size="small"
+                        onClick={() => removeMenuItem(item.id)}
+                        disabled={saving}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          bgcolor: 'rgba(0,0,0,0.45)',
+                          color: 'common.white',
+                        }}
+                      >
+                        <Iconify icon="mingcute:close-line" width={14} />
+                      </IconButton>
+                    </Box>
+                    <TextField
+                      size="small"
+                      label="Name"
+                      placeholder="Drink name"
+                      value={item.name}
+                      onChange={(e) => {
+                        updateMenuItemName(item.id, e.target.value);
+                        setMenuError(null);
+                      }}
+                      disabled={saving}
+                      required
+                      error={!item.name.trim()}
+                      helperText={!item.name.trim() ? 'Required after upload' : ' '}
+                    />
+                    <TextField
+                      size="small"
+                      label="Price"
+                      placeholder="0.00"
+                      type="number"
+                      value={item.price ?? ''}
+                      onChange={(e) => updateMenuItemPrice(item.id, e.target.value)}
+                      disabled={saving}
+                      inputProps={{ min: 0, step: 0.01 }}
+                    />
+                  </Stack>
+                );
+              })}
+            </Stack>
+          )}
+
+          <Typography variant="subtitle2" sx={{ pt: 1 }}>
+            Background music
+          </Typography>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap">
+            <Button variant="outlined" component="label" disabled={musicUploading || saving}>
+              {musicUploading ? 'Uploading…' : 'Upload music files'}
+              <input
+                hidden
+                type="file"
+                accept=".mp3,.wav,.aac,.ogg,.m4a,.flac,audio/*"
+                multiple
+                onChange={handleMusicFilesUpload}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              {musicTracks.length
+                ? 'Edit track titles below. Music plays on the coffee-shop page.'
+                : 'Upload MP3 or other audio files for the music player.'}
+            </Typography>
+          </Stack>
+
+          {musicError ? (
+            <Typography variant="caption" color="error">
+              {musicError}
+            </Typography>
+          ) : null}
+
+          {musicTracks.length > 0 && (
+            <Stack spacing={1}>
+              {musicTracks.map((track) => (
+                <Stack
+                  key={track.id}
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  alignItems={{ sm: 'center' }}
+                >
+                  <TextField
+                    size="small"
+                    label="Track title"
+                    value={track.title}
+                    onChange={(e) => {
+                      updateMusicTrackTitle(track.id, e.target.value);
+                      setMusicError(null);
+                    }}
+                    disabled={saving}
+                    required
+                    error={!track.title.trim()}
+                    helperText={!track.title.trim() ? 'Required' : ' '}
+                    sx={{ flex: 1, minWidth: 200 }}
+                  />
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ flex: 1, minWidth: 88, whiteSpace: 'nowrap' }}
+                  >
+                    {formatMusicTrackFileInfo(track)}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => removeMusicTrack(track.id)}
+                    disabled={saving}
+                    aria-label="Remove music track"
+                  >
+                    <Iconify icon="mingcute:close-line" width={18} />
+                  </IconButton>
+                </Stack>
+              ))}
+            </Stack>
+          )}
+
+          
 
           <Dialog fullScreen open={previewOpen} onClose={() => setPreviewOpen(false)}>
             <Box
@@ -406,7 +897,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   height: '100%',
                   borderRadius: 1,
                   bgcolor: 'common.black',
-                  background: form.background.includes('gradient(') ? form.background : undefined,
+                  background: isCoffeeShopGradientBackground(form.background) ? form.background : undefined,
                   backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
                   backgroundSize: 'contain',
                   backgroundPosition: 'center',
@@ -415,31 +906,6 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
               />
             </Box>
           </Dialog>
-
-          <TextField
-            label="Files"
-            value={form.files}
-            onChange={(event) => setForm((prev) => ({ ...prev, files: event.target.value }))}
-            placeholder="coffee/your-file.png"
-            multiline
-            minRows={2}
-          />
-
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-            <Button variant="outlined" component="label" disabled={filesUploading || saving}>
-              {filesUploading ? 'Uploading Files...' : 'Upload Files'}
-              <input
-                hidden
-                type="file"
-                multiple
-                onChange={handleFilesUpload}
-              />
-            </Button>
-
-            <Typography variant="caption" color="text.secondary">
-              Upload multiple files. Saved as JSON array of storage keys.
-            </Typography>
-          </Stack>
 
           <Stack direction="row" spacing={1.5} justifyContent="flex-end">
             <Button

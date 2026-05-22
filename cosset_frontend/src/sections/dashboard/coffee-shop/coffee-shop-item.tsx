@@ -11,6 +11,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import { parseCoffeeShopBackgroundImages } from 'src/utils/coffee-shop-background';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -28,6 +29,7 @@ export type CoffeeShopItemCardProps = {
   fileCount?: number;
   memberNames?: string[];
   createdAt?: string | Date | null;
+  canManage?: boolean;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
 };
@@ -75,6 +77,7 @@ export function CoffeeShopItem({
   fileCount = 0,
   memberNames = [],
   createdAt,
+  canManage = false,
   onEdit,
   onDelete,
 }: CoffeeShopItemCardProps) {
@@ -112,10 +115,26 @@ export function CoffeeShopItem({
         return;
       }
 
-      const signedUrl = await getS3SignedUrl(normalized);
+      const keys = parseCoffeeShopBackgroundImages(normalized);
+      const firstKey = keys[0];
+      if (!firstKey) {
+        if (mounted) {
+          setResolvedBackground('');
+        }
+        return;
+      }
+
+      if (firstKey.startsWith('http://') || firstKey.startsWith('https://')) {
+        if (mounted) {
+          setResolvedBackground(firstKey);
+        }
+        return;
+      }
+
+      const signedUrl = await getS3SignedUrl(firstKey);
 
       if (mounted) {
-        setResolvedBackground(signedUrl || normalized);
+        setResolvedBackground(signedUrl || firstKey);
       }
     };
 
@@ -132,19 +151,26 @@ export function CoffeeShopItem({
     <Card sx={{ p: 1.25, border: '1px solid', borderColor: 'divider' }}>
       <Stack spacing={1}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-          <Typography variant="subtitle2" noWrap sx={{ maxWidth: 190 }}>
+          <Typography variant="subtitle2" noWrap sx={{ maxWidth: canManage ? 190 : 1, flex: 1 }}>
             {title || name}
           </Typography>
 
-          <Stack direction="row" spacing={0.25}>
-            <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit coffee shop">
-              <Iconify icon="solar:pen-bold" width={15} />
-            </IconButton>
+          {canManage ? (
+            <Stack direction="row" spacing={0.25}>
+              <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit coffee shop">
+                <Iconify icon="solar:pen-bold" width={15} />
+              </IconButton>
 
-            <IconButton size="small" color="error" onClick={() => onDelete?.(id)} title="Delete coffee shop">
-              <Iconify icon="solar:trash-bin-trash-bold" width={15} />
-            </IconButton>
-          </Stack>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => onDelete?.(id)}
+                title="Delete coffee shop"
+              >
+                <Iconify icon="solar:trash-bin-trash-bold" width={15} />
+              </IconButton>
+            </Stack>
+          ) : null}
         </Stack>
 
         <Box

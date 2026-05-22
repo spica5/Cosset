@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
       type: coffeeShop.type ?? null,
       background: coffeeShop.background ?? null,
       files: coffeeShop.files ?? null,
+      menu: coffeeShop.menu ?? null,
+      music: coffeeShop.music ?? null,
+      atmosphere: coffeeShop.atmosphere ?? null,
     });
 
     return response({ coffeeShop: created }, STATUS.OK);

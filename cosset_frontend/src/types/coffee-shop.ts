@@ -6,5 +6,8 @@ export type ICoffeeShopItem = {
   type?: number | null;
   background?: string | null;
   files?: string | null;
+  menu?: string | null;
+  music?: string | null;
+  atmosphere?: string | null;
   createdAt?: string | Date | null;
 };

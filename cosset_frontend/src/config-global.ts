@@ -34,6 +34,7 @@ export type ConfigValue = {
   amplify: { userPoolId: string; userPoolWebClientId: string; region: string };
   auth0: { clientId: string; domain: string; callbackUrl: string };
   supabase: { url: string; key: string };
+  pusher: { key: string; cluster: string };
 };
 
 // ----------------------------------------------------------------------
@@ -109,5 +110,9 @@ export const CONFIG: ConfigValue = {
   supabase: {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+  },
+  pusher: {
+    key: (process.env.NEXT_PUBLIC_PUSHER_KEY ?? '').trim().replace(/^['"]|['"]$/g, ''),
+    cluster: (process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? '').trim().replace(/^['"]|['"]$/g, ''),
   },
 };

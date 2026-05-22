@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -42,15 +42,15 @@ export function HomeSpacePreviewHeaderBar({
   const handleCloseMobileMenu = () => {
     setMobileMenuAnchorEl(null);
   };
- 
+
   const menuLinkSx = {
     px: 2,
     py: 0.75,
-    borderRadius: 1,
+    borderRadius: 0.5,
     border: 1,
-    borderColor: 'text.secondary',
+    borderColor: 'info.main',
     bgcolor: (currentTheme: typeof theme) =>
-      varAlpha(currentTheme.vars.palette.common.blackChannel, 0.45),
+      varAlpha(currentTheme.vars.palette.background.defaultChannel, 0.5),
     color: 'info.main',
     typography: 'subtitle2',
     textDecoration: 'none',
@@ -59,10 +59,10 @@ export function HomeSpacePreviewHeaderBar({
         duration: currentTheme.transitions.duration.shorter,
       }),
     '&:hover': {
-      borderColor: 'text.secondary',
+      borderColor: 'info.main',
       bgcolor: (currentTheme: typeof theme) =>
-        varAlpha(currentTheme.vars.palette.common.blackChannel, 0.65),
-      color: 'info.lighter',
+        varAlpha(currentTheme.vars.palette.background.defaultChannel, 0.8),
+      color: 'info.dark',
     },
   } as const;
 
@@ -84,90 +84,93 @@ export function HomeSpacePreviewHeaderBar({
     <Box
       component="section"
       sx={{
-        top: { xs: 12, md: 20 },
+        top: { xs: 10, md: 10 },
         left: { xs: 12, md: 20 },
-        right: { xs: 12, md: 300 },
+        right: { xs: 12, md: 20 },
         zIndex: 12,
         position: 'absolute',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 1.5,
-        px: { xs: 1, md: 2 },
+        px: { xs: 1, md: 10 },
         py: 1.25,
+        mr: 20,
         mb: 0,
       }}
     >
-      <Box
-        gap={{ xs: 1, md: 4 }}
-        display="flex"
-        alignItems="center"
-        flexWrap="nowrap"
+      <Logo
+        disableLink
+        isSingle
         sx={{
-          display: { xs: 'none', md: 'flex' },
-          overflowX: 'auto',
-          pr: 0.5,
-          '&::-webkit-scrollbar': { display: 'none' },
+          width: { xs: 60, sm: 72, md: 84 },
+          height: { xs: 34, sm: 40, md: 48 },
+          flexShrink: 0,
         }}
-      >
-        <Logo
-          disableLink
-          isSingle
+      />
+
+      <Box display="flex" alignItems="center" gap={100}>
+        <Box
+          display="flex"
+          alignItems="center"
           sx={{
-            ml: { xs: 0, md: 10 },
-            mr: { xs: 1, md: 12 },
-            width: { xs: 70, md: 80 },
-            height: { xs: 42, md: 50 },
-            flexShrink: 0,
+            display: { xs: 'none', md: 'flex' },
+            overflowX: 'auto',
+            flexWrap: 'nowrap',
+            maxWidth: '100%',
+            '&::-webkit-scrollbar': { display: 'none' },
+            scrollbarWidth: 'none',
+            pr: 3,
           }}
-        />
-
-        <Link
-          component={RouterLink}
-          href={`${currentPath}#blogs-section`}
-          color="inherit"
-          underline="none"
-          sx={menuLinkSx}
         >
-          Blogs
-        </Link>
+          <Link
+            component={RouterLink}
+            href={`${currentPath}#blogs-section`}
+            color="inherit"
+            underline="none"
+            sx={menuLinkSx}
+          >
+            Blogs
+          </Link>
 
-        <Link
-          component={RouterLink}
-          href={`${currentPath}#albums-section`}
-          color="inherit"
-          underline="none"
-          sx={menuLinkSx}
-        >
-          Albums
-        </Link>       
+          <Link
+            component={RouterLink}
+            href={`${currentPath}#albums-section`}
+            color="inherit"
+            underline="none"
+            sx={menuLinkSx}
+          >
+            Albums
+          </Link>
 
-        <Link
-          component={RouterLink}
-          href={`${currentPath}#drawers-section`}
-          color="inherit"
-          underline="none"
-          sx={menuLinkSx}
-        >
-          Drawers
-        </Link>
+          <Link
+            component={RouterLink}
+            href={`${currentPath}#drawers-section`}
+            color="inherit"
+            underline="none"
+            sx={menuLinkSx}
+          >
+            Drawers
+          </Link>
 
-        <Link
-          component={RouterLink}
-          href={`${currentPath}#collection-items-section`}
-          color="inherit"
-          underline="none"
-          sx={menuLinkSx}
-        >
-          Collections
-        </Link>
-      </Box>
+          <Link
+            component={RouterLink}
+            href={`${currentPath}#collection-items-section`}
+            color="inherit"
+            underline="none"
+            sx={menuLinkSx}
+          >
+            Collections
+          </Link>
+        </Box>
 
-      <Box display="flex" alignItems="center" gap={1}>
         <MenuButton
           aria-label="open section menu"
           onClick={handleOpenMobileMenu}
-          sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+          sx={{
+            ml: 0.5,
+            display: { xs: 'inline-flex', md: 'none' },
+          }}
         />
 
         <Menu

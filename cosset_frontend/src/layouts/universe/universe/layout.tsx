@@ -13,7 +13,7 @@ import MenuItem from '@mui/material/MenuItem';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { varAlpha } from 'src/theme/universe/styles';
+import {bgBlur, varAlpha } from 'src/theme/universe/styles';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Logo } from 'src/components/universe/logo';
@@ -95,10 +95,10 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
   const menuLinkSx = {
     px: { xs: 1.5, sm: 3 },
     py: { xs: 0.5, sm: 0.75 },
-    borderRadius: 1,
+    borderRadius: 0.5,
     border: 1,
-    borderColor: 'text.secondary',
-    bgcolor: (theme: Theme) => varAlpha(theme.vars.palette.common.blackChannel, 0.5),
+    borderColor: 'info.main',
+    bgcolor: (theme: Theme) => bgBlur({ color: varAlpha(theme.vars.palette.background.defaultChannel, 0.5) }),
     color: 'info.main',
     typography: 'subtitle1',
     fontSize: { xs: '0.75rem', sm: '1rem' },
@@ -108,9 +108,9 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
         duration: theme.transitions.duration.shorter,
       }),
     '&:hover': {
-      borderColor: 'text.secondary',
-      bgcolor: (theme: Theme) => varAlpha(theme.vars.palette.common.blackChannel, 0.7),
-      color: 'info.lighter',
+      borderColor: 'info.main',
+      bgcolor: (theme: Theme) => varAlpha(theme.vars.palette.background.defaultChannel, 0.8),
+      color: 'info.dark',
     },
   } as const;
 
@@ -143,64 +143,61 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
                   />
                 </>
               ),
-              centerArea: showUniverseSectionLinks ? (
-                <Box
-                  gap={{ xs: 1.5, sm: 3, md: 5 }}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  sx={{
-                    display: { xs: 'none', md: 'flex' },
-                    overflowX: 'auto',
-                    flexWrap: 'nowrap',
-                    maxWidth: '100%',
-                    '&::-webkit-scrollbar': { display: 'none' },
-                    scrollbarWidth: 'none',
-                  }}
-                >
-                  <Link
-                    component={RouterLink}
-                    href={`${currentPathWithHash}#blogs-section`}
-                    color="inherit"
-                    underline="none"
-                    sx={menuLinkSx}
-                  >
-                    Blogs
-                  </Link>
-
-                  <Link
-                    component={RouterLink}
-                    href={`${currentPathWithHash}#albums-section`}
-                    color="inherit"
-                    underline="none"
-                    sx={menuLinkSx}
-                  >
-                    Albums
-                  </Link>
-                  <Link
-                    component={RouterLink}
-                    href={`${currentPathWithHash}#drawers-section`}
-                    color="inherit"
-                    underline="none"
-                    sx={menuLinkSx}
-                  >
-                    Drawers
-                  </Link>
-                  <Link
-                    component={RouterLink}
-                    href={`${currentPathWithHash}#collection-items-section`}
-                    color="inherit"
-                    underline="none"
-                    sx={menuLinkSx}
-                  >
-                    Collections
-                  </Link>
-                </Box>
-              ) : null,
               rightArea: (
                 <Box gap={{ [layoutQuery]: 1 }} display="flex" alignItems="center">
                   {showUniverseSectionLinks ? (
                     <>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        sx={{
+                          display: { xs: 'none', md: 'flex' },
+                          overflowX: 'auto',
+                          flexWrap: 'nowrap',
+                          maxWidth: '100%',
+                          '&::-webkit-scrollbar': { display: 'none' },
+                          scrollbarWidth: 'none',
+                        }}
+                      >
+                        <Link
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#blogs-section`}
+                          color="inherit"
+                          underline="none"
+                          sx={menuLinkSx}
+                        >
+                          Blogs
+                        </Link>
+
+                        <Link
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#albums-section`}
+                          color="inherit"
+                          underline="none"
+                          sx={menuLinkSx}
+                        >
+                          Albums
+                        </Link>
+                        <Link
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#drawers-section`}
+                          color="inherit"
+                          underline="none"
+                          sx={menuLinkSx}
+                        >
+                          Drawers
+                        </Link>
+                        <Link
+                          component={RouterLink}
+                          href={`${currentPathWithHash}#collection-items-section`}
+                          color="inherit"
+                          underline="none"
+                          sx={menuLinkSx}
+                        >
+                          Collections
+                        </Link>
+                      </Box>
+
                       <MenuButton
                         aria-label="open section menu"
                         onClick={handleOpenMobileMenu}

@@ -58,6 +58,9 @@ export async function PUT(
       type: updates.type,
       background: updates.background,
       files: updates.files,
+      menu: updates.menu,
+      music: updates.music,
+      atmosphere: updates.atmosphere,
     });
 
     return response({ coffeeShop }, STATUS.OK);

@@ -15,6 +15,9 @@ import { useRouter } from 'src/routes/hooks';
 
 import { useGetCoffeeShops, deleteCoffeeShop } from 'src/actions/coffee-shop';
 
+import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -26,7 +29,9 @@ import { CoffeeShopItem } from 'src/sections/dashboard/coffee-shop/coffee-shop-i
 
 export function CoffeeShopListView() {
   const router = useRouter();
+  const { user } = useAuthContext();
   const [search, setSearch] = useState('');
+  const canManage = isUserAdmin(user?.role);
 
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
 
@@ -94,14 +99,16 @@ export function CoffeeShopListView() {
                 Showing {filteredData.length} of {coffeeShops.length}
               </Typography>
 
-              <Button
-                variant="contained"
-                startIcon={<Iconify icon="mingcute:add-line" />}
-                onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Add Coffee Shop
-              </Button>
+              {canManage ? (
+                <Button
+                  variant="contained"
+                  startIcon={<Iconify icon="mingcute:add-line" />}
+                  onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Add Coffee Shop
+                </Button>
+              ) : null}
             </Stack>
           </Stack>
 
@@ -137,8 +144,13 @@ export function CoffeeShopListView() {
                   files={item.files}
                   createdAt={item.createdAt}
                   previewHref={paths.dashboard.community.coffeeShop.view(item.id)}
-                  onEdit={(id) => router.push(paths.dashboard.community.coffeeShop.edit(id))}
-                  onDelete={handleDelete}
+                  canManage={canManage}
+                  onEdit={
+                    canManage
+                      ? (id) => router.push(paths.dashboard.community.coffeeShop.edit(id))
+                      : undefined
+                  }
+                  onDelete={canManage ? handleDelete : undefined}
                 />
               ))}
             </Box>

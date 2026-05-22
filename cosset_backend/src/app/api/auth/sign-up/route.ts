@@ -16,9 +16,12 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from 'src/config-global';
 export async function POST(req: NextRequest) {
   try {
     const { email, password, firstName, lastName } = await req.json();
+    const normalizedEmail = String(email || '')
+      .trim()
+      .toLowerCase();
 
     // Check if user already exists in database
-    const existUser = await userExistsByEmail(email);
+    const existUser = await userExistsByEmail(normalizedEmail);
 
     if (existUser) {
       return response(
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const newUser = {
       id: uuidv4(),
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       firstName: firstName || undefined,
       lastName: lastName || undefined,

@@ -34,7 +34,9 @@ export async function GET(req: NextRequest) {
       return response('Invalid authorization token', STATUS.UNAUTHORIZED);
     }
 
-    return response({ user }, STATUS.OK);
+    const { password: _password, ...safeUser } = user;
+
+    return response({ user: safeUser }, STATUS.OK);
   } catch (error) {
     console.error('[Auth - me]: ', error);
     return response('Internal server error', STATUS.ERROR);

@@ -122,10 +122,10 @@ export async function getUserByEmail(email: string): Promise<User | null> {
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
-        WHERE email = $1
+        WHERE LOWER(email) = LOWER($1)
         LIMIT 1
       `,
-      [email],
+      [email.trim()],
     );
 
     return user;
@@ -197,6 +197,100 @@ export async function getUserById(id: string): Promise<User | null> {
       throw new DatabaseError({
         code: 'GET_USER_BY_ID_ERROR',
         message: `Failed to fetch user by ID: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type UserBrief = {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  photoURL?: string | null;
+};
+
+/**
+ * Lightweight user rows for avatars and display names.
+ */
+export async function getUsersBriefByIds(ids: string[]): Promise<Map<string, UserBrief>> {
+  const unique = [...new Set(ids.map((id) => id.trim().toLowerCase()).filter((id) => UUID_RE.test(id)))];
+
+  if (!unique.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = await queryMany<UserBrief>(
+      `
+        SELECT
+          id::text AS id,
+          first_name AS "firstName",
+          last_name AS "lastName",
+          email,
+          photo_url AS "photoURL"
+        FROM ${TABLE_NAME}
+        WHERE id = ANY($1::uuid[])
+      `,
+      [unique],
+    );
+
+    const map = new Map<string, UserBrief>();
+    rows.forEach((row) => {
+      map.set(row.id.toLowerCase(), row);
+    });
+    return map;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_USERS_BRIEF_BY_IDS_ERROR',
+        message: `Failed to fetch users: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Profile photo keys/URLs for many users (for chat avatars, etc.).
+ */
+export async function getUserPhotoURLsByIds(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.map((id) => id.trim().toLowerCase()).filter((id) => UUID_RE.test(id)))];
+
+  if (!unique.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = await queryMany<{ id: string; photoURL: string | null }>(
+      `
+        SELECT id::text AS id, photo_url AS "photoURL"
+        FROM ${TABLE_NAME}
+        WHERE id = ANY($1::uuid[])
+      `,
+      [unique],
+    );
+
+    const map = new Map<string, string>();
+    rows.forEach((row) => {
+      const photo = row.photoURL != null ? String(row.photoURL).trim() : '';
+      if (photo) {
+        map.set(row.id.toLowerCase(), photo);
+      }
+    });
+    
+    return map;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_USER_PHOTOS_BY_IDS_ERROR',
+        message: `Failed to fetch user photos: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -304,9 +398,9 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
       `
         SELECT COUNT(*) as count
         FROM ${TABLE_NAME}
-        WHERE email = $1
+        WHERE LOWER(email) = LOWER($1)
       `,
-      [email],
+      [email.trim()],
     );
 
     return (result?.count ?? 0) > 0;
@@ -455,6 +549,59 @@ export async function createUser(
  * });
  * ```
  */
+/**
+ * Update a user's password hash.
+ */
+export async function updateUserPassword(id: string, hashedPassword: string): Promise<User> {
+  try {
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET password = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password,
+          plan as "plan",
+          role as "role",
+          phone_number as "phoneNumber",
+          first_name as "firstName",
+          last_name as "lastName",
+          photo_url as "photoURL",
+          country,
+          address,
+          state,
+          city,
+          zip_code as "zipCode",
+          about,
+          is_public as "isPublic",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `,
+      [id, hashedPassword],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_PASSWORD_FAILED',
+        message: 'Failed to update password: User not found',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_PASSWORD_ERROR',
+        message: `Failed to update user password: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function updateUser(
   id: string,
   updates: Partial<Omit<User, 'id' | 'email' | 'password' | 'plan' | 'role' | 'createdAt' | 'updatedAt'>>,

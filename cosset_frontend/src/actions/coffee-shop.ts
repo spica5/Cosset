@@ -1,3 +1,6 @@
+import type { CoffeeShopChatMessage, CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
+import type { CoffeeShopMenuOrderBody } from 'src/types/coffee-shop-menu';
+import type { CoffeeShopMenuItem } from 'src/utils/coffee-shop-menu';
 import type { ICoffeeShopItem } from 'src/types/coffee-shop';
 
 import { useMemo } from 'react';
@@ -118,4 +121,72 @@ export async function deleteCoffeeShop(id: string | number) {
 
   await mutate(COFFEE_SHOP_LIST_ENDPOINT);
   return res.data;
+}
+
+type SendCoffeeShopChatBody = {
+  message: string;
+  displayName?: string;
+};
+
+type SendCoffeeShopChatResponse = {
+  chatMessage?: CoffeeShopChatMessage;
+};
+
+export async function sendCoffeeShopChatMessage(
+  coffeeShopId: string | number,
+  body: SendCoffeeShopChatBody,
+): Promise<SendCoffeeShopChatResponse> {
+  const res = await axios.post(endpoints.coffeeShop.chat(coffeeShopId), body);
+  return res.data as SendCoffeeShopChatResponse;
+}
+
+type CoffeeShopChatTodayResponse = {
+  messages?: CoffeeShopChatMessage[];
+  participants?: CoffeeShopChatParticipant[];
+};
+
+export async function fetchCoffeeShopChatToday(
+  coffeeShopId: string | number,
+): Promise<CoffeeShopChatTodayResponse> {
+  const res = await axios.get(endpoints.coffeeShop.chat(coffeeShopId));
+  return res.data as CoffeeShopChatTodayResponse;
+}
+
+type CoffeeShopPresenceResponse = {
+  participant?: CoffeeShopChatParticipant;
+};
+
+export async function joinCoffeeShopPresence(
+  coffeeShopId: string | number,
+): Promise<CoffeeShopPresenceResponse> {
+  const res = await axios.post(endpoints.coffeeShop.presence(coffeeShopId));
+  return res.data as CoffeeShopPresenceResponse;
+}
+
+export async function leaveCoffeeShopPresence(coffeeShopId: string | number): Promise<void> {
+  await axios.delete(endpoints.coffeeShop.presence(coffeeShopId));
+}
+
+type CoffeeShopMenuResponse = {
+  items?: CoffeeShopMenuItem[];
+};
+
+export async function fetchCoffeeShopMenu(
+  coffeeShopId: string | number,
+): Promise<CoffeeShopMenuResponse> {
+  const res = await axios.get(endpoints.coffeeShop.menu(coffeeShopId));
+  return res.data as CoffeeShopMenuResponse;
+}
+
+type CoffeeShopOrderResponse = {
+  message?: string;
+  menuItem?: CoffeeShopMenuItem;
+};
+
+export async function placeCoffeeShopOrder(
+  coffeeShopId: string | number,
+  body: CoffeeShopMenuOrderBody & { displayName?: string },
+): Promise<CoffeeShopOrderResponse> {
+  const res = await axios.post(endpoints.coffeeShop.menuOrder(coffeeShopId), body);
+  return res.data as CoffeeShopOrderResponse;
 }

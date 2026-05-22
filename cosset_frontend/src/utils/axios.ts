@@ -38,6 +38,8 @@ export const endpoints = {
     me: '/api/auth/me',
     signIn: '/api/auth/sign-in',
     signUp: '/api/auth/sign-up',
+    forgotPassword: '/api/auth/forgot-password',
+    resetPassword: '/api/auth/reset-password',
   },
   user: {
     list: '/api/user/list',
@@ -113,6 +115,10 @@ export const endpoints = {
     details: (id: string | number) => `/api/coffee-shop/${id}`,
     update: (id: string | number) => `/api/coffee-shop/${id}`,
     delete: (id: string | number) => `/api/coffee-shop/${id}`,
+    chat: (id: string | number) => `/api/coffee-shop/${id}/chat`,
+    presence: (id: string | number) => `/api/coffee-shop/${id}/presence`,
+    menu: (id: string | number) => `/api/coffee-shop/${id}/menu`,
+    menuOrder: (id: string | number) => `/api/coffee-shop/${id}/menu/order`,
   },
   reaction: {
     root: '/api/reaction',
