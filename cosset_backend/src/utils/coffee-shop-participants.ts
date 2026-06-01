@@ -16,8 +16,9 @@ const displayNameFromUser = (user: UserBrief | undefined): string => {
 
 export async function listCoffeeShopParticipants(
   coffeeShopId: number,
+  includeLeft = false,
 ): Promise<CoffeeShopParticipantPayload[]> {
-  const presenceData = await listCoffeeshopPresence(coffeeShopId);
+  const presenceData = await listCoffeeshopPresence(coffeeShopId, includeLeft);
   if (!presenceData.length) {
     return [];
   }
@@ -35,6 +36,7 @@ export async function listCoffeeShopParticipants(
       name: displayNameFromUser(user),
       photoURL: photo || null,
       joinedAt: pres.joinedAt,
+      leftAt: pres.leftAt,
     };
   });
 }

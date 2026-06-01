@@ -247,17 +247,18 @@ export async function getCoffeeShopPresenceHidden(
 
 export async function listCoffeeshopPresence(
   coffeeShopId: number,
-): Promise<Array<{ userId: string; joinedAt: string }>> {
+  includeLeft = false,
+): Promise<Array<{ userId: string; joinedAt: string; leftAt: string | null }>> {
   try {
     await ensureCoffeeShopPresenceTableAndPurge();
 
-    const rows = await queryMany<{ userId: string; joinedAt: string }>(
+    const rows = await queryMany<{ userId: string; joinedAt: string; leftAt: string | null }>(
       `
-        SELECT user_id::text AS "userId", joined_at::text AS "joinedAt"
+        SELECT user_id::text AS "userId", joined_at::text AS "joinedAt", left_at::text AS "leftAt" 
         FROM ${TABLE_NAME}
         WHERE coffee_shop_id = $1
           AND is_hidden = FALSE
-          AND left_at IS NULL
+          ${includeLeft ? '' : 'AND left_at IS NULL'}
         ORDER BY joined_at ASC
       `,
       [coffeeShopId],

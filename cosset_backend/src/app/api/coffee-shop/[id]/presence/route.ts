@@ -96,6 +96,9 @@ export async function POST(
       return response({ message: 'User not found' }, STATUS.NOT_FOUND);
     }
 
+    // Return the full participant list (including those who recently left)
+    const participants = await listCoffeeShopParticipants(coffeeShopId, true);
+
     const pusher = getPusherServer();
     if (pusher) {
       // Notify old shops that user left
@@ -120,7 +123,7 @@ export async function POST(
       );
     }
 
-    return response({ participant }, STATUS.OK);
+    return response({ participant, participants }, STATUS.OK);
   } catch (error) {
     return handleError('Coffee Shop Presence - Join', error as Error);
   }
@@ -218,7 +221,7 @@ export async function GET(
       return parsed.error;
     }
 
-    const participants = await listCoffeeShopParticipants(parsed.coffeeShopId);
+    const participants = await listCoffeeShopParticipants(parsed.coffeeShopId, true);
     return response({ participants }, STATUS.OK);
   } catch (error) {
     return handleError('Coffee Shop Presence - List', error as Error);

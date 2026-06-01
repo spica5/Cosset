@@ -118,7 +118,7 @@ export async function GET(
     const viewerId = await getUserIdFromRequest(_req);
     const [rows, participants] = await Promise.all([
       listCoffeeShopChatLogsToday(coffeeShopId),
-      listCoffeeShopParticipants(coffeeShopId),
+      listCoffeeShopParticipants(coffeeShopId, true),
     ]);
 
     const senderIds = rows

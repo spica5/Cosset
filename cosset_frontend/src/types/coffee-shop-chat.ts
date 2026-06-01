@@ -18,7 +18,7 @@ export type CoffeeShopChatParticipant = {
   name: string;
   photoURL: string | null;
   /** If present, user has left and this is the timestamp (ms) when they left. */
-  leftAt?: string | number | null;
+  leftAt?: string;
   /** Timestamp when the user joined the coffee shop. */
   joinedAt?: string;
 };

@@ -106,8 +106,9 @@ export function UniverseCoffeeShopParticipants({ participants }: Props) {
           .map((p) => {
             // if leftAt is set and older than 30min, skip rendering here
             if (p.leftAt) {
-              const leftTs = Number(p.leftAt) || 0;
-              if (Date.now() - leftTs > THIRTY_MIN) {
+              const leftTs = new Date(p.leftAt).getTime();
+
+              if (!Number.isNaN(leftTs) && Date.now() - leftTs > THIRTY_MIN) {
                 return null;
               }
             }
