@@ -392,7 +392,7 @@ export function UniverseCoffeeShopChat({
       // mark local ref as left if known
       if (found) {
         participantsRef.current = participantsRef.current.map((p) =>
-          p.userId.trim().toLowerCase() === uid.toLowerCase() ? { ...p, leftAt: Date.now() } : p,
+          p.userId.trim().toLowerCase() === uid.toLowerCase() ? { ...p, leftAt: new Date().toISOString().replace('T', ' ').replace('Z', '') } : p,
         );
       }
 

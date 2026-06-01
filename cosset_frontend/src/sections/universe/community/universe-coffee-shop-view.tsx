@@ -189,7 +189,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
   const handleParticipantLeave = useCallback((userId: string) => {
     const key = String(userId).trim().toLowerCase();
-    const leaveAt = Date.now();
+    const leaveAt = new Date().toISOString().replace('T', ' ').replace('Z', '');
     setParticipants((prev) => {
       // mark leftAt on existing participant or add a placeholder
       const idx = prev.findIndex((p) => p.userId.trim().toLowerCase() === key);
