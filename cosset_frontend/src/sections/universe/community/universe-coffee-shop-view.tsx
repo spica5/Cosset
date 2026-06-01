@@ -2,41 +2,53 @@
 
 import type { CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
-
-import { Iconify } from 'src/components/universe/iconify';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import { mutate } from 'swr';
 
-import { leaveCoffeeShopPresence, useGetCoffeeShop } from 'src/actions/coffee-shop';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Dialog from '@mui/material/Dialog';
+import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+
 import { endpoints } from 'src/utils/axios';
-import { useAuthContext } from 'src/auth/hooks/use-auth-context';
-import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
-import { UniverseCoffeeShopChat } from 'src/sections/universe/community/universe-coffee-shop-chat';
-import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe-coffee-shop-menu';
-import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
-import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
-import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
+import {
+  hasEveningAtmosphere,
+  parseCoffeeShopAtmosphere,
+  COFFEE_SHOP_EVENING_BACKGROUND_FILTER,
+  COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER, 
+} from 'src/utils/coffee-shop-atmosphere';
+
 import {
   isCoffeeShopGradientBackground,
   parseCoffeeShopBackgroundImages,
 } from 'src/utils/coffee-shop-background';
-import {
-  COFFEE_SHOP_EVENING_BACKGROUND_FILTER,
-  COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER,
-  hasEveningAtmosphere,
-  parseCoffeeShopAtmosphere,
-} from 'src/utils/coffee-shop-atmosphere';
+
 import { getS3SignedUrl } from 'src/utils/helper';
+
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
+
+import {
+  useGetCoffeeShop,
+  leaveCoffeeShopPresence,
+  setCoffeeShopPresenceHidden,  
+} from 'src/actions/coffee-shop';
+
+import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+
+import { Iconify } from 'src/components/universe/iconify';
+
+import { UniverseCoffeeShopChat } from 'src/sections/universe/community/universe-coffee-shop-chat';
+import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe-coffee-shop-menu';
+import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
+import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
+import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
 
 // ----------------------------------------------------------------------
 
@@ -53,6 +65,10 @@ function mergeParticipant(
   const existing = list[index];
   const photoURL = next.photoURL || existing.photoURL;
   const updated = { ...existing, ...next, photoURL };
+  // if a participant rejoins, clear any leftAt marker
+  if (updated.leftAt) {
+    delete (updated as any).leftAt;
+  }
   return list.map((p, i) => (i === index ? updated : p));
 }
 
@@ -73,6 +89,64 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
   const { coffeeShop, coffeeShopLoading } = useGetCoffeeShop(coffeeShopId);
   const { authenticated, user } = useAuthContext();
   const [participants, setParticipants] = useState<CoffeeShopChatParticipant[]>([]);
+  const [presenceJoining, setPresenceJoining] = useState(false);
+  const [togglingHidden, setTogglingHidden] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+
+  const [systemNotifications, setSystemNotifications] = useState<
+    { id: string; text: string; avatar?: string | null }[]
+  >([]);
+
+  const recentNotifRef = useRef<Record<string, number>>({});
+
+  const pushSystemNotification = useCallback((text: string, avatar?: string | null, userId?: string) => {
+    try {
+      const now = Date.now();
+
+      // normalize action for dedupe
+      const action = /entered/i.test(text) ? 'enter' : /left/i.test(text) ? 'leave' : 'note';
+      const key = `${userId || ''}:${action}`;
+
+      // dedupe within 5s
+      const prev = recentNotifRef.current[key];
+      if (prev && now - prev < 5000) {
+        return;
+      }
+      recentNotifRef.current[key] = now;
+
+      // sanitize text: avoid showing raw UUIDs or numeric ids
+      const display = text;
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const numericIdLike = /^[0-9]{6,}$/;
+
+      if (userId) {
+        const maybeId = String(userId).trim();
+        if (uuidLike.test(maybeId) || numericIdLike.test(maybeId)) {
+          if (display === maybeId || display.startsWith(`${maybeId} `) || display.endsWith(` ${maybeId}`)) {
+            return;
+          }
+        }
+      } else if (uuidLike.test(display) || numericIdLike.test(display)) {
+        return;
+      }
+
+      const id = `sys:${String(now)}:${Math.random().toString(36).slice(2, 8)}`;
+      setSystemNotifications((s) => [...s, { id, text: display, avatar }]);
+      window.setTimeout(() => setSystemNotifications((s) => s.filter((n) => n.id !== id)), 5000);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const isPresent = useMemo(() => {
+    try {
+      const uid = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+      if (!uid) return false;
+      return participants.some((p) => String(p.userId || '').trim().toLowerCase() === uid);
+    } catch {
+      return false;
+    }
+  }, [participants, user?.id]);
 
   const handleLeaveCoffeeShop = useCallback(async () => {
     if (authenticated && user?.id) {
@@ -99,15 +173,170 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
   const handleParticipantJoin = useCallback((participant: CoffeeShopChatParticipant) => {
     setParticipants((prev) => mergeParticipant(prev, participant));
+    try {
+      const key = participant.userId.trim().toLowerCase();
+      const t = leaveTimeoutsRef.current?.[key];
+      if (t) {
+        clearTimeout(t);
+        delete leaveTimeoutsRef.current[key];
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
+  const leaveTimeoutsRef = useRef<Record<string, number>>({});
+
   const handleParticipantLeave = useCallback((userId: string) => {
-    setParticipants((prev) => removeParticipant(prev, userId));
+    const key = String(userId).trim().toLowerCase();
+    const leaveAt = Date.now();
+    setParticipants((prev) => {
+      // mark leftAt on existing participant or add a placeholder
+      const idx = prev.findIndex((p) => p.userId.trim().toLowerCase() === key);
+      if (idx < 0) {
+        return [...prev, { userId: String(userId), name: 'Unknown', photoURL: null, leftAt: leaveAt }];
+      }
+      return prev.map((p) =>
+        p.userId.trim().toLowerCase() === key ? { ...p, leftAt: leaveAt } : p,
+      );
+    });
+
+    // schedule removal after 30 minutes
+    try {
+      const existing = leaveTimeoutsRef.current[key];
+      if (existing) {
+        clearTimeout(existing);
+      }
+    } catch {
+      // ignore
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setParticipants((prev) => prev.filter((p) => p.userId.trim().toLowerCase() !== key));
+      try {
+        delete leaveTimeoutsRef.current[key];
+      } catch {
+        // ignore
+      }
+    }, 30 * 60 * 1000);
+
+    try {
+      leaveTimeoutsRef.current[key] = timeoutId as unknown as number;
+    } catch {
+      // ignore
+    }
   }, []);
+
+  const handleToggleHidden = async () => {
+      if (togglingHidden || !authenticated) {
+        return;
+      }  
+      setTogglingHidden(true);
+      try {
+        const newHiddenState = !isHidden;
+        const res = await setCoffeeShopPresenceHidden(coffeeShopId, newHiddenState);
+        if (typeof res.isHidden === 'boolean') {
+          setIsHidden(res.isHidden);
+        }
+      } catch (err) {
+        // Revert on error
+        console.error('Failed to toggle hidden status', err);
+      } finally {
+        setTogglingHidden(false);
+      }
+    };
+  
 
   useEffect(() => {
     setParticipants([]);
   }, [coffeeShopId]);
+
+  useEffect(() => {
+    if (!coffeeShopId || !user?.id) return undefined;
+
+    let cancelled = false;
+
+    const checkStale = async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        const key = `coffee-shop-last-joined:${coffeeShopId}`;
+        const raw = window.localStorage.getItem(key);
+        if (!raw) return;
+        const ts = Number.parseInt(raw, 10);
+        if (Number.isNaN(ts)) return;
+        const age = Date.now() - ts;
+        const THIRTY_MIN = 30 * 60 * 1000;
+        const uid = String(user.id).trim().toLowerCase();
+
+        const amPresentInServer = participants.some((p) => p.userId.trim().toLowerCase() === uid);
+
+        if (age > THIRTY_MIN && amPresentInServer) {
+          // force leave on server and locally
+          try {
+            await leaveCoffeeShopPresence(coffeeShopId);
+          } catch {
+            // ignore
+          }
+          if (!cancelled) {
+            setParticipants((prev) => removeParticipant(prev, String(user.id)));
+            try {
+              window.localStorage.removeItem(key);
+            } catch {
+              // ignore
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // check immediately and every 5 minutes
+    checkStale();
+    const id = setInterval(checkStale, 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [coffeeShopId, participants, user?.id]);
+
+  // Reset the last-joined timestamp on user activity (mouse/keyboard/touch)
+  useEffect(() => {
+    if (!coffeeShopId || !user?.id || !isPresent) {
+      return undefined;
+    }
+
+    const key = `coffee-shop-last-joined:${coffeeShopId}`;
+    let lastSet = 0;
+
+    const handler = () => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastSet >= 10 * 1000) {
+        try {
+          lastSet = now;
+          window.localStorage.setItem(key, String(now));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', handler);
+    window.addEventListener('keydown', handler);
+    window.addEventListener('mousedown', handler);
+    window.addEventListener('touchstart', handler);
+
+    return () => {
+      document.removeEventListener('mousemove', handler);
+      document.removeEventListener('keydown', handler);
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [coffeeShopId, user?.id, isPresent]);
 
   useEffect(() => {
     if (!coffeeShopId) {
@@ -188,7 +417,11 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
   const eveningTone = hasEveningAtmosphere(atmosphere);
 
   const musicPlayer = (
-    <UniverseCoffeeShopMusicPlayer coffeeShopId={coffeeShopId} musicJson={coffeeShop?.music} />
+    <UniverseCoffeeShopMusicPlayer
+      coffeeShopId={coffeeShopId}
+      musicJson={coffeeShop?.music}
+      isPresent={isPresent}
+    />
   );
 
   if (coffeeShopLoading) {
@@ -215,8 +448,6 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
   }
 
   return (
-    <>
-    
     <Box
       sx={{
         position: 'relative',
@@ -274,7 +505,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
           right: { xs: 12, sm: 24 },
           zIndex: 10,
           alignItems: 'flex-start',
-          gap: 1.25,
+          gap: 0,
           maxHeight: 'calc(100dvh - 24px)',
           pointerEvents: 'auto',
         }}
@@ -291,12 +522,36 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             textTransform: 'none',
             fontWeight: 600,
             flexShrink: 0,
+            width: 80,
             '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
           }}
+          disabled={!isPresent}
         >
           Out
         </Button>
+
+        {authenticated && (
+            <Button
+              type="button"
+              onClick={handleToggleHidden}
+              disabled={togglingHidden}
+              startIcon ={<Iconify icon={isHidden ? 'eva:eye-off-fill' : 'eva:eye-fill'} width={20} />}
+              sx={{
+                color: isHidden ? 'warning.main' : 'common.white',
+                bgcolor: 'rgba(0,0,0,0.45)',
+                border: isHidden ? '1px solid' : '1px solid transparent',
+                borderColor: isHidden ? 'warning.main' : 'rgba(255,255,255,0.4)',
+                transition: 'all 0.3s',
+                width: 80,
+                '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
+              }}
+              title={isHidden ? 'You are hidden - Click to show' : 'Hide yourself from the list'}
+            >
+              Hide
+            </Button>
+          )}
       </Stack>
+
       {musicPlayer}
       <Stack
         sx={{
@@ -373,13 +628,122 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
       <UniverseCoffeeShopParticipants participants={participants} />
 
-      <UniverseCoffeeShopMenu coffeeShopId={coffeeShopId} />
+      <UniverseCoffeeShopMenu coffeeShopId={coffeeShopId} isPresent={isPresent} />
+
+      {/* ephemeral system notifications (enter/leave) */}
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 30,
+          display: 'grid',
+          placeItems: 'center',
+          pointerEvents: 'none',
+          px: 2,
+        }}
+      >
+        <Stack spacing={1} sx={{ width: '100%', maxWidth: 520 }}>
+          {systemNotifications.map((n) => (
+            <Paper
+              key={n.id}
+              elevation={10}
+              sx={{
+                pointerEvents: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 1,
+                bgcolor: 'rgba(10,13,16,0.95)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {n.avatar ? (
+                <Avatar src={n.avatar} sx={{ width: 36, height: 36, flexShrink: 0 }} />
+              ) : (
+                <Avatar sx={{ width: 36, height: 36, flexShrink: 0, bgcolor: 'rgba(255,255,255,0.08)', color: 'common.white' }}>
+                  {n.text?.[0] ?? '?'}
+                </Avatar>
+              )}
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.95)' }}>
+                {n.text}
+              </Typography>
+            </Paper>
+          ))}
+        </Stack>
+      </Box>
+
+      {presenceJoining ? (
+        <Stack
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 20,
+            display: 'grid',
+            placeItems: 'center',
+            pointerEvents: 'auto',
+            p: 3,
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: 'rgba(0,0,0,0.6)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 2,
+              p: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ color: 'common.white', mb: 0.5 }}>
+              Entering {coffeeShop.title} coffee shop 
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+              Please wait...
+            </Typography>
+          </Box>
+        </Stack>
+      ) : null}
+
+      {!presenceJoining && !isPresent && (
+        <Stack
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 20,
+            display: 'grid',
+            placeItems: 'center',
+            pointerEvents: 'auto',
+            p: 3,
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: 'rgba(0,0,0,0.6)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 2,
+              p: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ color: 'common.white', mb: 0.5 }}>
+              You are out of this coffee shop
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+              Actions are disabled until you re-enter the coffee shop.
+            </Typography>
+          </Box>
+        </Stack>
+      )}
 
       <UniverseCoffeeShopChat
         coffeeShopId={coffeeShopId}
         onParticipantsLoaded={handleParticipantsLoaded}
         onParticipantJoin={handleParticipantJoin}
         onParticipantLeave={handleParticipantLeave}
+        onPresenceLoadingChange={setPresenceJoining}
+        isPresent={isPresent}
+        isHidden={isHidden}
+        onSystemNotification={pushSystemNotification}
       />
 
       <Dialog fullScreen open={imagePreviewOpen} onClose={() => setImagePreviewOpen(false)}>
@@ -429,6 +793,5 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         </Box>
       </Dialog>
     </Box>
-    </>
   );
 }

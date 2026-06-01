@@ -7,6 +7,7 @@ import {
   listCoffeeShopChatLogsToday,
 } from 'src/models/coffee-shop-chat-logs';
 import { getUserById, getUserPhotoURLsByIds } from 'src/models/users';
+import { getUserFriends } from 'src/models/user-friends';
 import { listCoffeeShopParticipants } from 'src/utils/coffee-shop-participants';
 import { COFFEE_SHOP_CHAT_EVENT, coffeeShopChatChannel, getPusherServer } from 'src/utils/pusher';
 import { verify } from 'src/utils/jwt';
@@ -45,6 +46,57 @@ const trimDisplayName = (value: unknown): string => {
   return value.trim().slice(0, MAX_DISPLAY_NAME_LEN);
 };
 
+/**
+ * Determine if a viewer can see a message based on chat modes and friend relationships.
+ * Rules:
+ * - Public messages: everyone can see
+ * - Friend mode: visible to friends and the sender
+ * - Private mode: only visible to the sender
+ */
+const canViewMessage = async (
+  messageAuthorId: string | null,
+  messageMode: 'public' | 'friend' | 'private',
+  viewerId: string | null,
+): Promise<boolean> => {
+  // System messages are always visible
+  if (!messageAuthorId) {
+    return true;
+  }
+
+  // Author can always see their own message
+  if (viewerId === messageAuthorId) {
+    return true;
+  }
+
+  // Public messages visible to all
+  if (messageMode === 'public') {
+    return true;
+  }
+
+  // Private messages only visible to author (already handled above)
+  if (messageMode === 'private') {
+    return false;
+  }
+
+  // Friend mode: check if they are friends
+  if (messageMode === 'friend') {
+    if (!viewerId) {
+      return false;
+    }
+
+    try {
+      const friends = await getUserFriends(viewerId, 'accepted', 1000, 0);
+      return friends.some(
+        (f) => (f.userId1 === messageAuthorId || f.userId2 === messageAuthorId)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+};
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -63,6 +115,7 @@ export async function GET(
       return response({ message: 'Coffee shop not found' }, STATUS.NOT_FOUND);
     }
 
+    const viewerId = await getUserIdFromRequest(_req);
     const [rows, participants] = await Promise.all([
       listCoffeeShopChatLogsToday(coffeeShopId),
       listCoffeeShopParticipants(coffeeShopId),
@@ -73,12 +126,25 @@ export async function GET(
       .filter((fId): fId is string => typeof fId === 'string' && Boolean(fId.trim()));
     const photoByUserId = await getUserPhotoURLsByIds(senderIds);
 
-    const messages = rows.map((r) => {
+    // Filter messages based on visibility rules
+    const filteredRows = (
+      await Promise.all(
+        rows.map(async (r) => {
+          const userId = r.senderId?.trim() || null;
+          const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
+          const canView = await canViewMessage(userId, messageMode, viewerId);
+          return canView ? r : null;
+        })
+      )
+    ).filter((r): r is typeof rows[0] => r !== null);
+
+    const messages = filteredRows.map((r) => {
       const userId = r.senderId?.trim() || null;
       const authorAvatar =
         userId && photoByUserId.has(userId.toLowerCase())
           ? photoByUserId.get(userId.toLowerCase())!
           : null;
+      const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
 
       return {
         id: r.id,
@@ -87,6 +153,7 @@ export async function GET(
         authorName: r.senderName?.trim() || 'Unknown',
         authorAvatar,
         userId,
+        chatMode: messageMode,
         sentAt:
           typeof r.createdAt === 'string'
             ? new Date(r.createdAt).toISOString()
@@ -137,6 +204,9 @@ export async function POST(
     const userId = await getUserIdFromRequest(req);
     let authorName = trimDisplayName(body?.displayName);
     let authorAvatar: string | null = null;
+    const chatMode = (typeof body?.chatMode === 'string' && ['public', 'friend', 'private'].includes(body.chatMode))
+      ? body.chatMode
+      : 'public';
 
     if (userId) {
       const user = await getUserById(userId);
@@ -158,6 +228,7 @@ export async function POST(
       senderType: userId ? 'member' : 'guest',
       messageType: 'text',
       message: rawMessage,
+      chatMode: chatMode as 'public' | 'friend' | 'private',
       fileUrl: null,
       fileName: null,
       mimeType: null,
@@ -170,6 +241,7 @@ export async function POST(
       authorName,
       authorAvatar,
       userId,
+      chatMode,
       sentAt: new Date().toISOString(),
     };
 

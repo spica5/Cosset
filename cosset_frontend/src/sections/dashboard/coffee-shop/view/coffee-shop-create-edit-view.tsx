@@ -219,6 +219,35 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     );
   };
 
+  const downloadMusicTrack = async (track: CoffeeShopMusicTrack) => {
+    try {
+      const audioUrl = track.audioUrl.trim();
+      if (!audioUrl) {
+        return;
+      }
+
+      // If it's already a full URL, use it directly; otherwise get a signed URL
+      const downloadUrl =
+        audioUrl.startsWith('http://') || audioUrl.startsWith('https://')
+          ? audioUrl
+          : await getS3SignedUrl(audioUrl);
+
+      if (!downloadUrl) {
+        return;
+      }
+
+      // Create a temporary anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${track.title}.${track.extension || 'mp3'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download music track:', error);
+    }
+  };
+
   const handleMusicFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
 
@@ -850,6 +879,15 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   >
                     {formatMusicTrackFileInfo(track)}
                   </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => downloadMusicTrack(track)}
+                    disabled={saving}
+                    aria-label="Download music track"
+                    title="Download track"
+                  >
+                    <Iconify icon="mingcute:download-line" width={18} />
+                  </IconButton>
                   <IconButton
                     size="small"
                     onClick={() => removeMusicTrack(track.id)}

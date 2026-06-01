@@ -1,4 +1,4 @@
-import { listCoffeeShopPresenceUserIds } from 'src/models/coffee-shop-presence';
+import { listCoffeeshopPresence } from 'src/models/coffee-shop-presence';
 import { getUserById, getUsersBriefByIds } from 'src/models/users';
 import type { UserBrief } from 'src/models/users';
 
@@ -6,6 +6,7 @@ export type CoffeeShopParticipantPayload = {
   userId: string;
   name: string;
   photoURL: string | null;
+  joinedAt?: string;
 };
 
 const displayNameFromUser = (user: UserBrief | undefined): string => {
@@ -16,22 +17,24 @@ const displayNameFromUser = (user: UserBrief | undefined): string => {
 export async function listCoffeeShopParticipants(
   coffeeShopId: number,
 ): Promise<CoffeeShopParticipantPayload[]> {
-  const userIds = await listCoffeeShopPresenceUserIds(coffeeShopId);
-  if (!userIds.length) {
+  const presenceData = await listCoffeeshopPresence(coffeeShopId);
+  if (!presenceData.length) {
     return [];
   }
 
+  const userIds = presenceData.map((p) => p.userId);
   const usersBrief = await getUsersBriefByIds(userIds);
 
-  return userIds.map((uid) => {
-    const key = uid.trim().toLowerCase();
+  return presenceData.map((pres) => {
+    const key = pres.userId.trim().toLowerCase();
     const user = usersBrief.get(key);
     const photo = user?.photoURL != null ? String(user.photoURL).trim() : '';
 
     return {
-      userId: user?.id ?? uid,
+      userId: user?.id ?? pres.userId,
       name: displayNameFromUser(user),
       photoURL: photo || null,
+      joinedAt: pres.joinedAt,
     };
   });
 }
@@ -52,6 +55,7 @@ const toUserBrief = (user: {
 
 export async function buildCoffeeShopParticipant(
   userId: string,
+  joinedAt?: string,
 ): Promise<CoffeeShopParticipantPayload | null> {
   const key = userId.trim().toLowerCase();
   const usersBrief = await getUsersBriefByIds([userId]);
@@ -71,5 +75,6 @@ export async function buildCoffeeShopParticipant(
     userId: user.id,
     name: displayNameFromUser(user),
     photoURL: photo || null,
+    ...(joinedAt && { joinedAt }),
   };
 }

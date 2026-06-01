@@ -32,6 +32,7 @@ export type CoffeeShopItemCardProps = {
   canManage?: boolean;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
+  onEnter?: () => void;
 };
 
 const getPreviewBackground = (background: string | null | undefined) => {
@@ -80,6 +81,7 @@ export function CoffeeShopItem({
   canManage = false,
   onEdit,
   onDelete,
+  onEnter,
 }: CoffeeShopItemCardProps) {
   const [resolvedBackground, setResolvedBackground] = useState<string>(background || '');
 
@@ -227,6 +229,14 @@ export function CoffeeShopItem({
             </AvatarGroup>
           ) : null}
         </Stack>
+
+        {onEnter ? (
+          <Stack direction="row" justifyContent="flex-end" sx={{ pt: 1 }}>
+            <IconButton size="small" onClick={onEnter} title="Enter coffee shop">
+              <Iconify icon="ic:round-open-in-new" width={16} />
+            </IconButton>
+          </Stack>
+        ) : null}
 
         <Typography variant="caption" color="text.disabled" noWrap>
           {formatDateTime(createdAt)}

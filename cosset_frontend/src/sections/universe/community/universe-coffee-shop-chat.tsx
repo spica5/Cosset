@@ -2,32 +2,32 @@
 
 import type { CoffeeShopChatMessage, CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import InputAdornment from '@mui/material/InputAdornment';
-import Collapse from '@mui/material/Collapse';
 
-import { Iconify } from 'src/components/universe/iconify';
-
-import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { CONFIG } from 'src/config-global';
+import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import {
   fetchCoffeeShopChatToday,
   joinCoffeeShopPresence,
   leaveCoffeeShopPresence,
   sendCoffeeShopChatMessage,
 } from 'src/actions/coffee-shop';
-import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-shop-chat-avatar';
-
+import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
+import { useGetFriends } from 'src/actions/friend';
+import { Iconify } from 'src/components/universe/iconify';
 import Pusher from 'pusher-js';
-
+import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-shop-chat-avatar';
 import {
   COFFEE_SHOP_CHAT_EVENT,
   COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
@@ -93,6 +93,10 @@ type ChatProps = {
   onParticipantsLoaded?: (participants: CoffeeShopChatParticipant[]) => void;
   onParticipantJoin?: (participant: CoffeeShopChatParticipant) => void;
   onParticipantLeave?: (userId: string) => void;
+  onPresenceLoadingChange?: (loading: boolean) => void;
+  isPresent?: boolean;
+  isHidden?: boolean;
+  onSystemNotification?: (text: string, avatar?: string | null, userId?: string) => void;
 };
 
 function enrichParticipantPhoto(
@@ -121,6 +125,10 @@ export function UniverseCoffeeShopChat({
   onParticipantsLoaded,
   onParticipantJoin,
   onParticipantLeave,
+  onPresenceLoadingChange,
+  isPresent = true,
+  isHidden = false,
+  onSystemNotification,
 }: ChatProps) {
   const { authenticated, user, loading: authLoading } = useAuthContext();
   const channelName = useMemo(() => channelNameForShop(coffeeShopId), [coffeeShopId]);
@@ -131,16 +139,42 @@ export function UniverseCoffeeShopChat({
   const [guestName, setGuestName] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<'public' | 'friend' | 'private'>('public');
+  const [emoticonsOpen, setEmoticonsOpen] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const seenIds = useRef<Set<string>>(new Set());
   const sendInFlightRef = useRef(false);
   const onParticipantJoinRef = useRef(onParticipantJoin);
   onParticipantJoinRef.current = onParticipantJoin;
+  const participantsRef = useRef<CoffeeShopChatParticipant[]>([]);
 
   const hasClientPusherConfig = Boolean(CONFIG.pusher.key && CONFIG.pusher.cluster);
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // load accepted friends for current user so we can mark friend avatars
+  const userIdStr = user?.id != null ? String(user.id) : undefined;
+  const { friends: acceptedFriends } = useGetFriends(userIdStr, 'accepted', Boolean(userIdStr));
+  const friendIdSet = useMemo(() => {
+    const s = new Set<string>();
+    const validFriends = (acceptedFriends || []).filter((f) => {
+      const a = (f.userId1 || '').trim();
+      const b = (f.userId2 || '').trim();
+      return a && b;
+    });
+    validFriends.forEach((f) => {
+      const a = (f.userId1 || '').trim();
+      const b = (f.userId2 || '').trim();
+      if (userIdStr && a.toLowerCase() === userIdStr.toLowerCase()) {
+        s.add(b.toLowerCase());
+      } else if (userIdStr && b.toLowerCase() === userIdStr.toLowerCase()) {
+        s.add(a.toLowerCase());
+      }
+    });
+    return s;
+  }, [acceptedFriends, userIdStr]);
 
   useEffect(() => {
     setPortalTarget(document.body);
@@ -160,34 +194,36 @@ export function UniverseCoffeeShopChat({
     }
   }, [authenticated]);
 
-  const appendMessage = useCallback((msg: CoffeeShopChatMessage) => {
-    if (!msg?.id || seenIds.current.has(msg.id)) {
-      return;
-    }
-    seenIds.current.add(msg.id);
-    setMessages((prev) => [...prev, msg]);
-  }, []);
-
-  const appendEnteredMessage = useCallback(
-    (participant: CoffeeShopChatParticipant) => {
-      const enterId = `system:entered:${participant.userId.trim().toLowerCase()}`;
-      if (seenIds.current.has(enterId)) {
+  const appendMessage = useCallback(
+    (msg: CoffeeShopChatMessage) => {
+      if (!msg?.id || seenIds.current.has(msg.id)) {
         return;
       }
 
-      const shopId = Number.parseInt(coffeeShopId, 10);
-      appendMessage({
-        id: enterId,
-        coffeeShopId: Number.isNaN(shopId) ? 0 : shopId,
-        text: `${participant.name} entered the coffee shop`,
-        authorName: participant.name,
-        authorAvatar: participant.photoURL,
-        userId: participant.userId,
-        sentAt: new Date().toISOString(),
-        kind: 'system',
-      });
+      // route system messages to ephemeral notification only
+      if (msg.kind === 'system') {
+        try {
+          onSystemNotification?.(msg.text, msg.authorAvatar ?? null, msg.userId ?? undefined);
+        } catch {
+          // ignore
+        }
+        // mark seen so we don't process again
+        seenIds.current.add(msg.id);
+        return;
+      }
+
+      seenIds.current.add(msg.id);
+      setMessages((prev) => [...prev, msg]);
     },
-    [appendMessage, coffeeShopId],
+    [onSystemNotification],
+  );
+
+  const appendEnteredMessage = useCallback(
+    (participant: CoffeeShopChatParticipant) => {
+      // notify visually but do not add an enter system message to chat history
+      onSystemNotification?.(`${participant.name} entered the coffee shop`, participant.photoURL, participant.userId);
+    },
+    [onSystemNotification],
   );
 
   const enrichParticipant = useCallback(
@@ -203,12 +239,42 @@ export function UniverseCoffeeShopChat({
       const enriched = enrichParticipant(participant);
       onParticipantJoinRef.current?.(enriched);
       appendEnteredMessage(enriched);
+      // keep local ref in sync
+      participantsRef.current = participantsRef.current.filter(
+        (p) => p.userId.trim().toLowerCase() !== enriched.userId.trim().toLowerCase(),
+      );
+      participantsRef.current.push(enriched);
     },
     [appendEnteredMessage, enrichParticipant],
   );
 
   const handleParticipantJoinedRef = useRef(handleParticipantJoined);
   handleParticipantJoinedRef.current = handleParticipantJoined;
+
+  const insertEmoticon = useCallback(
+    (value: string) => {
+      const input = messageInputRef.current;
+      if (!input) {
+        setDraft((prev) => prev + value);
+        return;
+      }
+
+      const start = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+      const end = typeof input.selectionEnd === 'number' ? input.selectionEnd : start;
+      const nextDraft = `${draft.slice(0, start)}${value}${draft.slice(end)}`;
+      setDraft(nextDraft);
+
+      window.setTimeout(() => {
+        if (input && typeof input.setSelectionRange === 'function') {
+          const position = start + value.length;
+          input.setSelectionRange(position, position);
+          input.focus();
+        }
+      }, 0);
+      setEmoticonsOpen(false);
+    },
+    [draft],
+  );
 
   useEffect(() => {
     if (authLoading || !authenticated || !user?.id) {
@@ -217,14 +283,30 @@ export function UniverseCoffeeShopChat({
 
     let cancelled = false;
 
+    const setLoading = (loading: boolean) => {
+      if (!cancelled) {
+        onPresenceLoadingChange?.(loading);
+      }
+    };
+
     const join = async () => {
+      setLoading(true);
       try {
         const { participant } = await joinCoffeeShopPresence(coffeeShopId);
         if (!cancelled && participant) {
           handleParticipantJoinedRef.current(participant);
+          try {
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem(`coffee-shop-last-joined:${coffeeShopId}`, String(Date.now()));
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // ignore
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -233,8 +315,15 @@ export function UniverseCoffeeShopChat({
     return () => {
       cancelled = true;
       leaveCoffeeShopPresence(coffeeShopId).catch(() => undefined);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(`coffee-shop-last-joined:${coffeeShopId}`);
+        }
+      } catch {
+        // ignore
+      }
     };
-  }, [authLoading, authenticated, coffeeShopId, user?.id]);
+  }, [authLoading, authenticated, coffeeShopId, onPresenceLoadingChange, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,22 +334,14 @@ export function UniverseCoffeeShopChat({
         if (cancelled) {
           return;
         }
-        const list = res.messages ?? [];
+        // filter out server-side system messages; we show those as ephemeral notifications
+        const list = (res.messages ?? []).filter((m) => m.kind !== 'system');
         const loadedParticipants = (res.participants ?? []).map((p) => enrichParticipant(p));
+        participantsRef.current = loadedParticipants;
 
-        setMessages((prev) => {
-          const system = prev.filter((m) => m.kind === 'system');
-          const merged = [...list];
-
-          system.forEach((s) => {
-            if (!merged.some((m) => m.id === s.id)) {
-              merged.push(s);
-            }
-          });
-
-          seenIds.current = new Set(merged.map((m) => m.id));
-          return merged;
-        });
+        // set messages to server-provided non-system messages
+        seenIds.current = new Set(list.map((m) => m.id));
+        setMessages(list);
 
         onParticipantsLoaded?.(loadedParticipants);
       } catch {
@@ -303,6 +384,23 @@ export function UniverseCoffeeShopChat({
 
     channel.bind(COFFEE_SHOP_PARTICIPANT_LEFT_EVENT, (data: { userId?: string }) => {
       const uid = data?.userId?.trim();
+      if (!uid) return;
+
+      // try to append a system left message using known participants; fallback to id
+      const found = participantsRef.current.find((p) => p.userId.trim().toLowerCase() === uid.toLowerCase());
+
+      // mark local ref as left if known
+      if (found) {
+        participantsRef.current = participantsRef.current.map((p) =>
+          p.userId.trim().toLowerCase() === uid.toLowerCase() ? { ...p, leftAt: Date.now() } : p,
+        );
+      }
+
+      const displayName = found ? found.name : uid;
+      const avatar = found ? found.photoURL : undefined;
+      // show ephemeral notification but do not add a system message to chat
+      onSystemNotification?.(`${displayName} left the coffee shop`, avatar ?? null, uid);
+
       if (uid && onParticipantLeave) {
         onParticipantLeave(uid);
       }
@@ -315,7 +413,7 @@ export function UniverseCoffeeShopChat({
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
-  }, [appendMessage, channelName, hasClientPusherConfig, onParticipantLeave]);
+  }, [appendMessage, channelName, hasClientPusherConfig, onParticipantLeave, onSystemNotification]);
 
   useEffect(() => {
     if (!listRef.current) {
@@ -334,6 +432,45 @@ export function UniverseCoffeeShopChat({
       // ignore
     }
   }, [authenticated]);
+
+  const filteredMessages = useMemo(() => {
+    if (chatMode === 'public') {
+      return messages.filter((m) => (m.chatMode || 'public') === 'public');
+    }
+
+    if (chatMode === 'friend') {
+      return messages.filter((m) => {
+        const messageAuthorId = m.userId?.trim().toLowerCase();
+        const currentUserId = userIdStr?.toLowerCase();
+        // Show messages from friends and from current user
+        return (messageAuthorId && friendIdSet.has(messageAuthorId)) || messageAuthorId === currentUserId;
+      });
+    }
+
+    if (chatMode === 'private') {
+      return messages.filter((m) => {
+        const messageAuthorId = m.userId?.trim().toLowerCase();
+        const currentUserId = userIdStr?.toLowerCase();
+        return messageAuthorId === currentUserId;
+      });
+    }
+
+    return [];
+  }, [chatMode, messages, friendIdSet, userIdStr]);
+
+  const chatModeTitle =
+    chatMode === 'public'
+      ? 'Chat (Public)'
+      : chatMode === 'friend'
+      ? 'Chat (Friends)'
+      : 'Chat (Private)';
+
+  const emptyMessageLabel =
+    chatMode === 'friend'
+      ? 'No messages from friends. Connect with friends to see their messages.'
+      : chatMode === 'private'
+      ? 'No private messages yet. Messages you send in private mode appear here.'
+      : 'No public messages yet. Say hello.';
 
   const handleSend = async () => {
     if (sendInFlightRef.current) {
@@ -364,6 +501,7 @@ export function UniverseCoffeeShopChat({
       const res = await sendCoffeeShopChatMessage(coffeeShopId, {
         message: text,
         displayName: authenticated ? undefined : guestName.trim(),
+        chatMode,
       });
 
       const incoming = res?.chatMessage as CoffeeShopChatMessage | undefined;
@@ -390,6 +528,32 @@ export function UniverseCoffeeShopChat({
       setSending(false);
     }
   };
+
+  const handleDraftKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key === ':' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (hasClientPusherConfig && isPresent && !isHidden) {
+          setEmoticonsOpen(true);
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        if (hasClientPusherConfig && isPresent && !isHidden) {
+          setEmoticonsOpen((current) => !current);
+        }
+        return;
+      }
+
+      if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing || e.repeat) {
+        return;
+      }
+
+      e.preventDefault();
+      handleSend();
+    },
+    [handleSend, hasClientPusherConfig, isHidden, isPresent],
+  );
 
   if (!channelName || !portalTarget) {
     return null;
@@ -427,28 +591,79 @@ export function UniverseCoffeeShopChat({
             borderBottom: open ? '1px solid rgba(255,255,255,0.08)' : 'none',
             cursor: 'pointer',
           }}
-          onClick={() => setOpen((v) => !v)}
         >
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1}  onClick={() => setOpen((v) => !v)}>
             <Iconify icon="solar:chat-round-dots-bold" width={22} sx={{ color: 'common.white' }} />
             <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
-              Chat with Friends
+              {chatModeTitle}
             </Typography>
           </Stack>
-          <IconButton
-            size="small"
-            sx={{ color: 'common.white' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen((v) => !v);
-            }}
-          >
-            <Iconify icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'} width={20} />
-          </IconButton>
+
+          {/* Chat Mode Selector - Icon Buttons */}
+            <Stack direction="row" spacing={0.5}>
+              <IconButton
+                size="small"
+                onClick={() => setChatMode('public')}
+                disabled={!isPresent}
+                sx={{
+                  color: chatMode === 'public' ? 'primary.main' : 'rgba(255,255,255,0.4)',
+                  border: chatMode === 'public' ? '1px solid' : '1px solid transparent',
+                  borderColor: chatMode === 'public' ? 'primary.main' : 'rgba(255,255,255,0.4)',
+                  transition: 'all 0.3s',
+                  '&:hover': { color: 'primary.main', borderColor: 'primary.main' },
+                }}
+                title="Public - Visible to all"
+              >
+                <Iconify icon="eva:globe-2-fill" width={20} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setChatMode('friend')}
+                disabled={!isPresent}
+                sx={{
+                  color: chatMode === 'friend' ? 'success.light' : 'rgba(255,255,255,0.4)',
+                  border: chatMode === 'friend' ? '1px solid' : '1px solid transparent',
+                  borderColor: chatMode === 'friend' ? 'success.light' : 'rgba(255,255,255,0.4)',
+                  transition: 'all 0.3s',
+                  '&:hover': { color: 'success.light', borderColor: 'success.light' },
+                }}
+                title="Friends Only - Visible to friends"
+              >
+                <Iconify icon="eva:people-fill" width={20} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setChatMode('private')}
+                disabled={!isPresent}
+                sx={{
+                  color: chatMode === 'private' ? 'error.light' : 'rgba(255,255,255,0.4)',
+                  border: chatMode === 'private' ? '1px solid' : '1px solid transparent',
+                  borderColor: chatMode === 'private' ? 'error.light' : 'rgba(255,255,255,0.4)',
+                  transition: 'all 0.3s',
+                  '&:hover': { color: 'error.light', borderColor: 'error.light' },
+                }}
+                title="Private - Only for you"
+              >
+                <Iconify icon="eva:lock-fill" width={20} />
+              </IconButton>
+
+              <IconButton
+                size="small"
+                sx={{ color: 'common.white' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen((v) => !v);
+                }}
+              >
+                <Iconify icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'} width={20} />
+              </IconButton>
+            </Stack>
+
+          
         </Stack>
 
         <Collapse in={open}>
-          <Stack sx={{ p: 1.5, pt: 0 }} spacing={1.25}>
+          <Stack sx={{ p: 1.5, pt: 1 }} spacing={1.25}>
             {!hasClientPusherConfig && (
               <Typography variant="caption" sx={{ color: 'warning.light', lineHeight: 1.5 }}>
                 Add{' '}
@@ -474,22 +689,10 @@ export function UniverseCoffeeShopChat({
                 onBlur={() => persistGuestName(guestName)}
                 inputProps={{ style: CHAT_NATIVE_INPUT_STYLE }}
                 sx={chatTextFieldSx}
+                disabled={!isPresent}
               />
             )}
-
-            {/* {authenticated && user && (
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <CoffeeShopChatAvatar
-                  photoKeyOrUrl={user.photoURL}
-                  name={String(user.displayName || user.email || 'Member')}
-                  size={28}
-                />
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
-                  Sending as {user.displayName || user.email || 'Member'}
-                </Typography>
-              </Stack>
-            )} */}
-
+            
             <Box
               ref={listRef}
               sx={{
@@ -501,13 +704,23 @@ export function UniverseCoffeeShopChat({
                 gap: 1,
               }}
             >
-              {messages.length === 0 ? (
+              {filteredMessages.length === 0 ? (
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)', py: 1 }}>
-                  No messages yet. Say hello.
+                  {emptyMessageLabel}
                 </Typography>
               ) : (
-                messages.map((m) => {
+                filteredMessages.map((m) => {
                   const isSystem = m.kind === 'system';
+
+                  const isFriend =
+                    typeof m.userId === 'string' && userIdStr
+                      ? friendIdSet.has(m.userId.trim().toLowerCase())
+                      : false;
+
+                  const isCurrentUser =
+                    typeof m.userId === 'string' && userIdStr
+                      ? m.userId.trim().toLowerCase() === userIdStr.toLowerCase()
+                      : false;
 
                   return (
                     <Stack key={m.id} direction="row" spacing={1.25} alignItems="flex-start">
@@ -515,15 +728,32 @@ export function UniverseCoffeeShopChat({
                         photoKeyOrUrl={m.authorAvatar}
                         name={m.authorName}
                         size={32}
+                        isFriend={isFriend}
+                        isCurrentUser={isCurrentUser}
                       />
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         {!isSystem && (
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
-                            {m.authorName}
-                            {m.sentAt
-                              ? ` · ${new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                              : ''}
-                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.25 }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                              {m.authorName}
+                              {m.sentAt
+                                ? ` · ${new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : ''}
+                            </Typography>
+                            {m.chatMode && m.chatMode !== 'public' && (
+                              <Chip
+                                label={m.chatMode === 'friend' ? '👥' : '🔒'}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  height: 18,
+                                  fontSize: '0.625rem',
+                                  borderColor: 'rgba(255,255,255,0.3)',
+                                  color: m.chatMode === 'private' ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 200, 255, 0.8)',
+                                }}
+                              />
+                            )}
+                          </Stack>
                         )}
                         <Typography
                           variant="body2"
@@ -555,21 +785,10 @@ export function UniverseCoffeeShopChat({
               maxRows={3}
               placeholder="Message"
               value={draft}
-              disabled={!hasClientPusherConfig}
+              disabled={!hasClientPusherConfig || !isPresent || isHidden}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter' || e.shiftKey) {
-                  return;
-                }
-                if (e.nativeEvent.isComposing) {
-                  return;
-                }
-                if (e.repeat) {
-                  return;
-                }
-                e.preventDefault();
-                handleSend();
-              }}
+              inputRef={messageInputRef}
+              onKeyDown={handleDraftKeyDown}
               inputProps={{
                 style: CHAT_NATIVE_INPUT_STYLE,
               }}
@@ -583,13 +802,26 @@ export function UniverseCoffeeShopChat({
                     WebkitTextFillColor: '#ffffff !important',
                   },
                 },
-                endAdornment: (
+              
+                endAdornment: (                  
                   <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1, mr:1 }}>
+                    <IconButton
+                      type="button"
+                      edge="start"
+                      onClick={() => setEmoticonsOpen((current) => !current)}
+                      disabled={!hasClientPusherConfig || !isPresent || isHidden}
+                      sx={{ color: 'common.white' }}
+                      aria-label="Toggle emoticons"
+                    >
+                      <Box component="span" sx={{ fontSize: 16 }}>
+                        😊
+                      </Box>
+                    </IconButton>
                     <IconButton
                       type="button"
                       edge="end"
                       onClick={() => handleSend()}
-                      disabled={sending || !draft.trim() || !hasClientPusherConfig}
+                      disabled={sending || !draft.trim() || !hasClientPusherConfig || !isPresent || isHidden}
                       sx={{ color: 'primary.main' }}
                     >
                       <Iconify icon="eva:paper-plane-fill" />
@@ -599,6 +831,36 @@ export function UniverseCoffeeShopChat({
               }}
               sx={[chatTextFieldSx, { '& .MuiInputBase-root': { alignItems: 'flex-start' } }]}
             />
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', pt: 0.5 }}>
+              Press  &apos;:&apos; or Ctrl+E to open emoticons, Enter to send.
+            </Typography>
+            {emoticonsOpen && (
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ maxWidth: '100%', overflowX: 'auto', pt: 0.5 }}>
+                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
+                  <IconButton
+                    key={option.value}
+                    type="button"
+                    onClick={() => insertEmoticon(option.value)}
+                    sx={{ minWidth: 34, minHeight: 34, p: 0.5, color: 'common.white', border: '1px solid rgba(255,255,255,0.12)' }}
+                    aria-label={option.label}
+                  >
+                    <Box component="span" sx={{ fontSize: 18 }}>
+                      {option.value}
+                    </Box>
+                  </IconButton>
+                ))}
+              </Stack>
+            )}
+            {!isPresent && (
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                You are not present in this coffee shop — chat actions are disabled.
+              </Typography>
+            )}
+            {isHidden && (
+              <Typography variant="caption" sx={{ color: 'rgba(255, 193, 7, 0.9)' }}>
+                You are hidden from others — click the eye icon to show yourself.
+              </Typography>
+            )}
           </Stack>
         </Collapse>
       </Paper>

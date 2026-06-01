@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
+import Box from '@mui/material/Box';
+import { Iconify } from 'src/components/universe/iconify';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -22,6 +24,9 @@ type Props = {
   name: string;
   size?: number;
   showTooltip?: boolean;
+  status?: 'online' | 'left' | undefined;
+  isFriend?: boolean;
+  isCurrentUser?: boolean;
 };
 
 export function CoffeeShopChatAvatar({
@@ -29,6 +34,9 @@ export function CoffeeShopChatAvatar({
   name,
   size = 32,
   showTooltip = false,
+  status,
+  isFriend = false,
+  isCurrentUser = false,
 }: Props) {
   const [src, setSrc] = useState<string | undefined>(undefined);
 
@@ -59,7 +67,8 @@ export function CoffeeShopChatAvatar({
   }, [photoKeyOrUrl]);
 
   const avatar = (
-    <Avatar
+    <Box sx={{ position: 'relative', display: 'inline-block' }}>
+      <Avatar
       src={src}
       alt={name}
       sx={{
@@ -69,12 +78,51 @@ export function CoffeeShopChatAvatar({
         flexShrink: 0,
         bgcolor: 'rgba(255,255,255,0.12)',
         color: 'common.white',
-        border: '2px solid rgba(255,255,255,0.2)',
+        border: isCurrentUser ? '3px solid orangered' : '2px solid rgba(255,255,255,0.2)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
       }}
     >
       {!src ? initialsFromName(name) : undefined}
     </Avatar>
+
+      {status ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            right: -2,
+            bottom: -2,
+            width: Math.max(8, Math.round(size * 0.22)),
+            height: Math.max(8, Math.round(size * 0.22)),
+            borderRadius: '50%',
+            border: '2px solid rgba(0,0,0,0.6)',
+            bgcolor: status === 'online' ? '#2ecc71' : '#f1c40f',
+          }}
+        />
+      ) : null}
+
+      {isFriend ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: -4,
+            top: -4,
+            width: Math.max(20, Math.round(size * 0.28)),
+            height: Math.max(20, Math.round(size * 0.28)),            
+            bgcolor: 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'common.white',
+          }}
+        >
+          <Iconify
+            icon="mdi:heart"
+            width={Math.max(10, Math.round(size * 0.18))}
+            color="orangered"
+          />
+        </Box>
+      ) : null}
+    </Box>
   );
 
   if (showTooltip) {

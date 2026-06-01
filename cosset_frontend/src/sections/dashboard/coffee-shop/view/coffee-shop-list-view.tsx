@@ -35,6 +35,8 @@ export function CoffeeShopListView() {
 
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
 
+  // no auto-redirect: allow users to view the coffee shop list without being forced into a universe page
+
   const filteredData = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -151,6 +153,7 @@ export function CoffeeShopListView() {
                       : undefined
                   }
                   onDelete={canManage ? handleDelete : undefined}
+                  onEnter={() => router.push(paths.dashboard.community.coffeeShop.view(item.id))}
                 />
               ))}
             </Box>

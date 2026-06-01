@@ -24,11 +24,12 @@ import { getS3SignedUrl } from 'src/utils/helper';
 
 type Props = {
   coffeeShopId: string;
+  isPresent?: boolean;
 };
 
 type MenuItemWithUrl = CoffeeShopMenuItem & { resolvedImageUrl?: string };
 
-export function UniverseCoffeeShopMenu({ coffeeShopId }: Props) {
+export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props) {
   const { authenticated, user } = useAuthContext();
 
   const [open, setOpen] = useState(false);
@@ -210,7 +211,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId }: Props) {
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify icon="solar:cup-hot-bold" width={22} sx={{ color: 'common.white' }} />
             <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
-              Order coffee
+              Menu
             </Typography>
           </Stack>
           <IconButton
@@ -247,11 +248,12 @@ export function UniverseCoffeeShopMenu({ coffeeShopId }: Props) {
                       alignItems="center"
                       role="button"
                       tabIndex={0}
-                      onClick={() => {
-                        setSelectedId(item.id);
-                        setOrderMessage(null);
-                        setOrderError(null);
-                      }}
+                            onClick={() => {
+                              if (!isPresent) return;
+                              setSelectedId(item.id);
+                              setOrderMessage(null);
+                              setOrderError(null);
+                            }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
@@ -313,32 +315,20 @@ export function UniverseCoffeeShopMenu({ coffeeShopId }: Props) {
               type="button"
               fullWidth
               variant="contained"
-              disabled={!selectedItem || ordering || loading || items.length === 0}
+              disabled={!isPresent || !selectedItem || ordering || loading || items.length === 0}
               onClick={() => handleOrder()}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             >
               {ordering ? 'Ordering…' : 'Order selected'}
             </Button>
+            {!isPresent && (
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                You are not present in this coffee shop — ordering is disabled.
+              </Typography>
+            )}
           </Stack>
         </Collapse>
       </Paper>
-
-      {/* <IconButton
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        sx={{
-          width: 52,
-          height: 52,
-          bgcolor: 'rgba(0,0,0,0.5)',
-          border: '1px solid rgba(255,255,255,0.18)',
-          color: 'common.white',
-          backdropFilter: 'blur(8px)',
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.65)' },
-        }}
-        aria-label="Order coffee"
-      >
-        <Iconify icon="solar:cup-hot-bold" width={28} />
-      </IconButton> */}
     </Box>
   );
 

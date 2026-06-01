@@ -7,6 +7,8 @@ export type CoffeeShopChatMessage = {
   authorAvatar?: string | null;
   userId: string | null;
   sentAt: string;
+  /** Chat mode: 'public', 'friend', or 'private' */
+  chatMode?: 'public' | 'friend' | 'private';
   /** `system` = enter/leave announcements (not stored in chat logs). */
   kind?: 'text' | 'system';
 };
@@ -15,6 +17,10 @@ export type CoffeeShopChatParticipant = {
   userId: string;
   name: string;
   photoURL: string | null;
+  /** If present, user has left and this is the timestamp (ms) when they left. */
+  leftAt?: string | number | null;
+  /** Timestamp when the user joined the coffee shop. */
+  joinedAt?: string;
 };
 
 export const COFFEE_SHOP_CHAT_EVENT = 'new-message';

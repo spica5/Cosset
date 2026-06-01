@@ -186,7 +186,7 @@ async function getSignedUploadUrl(
   key: string,
   contentType: string,
   isPublic = false,
-  expiresInSeconds = 60 * 10,
+  expiresInSeconds = 60 * 30,
 ) {
   const bucket = requireEnv('S3_BUCKET');
   if (!bucket) throw new Error('S3_BUCKET env var is missing');

@@ -62,6 +62,19 @@ export async function createCoffeeShop(
   coffeeShop: Omit<ICoffeeShopItem, 'id' | 'createdAt'>,
 ) {
   const res = await axios.post(endpoints.coffeeShop.add, { coffeeShop });
+  const createdCoffeeShop = res.data?.coffeeShop as ICoffeeShopItem | undefined;
+
+  if (createdCoffeeShop) {
+    await mutate<CoffeeShopsData>(
+      COFFEE_SHOP_LIST_ENDPOINT,
+      (current) => ({
+        ...current,
+        coffeeShops: [createdCoffeeShop, ...(current?.coffeeShops || [])],
+      }),
+      false,
+    );
+  }
+
   await mutate(COFFEE_SHOP_LIST_ENDPOINT);
   return res.data;
 }
@@ -126,6 +139,7 @@ export async function deleteCoffeeShop(id: string | number) {
 type SendCoffeeShopChatBody = {
   message: string;
   displayName?: string;
+  chatMode?: 'public' | 'friend' | 'private';
 };
 
 type SendCoffeeShopChatResponse = {
@@ -165,6 +179,23 @@ export async function joinCoffeeShopPresence(
 
 export async function leaveCoffeeShopPresence(coffeeShopId: string | number): Promise<void> {
   await axios.delete(endpoints.coffeeShop.presence(coffeeShopId));
+}
+
+type SetCoffeeShopPresenceHiddenResponse = {
+  isHidden?: boolean;
+};
+
+export async function setCoffeeShopPresenceHidden(
+  coffeeShopId: string | number,
+  isHidden: boolean,
+): Promise<SetCoffeeShopPresenceHiddenResponse> {
+  const res = await axios.patch(endpoints.coffeeShop.presence(coffeeShopId), { isHidden });
+  return res.data as SetCoffeeShopPresenceHiddenResponse;
+}
+
+export async function fetchMyCoffeeShopPresence(): Promise<{ coffeeShopId?: number | null }> {
+  const res = await axios.get(endpoints.coffeeShop.presenceMe);
+  return res.data as { coffeeShopId?: number | null };
 }
 
 type CoffeeShopMenuResponse = {

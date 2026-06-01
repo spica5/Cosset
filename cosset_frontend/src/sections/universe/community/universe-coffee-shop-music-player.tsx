@@ -3,30 +3,28 @@
 import type { CoffeeShopMusicTrack } from 'src/utils/coffee-shop-music';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import useSWR from 'swr';
+import { createPortal } from 'react-dom';
 
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
+import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
-import LinearProgress from '@mui/material/LinearProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
 import { useTheme } from '@mui/material/styles';
 
-import { Iconify } from 'src/components/universe/iconify';
-import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 import { getS3SignedUrl } from 'src/utils/helper';
+import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 import { fetcher, endpoints } from 'src/utils/axios';
+import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
-
-type TrackWithUrl = CoffeeShopMusicTrack & { resolvedUrl: string };
 
 type Props = {
   coffeeShopId: string;
   musicJson?: unknown;
+  isPresent?: boolean;
 };
 
 function formatTime(seconds: number): string {
@@ -38,7 +36,7 @@ function formatTime(seconds: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props) {
+export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPresent = true }: Props) {
   const theme = useTheme();
   const detailUrl = coffeeShopId ? endpoints.coffeeShop.details(coffeeShopId) : null;
 
@@ -55,7 +53,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-  const [tracks, setTracks] = useState<TrackWithUrl[]>([]);
+  const [tracks, setTracks] = useState<CoffeeShopMusicTrack[]>([]);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -67,6 +65,8 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentIndexRef = useRef(0);
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     setPortalTarget(document.body);
@@ -77,57 +77,22 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
   }, [currentIndex]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const resolve = async () => {
-      if (!sourceTracks.length) {
-        if (!cancelled) {
-          setTracks([]);
-          setResolving(false);
-          setResolveError(false);
-          setCurrentIndex(0);
-          setIsPlaying(false);
-        }
-        return;
-      }
-
-      setResolving(true);
+    if (!sourceTracks.length) {
+      setTracks([]);
+      setResolving(false);
       setResolveError(false);
+      setCurrentIndex(0);
+      setIsPlaying(false);
+      return;
+    }
 
-      const resolved = await Promise.all(
-        sourceTracks.map(async (track) => {
-          const key = track.audioUrl.trim();
-          if (!key) {
-            return null;
-          }
-          if (key.startsWith('http://') || key.startsWith('https://')) {
-            return { ...track, resolvedUrl: key };
-          }
-          const url = (await getS3SignedUrl(key)) || '';
-          if (!url) {
-            return null;
-          }
-          return { ...track, resolvedUrl: url };
-        }),
-      );
-
-      if (!cancelled) {
-        const playable = resolved.filter((t): t is TrackWithUrl => Boolean(t));
-        setTracks(playable);
-        setResolveError(playable.length === 0 && sourceTracks.length > 0);
-        setResolving(false);
-        setCurrentIndex(0);
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
-      }
-    };
-
-    resolve();
-
-    return () => {
-      cancelled = true;
-    };
+    setTracks(sourceTracks);
+    setResolving(false);
+    setResolveError(false);
+    setCurrentIndex(0);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
   }, [sourceTracks]);
 
   const currentTrack = tracks[currentIndex] || sourceTracks[currentIndex] || null;
@@ -135,7 +100,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
   const loadAndPlay = useCallback(
     async (index: number, autoplay = true) => {
       const track = tracks[index];
-      if (!track?.resolvedUrl) {
+      if (!track?.audioUrl) {
         return;
       }
 
@@ -146,18 +111,34 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
 
       setLoading(true);
       setCurrentIndex(index);
-      audio.src = track.resolvedUrl;
-      audio.load();
-
-      if (!autoplay) {
-        setLoading(false);
-        setIsPlaying(false);
-        return;
-      }
 
       try {
-        await audio.play();
-        setIsPlaying(true);
+        // Get fresh signed URL for each playback
+        let urlToUse = track.audioUrl.trim();
+        if (!urlToUse.startsWith('http://') && !urlToUse.startsWith('https://')) {
+          const freshUrl = await getS3SignedUrl(urlToUse);
+          if (!freshUrl) {
+            setLoading(false);
+            return;
+          }
+          urlToUse = freshUrl;
+        }
+
+        audio.src = urlToUse;
+        audio.load();
+
+        if (!autoplay) {
+          setLoading(false);
+          setIsPlaying(false);
+          return;
+        }
+
+        try {
+          await audio.play();
+          setIsPlaying(true);
+        } catch {
+          setIsPlaying(false);
+        }
       } catch {
         setIsPlaying(false);
       } finally {
@@ -167,18 +148,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
     [tracks],
   );
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    const resolvedUrl = tracks[currentIndex]?.resolvedUrl;
-    if (!audio || !resolvedUrl) {
-      return;
-    }
 
-    if (audio.src !== resolvedUrl) {
-      audio.src = resolvedUrl;
-      audio.load();
-    }
-  }, [tracks, currentIndex]);
 
   const handleTogglePlay = async () => {
     const audio = audioRef.current;
@@ -225,6 +195,58 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
     loadAndPlay(index, isPlaying);
   };
 
+  const seekTo = useCallback((position: number) => {
+    const audio = audioRef.current;
+    if (!audio || !duration || duration <= 0) {
+      return;
+    }
+    const newTime = Math.max(0, Math.min(position, duration));
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  }, [duration]);
+
+  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressRef.current || !duration) {
+      return;
+    }
+    const rect = progressRef.current.getBoundingClientRect();
+    const clickPos = (e.clientX - rect.left) / rect.width;
+    const newTime = clickPos * duration;
+    seekTo(newTime);
+  }, [duration, seekTo]);
+
+  const handleProgressMouseDown = () => {
+    isDraggingRef.current = true;
+  };
+
+  useEffect(() => {
+    // if (!isDraggingRef.current) {
+    //   return;
+    // }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !progressRef.current || !duration) {
+        return;
+      }
+      const rect = progressRef.current.getBoundingClientRect();
+      const movePos = (e.clientX - rect.left) / rect.width;
+      const newTime = movePos * duration;
+      seekTo(newTime);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [duration, seekTo]);
+
   if (!portalTarget) {
     return null;
   }
@@ -233,7 +255,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const displayTitle =
     (currentTrack && 'title' in currentTrack ? currentTrack.title : null) || 'Music';
-  const controlsDisabled = !hasTracks || resolving || resolveError || !tracks.length;
+  const controlsDisabled = !hasTracks || resolving || resolveError || !tracks.length || !isPresent;
 
   const statusText = !hasTracks
     ? 'No music'
@@ -277,10 +299,19 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
               border: '1px solid rgba(255,255,255,0.12)',
               bgcolor: 'rgba(0,0,0,0.35)',
               py: 0.5,
-              '&::-webkit-scrollbar': { width: 6 },
+              '&::-webkit-scrollbar': { 
+                width: 6 
+              },
+              '&::-webkit-scrollbar-track': {
+                borderRadius: 3,
+                bgcolor: 'rgba(255,255,255,0.05)',
+              },
               '&::-webkit-scrollbar-thumb': {
                 borderRadius: 3,
-                bgcolor: 'rgba(255,255,255,0.25)',
+                bgcolor: 'rgba(255,255,255,0.35)',
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.5)',
+                },
               },
             }}
           >
@@ -391,16 +422,32 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
         </Stack>
 
         {hasTracks && !resolveError && !resolving ? (
-          <LinearProgress
-            variant="determinate"
-            value={progress}
+          <Box
+            ref={progressRef}
+            onClick={handleProgressClick}
+            onMouseDown={handleProgressMouseDown}
             sx={{
               height: 3,
               borderRadius: 1,
               bgcolor: 'rgba(255,255,255,0.15)',
-              '& .MuiLinearProgress-bar': { bgcolor: 'info.main' },
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              '&:hover': {
+                height: 6,
+              },
             }}
-          />
+          >
+            <Box
+              sx={{
+                height: '100%',
+                width: `${progress}%`,
+                bgcolor: 'info.main',
+                transition: isDraggingRef.current ? 'none' : 'width 0.1s linear',
+                borderRadius: 1,
+              }}
+            />
+          </Box>
         ) : null}
       </Stack>
 
@@ -411,6 +458,14 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson }: Props
           onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
           onEnded={() => {
+            if (tracks.length > 1) {
+              loadAndPlay((currentIndexRef.current + 1) % tracks.length, true);
+            } else {
+              setIsPlaying(false);
+            }
+          }}
+          onError={(e) => {
+            // Skip to next track if current one fails to load
             if (tracks.length > 1) {
               loadAndPlay((currentIndexRef.current + 1) % tracks.length, true);
             } else {

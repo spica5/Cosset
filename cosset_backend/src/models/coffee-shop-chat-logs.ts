@@ -21,6 +21,7 @@ const ensureCoffeeShopChatLogsTable = async (): Promise<void> => {
             file_url VARCHAR(1000) NULL,
             file_name VARCHAR(255) NULL,
             mime_type VARCHAR(100) NULL,
+            chat_mode VARCHAR(20) DEFAULT 'public',
             is_read BOOLEAN DEFAULT FALSE,
             is_deleted BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -44,6 +45,7 @@ export type CoffeeShopChatLogInsert = {
   senderType: 'guest' | 'member';
   messageType: string;
   message: string;
+  chatMode?: 'public' | 'friend' | 'private';
   fileUrl?: string | null;
   fileName?: string | null;
   mimeType?: string | null;
@@ -64,6 +66,7 @@ export type CoffeeShopChatLogQueryRow = {
   senderId: string | null;
   senderName: string | null;
   message: string | null;
+  chatMode: string;
   createdAt: Date | string;
 };
 
@@ -82,6 +85,7 @@ export async function listCoffeeShopChatLogsToday(coffeeShopId: number): Promise
           sender_id::text AS "senderId",
           sender_name AS "senderName",
           message,
+          COALESCE(chat_mode, 'public') AS "chatMode",
           created_at AS "createdAt"
         FROM ${TABLE_NAME}
         WHERE coffee_shop_id = $1
@@ -116,6 +120,7 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
     const senderType = row.senderType === 'member' ? 'member' : 'guest';
     const messageType = (row.messageType || 'text').slice(0, 20);
     const message = row.message.slice(0, 2000);
+    const chatMode = (row.chatMode && ['public', 'friend', 'private'].includes(row.chatMode)) ? row.chatMode : 'public';
     const fileUrl = row.fileUrl?.slice(0, 1000) ?? null;
     const fileName = row.fileName?.slice(0, 255) ?? null;
     const mimeType = row.mimeType?.slice(0, 100) ?? null;
@@ -129,13 +134,14 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
           sender_type,
           message_type,
           message,
+          chat_mode,
           file_url,
           file_name,
           mime_type,
           is_read,
           is_deleted
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, FALSE)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, FALSE)
         RETURNING
           id::text,
           coffee_shop_id as "coffeeShopId",
@@ -148,6 +154,7 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
         senderType,
         messageType,
         message,
+        chatMode,
         fileUrl,
         fileName,
         mimeType,
