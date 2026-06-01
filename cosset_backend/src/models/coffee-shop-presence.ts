@@ -18,12 +18,13 @@ const ensureCoffeeShopPresenceTable = async (): Promise<void> => {
             user_id UUID NOT NULL,
             joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            left_at TIMESTAMP NULL DEFAULT NULL,
             is_hidden BOOLEAN DEFAULT FALSE,
             PRIMARY KEY (coffee_shop_id, user_id)
           )
         `,
       );
-   
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS left_at TIMESTAMP`);
     })().catch((error) => {
       ensureTablePromise = null;
       throw error;
@@ -31,6 +32,33 @@ const ensureCoffeeShopPresenceTable = async (): Promise<void> => {
   }
 
   await ensureTablePromise;
+};
+
+const purgeExpiredCoffeeShopPresence = async (): Promise<void> => {
+  // First, mark rows as left when they've been inactive for 30 minutes
+  await executeQuery(
+    `
+      UPDATE ${TABLE_NAME}
+      SET left_at =  NOW() 
+      WHERE left_at IS NULL
+        AND updated_at <= NOW() - INTERVAL '30 minutes'
+    `,
+  );
+
+  // Then delete rows where the most recent event (updated_at or left_at) is older than 30 minutes
+  // Delete users who have been left for more than 30 minutes
+  await executeQuery(
+    `
+      DELETE FROM ${TABLE_NAME}
+      WHERE left_at IS NOT NULL 
+        AND left_at <= NOW() - INTERVAL '30 minutes'
+    `,
+  );
+};
+
+const ensureCoffeeShopPresenceTableAndPurge = async (): Promise<void> => {
+  await ensureCoffeeShopPresenceTable();
+  await purgeExpiredCoffeeShopPresence();
 };
 
 export async function upsertCoffeeShopPresence(coffeeShopId: number, userId: string): Promise<void> {
@@ -43,13 +71,13 @@ export async function upsertCoffeeShopPresence(coffeeShopId: number, userId: str
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     await executeQuery(
       `
-        INSERT INTO ${TABLE_NAME} (coffee_shop_id, user_id, joined_at, updated_at)
-        VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO ${TABLE_NAME} (coffee_shop_id, user_id, joined_at, updated_at, left_at, is_hidden)
+        VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL, FALSE)
         ON CONFLICT (coffee_shop_id, user_id)
-        DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+        DO UPDATE SET updated_at = CURRENT_TIMESTAMP, left_at = NULL, is_hidden = FALSE
       `,
       [coffeeShopId, normalizedUserId],
     );
@@ -71,10 +99,11 @@ export async function removeCoffeeShopPresence(coffeeShopId: number, userId: str
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     await executeQuery(
       `
-        DELETE FROM ${TABLE_NAME}
+        UPDATE ${TABLE_NAME}
+        SET left_at = CURRENT_TIMESTAMP
         WHERE coffee_shop_id = $1 AND user_id = $2
       `,
       [coffeeShopId, normalizedUserId],
@@ -92,13 +121,15 @@ export async function removeCoffeeShopPresence(coffeeShopId: number, userId: str
 
 export async function listCoffeeShopPresenceUserIds(coffeeShopId: number): Promise<string[]> {
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
 
     const rows = await queryMany<{ userId: string }>(
       `
         SELECT user_id::text AS "userId"
         FROM ${TABLE_NAME}
-        WHERE coffee_shop_id = $1 AND is_hidden = FALSE
+        WHERE coffee_shop_id = $1
+          AND is_hidden = FALSE
+          AND left_at IS NULL
         ORDER BY joined_at ASC
       `,
       [coffeeShopId],
@@ -126,7 +157,7 @@ export async function getCoffeeShopPresenceJoinedAt(
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     const rows = await queryMany<{ joinedAt: string }>(
       `
         SELECT joined_at::text AS "joinedAt"
@@ -162,7 +193,7 @@ export async function setCoffeeShopPresenceHidden(
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     await executeQuery(
       `
         UPDATE ${TABLE_NAME}
@@ -192,7 +223,7 @@ export async function getCoffeeShopPresenceHidden(
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     const rows = await queryMany<{ isHidden: boolean }>(
       `
         SELECT is_hidden AS "isHidden"
@@ -218,13 +249,15 @@ export async function listCoffeeshopPresence(
   coffeeShopId: number,
 ): Promise<Array<{ userId: string; joinedAt: string }>> {
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
 
     const rows = await queryMany<{ userId: string; joinedAt: string }>(
       `
         SELECT user_id::text AS "userId", joined_at::text AS "joinedAt"
         FROM ${TABLE_NAME}
-        WHERE coffee_shop_id = $1 AND is_hidden = FALSE
+        WHERE coffee_shop_id = $1
+          AND is_hidden = FALSE
+          AND left_at IS NULL
         ORDER BY joined_at ASC
       `,
       [coffeeShopId],
@@ -249,7 +282,7 @@ export async function removeUserFromAllCoffeeShops(userId: string): Promise<void
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
     await executeQuery(
       `
         DELETE FROM ${TABLE_NAME}
@@ -275,13 +308,14 @@ export async function listUserCoffeeShops(userId: string): Promise<number[]> {
   }
 
   try {
-    await ensureCoffeeShopPresenceTable();
+    await ensureCoffeeShopPresenceTableAndPurge();
 
     const rows = await queryMany<{ coffeeShopId: number }>(
       `
         SELECT coffee_shop_id as "coffeeShopId"
         FROM ${TABLE_NAME}
         WHERE user_id = $1
+          AND left_at IS NULL
         ORDER BY coffee_shop_id ASC
       `,
       [normalizedUserId],
