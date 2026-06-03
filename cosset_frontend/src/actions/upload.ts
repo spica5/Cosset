@@ -21,6 +21,9 @@ type SignedUploadResponse = {
 // Enable direct S3 upload by default since CORS is now configured on the bucket
 const isDirectS3UploadEnabled = process.env.NEXT_PUBLIC_ENABLE_DIRECT_S3_UPLOAD === 'true';
 
+// Threshold for using direct S3 upload (5MB) to avoid Vercel's request size limit
+const DIRECT_UPLOAD_THRESHOLD = 5 * 1024 * 1024;
+
 const getUploadEndpoint = (isPublic: boolean) =>
   isPublic ? `${endpoints.upload.image}?public=true` : endpoints.upload.image;
 
@@ -110,9 +113,11 @@ export async function uploadFileToS3({
     throw new Error('Upload key is required.');
   }
 
-  // Direct browser-to-S3 upload requires bucket CORS. Keep proxy upload as
-  // the safe default unless explicitly enabled.
-  if (!isDirectS3UploadEnabled) {
+  // Use direct S3 upload for large files to avoid Vercel's request size limit (6MB)
+  // or if explicitly enabled
+  const useDirectUpload = isDirectS3UploadEnabled || file.size > DIRECT_UPLOAD_THRESHOLD;
+
+  if (!useDirectUpload) {
     return uploadFileViaBackendProxy(file, normalizedKey, isPublic);
   }
 

@@ -42,6 +42,13 @@ function getMimeType(ext: string) {
     m4v: 'video/x-m4v',
     webm: 'video/webm',
     pdf: 'application/pdf',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    m4a: 'audio/mp4',
+    flac: 'audio/flac',
+    oga: 'audio/ogg',
   };
 
   return map[ext.toLowerCase()] || 'application/octet-stream';
