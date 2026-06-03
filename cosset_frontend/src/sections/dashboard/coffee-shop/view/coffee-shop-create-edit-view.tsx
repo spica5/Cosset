@@ -55,6 +55,7 @@ import {
   createCoffeeShop,
   updateCoffeeShop,
 } from 'src/actions/coffee-shop';
+import { uploadFileToS3 } from 'src/actions/upload';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -116,15 +117,8 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     const entitySegment = coffeeShopId || 'draft';
     const key = `coffee-shops/${ownerSegment}/${entitySegment}/${folder}/${uuidv4()}.${ext}`;
 
-    const uploadFormData = new FormData();
-    uploadFormData.append('file', file);
-    uploadFormData.append('key', key);
-
-    const uploadRes = await axiosInstance.post(endpoints.upload.image, uploadFormData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    const result = uploadRes.data as { key?: string; url?: string };
+    // Use uploadFileToS3 which handles large files with direct S3 upload
+    const result = await uploadFileToS3({ file, key, isPublic: false });
     return result.key || key;
   };
 
