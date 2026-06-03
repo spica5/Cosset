@@ -351,13 +351,11 @@ export async function POST(req: NextRequest) {
 
     if (files.length > 0) {
       // Validate all files
-      const invalidImage = files.some(({ file }) => !file.type.startsWith('image/'));
-      if (invalidImage) {
-        return response({ message: 'All files must be images' }, STATUS.BAD_REQUEST);
-      }
-      const oversized = files.some(({ file }) => file.size > 5 * 1024 * 1024);
-      if (oversized) {
-        return response({ message: 'File size must be less than 5MB' }, STATUS.BAD_REQUEST);
+      for (const { file } of files) {
+        const validation = validateSingleUploadFile(file);
+        if (!validation.valid) {
+          return response({ message: validation.message }, STATUS.BAD_REQUEST);
+        }
       }
 
       // Prepare uploads (read files in parallel)

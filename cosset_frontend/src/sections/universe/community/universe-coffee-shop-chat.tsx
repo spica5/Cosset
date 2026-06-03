@@ -722,6 +722,13 @@ export function UniverseCoffeeShopChat({
                       ? m.userId.trim().toLowerCase() === userIdStr.toLowerCase()
                       : false;
 
+                  // Check if the message author has left the coffee shop
+                  const messageAuthorId = m.userId?.trim().toLowerCase();
+                  const participant = participantsRef.current.find(
+                    (p) => p.userId.trim().toLowerCase() === messageAuthorId,
+                  );
+                  const status = !participant?.leftAt ? 'online' : 'left';
+
                   return (
                     <Stack key={m.id} direction="row" spacing={1.25} alignItems="flex-start">
                       <CoffeeShopChatAvatar
@@ -730,6 +737,7 @@ export function UniverseCoffeeShopChat({
                         size={32}
                         isFriend={isFriend}
                         isCurrentUser={isCurrentUser}
+                        status={status}
                       />
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         {!isSystem && (
