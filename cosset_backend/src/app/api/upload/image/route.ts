@@ -351,8 +351,11 @@ export async function POST(req: NextRequest) {
 
     if (files.length > 0) {
       // Validate all files
-      for (const { file } of files) {
+      for (let i = 0; i < files.length; i += 1) {
+        const { file } = files[i];
+
         const validation = validateSingleUploadFile(file);
+
         if (!validation.valid) {
           return response({ message: validation.message }, STATUS.BAD_REQUEST);
         }
