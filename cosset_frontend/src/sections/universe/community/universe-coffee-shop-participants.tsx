@@ -21,19 +21,25 @@ type Props = {
 
 const formatJoinTime = (joinedAtStr?: string): string => {
   if (!joinedAtStr) return '';
-  
-  let joinedAt = new Date(joinedAtStr);
-  // const now = new Date();
-  // const diffMs = now.getTime() - joinedAt.getTime();
-  // const diffMins = Math.floor(diffMs / 60000);
-  // const diffHours = Math.floor(diffMs / 3600000);
-  
-  // if (diffMins < 1) return 'Just now';
-  // if (diffMins < 60) return `${diffMins}m ago`;
-  // if (diffHours < 24) return `${diffHours}h ago`;
-  
-  // return joinedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return joinedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, });
+
+  const normalized = joinedAtStr
+    .replace(' ', 'T')
+    .replace(/(\.\d{3})\d+$/, '$1');
+
+  // Add Z because DB time is UTC
+  const joinedAt = new Date(`${normalized}Z`);
+
+  if (Number.isNaN(joinedAt.getTime())) {
+    return '';
+  }
+
+  return joinedAt.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 };
 
 export function UniverseCoffeeShopParticipants({ participants }: Props) {
