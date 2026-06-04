@@ -95,7 +95,7 @@ function buildCandles(count: number, seed: number): CandleSpec[] {
     id: index,
     left: rnd() * 100,
     delay: rnd() * 0.5,
-    width: 10, //8 + rnd() * 6,
+    width: 10,
   }));
 }
 
@@ -103,8 +103,8 @@ function buildSparks(candles: CandleSpec[], seed: number): SparkSpec[] {
   const rnd = createSeededRandom(seed + 2357);
   const sparks: SparkSpec[] = [];
 
-  for (let candleId = 0; candleId < candles.length; candleId++) {
-    for (let i = 0; i < 3; i++) {
+  for (let candleId = 0; candleId < candles.length; candleId += 1) {
+    for (let i = 0; i < 3; i += 1) {
       const sparkId = candleId * 3 + i;
       sparks.push({
         id: sparkId,
@@ -255,7 +255,7 @@ export function CoffeeShopCandles({
             boxShadow: '0 0 3px 1px rgba(255, 180, 0, 0.9)',
             '--tx': `${spark.tx}px`,
             '--ty': `${spark.ty}px`,
-            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + candles[spark.candleId]?.delay || 0}s infinite`,
+            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + (candles[spark.candleId]?.delay || 0)}s infinite`,
           } as any}
         />
       ))}
