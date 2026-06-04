@@ -753,7 +753,7 @@ export function UniverseCoffeeShopChat({
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
                               {m.authorName}
                               {m.sentAt
-                                ? ` · ${new Date(m.sentAt).toLocaleTimeString(['en-US'], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}`
+                                ? ` · ${new Date(m.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit',  hour12: true,})}`
                                 : ''}
 
                             </Typography>

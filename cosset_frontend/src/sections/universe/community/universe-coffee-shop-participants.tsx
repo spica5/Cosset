@@ -32,7 +32,8 @@ const formatJoinTime = (joinedAtStr?: string): string => {
   // if (diffMins < 60) return `${diffMins}m ago`;
   // if (diffHours < 24) return `${diffHours}h ago`;
   
-  return joinedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // return joinedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return joinedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, });
 };
 
 export function UniverseCoffeeShopParticipants({ participants }: Props) {
