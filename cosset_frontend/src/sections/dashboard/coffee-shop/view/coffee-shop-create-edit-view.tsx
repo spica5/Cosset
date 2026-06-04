@@ -13,6 +13,8 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -40,12 +42,14 @@ import {
 } from 'src/utils/coffee-shop-music';
 import {
   COFFEE_SHOP_ATMOSPHERE_OPTIONS,
-  COFFEE_SHOP_EVENING_BACKGROUND_FILTER,
-  COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER,
   DEFAULT_COFFEE_SHOP_ATMOSPHERE,
-  hasEveningAtmosphere,
+  hasSparklesAtmosphere,
+  hasCandlesAtmosphere,
   parseCoffeeShopAtmosphere,
+  getTimeOfDay,
+  buildAtmosphereEffect,
   type CoffeeShopAtmosphereEffect,
+  type CoffeeShopTimeOfDay,
 } from 'src/utils/coffee-shop-atmosphere';
 
 import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
@@ -402,7 +406,6 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
   const hasBackgroundPreview =
     Boolean(backgroundPreviewUrl) || isCoffeeShopGradientBackground(form.background);
 
-  const eveningPreviewTone = hasEveningAtmosphere(atmosphere);
   const atmospherePreviewSeed = coffeeShopId || form.name || 'draft';
 
   const handleSave = async () => {
@@ -564,27 +567,84 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
 
           <Typography variant="subtitle2">Universe atmosphere</Typography>
 
-          <ToggleButtonGroup
-            exclusive
-            value={atmosphere}
-            onChange={(_event, value: CoffeeShopAtmosphereEffect | null) => {
-              if (value) {
-                setAtmosphere(value);
-              }
-            }}
-            size="small"
-            sx={{ flexWrap: 'wrap', gap: 0.5 }}
-          >
-            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.map((option) => (
-              <ToggleButton
-                key={option.value}
-                value={option.value}
-                sx={{ textTransform: 'none', px: 1.5 }}
+          <Stack spacing={1.5}>
+            {/* Time of Day Selection */}
+            <Stack>
+              <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                Time of day
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={getTimeOfDay(atmosphere)}
+                onChange={(_event, value: CoffeeShopTimeOfDay | null) => {
+                  if (value) {
+                    const newAtmosphere = buildAtmosphereEffect(
+                      value,
+                      hasSparklesAtmosphere(atmosphere),
+                      hasCandlesAtmosphere(atmosphere),
+                    );
+                    setAtmosphere(newAtmosphere);
+                  }
+                }}
+                size="small"
+                sx={{ width: 'fit-content' }}
               >
-                {option.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+                <ToggleButton value="day" disabled={saving}>
+                  Day
+                </ToggleButton>
+                <ToggleButton value="evening" disabled={saving}>
+                  Evening
+                </ToggleButton>
+                <ToggleButton value="night" disabled={saving}>
+                  Night
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+
+            {/* Effects Selection */}
+            <Stack>
+              <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                Effects
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasSparklesAtmosphere(atmosphere)}
+                      onChange={(e) => {
+                        const newAtmosphere = buildAtmosphereEffect(
+                          getTimeOfDay(atmosphere),
+                          e.target.checked,
+                          hasCandlesAtmosphere(atmosphere),
+                        );
+                        setAtmosphere(newAtmosphere);
+                      }}
+                      disabled={saving}
+                    />
+                  }
+                  label="Sparkles"
+                />
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasCandlesAtmosphere(atmosphere)}
+                      onChange={(e) => {
+                        const newAtmosphere = buildAtmosphereEffect(
+                          getTimeOfDay(atmosphere),
+                          hasSparklesAtmosphere(atmosphere),
+                          e.target.checked,
+                        );
+                        setAtmosphere(newAtmosphere);
+                      }}
+                      disabled={saving}
+                    />
+                  }
+                  label="Candles"
+                />
+              </Stack>
+            </Stack>
+          </Stack>
 
           <Typography variant="caption" color="text.secondary">
             {COFFEE_SHOP_ATMOSPHERE_OPTIONS.find((o) => o.value === atmosphere)?.description}
@@ -623,11 +683,6 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  ...(eveningPreviewTone
-                    ? isCoffeeShopGradientBackground(form.background)
-                      ? { filter: COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER }
-                      : { filter: COFFEE_SHOP_EVENING_BACKGROUND_FILTER }
-                    : {}),
                 }}
               />
             ) : (

@@ -7,6 +7,7 @@ export type CoffeeShopParticipantPayload = {
   name: string;
   photoURL: string | null;
   joinedAt?: string;
+  leftAt?: string | null;
 };
 
 const displayNameFromUser = (user: UserBrief | undefined): string => {

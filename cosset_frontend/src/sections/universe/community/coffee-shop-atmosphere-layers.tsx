@@ -3,12 +3,12 @@
 import type { CoffeeShopAtmosphereEffect } from 'src/utils/coffee-shop-atmosphere';
 
 import {
-  hasEveningAtmosphere,
   hasSparklesAtmosphere,
+  hasCandlesAtmosphere,
 } from 'src/utils/coffee-shop-atmosphere';
 
-import { CoffeeShopEveningOverlay } from 'src/sections/universe/community/coffee-shop-evening-overlay';
 import { UniverseCoffeeShopSparkles } from 'src/sections/universe/community/universe-coffee-shop-sparkles';
+import { CoffeeShopCandles } from 'src/sections/universe/community/coffee-shop-candles';
 
 // ----------------------------------------------------------------------
 
@@ -25,16 +25,16 @@ export function CoffeeShopAtmosphereLayers({
   seed = 1,
   layout = 'fullscreen',
 }: Props) {
-  const showEvening = hasEveningAtmosphere(atmosphere);
   const showSparkles = hasSparklesAtmosphere(atmosphere);
+  const showCandles = hasCandlesAtmosphere(atmosphere);
 
-  if (!showEvening && !showSparkles) {
+  if (!showSparkles && !showCandles) {
     return null;
   }
 
   return (
     <>
-      {showEvening ? <CoffeeShopEveningOverlay layout={layout} /> : null}
+      {showCandles ? <CoffeeShopCandles seed={seed} layout={layout} /> : null}
       {showSparkles ? (
         <UniverseCoffeeShopSparkles seed={seed} layout={layout} />
       ) : null}

@@ -141,6 +141,7 @@ export function UniverseCoffeeShopChat({
   const [sendError, setSendError] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<'public' | 'friend' | 'private'>('public');
   const [emoticonsOpen, setEmoticonsOpen] = useState(false);
+  const [participantStatusVersion, setParticipantStatusVersion] = useState(0);
 
   const listRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -297,7 +298,11 @@ export function UniverseCoffeeShopChat({
           handleParticipantJoinedRef.current(participant);
           try {
             if (typeof window !== 'undefined') {
-              window.localStorage.setItem(`coffee-shop-last-joined:${coffeeShopId}`, String(Date.now()));
+              // Use the joinedAt from participant to match the server timestamp
+              const joinedAtMs = participant.joinedAt
+                ? new Date(participant.joinedAt).getTime()
+                : Date.now();
+              window.localStorage.setItem(`coffee-shop-last-joined:${coffeeShopId}`, String(joinedAtMs));
             }
           } catch {
             // ignore
@@ -394,6 +399,8 @@ export function UniverseCoffeeShopChat({
         participantsRef.current = participantsRef.current.map((p) =>
           p.userId.trim().toLowerCase() === uid.toLowerCase() ? { ...p, leftAt: new Date().toISOString().replace('T', ' ').replace('Z', '') } : p,
         );
+        // Trigger re-render so avatar status updates from online to offline
+        setParticipantStatusVersion(v => v + 1);
       }
 
       const displayName = found ? found.name : uid;
@@ -435,20 +442,21 @@ export function UniverseCoffeeShopChat({
 
   const filteredMessages = useMemo(() => {
     if (chatMode === 'public') {
-      return messages.filter((m) => (m.chatMode || 'public') === 'public');
+      return messages.filter((m:CoffeeShopChatMessage) => (m.chatMode || 'public') === 'public');
     }
 
     if (chatMode === 'friend') {
-      return messages.filter((m) => {
+      return messages.filter((m:CoffeeShopChatMessage) => {
         const messageAuthorId = m.userId?.trim().toLowerCase();
         const currentUserId = userIdStr?.toLowerCase();
         // Show messages from friends and from current user
-        return (messageAuthorId && friendIdSet.has(messageAuthorId)) || messageAuthorId === currentUserId;
+        return (m.chatMode === 'friend') && ((messageAuthorId && friendIdSet.has(messageAuthorId)) || (messageAuthorId === currentUserId));
+        
       });
     }
 
     if (chatMode === 'private') {
-      return messages.filter((m) => {
+      return messages.filter((m:CoffeeShopChatMessage) => {
         const messageAuthorId = m.userId?.trim().toLowerCase();
         const currentUserId = userIdStr?.toLowerCase();
         return messageAuthorId === currentUserId;
@@ -727,7 +735,7 @@ export function UniverseCoffeeShopChat({
                   const participant = participantsRef.current.find(
                     (p) => p.userId.trim().toLowerCase() === messageAuthorId,
                   );
-                  const status = !participant?.leftAt ? 'online' : 'left';
+                  const status = participant?.joinedAt && !participant?.leftAt ? 'online' : 'left';
 
                   return (
                     <Stack key={m.id} direction="row" spacing={1.25} alignItems="flex-start">
@@ -745,8 +753,9 @@ export function UniverseCoffeeShopChat({
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
                               {m.authorName}
                               {m.sentAt
-                                ? ` · ${new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                ? ` · ${new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}`
                                 : ''}
+
                             </Typography>
                             {m.chatMode && m.chatMode !== 'public' && (
                               <Chip

@@ -329,7 +329,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
           </Stack>
         </Collapse>
       </Paper>
-    </Box>
+  </Box>
   );
 
   return createPortal(panel, portalTarget);

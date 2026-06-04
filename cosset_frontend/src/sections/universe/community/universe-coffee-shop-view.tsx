@@ -18,10 +18,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { endpoints } from 'src/utils/axios';
 import {
-  hasEveningAtmosphere,
   parseCoffeeShopAtmosphere,
-  COFFEE_SHOP_EVENING_BACKGROUND_FILTER,
-  COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER, 
+  getTimeOfDay,
+  getBackgroundFilter,
 } from 'src/utils/coffee-shop-atmosphere';
 
 import {
@@ -414,7 +413,6 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     () => parseCoffeeShopAtmosphere(coffeeShop?.atmosphere),
     [coffeeShop?.atmosphere],
   );
-  const eveningTone = hasEveningAtmosphere(atmosphere);
 
   const musicPlayer = (
     <UniverseCoffeeShopMusicPlayer
@@ -465,7 +463,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             inset: 0,
             zIndex: 0,
             background: rawBackground,
-            ...(eveningTone ? { filter: COFFEE_SHOP_EVENING_GRADIENT_BACKGROUND_FILTER } : {}),
+            filter: getBackgroundFilter(getTimeOfDay(atmosphere), true),
           }}
         />
       ) : null}
@@ -487,7 +485,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             bgcolor: '#0b0f14',
             cursor: 'zoom-in',
             display: 'block',
-            ...(eveningTone ? { filter: COFFEE_SHOP_EVENING_BACKGROUND_FILTER } : {}),
+            filter: getBackgroundFilter(getTimeOfDay(atmosphere), false),
           }}
         />
       ) : null}

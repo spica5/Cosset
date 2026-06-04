@@ -15,7 +15,7 @@ export interface CoffeeShop {
   menu?: string | null;
   /** JSON array of background music tracks for universe page */
   music?: string | null;
-  /** Universe atmosphere: none | evening | sparkles | evening_sparkles */
+  /** Universe atmosphere: day/evening/night + none/sparkles/candles/sparkles_candles */
   atmosphere?: string | null;
   createdAt?: Date | null;
 }

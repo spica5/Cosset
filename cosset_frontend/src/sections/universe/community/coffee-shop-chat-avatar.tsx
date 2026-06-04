@@ -86,18 +86,21 @@ export function CoffeeShopChatAvatar({
     </Avatar>
 
       {status ? (
-        <Box
-          sx={{
-            position: 'absolute',
-            right: -2,
-            bottom: -2,
-            width: Math.max(8, Math.round(size * 0.22)),
-            height: Math.max(8, Math.round(size * 0.22)),
-            borderRadius: '50%',
-            border: '2px solid rgba(0,0,0,0.6)',
-            bgcolor: status === 'online' ? '#2ecc71' : '#f1c40f',
-          }}
-        />
+        <Tooltip title={status === 'online' ? 'Online' : 'Offline'} placement="top">
+          <Box
+            sx={{
+              position: 'absolute',
+              right: -2,
+              bottom: -2,
+              width: Math.max(10, Math.round(size * 0.25)),
+              height: Math.max(10, Math.round(size * 0.25)),
+              borderRadius: '50%',
+              border: '2px solid rgba(0,0,0,0.8)',
+              bgcolor: status === 'online' ? '#2ecc71' : '#f1c40f',
+              boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+            }}
+          />
+        </Tooltip>
       ) : null}
 
       {isFriend ? (

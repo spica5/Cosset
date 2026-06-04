@@ -221,7 +221,7 @@ export async function POST(
       return response({ message: 'Display name is required for guests' }, STATUS.BAD_REQUEST);
     }
 
-    await createCoffeeShopChatLog({
+    const inserted = await createCoffeeShopChatLog({
       coffeeShopId,
       senderId: userId,
       senderName: authorName,
@@ -242,7 +242,7 @@ export async function POST(
       authorAvatar,
       userId,
       chatMode,
-      sentAt: new Date().toISOString(),
+      sentAt: inserted.createdAt, // new Date().toISOString(),
     };
 
     const pusher = getPusherServer();
