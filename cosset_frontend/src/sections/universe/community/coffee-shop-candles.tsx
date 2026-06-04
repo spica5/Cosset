@@ -95,7 +95,7 @@ function buildCandles(count: number, seed: number): CandleSpec[] {
     id: index,
     left: rnd() * 100,
     delay: rnd() * 0.5,
-    width: 8 + rnd() * 6,
+    width: 10, //8 + rnd() * 6,
   }));
 }
 
@@ -103,8 +103,8 @@ function buildSparks(candles: CandleSpec[], seed: number): SparkSpec[] {
   const rnd = createSeededRandom(seed + 2357);
   const sparks: SparkSpec[] = [];
 
-  for (let candleId = 0; candleId < candles.length; candleId += 1) {
-    for (let i = 0; i < 3; i += 1) {
+  for (let candleId = 0; candleId < candles.length; candleId++) {
+    for (let i = 0; i < 3; i++) {
       const sparkId = candleId * 3 + i;
       sparks.push({
         id: sparkId,
@@ -207,7 +207,7 @@ export function CoffeeShopCandles({
           <Box
             sx={{
               position: 'absolute',
-              bottom: layout === 'fullscreen' ? '36px' : '20px',
+              bottom: layout === 'fullscreen' ? '45px' : '20px',
               left: `${candle.left}%`,
               width: candle.width * 1.2,
               height: 14,
@@ -227,13 +227,13 @@ export function CoffeeShopCandles({
             sx={{
               position: 'absolute',
               bottom: layout === 'fullscreen' ? '6px' : '2px',
-              left: `${candle.left}%`,
+              left: `calc(${candle.left}% + ${candle.width/2}px)`,
               width: candle.width,
               height: 36,
               transform: 'translateX(-50%)',
               background:
                 'linear-gradient(90deg, rgba(180, 140, 80, 0.7) 0%, rgba(200, 160, 100, 0.8) 50%, rgba(180, 140, 80, 0.7) 100%)',
-              borderRadius: '50%',
+              borderRadius: '25%',
             }}
           />
         </Box>
@@ -255,7 +255,7 @@ export function CoffeeShopCandles({
             boxShadow: '0 0 3px 1px rgba(255, 180, 0, 0.9)',
             '--tx': `${spark.tx}px`,
             '--ty': `${spark.ty}px`,
-            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + (candles[spark.candleId]?.delay || 0)}s infinite`,
+            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + candles[spark.candleId]?.delay || 0}s infinite`,
           } as any}
         />
       ))}
