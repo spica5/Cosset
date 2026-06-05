@@ -11,8 +11,8 @@ import { getUserFriends } from 'src/models/user-friends';
 import { listCoffeeShopParticipants } from 'src/utils/coffee-shop-participants';
 import { COFFEE_SHOP_CHAT_EVENT, coffeeShopChatChannel, getPusherServer } from 'src/utils/pusher';
 import { verify } from 'src/utils/jwt';
+
 import { STATUS, response, handleError } from 'src/utils/response';
-import { uuidv4 } from 'src/utils/uuidv4';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,6 +20,9 @@ export const runtime = 'nodejs';
 
 const MAX_MESSAGE_LEN = 2000;
 const MAX_DISPLAY_NAME_LEN = 80;
+
+const isLikelyUuid = (value: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 
 const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> => {
   const authorization = req.headers.get('authorization');
@@ -51,20 +54,25 @@ const trimDisplayName = (value: unknown): string => {
  * Rules:
  * - Public messages: everyone can see
  * - Friend mode: visible to friends and the sender
- * - Private mode: only visible to the sender
+ * - Private mode: only visible to the sender and receiver
  */
 const canViewMessage = async (
   messageAuthorId: string | null,
+  receiverId: string | null,
   messageMode: 'public' | 'friend' | 'private',
   viewerId: string | null,
 ): Promise<boolean> => {
+  const authorKey = messageAuthorId?.trim().toLowerCase() || null;
+  const receiverKey = receiverId?.trim().toLowerCase() || null;
+  const viewerKey = viewerId?.trim().toLowerCase() || null;
+
   // System messages are always visible
-  if (!messageAuthorId) {
+  if (!authorKey) {
     return true;
   }
 
   // Author can always see their own message
-  if (viewerId === messageAuthorId) {
+  if (viewerKey === authorKey) {
     return true;
   }
 
@@ -73,9 +81,10 @@ const canViewMessage = async (
     return true;
   }
 
-  // Private messages only visible to author (already handled above)
+  // Private messages are visible to the chosen receiver. Legacy private rows with
+  // no receiver remain visible only to the author, handled above.
   if (messageMode === 'private') {
-    return false;
+    return Boolean(viewerKey && receiverKey && viewerKey === receiverKey);
   }
 
   // Friend mode: check if they are friends
@@ -86,9 +95,11 @@ const canViewMessage = async (
 
     try {
       const friends = await getUserFriends(viewerId, 'accepted', 1000, 0);
-      return friends.some(
-        (f) => (f.userId1 === messageAuthorId || f.userId2 === messageAuthorId)
-      );
+      return friends.some((f) => {
+        const userId1 = f.userId1.trim().toLowerCase();
+        const userId2 = f.userId2.trim().toLowerCase();
+        return userId1 === authorKey || userId2 === authorKey;
+      });
     } catch {
       return false;
     }
@@ -131,8 +142,9 @@ export async function GET(
       await Promise.all(
         rows.map(async (r) => {
           const userId = r.senderId?.trim() || null;
+          const receiverId = r.receiverId?.trim() || null;
           const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
-          const canView = await canViewMessage(userId, messageMode, viewerId);
+          const canView = await canViewMessage(userId, receiverId, messageMode, viewerId);
           return canView ? r : null;
         })
       )
@@ -140,11 +152,14 @@ export async function GET(
 
     const messages = filteredRows.map((r) => {
       const userId = r.senderId?.trim() || null;
+      const receiverId = r.receiverId?.trim() || null;
       const authorAvatar =
         userId && photoByUserId.has(userId.toLowerCase())
           ? photoByUserId.get(userId.toLowerCase())!
           : null;
       const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
+
+      const messageType = (r.messageType as 'text' | 'file') || 'text';
 
       return {
         id: r.id,
@@ -153,7 +168,12 @@ export async function GET(
         authorName: r.senderName?.trim() || 'Unknown',
         authorAvatar,
         userId,
+        receiverId,
         chatMode: messageMode,
+        messageType,
+        fileUrl: r.fileUrl ?? null,
+        fileName: r.fileName ?? null,
+        mimeType: r.mimeType ?? null,
         sentAt:
           typeof r.createdAt === 'string'
             ? new Date(r.createdAt).toISOString()
@@ -189,9 +209,13 @@ export async function POST(
 
     const body = await req.json();
     const rawMessage = typeof body?.message === 'string' ? body.message.trim() : '';
+    const fileUrl = typeof body?.fileUrl === 'string' ? body.fileUrl.trim().slice(0, 1000) : '';
+    const fileName = typeof body?.fileName === 'string' ? body.fileName.trim().slice(0, 255) : '';
+    const mimeType = typeof body?.mimeType === 'string' ? body.mimeType.trim().slice(0, 100) : '';
+    const hasFile = Boolean(fileUrl);
 
-    if (!rawMessage) {
-      return response({ message: 'Message is required' }, STATUS.BAD_REQUEST);
+    if (!rawMessage && !hasFile) {
+      return response({ message: 'Message or file is required' }, STATUS.BAD_REQUEST);
     }
 
     if (rawMessage.length > MAX_MESSAGE_LEN) {
@@ -202,11 +226,19 @@ export async function POST(
     }
 
     const userId = await getUserIdFromRequest(req);
+
+    if (hasFile && !userId) {
+      return response({ message: 'Sign in to send files' }, STATUS.BAD_REQUEST);
+    }
     let authorName = trimDisplayName(body?.displayName);
     let authorAvatar: string | null = null;
     const chatMode = (typeof body?.chatMode === 'string' && ['public', 'friend', 'private'].includes(body.chatMode))
       ? body.chatMode
       : 'public';
+    const receiverId =
+      typeof body?.receiverId === 'string' && isLikelyUuid(body.receiverId)
+        ? body.receiverId.trim().toLowerCase()
+        : null;
 
     if (userId) {
       const user = await getUserById(userId);
@@ -221,27 +253,69 @@ export async function POST(
       return response({ message: 'Display name is required for guests' }, STATUS.BAD_REQUEST);
     }
 
+    if (chatMode === 'private') {
+      if (!userId) {
+        return response({ message: 'Sign in to send private messages' }, STATUS.BAD_REQUEST);
+      }
+
+      if (!receiverId) {
+        return response({ message: 'Private messages require a receiver' }, STATUS.BAD_REQUEST);
+      }
+
+      if (receiverId === userId.trim().toLowerCase()) {
+        return response({ message: 'Choose another participant for private chat' }, STATUS.BAD_REQUEST);
+      }
+
+      const participants = await listCoffeeShopParticipants(coffeeShopId, false);
+      const receiverIsPresent = participants.some(
+        (p) => p.userId.trim().toLowerCase() === receiverId,
+      );
+
+      if (!receiverIsPresent) {
+        return response({ message: 'Private receiver is not in this coffee shop' }, STATUS.BAD_REQUEST);
+      }
+
+      const friends = await getUserFriends(userId, 'accepted', 1000, 0);
+      const receiverIsFriend = friends.some((f) => {
+        const userId1 = f.userId1.trim().toLowerCase();
+        const userId2 = f.userId2.trim().toLowerCase();
+        return userId1 === receiverId || userId2 === receiverId;
+      });
+
+      if (!receiverIsFriend) {
+        return response({ message: 'Private receiver must be an accepted friend' }, STATUS.BAD_REQUEST);
+      }
+    }
+
+    const messageType = hasFile ? 'file' : 'text';
+    const storedMessage = rawMessage || fileName || 'Attachment';
+
     const inserted = await createCoffeeShopChatLog({
       coffeeShopId,
       senderId: userId,
       senderName: authorName,
-      senderType: userId ? 'member' : 'guest',
-      messageType: 'text',
-      message: rawMessage,
+      receiverId: chatMode === 'private' ? receiverId : null,
+      messageType,
+      message: storedMessage,
       chatMode: chatMode as 'public' | 'friend' | 'private',
-      fileUrl: null,
-      fileName: null,
-      mimeType: null,
+      fileUrl: hasFile ? fileUrl : null,
+      fileName: hasFile ? fileName || null : null,
+      mimeType: hasFile ? mimeType || null : null,
     });
 
     const payload = {
-      id: uuidv4(),
+      id: inserted.id,
       coffeeShopId,
-      text: rawMessage,
+      text: storedMessage,
       authorName,
       authorAvatar,
       userId,
+      receiverId: chatMode === 'private' ? receiverId : null,
       chatMode,
+      messageType,
+      fileUrl: hasFile ? fileUrl : null,
+      fileName: hasFile ? fileName || null : null,
+      mimeType: hasFile ? mimeType || null : null,
       sentAt: inserted.createdAt, // new Date().toISOString(),
     };
 

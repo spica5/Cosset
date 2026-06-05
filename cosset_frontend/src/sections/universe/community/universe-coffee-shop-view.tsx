@@ -91,6 +91,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
   const [presenceJoining, setPresenceJoining] = useState(false);
   const [togglingHidden, setTogglingHidden] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [selectedPrivateReceiverId, setSelectedPrivateReceiverId] = useState<string | null>(null);
 
   const [systemNotifications, setSystemNotifications] = useState<
     { id: string; text: string; avatar?: string | null }[]
@@ -226,6 +227,13 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     }
   }, []);
 
+  const handleSelectPrivateReceiver = useCallback((participant: CoffeeShopChatParticipant) => {
+    const receiverId = participant.userId?.trim();
+    if (receiverId) {
+      setSelectedPrivateReceiverId(receiverId);
+    }
+  }, []);
+
   const handleToggleHidden = async () => {
       if (togglingHidden || !authenticated) {
         return;
@@ -248,7 +256,23 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
   useEffect(() => {
     setParticipants([]);
+    setSelectedPrivateReceiverId(null);
   }, [coffeeShopId]);
+
+  useEffect(() => {
+    if (!selectedPrivateReceiverId) {
+      return;
+    }
+
+    const receiverKey = selectedPrivateReceiverId.trim().toLowerCase();
+    const stillPresent = participants.some(
+      (p) => p.userId.trim().toLowerCase() === receiverKey && !p.leftAt,
+    );
+
+    if (!stillPresent) {
+      setSelectedPrivateReceiverId(null);
+    }
+  }, [participants, selectedPrivateReceiverId]);
 
   useEffect(() => {
     if (!coffeeShopId || !user?.id) return undefined;
@@ -624,7 +648,11 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         </Typography>
       </Stack>
 
-      <UniverseCoffeeShopParticipants participants={participants} />
+      <UniverseCoffeeShopParticipants
+        participants={participants}
+        selectedPrivateReceiverId={selectedPrivateReceiverId}
+        onSelectPrivateReceiver={handleSelectPrivateReceiver}
+      />
 
       <UniverseCoffeeShopMenu coffeeShopId={coffeeShopId} isPresent={isPresent} />
 
@@ -735,12 +763,15 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
       <UniverseCoffeeShopChat
         coffeeShopId={coffeeShopId}
+        participants={participants}
         onParticipantsLoaded={handleParticipantsLoaded}
         onParticipantJoin={handleParticipantJoin}
         onParticipantLeave={handleParticipantLeave}
         onPresenceLoadingChange={setPresenceJoining}
         isPresent={isPresent}
         isHidden={isHidden}
+        selectedPrivateReceiverId={selectedPrivateReceiverId}
+        onSelectPrivateReceiver={handleSelectPrivateReceiver}
         onSystemNotification={pushSystemNotification}
       />
 

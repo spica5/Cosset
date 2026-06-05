@@ -6,11 +6,16 @@ export type CoffeeShopChatMessage = {
   /** Profile photo URL or S3 key (resolved on the client when not http(s)). */
   authorAvatar?: string | null;
   userId: string | null;
+  receiverId?: string | null;
   sentAt: string;
   /** Chat mode: 'public', 'friend', or 'private' */
   chatMode?: 'public' | 'friend' | 'private';
   /** `system` = enter/leave announcements (not stored in chat logs). */
   kind?: 'text' | 'system';
+  messageType?: 'text' | 'file';
+  fileUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
 };
 
 export type CoffeeShopChatParticipant = {
@@ -24,5 +29,6 @@ export type CoffeeShopChatParticipant = {
 };
 
 export const COFFEE_SHOP_CHAT_EVENT = 'new-message';
+export const COFFEE_SHOP_CHAT_DELETED_EVENT = 'message-deleted';
 export const COFFEE_SHOP_PARTICIPANT_JOINED_EVENT = 'participant-joined';
 export const COFFEE_SHOP_PARTICIPANT_LEFT_EVENT = 'participant-left';

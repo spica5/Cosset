@@ -32,5 +32,6 @@ export function coffeeShopChatChannel(coffeeShopId: number) {
 }
 
 export const COFFEE_SHOP_CHAT_EVENT = 'new-message';
+export const COFFEE_SHOP_CHAT_DELETED_EVENT = 'message-deleted';
 export const COFFEE_SHOP_PARTICIPANT_JOINED_EVENT = 'participant-joined';
 export const COFFEE_SHOP_PARTICIPANT_LEFT_EVENT = 'participant-left';

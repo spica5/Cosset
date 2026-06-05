@@ -15,7 +15,7 @@ const ensureCoffeeShopChatLogsTable = async (): Promise<void> => {
             coffee_shop_id INT NOT NULL,
             sender_id UUID NULL,
             sender_name VARCHAR(100) NULL,
-            sender_type VARCHAR(20) DEFAULT 'guest',
+            receiver_id UUID NULL,
             message_type VARCHAR(20) DEFAULT 'text',
             message TEXT NULL,
             file_url VARCHAR(1000) NULL,
@@ -29,6 +29,7 @@ const ensureCoffeeShopChatLogsTable = async (): Promise<void> => {
           )
         `,
       );
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS receiver_id UUID NULL`);
     })().catch((error) => {
       ensureTablePromise = null;
       throw error;
@@ -42,7 +43,7 @@ export type CoffeeShopChatLogInsert = {
   coffeeShopId: number;
   senderId: string | null;
   senderName: string;
-  senderType: 'guest' | 'member';
+  receiverId?: string | null;
   messageType: string;
   message: string;
   chatMode?: 'public' | 'friend' | 'private';
@@ -64,8 +65,13 @@ export type CoffeeShopChatLogQueryRow = {
   id: string;
   coffeeShopId: number;
   senderId: string | null;
+  receiverId: string | null;
   senderName: string | null;
   message: string | null;
+  messageType: string | null;
+  fileUrl: string | null;
+  fileName: string | null;
+  mimeType: string | null;
   chatMode: string;
   createdAt: Date | string;
 };
@@ -83,14 +89,19 @@ export async function listCoffeeShopChatLogsToday(coffeeShopId: number): Promise
           id::text AS id,
           coffee_shop_id AS "coffeeShopId",
           sender_id::text AS "senderId",
+          receiver_id::text AS "receiverId",
           sender_name AS "senderName",
           message,
+          COALESCE(message_type, 'text') AS "messageType",
+          file_url AS "fileUrl",
+          file_name AS "fileName",
+          mime_type AS "mimeType",
           COALESCE(chat_mode, 'public') AS "chatMode",
           created_at AS "createdAt"
         FROM ${TABLE_NAME}
         WHERE coffee_shop_id = $1
           AND (is_deleted IS NOT TRUE)
-          AND COALESCE(message_type, 'text') = 'text'
+          AND COALESCE(message_type, 'text') IN ('text', 'file')
           AND (created_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date
         ORDER BY created_at ASC, id ASC
       `,
@@ -116,8 +127,9 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
 
     const senderId =
       row.senderId && isLikelyUuid(row.senderId) ? row.senderId.trim().toLowerCase() : null;
+    const receiverId =
+      row.receiverId && isLikelyUuid(row.receiverId) ? row.receiverId.trim().toLowerCase() : null;
     const senderName = row.senderName.slice(0, 100);
-    const senderType = row.senderType === 'member' ? 'member' : 'guest';
     const messageType = (row.messageType || 'text').slice(0, 20);
     const message = row.message.slice(0, 2000);
     const chatMode = (row.chatMode && ['public', 'friend', 'private'].includes(row.chatMode)) ? row.chatMode : 'public';
@@ -131,7 +143,7 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
           coffee_shop_id,
           sender_id,
           sender_name,
-          sender_type,
+          receiver_id,
           message_type,
           message,
           chat_mode,
@@ -151,7 +163,7 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
         row.coffeeShopId,
         senderId,
         senderName,
-        senderType,
+        receiverId,
         messageType,
         message,
         chatMode,
@@ -176,6 +188,82 @@ export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Pro
     throw new DatabaseError({
       code: 'COFFEE_SHOP_CHAT_LOG_ERROR',
       message: `Failed to save chat log: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export type CoffeeShopChatLogDetail = CoffeeShopChatLogQueryRow & {
+  isDeleted: boolean;
+};
+
+export async function getCoffeeShopChatLogById(
+  coffeeShopId: number,
+  messageId: number,
+): Promise<CoffeeShopChatLogDetail | null> {
+  try {
+    await ensureCoffeeShopChatLogsTable();
+
+    return await queryOne<CoffeeShopChatLogDetail>(
+      `
+        SELECT
+          id::text AS id,
+          coffee_shop_id AS "coffeeShopId",
+          sender_id::text AS "senderId",
+          receiver_id::text AS "receiverId",
+          sender_name AS "senderName",
+          message,
+          COALESCE(message_type, 'text') AS "messageType",
+          file_url AS "fileUrl",
+          file_name AS "fileName",
+          mime_type AS "mimeType",
+          COALESCE(chat_mode, 'public') AS "chatMode",
+          created_at AS "createdAt",
+          COALESCE(is_deleted, FALSE) AS "isDeleted"
+        FROM ${TABLE_NAME}
+        WHERE coffee_shop_id = $1
+          AND id = $2
+        LIMIT 1
+      `,
+      [coffeeShopId, messageId],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'COFFEE_SHOP_CHAT_LOG_GET_ERROR',
+      message: `Failed to fetch chat log: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function softDeleteCoffeeShopChatLog(
+  coffeeShopId: number,
+  messageId: number,
+): Promise<boolean> {
+  try {
+    await ensureCoffeeShopChatLogsTable();
+
+    const updated = await queryOne<{ id: string }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET is_deleted = TRUE, updated_at = NOW()
+        WHERE coffee_shop_id = $1
+          AND id = $2
+          AND (is_deleted IS NOT TRUE)
+        RETURNING id::text
+      `,
+      [coffeeShopId, messageId],
+    );
+
+    return Boolean(updated);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'COFFEE_SHOP_CHAT_LOG_DELETE_ERROR',
+      message: `Failed to delete chat log: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }

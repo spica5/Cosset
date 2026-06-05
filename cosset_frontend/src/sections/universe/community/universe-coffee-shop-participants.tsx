@@ -17,6 +17,8 @@ import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-sho
 
 type Props = {
   participants: CoffeeShopChatParticipant[];
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CoffeeShopChatParticipant) => void;
 };
 
 const formatJoinTime = (joinedAtStr?: string): string => {
@@ -42,7 +44,11 @@ const formatJoinTime = (joinedAtStr?: string): string => {
   });
 };
 
-export function UniverseCoffeeShopParticipants({ participants }: Props) {
+export function UniverseCoffeeShopParticipants({
+  participants,
+  selectedPrivateReceiverId,
+  onSelectPrivateReceiver,
+}: Props) {
 
   const { user } = useAuthContext();
   const userIdStr = user?.id != null ? String(user.id) : undefined;
@@ -129,13 +135,44 @@ export function UniverseCoffeeShopParticipants({ participants }: Props) {
               typeof p.userId === 'string' && userIdStr
                 ? p.userId.trim().toLowerCase() === userIdStr.toLowerCase()
                 : false;
+            const isSelectedReceiver =
+              typeof p.userId === 'string' && selectedPrivateReceiverId
+                ? p.userId.trim().toLowerCase() === selectedPrivateReceiverId.toLowerCase()
+                : false;
+            const canSelectForPrivate = Boolean(onSelectPrivateReceiver && isFriend && !isCurrentUser && !p.leftAt);
             
             const joinTimeStr = formatJoinTime(p.joinedAt);
             const tooltipTitle = `${p.name}${joinTimeStr ? ` • Joined ${joinTimeStr}` : ''}`;
 
             return (
               <Tooltip key={p.userId} title={tooltipTitle} placement="left">
-                <Stack alignItems="center" spacing={0.5}>
+                <Stack
+                  alignItems="center"
+                  spacing={0.5}
+                  role={canSelectForPrivate ? 'button' : undefined}
+                  tabIndex={canSelectForPrivate ? 0 : undefined}
+                  onClick={() => {
+                    if (canSelectForPrivate) {
+                      onSelectPrivateReceiver?.(p);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (canSelectForPrivate && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      onSelectPrivateReceiver?.(p);
+                    }
+                  }}
+                  sx={{
+                    cursor: canSelectForPrivate ? 'pointer' : 'default',
+                    borderRadius: 1.5,
+                    boxSizing: 'border-box',
+                    border: '2px solid',
+                    borderColor: isSelectedReceiver
+                      ? 'rgba(255, 100, 100, 0.8)'
+                      : 'transparent',
+                    p: 0.5,
+                  }}
+                >
                   <CoffeeShopChatAvatar
                     photoKeyOrUrl={p.photoURL}
                     name={p.name}

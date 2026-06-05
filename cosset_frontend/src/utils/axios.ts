@@ -116,6 +116,8 @@ export const endpoints = {
     update: (id: string | number) => `/api/coffee-shop/${id}`,
     delete: (id: string | number) => `/api/coffee-shop/${id}`,
     chat: (id: string | number) => `/api/coffee-shop/${id}/chat`,
+    chatMessage: (id: string | number, messageId: string | number) =>
+      `/api/coffee-shop/${id}/chat/${messageId}`,
     presence: (id: string | number) => `/api/coffee-shop/${id}/presence`,
     presenceMe: '/api/coffee-shop/presence',
     menu: (id: string | number) => `/api/coffee-shop/${id}/menu`,

@@ -140,6 +140,11 @@ type SendCoffeeShopChatBody = {
   message: string;
   displayName?: string;
   chatMode?: 'public' | 'friend' | 'private';
+  receiverId?: string | null;
+  messageType?: 'text' | 'file';
+  fileUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
 };
 
 type SendCoffeeShopChatResponse = {
@@ -152,6 +157,14 @@ export async function sendCoffeeShopChatMessage(
 ): Promise<SendCoffeeShopChatResponse> {
   const res = await axios.post(endpoints.coffeeShop.chat(coffeeShopId), body);
   return res.data as SendCoffeeShopChatResponse;
+}
+
+export async function deleteCoffeeShopChatMessage(
+  coffeeShopId: string | number,
+  messageId: string | number,
+): Promise<{ message?: string; id?: string }> {
+  const res = await axios.delete(endpoints.coffeeShop.chatMessage(coffeeShopId, messageId));
+  return res.data as { message?: string; id?: string };
 }
 
 type CoffeeShopChatTodayResponse = {

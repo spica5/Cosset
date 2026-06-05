@@ -2,34 +2,50 @@
 
 import type { CoffeeShopChatMessage, CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
-import { useRef, useMemo, useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
+
+import { useRef, useMemo, useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import Collapse from '@mui/material/Collapse';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
+import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import Collapse from '@mui/material/Collapse';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { CONFIG } from 'src/config-global';
-import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+
 import {
+  deleteCoffeeShopChatMessage,
   fetchCoffeeShopChatToday,
   joinCoffeeShopPresence,
   leaveCoffeeShopPresence,
   sendCoffeeShopChatMessage,
 } from 'src/actions/coffee-shop';
-import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
+
+import { isUserAdmin } from 'src/auth/utils/role';
+import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+
+import { uuidv4 } from 'src/utils/uuidv4';
+import { getS3SignedUrl } from 'src/utils/helper';
+
 import { useGetFriends } from 'src/actions/friend';
+import { uploadFileToS3 } from 'src/actions/upload';
 import { Iconify } from 'src/components/universe/iconify';
+import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
+
 import Pusher from 'pusher-js';
+
 import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-shop-chat-avatar';
+
 import {
   COFFEE_SHOP_CHAT_EVENT,
+  COFFEE_SHOP_CHAT_DELETED_EVENT,
   COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
   COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
 } from 'src/types/coffee-shop-chat';
@@ -88,14 +104,173 @@ function channelNameForShop(id: string) {
   return Number.isNaN(n) ? null : `coffee-shop-${n}`;
 }
 
+function isImageMimeType(mimeType?: string | null) {
+  return Boolean(mimeType && mimeType.toLowerCase().startsWith('image/'));
+}
+
+async function downloadChatAttachment(url: string, fileName: string) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+
+function downloadPendingFile(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(objectUrl);
+}
+
+function ChatMessageAttachment({
+  message,
+  resolvedUrl,
+}: {
+  message: CoffeeShopChatMessage;
+  resolvedUrl: string;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  const fileName = message.fileName || message.text || 'Attachment';
+  const isImage = isImageMimeType(message.mimeType) || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(fileName);
+
+  const handleDownload = async () => {
+    if (!resolvedUrl || downloading) {
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      await downloadChatAttachment(resolvedUrl, fileName);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (!resolvedUrl) {
+    return (
+      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
+        Loading attachment…
+      </Typography>
+    );
+  }
+
+  if (isImage) {
+    return (
+      <Box sx={{ position: 'relative', display: 'inline-block', mt: 0.5, maxWidth: '100%' }}>
+        <Box
+          component="img"
+          src={resolvedUrl}
+          alt={fileName}
+          sx={{
+            maxWidth: '100%',
+            maxHeight: 180,
+            borderRadius: 1,
+            display: 'block',
+            objectFit: 'cover',
+          }}
+        />
+        <Tooltip title="Download">
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => handleDownload()}
+              disabled={downloading}
+              aria-label="Download attachment"
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                bgcolor: 'rgba(0,0,0,0.55)',
+                color: 'common.white',
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.72)' },
+              }}
+            >
+              <Iconify icon="mingcute:download-line" width={16} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
+    );
+  }
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5, minWidth: 0 }}>
+      <Link
+        href={resolvedUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          color: 'info.light',
+          fontSize: 13,
+          wordBreak: 'break-all',
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <Iconify icon="eva:attach-2-fill" width={16} />
+        {fileName}
+      </Link>
+      <Tooltip title="Download">
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => handleDownload()}
+            disabled={downloading}
+            aria-label="Download attachment"
+            sx={{
+              color: 'info.light',
+              flexShrink: 0,
+              '&:hover': { color: 'common.white' },
+            }}
+          >
+            <Iconify icon="mingcute:download-line" width={16} />
+          </IconButton>
+        </span>
+      </Tooltip>
+    </Stack>
+  );
+}
+
 type ChatProps = {
   coffeeShopId: string;
+  participants?: CoffeeShopChatParticipant[];
   onParticipantsLoaded?: (participants: CoffeeShopChatParticipant[]) => void;
   onParticipantJoin?: (participant: CoffeeShopChatParticipant) => void;
   onParticipantLeave?: (userId: string) => void;
   onPresenceLoadingChange?: (loading: boolean) => void;
   isPresent?: boolean;
   isHidden?: boolean;
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CoffeeShopChatParticipant) => void;
   onSystemNotification?: (text: string, avatar?: string | null, userId?: string) => void;
 };
 
@@ -122,12 +297,15 @@ function enrichParticipantPhoto(
 
 export function UniverseCoffeeShopChat({
   coffeeShopId,
+  participants = [],
   onParticipantsLoaded,
   onParticipantJoin,
   onParticipantLeave,
   onPresenceLoadingChange,
   isPresent = true,
   isHidden = false,
+  selectedPrivateReceiverId,
+  onSelectPrivateReceiver,
   onSystemNotification,
 }: ChatProps) {
   const { authenticated, user, loading: authLoading } = useAuthContext();
@@ -142,9 +320,14 @@ export function UniverseCoffeeShopChat({
   const [chatMode, setChatMode] = useState<'public' | 'friend' | 'private'>('public');
   const [emoticonsOpen, setEmoticonsOpen] = useState(false);
   const [participantStatusVersion, setParticipantStatusVersion] = useState(0);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [resolvedFileUrls, setResolvedFileUrls] = useState<Record<string, string>>({});
 
   const listRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const seenIds = useRef<Set<string>>(new Set());
   const sendInFlightRef = useRef(false);
   const onParticipantJoinRef = useRef(onParticipantJoin);
@@ -157,7 +340,9 @@ export function UniverseCoffeeShopChat({
 
   // load accepted friends for current user so we can mark friend avatars
   const userIdStr = user?.id != null ? String(user.id) : undefined;
+  const canManageChat = isUserAdmin(user?.role);
   const { friends: acceptedFriends } = useGetFriends(userIdStr, 'accepted', Boolean(userIdStr));
+  const selectedPrivateReceiverKey = selectedPrivateReceiverId?.trim().toLowerCase() || '';
   const friendIdSet = useMemo(() => {
     const s = new Set<string>();
     const validFriends = (acceptedFriends || []).filter((f) => {
@@ -177,9 +362,75 @@ export function UniverseCoffeeShopChat({
     return s;
   }, [acceptedFriends, userIdStr]);
 
+  const privateFriendParticipants = useMemo(
+    () =>
+      participants.filter((p) => {
+        const participantId = p.userId.trim().toLowerCase();
+        return (
+          participantId &&
+          !p.leftAt &&
+          participantId !== userIdStr?.toLowerCase() &&
+          friendIdSet.has(participantId)
+        );
+      }),
+    [friendIdSet, participants, userIdStr],
+  );
+
   useEffect(() => {
     setPortalTarget(document.body);
   }, []);
+
+  const resolvedFileIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveFileUrls = async () => {
+      const fileMessages = messages.filter(
+        (m) =>
+          m.messageType === 'file' &&
+          m.fileUrl &&
+          !resolvedFileIdsRef.current.has(m.id),
+      );
+
+      if (!fileMessages.length) {
+        return;
+      }
+
+      const entries = await Promise.all(
+        fileMessages.map(async (m) => {
+          const key = String(m.fileUrl || '').trim();
+          if (!key) {
+            return null;
+          }
+          if (key.startsWith('http://') || key.startsWith('https://')) {
+            return [m.id, key] as const;
+          }
+          const url = (await getS3SignedUrl(key)) || '';
+          return url ? ([m.id, url] as const) : null;
+        }),
+      );
+
+      if (!cancelled) {
+        const next: Record<string, string> = {};
+        entries.forEach((entry) => {
+          if (entry) {
+            resolvedFileIdsRef.current.add(entry[0]);
+            next[entry[0]] = entry[1];
+          }
+        });
+        if (Object.keys(next).length) {
+          setResolvedFileUrls((prev) => ({ ...prev, ...next }));
+        }
+      }
+    };
+
+    resolveFileUrls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || authenticated) {
@@ -195,10 +446,84 @@ export function UniverseCoffeeShopChat({
     }
   }, [authenticated]);
 
+  const removeMessage = useCallback((messageId: string) => {
+    const key = messageId.trim();
+    if (!key) {
+      return;
+    }
+    seenIds.current.delete(key);
+    setMessages((prev) => prev.filter((m) => m.id !== key));
+    setResolvedFileUrls((prev) => {
+      if (!prev[key]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    resolvedFileIdsRef.current.delete(key);
+  }, []);
+
+  const canDeleteMessage = useCallback(
+    (message: CoffeeShopChatMessage) => {
+      if (!authenticated || message.kind === 'system') {
+        return false;
+      }
+      if (canManageChat) {
+        return true;
+      }
+      const authorId = message.userId?.trim().toLowerCase();
+      const currentUserId = userIdStr?.trim().toLowerCase();
+      return Boolean(authorId && currentUserId && authorId === currentUserId);
+    },
+    [authenticated, canManageChat, userIdStr],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (message: CoffeeShopChatMessage) => {
+      if (!canDeleteMessage(message) || deletingMessageId) {
+        return;
+      }
+
+      setDeletingMessageId(message.id);
+      setSendError(null);
+
+      try {
+        await deleteCoffeeShopChatMessage(coffeeShopId, message.id);
+        removeMessage(message.id);
+      } catch (err: unknown) {
+        let msg = 'Could not delete message.';
+        if (typeof err === 'string') {
+          msg = err;
+        } else if (err instanceof Error) {
+          msg = err.message;
+        } else if (err && typeof err === 'object') {
+          const data = err as { message?: unknown };
+          if (typeof data.message === 'string') {
+            msg = data.message;
+          }
+        }
+        setSendError(msg);
+      } finally {
+        setDeletingMessageId(null);
+      }
+    },
+    [canDeleteMessage, coffeeShopId, deletingMessageId, removeMessage],
+  );
+
   const appendMessage = useCallback(
     (msg: CoffeeShopChatMessage) => {
       if (!msg?.id || seenIds.current.has(msg.id)) {
         return;
+      }
+
+      if (msg.chatMode === 'private') {
+        const currentUserId = userIdStr?.toLowerCase();
+        const authorId = msg.userId?.trim().toLowerCase();
+        const receiverId = msg.receiverId?.trim().toLowerCase();
+        if (!currentUserId || (authorId !== currentUserId && receiverId !== currentUserId)) {
+          return;
+        }
       }
 
       // route system messages to ephemeral notification only
@@ -216,7 +541,7 @@ export function UniverseCoffeeShopChat({
       seenIds.current.add(msg.id);
       setMessages((prev) => [...prev, msg]);
     },
-    [onSystemNotification],
+    [onSystemNotification, userIdStr],
   );
 
   const appendEnteredMessage = useCallback(
@@ -387,6 +712,13 @@ export function UniverseCoffeeShopChat({
       }
     });
 
+    channel.bind(COFFEE_SHOP_CHAT_DELETED_EVENT, (data: { id?: string }) => {
+      const messageId = data?.id?.trim();
+      if (messageId) {
+        removeMessage(messageId);
+      }
+    });
+
     channel.bind(COFFEE_SHOP_PARTICIPANT_LEFT_EVENT, (data: { userId?: string }) => {
       const uid = data?.userId?.trim();
       if (!uid) return;
@@ -415,12 +747,13 @@ export function UniverseCoffeeShopChat({
 
     return () => {
       channel.unbind(COFFEE_SHOP_CHAT_EVENT);
+      channel.unbind(COFFEE_SHOP_CHAT_DELETED_EVENT);
       channel.unbind(COFFEE_SHOP_PARTICIPANT_JOINED_EVENT);
       channel.unbind(COFFEE_SHOP_PARTICIPANT_LEFT_EVENT);
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
-  }, [appendMessage, channelName, hasClientPusherConfig, onParticipantLeave, onSystemNotification]);
+  }, [appendMessage, channelName, hasClientPusherConfig, onParticipantLeave, onSystemNotification, removeMessage]);
 
   useEffect(() => {
     if (!listRef.current) {
@@ -459,26 +792,83 @@ export function UniverseCoffeeShopChat({
       return messages.filter((m:CoffeeShopChatMessage) => {
         const messageAuthorId = m.userId?.trim().toLowerCase();
         const currentUserId = userIdStr?.toLowerCase();
-        return messageAuthorId === currentUserId;
+        const receiverId = m.receiverId?.trim().toLowerCase();
+
+        if (!currentUserId || m.chatMode !== 'private') {
+          return false;
+        }
+
+        if (!selectedPrivateReceiverKey) {
+          return messageAuthorId === currentUserId || receiverId === currentUserId;
+        }
+
+        return (
+          (messageAuthorId === currentUserId && receiverId === selectedPrivateReceiverKey) ||
+          (messageAuthorId === selectedPrivateReceiverKey && receiverId === currentUserId)
+        );
       });
     }
 
     return [];
-  }, [chatMode, messages, friendIdSet, userIdStr]);
+  }, [chatMode, messages, friendIdSet, selectedPrivateReceiverKey, userIdStr]);
+
+  const selectedPrivateReceiverName = useMemo(() => {
+    if (!selectedPrivateReceiverKey) {
+      return '';
+    }
+
+    return (
+      participants.find((p) => p.userId.trim().toLowerCase() === selectedPrivateReceiverKey)?.name ||
+      participantsRef.current.find((p) => p.userId.trim().toLowerCase() === selectedPrivateReceiverKey)
+        ?.name ||
+      ''
+    );
+  }, [participantStatusVersion, participants, selectedPrivateReceiverKey]);
+
+  useEffect(() => {
+    if (selectedPrivateReceiverKey) {
+      setChatMode('private');
+    }
+  }, [selectedPrivateReceiverKey]);
+
+  useEffect(() => {
+    if (chatMode !== 'private' || selectedPrivateReceiverKey || !onSelectPrivateReceiver) {
+      return;
+    }
+
+    const firstFriend = privateFriendParticipants[0];
+    if (firstFriend) {
+      onSelectPrivateReceiver(firstFriend);
+    }
+  }, [chatMode, selectedPrivateReceiverKey, privateFriendParticipants, onSelectPrivateReceiver]);
 
   const chatModeTitle =
     chatMode === 'public'
       ? 'Chat (Public)'
       : chatMode === 'friend'
       ? 'Chat (Friends)'
+      : selectedPrivateReceiverName
+      ? `Chat (${selectedPrivateReceiverName})`
       : 'Chat (Private)';
 
   const emptyMessageLabel =
     chatMode === 'friend'
       ? 'No messages from friends. Connect with friends to see their messages.'
       : chatMode === 'private'
-      ? 'No private messages yet. Messages you send in private mode appear here.'
+      ? selectedPrivateReceiverName
+        ? `No private messages with ${selectedPrivateReceiverName} yet.`
+        : 'Select a friend for private chat.'
       : 'No public messages yet. Say hello.';
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setPendingFile(file);
+    setSendError(null);
+    event.target.value = '';
+  };
 
   const handleSend = async () => {
     if (sendInFlightRef.current) {
@@ -486,7 +876,7 @@ export function UniverseCoffeeShopChat({
     }
 
     const text = draft.trim();
-    if (!text || !channelName) {
+    if ((!text && !pendingFile) || !channelName) {
       return;
     }
 
@@ -500,16 +890,53 @@ export function UniverseCoffeeShopChat({
       return;
     }
 
+    if (chatMode === 'private' && !selectedPrivateReceiverId) {
+      setSendError('Select a friend for private chat.');
+      return;
+    }
+
     sendInFlightRef.current = true;
     setSendError(null);
     setSending(true);
+    const savedDraft = text;
+    const savedFile = pendingFile;
     setDraft('');
+    setPendingFile(null);
 
     try {
+      let filePayload:
+        | {
+            messageType: 'file';
+            fileUrl: string;
+            fileName: string;
+            mimeType: string;
+          }
+        | undefined;
+
+      if (savedFile) {
+        if (!authenticated || !user?.id) {
+          throw new Error('Sign in to send files.');
+        }
+
+        setUploadingFile(true);
+        const ext = savedFile.name.split('.').pop()?.toLowerCase() || 'bin';
+        const ownerSegment = String(user.id);
+        const key = `coffee-shops/${ownerSegment}/${coffeeShopId}/chat/${uuidv4()}.${ext}`;
+        const uploaded = await uploadFileToS3({ file: savedFile, key, isPublic: false });
+        filePayload = {
+          messageType: 'file',
+          fileUrl: uploaded.key,
+          fileName: savedFile.name,
+          mimeType: savedFile.type || 'application/octet-stream',
+        };
+      }
+
       const res = await sendCoffeeShopChatMessage(coffeeShopId, {
-        message: text,
+        message: savedDraft || savedFile?.name || 'Attachment',
         displayName: authenticated ? undefined : guestName.trim(),
         chatMode,
+        receiverId: chatMode === 'private' ? selectedPrivateReceiverId : null,
+        ...filePayload,
       });
 
       const incoming = res?.chatMessage as CoffeeShopChatMessage | undefined;
@@ -520,10 +947,13 @@ export function UniverseCoffeeShopChat({
         persistGuestName(guestName);
       }
     } catch (err: unknown) {
-      setDraft(text);
+      setDraft(savedDraft);
+      setPendingFile(savedFile);
       let msg = 'Could not send message.';
       if (typeof err === 'string') {
         msg = err;
+      } else if (err instanceof Error) {
+        msg = err.message;
       } else if (err && typeof err === 'object') {
         const data = err as { message?: unknown };
         if (typeof data.message === 'string') {
@@ -534,6 +964,7 @@ export function UniverseCoffeeShopChat({
     } finally {
       sendInFlightRef.current = false;
       setSending(false);
+      setUploadingFile(false);
     }
   };
 
@@ -650,7 +1081,7 @@ export function UniverseCoffeeShopChat({
                   transition: 'all 0.3s',
                   '&:hover': { color: 'error.light', borderColor: 'error.light' },
                 }}
-                title="Private - Only for you"
+                title="Private - Select a friend"
               >
                 <Iconify icon="eva:lock-fill" width={20} />
               </IconButton>
@@ -700,6 +1131,75 @@ export function UniverseCoffeeShopChat({
                 disabled={!isPresent}
               />
             )}
+
+            {chatMode === 'private' && authenticated && (
+              <Stack spacing={0.75}>
+                {privateFriendParticipants.length > 0 ? (
+                  <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', py: 0.5, pr: 0.5 }}>
+                    {privateFriendParticipants.map((participant) => {
+                      const participantId = participant.userId.trim().toLowerCase();
+                      const isSelected = participantId === selectedPrivateReceiverKey;
+
+                      return (
+                        <Tooltip key={participant.userId} title={participant.name} placement="top">
+                          <Stack
+                            alignItems="center"
+                            spacing={0.5}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => onSelectPrivateReceiver?.(participant)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onSelectPrivateReceiver?.(participant);
+                              }
+                            }}
+                            sx={{
+                              flex: '0 0 auto',
+                              width: 54,
+                              cursor: 'pointer',
+                              borderRadius: 1.5,
+                              p: 0.5,
+                              boxSizing: 'border-box',
+                              border: '2px solid',
+                              borderColor: isSelected
+                                ? 'rgba(255, 100, 100, 0.86)'
+                                : 'rgba(255,255,255,0.14)',
+                            }}
+                          >
+                            <CoffeeShopChatAvatar
+                              photoKeyOrUrl={participant.photoURL}
+                              name={participant.name}
+                              size={38}
+                              showTooltip={false}
+                              status="online"
+                              isFriend
+                            />
+                            <Typography
+                              variant="caption"
+                              noWrap
+                              sx={{
+                                width: '100%',
+                                color: isSelected ? 'error.light' : 'rgba(255,255,255,0.62)',
+                                fontSize: 10,
+                                lineHeight: 1,
+                                textAlign: 'center',
+                              }}
+                            >
+                              {participant.name}
+                            </Typography>
+                          </Stack>
+                        </Tooltip>
+                      );
+                    })}
+                  </Stack>
+                ) : (
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)', py: 0.5 }}>
+                    No friends are in this coffee shop right now.
+                  </Typography>
+                )}
+              </Stack>
+            )}
             
             <Box
               ref={listRef}
@@ -736,6 +1236,7 @@ export function UniverseCoffeeShopChat({
                     (p) => p.userId.trim().toLowerCase() === messageAuthorId,
                   );
                   const status = participant?.joinedAt && !participant?.leftAt ? 'online' : 'left';
+                  const showDelete = canDeleteMessage(m);
 
                   return (
                     <Stack key={m.id} direction="row" spacing={1.25} alignItems="flex-start">
@@ -749,15 +1250,23 @@ export function UniverseCoffeeShopChat({
                       />
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         {!isSystem && (
-                          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.25 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.75}
+                            sx={{ mb: 0.25, minWidth: 0 }}
+                          >
+                            <Typography
+                              variant="caption"
+                              noWrap
+                              sx={{ color: 'rgba(255,255,255,0.55)', flex: 1, minWidth: 0 }}
+                            >
                               {m.authorName}
                               {m.sentAt
-                                ? ` · ${new Date(m.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit',  hour12: true,})}`
+                                ? ` · ${new Date(m.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
                                 : ''}
-
                             </Typography>
-                            {m.chatMode && m.chatMode !== 'public' && (
+                            {m.chatMode && m.chatMode !== 'public' ? (
                               <Chip
                                 label={m.chatMode === 'friend' ? '👥' : '🔒'}
                                 size="small"
@@ -766,22 +1275,52 @@ export function UniverseCoffeeShopChat({
                                   height: 18,
                                   fontSize: '0.625rem',
                                   borderColor: 'rgba(255,255,255,0.3)',
-                                  color: m.chatMode === 'private' ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 200, 255, 0.8)',
+                                  color:
+                                    m.chatMode === 'private'
+                                      ? 'rgba(255, 100, 100, 0.8)'
+                                      : 'rgba(100, 200, 255, 0.8)',
                                 }}
                               />
-                            )}
+                            ) : null}
+                            {showDelete ? (
+                              <Tooltip title="Delete message">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeleteMessage(m)}
+                                    disabled={Boolean(deletingMessageId) || !isPresent || isHidden}
+                                    sx={{
+                                      color: 'rgba(255,255,255,0.55)',
+                                      p: 0.25,
+                                      '&:hover': { color: 'error.light' },
+                                    }}
+                                    aria-label="Delete message"
+                                  >
+                                    <Iconify icon="solar:trash-bin-trash-bold" width={14} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : null}
                           </Stack>
                         )}
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: isSystem ? 'rgba(144, 220, 160, 0.95)' : 'common.white',
-                            fontStyle: isSystem ? 'italic' : undefined,
-                            whiteSpace: 'pre-wrap',
-                          }}
-                        >
-                          {m.text}
-                        </Typography>
+                        {m.messageType === 'file' && m.fileUrl ? (
+                          <ChatMessageAttachment
+                            message={m}
+                            resolvedUrl={resolvedFileUrls[m.id] || ''}
+                          />
+                        ) : null}
+                        {m.text && (m.messageType !== 'file' || m.text !== (m.fileName || '')) ? (
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: isSystem ? 'rgba(144, 220, 160, 0.95)' : 'common.white',
+                              fontStyle: isSystem ? 'italic' : undefined,
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            {m.text}
+                          </Typography>
+                        ) : null}
                       </Box>
                     </Stack>
                   );
@@ -794,6 +1333,56 @@ export function UniverseCoffeeShopChat({
                 {sendError}
               </Typography>
             )}
+
+            {pendingFile ? (
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                sx={{
+                  px: 1,
+                  py: 0.75,
+                  borderRadius: 1,
+                  bgcolor: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }}
+              >
+                <Iconify icon="eva:attach-2-fill" width={18} sx={{ color: 'common.white' }} />
+                <Typography variant="caption" noWrap sx={{ color: 'common.white', flex: 1 }}>
+                  {pendingFile.name}
+                </Typography>
+                <Tooltip title="Download">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => downloadPendingFile(pendingFile)}
+                      disabled={sending || uploadingFile}
+                      sx={{ color: 'common.white' }}
+                      aria-label="Download attachment"
+                    >
+                      <Iconify icon="mingcute:download-line" width={16} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <IconButton
+                  size="small"
+                  onClick={() => setPendingFile(null)}
+                  disabled={sending || uploadingFile}
+                  sx={{ color: 'common.white' }}
+                  aria-label="Remove attachment"
+                >
+                  <Iconify icon="mingcute:close-line" width={16} />
+                </IconButton>
+              </Stack>
+            ) : null}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              accept="image/*,application/pdf,audio/*,video/*,.doc,.docx,.txt,.zip"
+              onChange={handleFileSelect}
+            />
 
             <TextField
               size="small"
@@ -820,8 +1409,25 @@ export function UniverseCoffeeShopChat({
                   },
                 },
               
-                endAdornment: (                  
-                  <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1, mr:1 }}>
+                endAdornment: (
+                  <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1, mr: 1 }}>
+                    {authenticated ? (
+                      <IconButton
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={
+                          sending ||
+                          uploadingFile ||
+                          !hasClientPusherConfig ||
+                          !isPresent ||
+                          isHidden
+                        }
+                        sx={{ color: 'common.white' }}
+                        aria-label="Attach file"
+                      >
+                        <Iconify icon="eva:attach-2-fill" width={18} />
+                      </IconButton>
+                    ) : null}
                     <IconButton
                       type="button"
                       edge="start"
@@ -838,7 +1444,14 @@ export function UniverseCoffeeShopChat({
                       type="button"
                       edge="end"
                       onClick={() => handleSend()}
-                      disabled={sending || !draft.trim() || !hasClientPusherConfig || !isPresent || isHidden}
+                      disabled={
+                        sending ||
+                        uploadingFile ||
+                        (!draft.trim() && !pendingFile) ||
+                        !hasClientPusherConfig ||
+                        !isPresent ||
+                        isHidden
+                      }
                       sx={{ color: 'primary.main' }}
                     >
                       <Iconify icon="eva:paper-plane-fill" />
@@ -849,7 +1462,9 @@ export function UniverseCoffeeShopChat({
               sx={[chatTextFieldSx, { '& .MuiInputBase-root': { alignItems: 'flex-start' } }]}
             />
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', pt: 0.5 }}>
-              Press  &apos;:&apos; or Ctrl+E to open emoticons, Enter to send.
+              {authenticated
+                ? 'Attach a file, press : or Ctrl+E for emoticons, Enter to send.'
+                : 'Press : or Ctrl+E to open emoticons, Enter to send.'}
             </Typography>
             {emoticonsOpen && (
               <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ maxWidth: '100%', overflowX: 'auto', pt: 0.5 }}>
