@@ -1,16 +1,25 @@
+import type { NextRequest } from 'next/server';
+
+import { listUserMails } from 'src/models/user-mails';
+import { buildMailLabels, getUserIdFromMailRequest } from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { _labels } from 'src/_mock/_mail';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
 
-// ----------------------------------------------------------------------
-
-/** **************************************
- * Get labels
- *************************************** */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    return response({ labels: _labels() }, STATUS.OK);
+    const userId = await getUserIdFromMailRequest(req);
+    if (!userId) {
+      return response({ message: 'Sign in to view mail labels' }, STATUS.UNAUTHORIZED);
+    }
+
+    const mails = await listUserMails(userId);
+    const labels = buildMailLabels(mails);
+
+    return response({ labels }, STATUS.OK);
   } catch (error) {
-    return handleError('Mail - Get labels', error);
+    return handleError('Mail - Get labels', error as Error);
   }
 }

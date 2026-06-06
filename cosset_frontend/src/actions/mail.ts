@@ -1,10 +1,10 @@
 import type { IMail, IMailLabel } from 'src/types/mail';
 
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { useMemo } from 'react';
 
 import { keyBy } from 'src/utils/helper';
-import { fetcher, endpoints } from 'src/utils/axios';
+import axios, { fetcher, endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -88,4 +88,38 @@ export function useGetMail(mailId: string) {
   );
 
   return memoizedValue;
+}
+
+// ----------------------------------------------------------------------
+
+export type SendMailBody = {
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject?: string;
+  message: string;
+};
+
+export async function sendMail(body: SendMailBody): Promise<{
+  message?: string;
+  mailId?: string;
+  inAppDeliveries?: number;
+  externalDeliveries?: number;
+  deliveryErrors?: string[];
+}> {
+  const res = await axios.post(endpoints.mail.send, body);
+
+  await Promise.all([
+    mutate(endpoints.mail.labels),
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.list),
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.details),
+  ]);
+
+  return res.data as {
+    message?: string;
+    mailId?: string;
+    inAppDeliveries?: number;
+    externalDeliveries?: number;
+    deliveryErrors?: string[];
+  };
 }

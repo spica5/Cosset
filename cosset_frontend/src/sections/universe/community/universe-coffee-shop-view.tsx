@@ -34,9 +34,14 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import {
-  useGetCoffeeShop,
+  COFFEE_SHOP_IDLE_MS,
+  COFFEE_SHOP_ACTIVITY_EVENT,
+  coffeeShopActivityStorageKey,
+  joinCoffeeShopPresence,
   leaveCoffeeShopPresence,
-  setCoffeeShopPresenceHidden,  
+  pingCoffeeShopPresence,
+  setCoffeeShopPresenceHidden,
+  useGetCoffeeShop,
 } from 'src/actions/coffee-shop';
 
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
@@ -64,9 +69,9 @@ function mergeParticipant(
   const existing = list[index];
   const photoURL = next.photoURL || existing.photoURL;
   const updated = { ...existing, ...next, photoURL };
-  // if a participant rejoins, clear any leftAt marker
-  if (updated.leftAt) {
-    delete (updated as any).leftAt;
+  // Clear offline marker unless the update explicitly sets leftAt
+  if (!next.leftAt) {
+    delete (updated as CoffeeShopChatParticipant & { leftAt?: string }).leftAt;
   }
   return list.map((p, i) => (i === index ? updated : p));
 }
@@ -142,7 +147,9 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     try {
       const uid = user?.id != null ? String(user.id).trim().toLowerCase() : '';
       if (!uid) return false;
-      return participants.some((p) => String(p.userId || '').trim().toLowerCase() === uid);
+      return participants.some(
+        (p) => String(p.userId || '').trim().toLowerCase() === uid && !p.leftAt,
+      );
     } catch {
       return false;
     }
@@ -274,92 +281,149 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     }
   }, [participants, selectedPrivateReceiverId]);
 
+  const isPresentRef = useRef(isPresent);
+  isPresentRef.current = isPresent;
+
+  const handleParticipantJoinRef = useRef(handleParticipantJoin);
+  handleParticipantJoinRef.current = handleParticipantJoin;
+
+  const handleParticipantLeaveRef = useRef(handleParticipantLeave);
+  handleParticipantLeaveRef.current = handleParticipantLeave;
+
   useEffect(() => {
-    if (!coffeeShopId || !user?.id) return undefined;
+    if (!coffeeShopId || !user?.id || !authenticated) {
+      return undefined;
+    }
 
-    let cancelled = false;
+    const uid = String(user.id);
+    const activityKey = coffeeShopActivityStorageKey(coffeeShopId);
+    const ACTIVITY_STORAGE_THROTTLE_MS = 10 * 1000;
+    const PRESENCE_PING_THROTTLE_MS = 5 * 60 * 1000;
 
-    const checkStale = async () => {
+    let idleTimer: number | undefined;
+    let lastStorageWrite = 0;
+    let lastPingAt = 0;
+    let lastRejoinAttempt = 0;
+    let markingOffline = false;
+
+    const getLastActivity = (): number => {
       try {
-        if (typeof window === 'undefined') return;
-        const key = `coffee-shop-last-joined:${coffeeShopId}`;
-        const raw = window.localStorage.getItem(key);
-        if (!raw) return;
-        const ts = Number.parseInt(raw, 10);
-        if (Number.isNaN(ts)) return;
-        const age = Date.now() - ts;
-        const THIRTY_MIN = 30 * 60 * 1000;
-        const uid = String(user.id).trim().toLowerCase();
+        const raw = window.localStorage.getItem(activityKey);
+        const ts = raw ? Number.parseInt(raw, 10) : Number.NaN;
+        return Number.isNaN(ts) ? Date.now() : ts;
+      } catch {
+        return Date.now();
+      }
+    };
 
-        const amPresentInServer = participants.some((p) => p.userId.trim().toLowerCase() === uid);
+    const setLastActivity = (ts: number) => {
+      try {
+        window.localStorage.setItem(activityKey, String(ts));
+      } catch {
+        // ignore
+      }
+    };
 
-        if (age > THIRTY_MIN && amPresentInServer) {
-          // force leave on server and locally
-          try {
-            await leaveCoffeeShopPresence(coffeeShopId);
-          } catch {
-            // ignore
-          }
-          if (!cancelled) {
-            setParticipants((prev) => removeParticipant(prev, String(user.id)));
-            try {
-              window.localStorage.removeItem(key);
-            } catch {
-              // ignore
-            }
-          }
+    const markOfflineForInactivity = async () => {
+      if (markingOffline || !isPresentRef.current) {
+        return;
+      }
+
+      markingOffline = true;
+
+      try {
+        await leaveCoffeeShopPresence(coffeeShopId);
+      } catch {
+        // ignore
+      }
+
+      handleParticipantLeaveRef.current(uid);
+      markingOffline = false;
+    };
+
+    const scheduleIdleTimeout = () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+
+      const lastActivity = getLastActivity();
+      const remaining = COFFEE_SHOP_IDLE_MS - (Date.now() - lastActivity);
+
+      if (remaining <= 0) {
+        markOfflineForInactivity();
+        return;
+      }
+
+      idleTimer = window.setTimeout(() => {
+        if (Date.now() - getLastActivity() >= COFFEE_SHOP_IDLE_MS) {
+          markOfflineForInactivity();
+        } else {
+          scheduleIdleTimeout();
+        }
+      }, remaining);
+    };
+
+    const rejoinAfterIdle = async () => {
+      try {
+        const { participant } = await joinCoffeeShopPresence(coffeeShopId);
+        if (participant) {
+          handleParticipantJoinRef.current(participant);
         }
       } catch {
         // ignore
       }
     };
 
-    // check immediately and every 5 minutes
-    checkStale();
-    const id = setInterval(checkStale, 5 * 60 * 1000);
+    const onActivity = () => {
+      const now = Date.now();
 
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [coffeeShopId, participants, user?.id]);
-
-  // Reset the last-joined timestamp on user activity (mouse/keyboard/touch)
-  useEffect(() => {
-    if (!coffeeShopId || !user?.id || !isPresent) {
-      return undefined;
-    }
-
-    const key = `coffee-shop-last-joined:${coffeeShopId}`;
-    let lastSet = 0;
-
-    const handler = () => {
-      if (typeof window === 'undefined') {
+      if (!isPresentRef.current) {
+        if (now - lastRejoinAttempt >= ACTIVITY_STORAGE_THROTTLE_MS) {
+          lastRejoinAttempt = now;
+          rejoinAfterIdle();
+        }
+        setLastActivity(now);
+        lastStorageWrite = now;
+        scheduleIdleTimeout();
         return;
       }
-      const now = Date.now();
-      if (now - lastSet >= 10 * 1000) {
-        try {
-          lastSet = now;
-          window.localStorage.setItem(key, String(now));
-        } catch {
-          // ignore
-        }
+
+      if (now - lastStorageWrite >= ACTIVITY_STORAGE_THROTTLE_MS) {
+        lastStorageWrite = now;
+        setLastActivity(now);
       }
+
+      if (now - lastPingAt >= PRESENCE_PING_THROTTLE_MS) {
+        lastPingAt = now;
+        pingCoffeeShopPresence(coffeeShopId).catch(() => undefined);
+      }
+
+      scheduleIdleTimeout();
     };
 
-    window.addEventListener('mousemove', handler);
-    window.addEventListener('keydown', handler);
-    window.addEventListener('mousedown', handler);
-    window.addEventListener('touchstart', handler);
+    try {
+      if (!window.localStorage.getItem(activityKey)) {
+        setLastActivity(Date.now());
+      }
+    } catch {
+      // ignore
+    }
+
+    scheduleIdleTimeout();
+
+    window.addEventListener('mousemove', onActivity);
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener(COFFEE_SHOP_ACTIVITY_EVENT, onActivity);
 
     return () => {
-      document.removeEventListener('mousemove', handler);
-      document.removeEventListener('keydown', handler);
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler);
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+      window.removeEventListener('mousemove', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener(COFFEE_SHOP_ACTIVITY_EVENT, onActivity);
     };
-  }, [coffeeShopId, user?.id, isPresent]);
+  }, [authenticated, coffeeShopId, user?.id]);
 
   useEffect(() => {
     if (!coffeeShopId) {

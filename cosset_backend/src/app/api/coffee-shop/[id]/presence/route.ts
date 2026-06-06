@@ -9,6 +9,7 @@ import {
   removeCoffeeShopPresence,
   removeUserFromAllCoffeeShops,
   setCoffeeShopPresenceHidden,
+  touchCoffeeShopPresence,
   upsertCoffeeShopPresence,
 } from 'src/models/coffee-shop-presence';
 import { STATUS, handleError, response } from 'src/utils/response';
@@ -126,6 +127,34 @@ export async function POST(
     return response({ participant, participants }, STATUS.OK);
   } catch (error) {
     return handleError('Coffee Shop Presence - Join', error as Error);
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const parsed = await parseCoffeeShopId(params);
+    if ('error' in parsed && parsed.error) {
+      return parsed.error;
+    }
+
+    const userId = await getUserIdFromRequest(req);
+    if (!userId) {
+      return response({ message: 'Authentication required' }, STATUS.UNAUTHORIZED);
+    }
+
+    const { coffeeShopId } = parsed;
+    const refreshed = await touchCoffeeShopPresence(coffeeShopId, userId);
+
+    if (!refreshed) {
+      return response({ message: 'Not present in this coffee shop' }, STATUS.NOT_FOUND);
+    }
+
+    return response({ ok: true }, STATUS.OK);
+  } catch (error) {
+    return handleError('Coffee Shop Presence - Touch', error as Error);
   }
 }
 

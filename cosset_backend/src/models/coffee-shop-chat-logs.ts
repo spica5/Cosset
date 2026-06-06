@@ -119,6 +119,48 @@ export async function listCoffeeShopChatLogsToday(coffeeShopId: number): Promise
 }
 
 /**
+ * All non-deleted chat messages for this shop (any day).
+ * Ordered oldest -> newest so the UI can render history naturally.
+ */
+export async function listCoffeeShopChatLogs(coffeeShopId: number): Promise<CoffeeShopChatLogQueryRow[]> {
+  try {
+    await ensureCoffeeShopChatLogsTable();
+
+    return await queryMany<CoffeeShopChatLogQueryRow>(
+      `
+        SELECT
+          id::text AS id,
+          coffee_shop_id AS "coffeeShopId",
+          sender_id::text AS "senderId",
+          receiver_id::text AS "receiverId",
+          sender_name AS "senderName",
+          message,
+          COALESCE(message_type, 'text') AS "messageType",
+          file_url AS "fileUrl",
+          file_name AS "fileName",
+          mime_type AS "mimeType",
+          COALESCE(chat_mode, 'public') AS "chatMode",
+          created_at AS "createdAt"
+        FROM ${TABLE_NAME}
+        WHERE coffee_shop_id = $1
+          AND (is_deleted IS NOT TRUE)
+          AND COALESCE(message_type, 'text') IN ('text', 'file')
+        ORDER BY created_at ASC, id ASC
+      `,
+      [coffeeShopId],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'COFFEE_SHOP_CHAT_LOG_LIST_ERROR',
+      message: `Failed to list chat logs: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+/**
  * Persist a coffee shop chat message.
  */
 export async function createCoffeeShopChatLog(row: CoffeeShopChatLogInsert): Promise<CoffeeShopChatLogRow> {

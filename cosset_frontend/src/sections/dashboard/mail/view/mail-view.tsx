@@ -170,7 +170,12 @@ export function MailView() {
         />
       </DashboardContent>
 
-      {openCompose.value && <MailCompose onCloseCompose={openCompose.onFalse} />}
+      {openCompose.value && (
+        <MailCompose
+          onCloseCompose={openCompose.onFalse}
+          onSent={() => router.push(`${paths.dashboard.mail}?label=sent`)}
+        />
+      )}
     </>
   );
 }

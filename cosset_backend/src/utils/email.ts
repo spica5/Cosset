@@ -1,16 +1,28 @@
 import dns from 'dns/promises';
+import { Resolver } from 'dns';
 
-import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import nodemailer from 'nodemailer';
+import { promisify } from 'node:util';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const SMTP_TIMEOUT_MS = 12_000;
+const PUBLIC_DNS_SERVERS = ['8.8.8.8', '1.1.1.1', '8.8.4.4'];
+
+const publicDnsResolver = new Resolver();
+publicDnsResolver.setServers(PUBLIC_DNS_SERVERS);
+const resolve4Public = promisify(publicDnsResolver.resolve4.bind(publicDnsResolver));
 
 export type EmailSendResult = {
   sent: boolean;
-  /** True when email could not be delivered; code is available via dev fallback. */
+  /** True when email could not be delivered externally. */
   devMode?: boolean;
   error?: string;
+};
+
+type SmtpConnection = {
+  connectHost: string;
+  servername: string;
 };
 
 function getAppUrl(): string {
@@ -63,11 +75,9 @@ function buildResetEmailContent(email: string, code: string) {
   };
 }
 
-function createSmtpTransporter(port: number): nodemailer.Transporter {
-  const host = trimEnv(process.env.SMTP_HOST);
+function createSmtpTransporter(port: number, connection: SmtpConnection): nodemailer.Transporter {
   const user = trimEnv(process.env.SMTP_USER);
   const pass = trimEnv(process.env.SMTP_PASSWORD) || trimEnv(process.env.SMTP_PASS);
-  const isGmail = host.includes('gmail.com') || user.endsWith('@gmail.com');
 
   const timeoutOptions = {
     connectionTimeout: SMTP_TIMEOUT_MS,
@@ -75,21 +85,16 @@ function createSmtpTransporter(port: number): nodemailer.Transporter {
     socketTimeout: SMTP_TIMEOUT_MS,
   };
 
-  if (isGmail) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user, pass },
-      ...timeoutOptions,
-    });
-  }
-
   const transport: SMTPTransport.Options = {
-    host,
+    host: connection.connectHost,
     port,
     secure: port === 465,
     requireTLS: port === 587,
     auth: { user, pass },
-    tls: { minVersion: 'TLSv1.2' },
+    tls: {
+      servername: connection.servername,
+      minVersion: 'TLSv1.2',
+    },
     ...timeoutOptions,
   };
 
@@ -105,45 +110,106 @@ function isPrivateIp(ip: string): boolean {
   );
 }
 
-async function warnIfSmtpHostMisconfigured(host: string): Promise<void> {
+async function resolveSystemIpv4(host: string): Promise<string[]> {
   try {
-    const addresses = await dns.resolve4(host);
-    const bad = addresses.filter(isPrivateIp);
-
-    if (bad.length) {
-      console.warn(
-        `[Password Reset] SMTP host "${host}" resolves to private IP(s): ${bad.join(', ')}. ` +
-          'This usually means VPN/DNS is blocking Gmail. Use Resend (RESEND_API_KEY) or fix DNS.',
-      );
-    }
+    return await dns.resolve4(host);
   } catch {
-    // ignore DNS lookup failures; nodemailer will surface connection errors
+    return [];
   }
 }
 
-async function sendViaSmtp(to: string, subject: string, text: string, html: string): Promise<void> {
-  const host = trimEnv(process.env.SMTP_HOST);
+async function resolvePublicIpv4(host: string): Promise<string[]> {
+  try {
+    return await resolve4Public(host);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolve SMTP host using public DNS when VPN/system DNS returns private IPs.
+ */
+async function resolveSmtpConnection(
+  smtpHost: string,
+  logPrefix: string,
+): Promise<SmtpConnection | null> {
+  const [systemIps, publicIps] = await Promise.all([
+    resolveSystemIpv4(smtpHost),
+    resolvePublicIpv4(smtpHost),
+  ]);
+
+  const publicIp = publicIps.find((ip) => !isPrivateIp(ip));
+  if (publicIp) {
+    const systemBlocked = systemIps.length > 0 && systemIps.every(isPrivateIp);
+    if (systemBlocked) {
+      console.warn(
+        `${logPrefix} System DNS for "${smtpHost}" is blocked (${systemIps.join(', ')}). ` +
+          `Connecting via public DNS (${publicIp}).`,
+      );
+    }
+    return { connectHost: publicIp, servername: smtpHost };
+  }
+
+  const systemPublicIp = systemIps.find((ip) => !isPrivateIp(ip));
+  if (systemPublicIp) {
+    return { connectHost: systemPublicIp, servername: smtpHost };
+  }
+
+  if (systemIps.length > 0 && systemIps.every(isPrivateIp)) {
+    console.warn(
+      `${logPrefix} SMTP host "${smtpHost}" resolves only to private IP(s): ${systemIps.join(', ')}. ` +
+        'Configure RESEND_API_KEY or fix DNS/VPN.',
+    );
+    return null;
+  }
+
+  return { connectHost: smtpHost, servername: smtpHost };
+}
+
+async function sendViaSmtp(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+  logPrefix = '[Email]',
+): Promise<void> {
+  const smtpHost = trimEnv(process.env.SMTP_HOST);
   const user = trimEnv(process.env.SMTP_USER);
   const from =
     trimEnv(process.env.SMTP_FROM) || trimEnv(process.env.EMAIL_FROM) || `"Cosset" <${user}>`;
 
-  await warnIfSmtpHostMisconfigured(host);
+  const connection = await resolveSmtpConnection(smtpHost, logPrefix);
+  if (!connection) {
+    throw new Error(
+      'SMTP is unreachable because the mail host resolves to a private IP. Add RESEND_API_KEY or disable VPN DNS blocking.',
+    );
+  }
 
   const primaryPort = Number(trimEnv(process.env.SMTP_PORT) || '587');
   const portsToTry = [...new Set([primaryPort, primaryPort === 587 ? 465 : 587])];
 
   let lastError: unknown;
 
-  portsToTry.forEach(async (port) => {
+  const sendSucceeded = await portsToTry.reduce<Promise<boolean>>(async (didSend, port) => {
+    if (await didSend) {
+      return true;
+    }
+
     try {
-      const transporter = createSmtpTransporter(port);
+      const transporter = createSmtpTransporter(port, connection);
       await transporter.sendMail({ from, to, subject, text, html });
-      console.info(`[Password Reset] Email sent via SMTP (port ${port}) to ${to}`);
+      console.info(`${logPrefix} Email sent via SMTP (port ${port}) to ${to}`);
+      return true;
     } catch (error) {
       lastError = error;
-      console.warn(`[Password Reset] SMTP port ${port} failed:`, error);
+      console.warn(`${logPrefix} SMTP port ${port} failed:`, error);
+      return false;
     }
-  });
+  }, Promise.resolve(false));
+
+  if (sendSucceeded) {
+    return;
+  }
 
   throw lastError;
 }
@@ -181,6 +247,51 @@ function logDevFallback(email: string, code: string): void {
   console.info(`[Password Reset] Email: ${email}`);
   console.info(`[Password Reset] Code: ${code}`);
   console.info(`[Password Reset] Link: ${resetUrl}`);
+}
+
+export async function sendUserMail(params: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<EmailSendResult> {
+  const { to, subject, text, html } = params;
+  const errors: string[] = [];
+
+  if (isResendConfigured()) {
+    try {
+      await sendViaResend(to, subject, text, html);
+      console.info(`[Mail] Email sent via Resend to ${to}`);
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Resend failed';
+      errors.push(message);
+      console.warn('[Mail] Resend failed:', error);
+    }
+  }
+
+  if (isSmtpConfigured()) {
+    try {
+      await sendViaSmtp(to, subject, text, html, '[Mail]');
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SMTP failed';
+      errors.push(message);
+      console.error('[Mail] SMTP failed:', error);
+    }
+  }
+
+  if (!isSmtpConfigured() && !isResendConfigured()) {
+    console.warn(`[Mail] Email provider not configured. Message to ${to} was saved in-app only.`);
+    return { sent: false, devMode: true };
+  }
+
+  console.warn(`[Mail] External delivery failed for ${to}; message can still be read in-app.`);
+  return {
+    sent: false,
+    devMode: true,
+    error: errors.join(' | ') || 'External email delivery failed',
+  };
 }
 
 export async function sendPasswordResetEmail(email: string, code: string): Promise<EmailSendResult> {

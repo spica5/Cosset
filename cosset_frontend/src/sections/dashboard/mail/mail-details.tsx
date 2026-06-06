@@ -4,7 +4,6 @@ import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
 import Checkbox from '@mui/material/Checkbox';
@@ -28,6 +27,8 @@ import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { FileThumbnail } from 'src/components/dashboard/file-thumbnail';
 import { LoadingScreen } from 'src/components/dashboard/loading-screen';
+
+import { MailAvatar } from './mail-avatar';
 
 // ----------------------------------------------------------------------
 
@@ -120,8 +121,8 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
 
   const renderSubject = (
     <>
-      <Typography variant="subtitle2" sx={{ ...maxLine({ line: 2 }), flex: '1 1 auto' }}>
-        Re: {mail.subject}
+      <Typography variant="subtitle1" sx={{ ...maxLine({ line: 2 }), flex: '1 1 auto' }}>
+        {mail.subject?.trim() || '(No subject)'}
       </Typography>
 
       <Stack spacing={0.5}>
@@ -148,13 +149,11 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
 
   const renderSender = (
     <>
-      <Avatar
-        alt={mail.from.name}
-        src={mail.from.avatarUrl ? `${mail.from.avatarUrl}` : ''}
-        sx={{ mr: 2 }}
-      >
-        {mail.from.name.charAt(0).toUpperCase()}
-      </Avatar>
+      <MailAvatar
+        name={mail.from.name}
+        photoKeyOrUrl={mail.from.avatarUrl}
+        sx={{ width: 40, height: 40, mr: 2 }}
+      />
 
       <Stack spacing={0.5} sx={{ width: 0, flexGrow: 1 }}>
         <Box gap={0.5} display="flex">

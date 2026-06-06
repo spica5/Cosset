@@ -92,6 +92,37 @@ export async function upsertCoffeeShopPresence(coffeeShopId: number, userId: str
   }
 }
 
+export async function touchCoffeeShopPresence(coffeeShopId: number, userId: string): Promise<boolean> {
+  const normalizedUserId = userId.trim().toLowerCase();
+  if (!UUID_RE.test(normalizedUserId)) {
+    return false;
+  }
+
+  try {
+    await ensureCoffeeShopPresenceTableAndPurge();
+    const result = await executeQuery(
+      `
+        UPDATE ${TABLE_NAME}
+        SET updated_at = CURRENT_TIMESTAMP, left_at = NULL
+        WHERE coffee_shop_id = $1
+          AND user_id = $2
+          AND is_hidden = FALSE
+      `,
+      [coffeeShopId, normalizedUserId],
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'COFFEE_SHOP_PRESENCE_TOUCH_ERROR',
+      message: `Failed to refresh coffee shop presence: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
 export async function removeCoffeeShopPresence(coffeeShopId: number, userId: string): Promise<void> {
   const normalizedUserId = userId.trim().toLowerCase();
   if (!UUID_RE.test(normalizedUserId)) {

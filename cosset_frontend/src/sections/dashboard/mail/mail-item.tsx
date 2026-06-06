@@ -3,12 +3,13 @@ import type { ListItemButtonProps } from '@mui/material/ListItemButton';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 
 import { fToNow } from 'src/utils/format-time';
+
+import { MailAvatar } from './mail-avatar';
 
 // ----------------------------------------------------------------------
 
@@ -31,19 +32,26 @@ export function MailItem({ mail, selected, sx, ...other }: Props) {
         }}
         {...other}
       >
-        <Avatar alt={mail.from.name} src={mail.from.avatarUrl ?? ''}>
-          {mail.from.name.charAt(0).toUpperCase()}
-        </Avatar>
+        <MailAvatar
+          name={mail.from.name}
+          photoKeyOrUrl={mail.from.avatarUrl}
+          sx={{ width: 40, height: 40 }}
+        />
 
         <ListItemText
-          primary={mail.from.name}
-          primaryTypographyProps={{ noWrap: true, component: 'span', variant: 'subtitle2' }}
-          secondary={mail.message}
-          secondaryTypographyProps={{
+          primary={mail.subject?.trim() || '(No subject)'}
+          secondary={mail.from.name}
+          primaryTypographyProps={{
             noWrap: true,
             component: 'span',
             variant: mail.isUnread ? 'subtitle2' : 'body2',
-            color: mail.isUnread ? 'text.primary' : 'text.secondary',
+            fontWeight: mail.isUnread ? 600 : 400,
+          }}
+          secondaryTypographyProps={{
+            noWrap: true,
+            component: 'span',
+            variant: 'caption',
+            color: 'text.secondary',
           }}
         />
 

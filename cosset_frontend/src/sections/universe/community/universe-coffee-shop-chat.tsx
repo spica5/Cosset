@@ -21,16 +21,19 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { CONFIG } from 'src/config-global';
 
 import {
+  coffeeShopActivityStorageKey,
   deleteCoffeeShopChatMessage,
   fetchCoffeeShopChatToday,
   joinCoffeeShopPresence,
   leaveCoffeeShopPresence,
   sendCoffeeShopChatMessage,
+  touchCoffeeShopActivity,
 } from 'src/actions/coffee-shop';
 
 import { isUserAdmin } from 'src/auth/utils/role';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 
+import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -540,6 +543,27 @@ export function UniverseCoffeeShopChat({
 
       seenIds.current.add(msg.id);
       setMessages((prev) => [...prev, msg]);
+
+      const authorId = msg.userId?.trim().toLowerCase();
+      const currentUserId = userIdStr?.trim().toLowerCase();
+      const isOwnMessage = Boolean(authorId && currentUserId && authorId === currentUserId);
+      if (!isOwnMessage) {
+        playChatNotificationSound();
+      }
+
+      if (authorId) {
+        const existing = participantsRef.current.find(
+          (p) => p.userId.trim().toLowerCase() === authorId,
+        );
+        if (existing?.leftAt) {
+          const { leftAt: _leftAt, ...reactivated } = existing;
+          onParticipantJoinRef.current?.(reactivated);
+          participantsRef.current = participantsRef.current.map((p) =>
+            p.userId.trim().toLowerCase() === authorId ? reactivated : p,
+          );
+          setParticipantStatusVersion((v) => v + 1);
+        }
+      }
     },
     [onSystemNotification, userIdStr],
   );
@@ -570,6 +594,7 @@ export function UniverseCoffeeShopChat({
         (p) => p.userId.trim().toLowerCase() !== enriched.userId.trim().toLowerCase(),
       );
       participantsRef.current.push(enriched);
+      setParticipantStatusVersion((v) => v + 1);
     },
     [appendEnteredMessage, enrichParticipant],
   );
@@ -621,17 +646,7 @@ export function UniverseCoffeeShopChat({
         const { participant } = await joinCoffeeShopPresence(coffeeShopId);
         if (!cancelled && participant) {
           handleParticipantJoinedRef.current(participant);
-          try {
-            if (typeof window !== 'undefined') {
-              // Use the joinedAt from participant to match the server timestamp
-              const joinedAtMs = participant.joinedAt
-                ? new Date(participant.joinedAt).getTime()
-                : Date.now();
-              window.localStorage.setItem(`coffee-shop-last-joined:${coffeeShopId}`, String(joinedAtMs));
-            }
-          } catch {
-            // ignore
-          }
+          touchCoffeeShopActivity(coffeeShopId);
         }
       } catch {
         // ignore
@@ -647,7 +662,7 @@ export function UniverseCoffeeShopChat({
       leaveCoffeeShopPresence(coffeeShopId).catch(() => undefined);
       try {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(`coffee-shop-last-joined:${coffeeShopId}`);
+          window.localStorage.removeItem(coffeeShopActivityStorageKey(coffeeShopId));
         }
       } catch {
         // ignore
@@ -690,6 +705,10 @@ export function UniverseCoffeeShopChat({
       cancelled = true;
     };
   }, [coffeeShopId, enrichParticipant, onParticipantsLoaded]);
+
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
 
   useEffect(() => {
     if (!hasClientPusherConfig || !channelName) {
@@ -898,6 +917,7 @@ export function UniverseCoffeeShopChat({
     sendInFlightRef.current = true;
     setSendError(null);
     setSending(true);
+    touchCoffeeShopActivity(coffeeShopId);
     const savedDraft = text;
     const savedFile = pendingFile;
     setDraft('');
@@ -1232,10 +1252,17 @@ export function UniverseCoffeeShopChat({
 
                   // Check if the message author has left the coffee shop
                   const messageAuthorId = m.userId?.trim().toLowerCase();
-                  const participant = participantsRef.current.find(
+                  const participant = participants.find(
                     (p) => p.userId.trim().toLowerCase() === messageAuthorId,
                   );
-                  const status = participant?.joinedAt && !participant?.leftAt ? 'online' : 'left';
+                  const status =
+                    isCurrentUser && isPresent
+                      ? 'online'
+                      : participant
+                        ? !participant.leftAt
+                          ? 'online'
+                          : 'left'
+                        : undefined;
                   const showDelete = canDeleteMessage(m);
 
                   return (

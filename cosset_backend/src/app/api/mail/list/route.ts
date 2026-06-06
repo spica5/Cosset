@@ -1,70 +1,47 @@
 import type { NextRequest } from 'next/server';
 
-import { logger } from 'src/utils/logger';
+import { listUserMails } from 'src/models/user-mails';
+import { getUserPhotoURLsByIds } from 'src/models/users';
+
+import {
+  mapUserMailToApi,
+  SYSTEM_MAIL_LABELS,
+  filterMailsByLabelId,
+  buildPhotoByEmailForRows,
+  getUserIdFromMailRequest,
+} from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { _mails, _labels } from 'src/_mock/_mail';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
 
-// ----------------------------------------------------------------------
-
-export const runtime = 'edge';
-
-type MailType = ReturnType<typeof _mails>[number];
-
-/** **************************************
- * Get mails by labelId
- *************************************** */
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getUserIdFromMailRequest(req);
+    if (!userId) {
+      return response({ message: 'Sign in to view mail' }, STATUS.UNAUTHORIZED);
+    }
+
     const { searchParams } = req.nextUrl;
-    const labelId = searchParams.get('labelId');
+    const labelId = searchParams.get('labelId') || 'inbox';
 
-    const labels = _labels();
-    const mails = _mails();
-
-    logger('labelId', labelId);
-
-    // Check if label exists
-    const labelExists = labels.some((label) => label.id === labelId);
-
+    const labelExists = SYSTEM_MAIL_LABELS.some((label) => label.id === labelId);
     if (!labelExists) {
       return response({ message: 'Label not found!' }, STATUS.NOT_FOUND);
     }
 
-    // Directly check if labelId is for a custom label
-    const isCustomLabel = labels.some((label) => label.id === labelId && label.type === 'custom');
+    const rows = await listUserMails(userId);
+    const filteredRows = filterMailsByLabelId(rows, labelId);
+    const senderIds = filteredRows
+      .map((row) => row.fromUserId)
+      .filter((id): id is string => Boolean(id?.trim()));
+    const photoByUserId = await getUserPhotoURLsByIds(senderIds);
+    const photoByEmail = await buildPhotoByEmailForRows(filteredRows);
+    const mails = filteredRows.map((row) => mapUserMailToApi(row, photoByUserId, photoByEmail));
 
-    let filteredMails = [];
-
-    if (isCustomLabel) {
-      filteredMails = mails.filter((mail) => labelId !== null && mail.labelIds.includes(labelId));
-    } else {
-      filteredMails = filterMailsByLabelId(mails, labelId);
-    }
-
-    logger(`Mails - ${labelId}`, filteredMails.length);
-
-    return response({ mails: filteredMails }, STATUS.OK);
+    return response({ mails }, STATUS.OK);
   } catch (error) {
-    return handleError('Mail - Get list', error);
-  }
-}
-
-/** **************************************
- * Actions & Utility
- *************************************** */
-function filterMailsByLabelId(mails: MailType[], labelId?: string | null) {
-  switch (labelId) {
-    case undefined:
-    case 'inbox':
-      return mails.filter((mail) => mail.folder === 'inbox');
-    case 'all':
-      return mails;
-    case 'starred':
-      return mails.filter((mail) => mail.isStarred);
-    case 'important':
-      return mails.filter((mail) => mail.isImportant);
-    default:
-      return mails.filter((mail) => mail.folder === labelId);
+    return handleError('Mail - Get list', error as Error);
   }
 }

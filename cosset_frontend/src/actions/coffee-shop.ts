@@ -179,6 +179,22 @@ export async function fetchCoffeeShopChatToday(
   return res.data as CoffeeShopChatTodayResponse;
 }
 
+export const COFFEE_SHOP_IDLE_MS = 30 * 60 * 1000;
+
+export const coffeeShopActivityStorageKey = (coffeeShopId: string | number) =>
+  `coffee-shop-last-activity:${coffeeShopId}`;
+
+export const COFFEE_SHOP_ACTIVITY_EVENT = 'coffee-shop-activity';
+
+export const touchCoffeeShopActivity = (coffeeShopId: string | number) => {
+  try {
+    window.localStorage.setItem(coffeeShopActivityStorageKey(coffeeShopId), String(Date.now()));
+    window.dispatchEvent(new CustomEvent(COFFEE_SHOP_ACTIVITY_EVENT));
+  } catch {
+    // ignore
+  }
+};
+
 type CoffeeShopPresenceResponse = {
   participant?: CoffeeShopChatParticipant;
 };
@@ -192,6 +208,10 @@ export async function joinCoffeeShopPresence(
 
 export async function leaveCoffeeShopPresence(coffeeShopId: string | number): Promise<void> {
   await axios.delete(endpoints.coffeeShop.presence(coffeeShopId));
+}
+
+export async function pingCoffeeShopPresence(coffeeShopId: string | number): Promise<void> {
+  await axios.put(endpoints.coffeeShop.presence(coffeeShopId));
 }
 
 type SetCoffeeShopPresenceHiddenResponse = {

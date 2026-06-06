@@ -1,11 +1,16 @@
 import type { Dayjs, OpUnitType } from 'dayjs';
 
+import timezone from 'dayjs/plugin/timezone';
+
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 // ----------------------------------------------------------------------
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
@@ -36,16 +41,31 @@ export function today(format?: string) {
 
 // ----------------------------------------------------------------------
 
-/** output: 17 Apr 2022 12:00 am
- */
-export function fDateTime(date: DatePickerFormat, format?: string) {
+function parseToLocal(date: DatePickerFormat) {
   if (!date) {
     return null;
   }
 
-  const isValid = dayjs(date).isValid();
+  const value = String(date);
+  const hasTimezone = value.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(value);
 
-  return isValid ? dayjs(date).format(format ?? formatStr.dateTime) : 'Invalid time value';
+  const parsed = hasTimezone ? dayjs.utc(value).local() : dayjs(value);
+
+  return parsed.isValid() ? parsed : null;
+}
+
+// ----------------------------------------------------------------------
+
+/** output: 17 Apr 2022 12:00 am
+ */
+export function fDateTime(date: DatePickerFormat, format?: string) {
+  const parsed = parseToLocal(date);
+
+  return parsed
+    ? parsed.format(format ?? `${formatStr.dateTime} z`)
+    : date
+      ? 'Invalid time value'
+      : null;
 }
 
 // ----------------------------------------------------------------------
@@ -95,13 +115,9 @@ export function fTimestamp(date: DatePickerFormat) {
 /** output: a few seconds, 2 years
  */
 export function fToNow(date: DatePickerFormat) {
-  if (!date) {
-    return null;
-  }
+  const parsed = parseToLocal(date);
 
-  const isValid = dayjs(date).isValid();
-
-  return isValid ? dayjs(date).toNow(true) : 'Invalid time value';
+  return parsed ? parsed.toNow(true) : date ? 'Invalid time value' : null;
 }
 
 // ----------------------------------------------------------------------

@@ -1,17 +1,21 @@
 import type { NextRequest } from 'next/server';
 
 import { JWT_SECRET } from 'src/config-global';
+
 import { getCoffeeShopById } from 'src/models/coffee-shops';
 import {
   createCoffeeShopChatLog,
-  listCoffeeShopChatLogsToday,
+  listCoffeeShopChatLogs,
 } from 'src/models/coffee-shop-chat-logs';
-import { getUserById, getUserPhotoURLsByIds } from 'src/models/users';
+
 import { getUserFriends } from 'src/models/user-friends';
+import { getUserById, getUserPhotoURLsByIds } from 'src/models/users';
+
+import { touchCoffeeShopPresence } from 'src/models/coffee-shop-presence';
 import { listCoffeeShopParticipants } from 'src/utils/coffee-shop-participants';
 import { COFFEE_SHOP_CHAT_EVENT, coffeeShopChatChannel, getPusherServer } from 'src/utils/pusher';
-import { verify } from 'src/utils/jwt';
 
+import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 export const dynamic = 'force-dynamic';
@@ -128,7 +132,7 @@ export async function GET(
 
     const viewerId = await getUserIdFromRequest(_req);
     const [rows, participants] = await Promise.all([
-      listCoffeeShopChatLogsToday(coffeeShopId),
+      listCoffeeShopChatLogs(coffeeShopId),
       listCoffeeShopParticipants(coffeeShopId, true),
     ]);
 
@@ -289,6 +293,10 @@ export async function POST(
 
     const messageType = hasFile ? 'file' : 'text';
     const storedMessage = rawMessage || fileName || 'Attachment';
+
+    if (userId) {
+      await touchCoffeeShopPresence(coffeeShopId, userId).catch(() => undefined);
+    }
 
     const inserted = await createCoffeeShopChatLog({
       coffeeShopId,
