@@ -15,10 +15,12 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { _contacts } from 'src/_mock/dashboard';
 
 import { useGetCollections } from 'src/actions/collection';
+import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { Logo } from 'src/components/dashboard/logo';
+import { Label } from 'src/components/dashboard/label';
 import { useSettingsContext } from 'src/components/dashboard/settings';
 
 import { paths } from 'src/routes/paths';
@@ -58,6 +60,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const mobileNavOpen = useBoolean();
   const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
   const { collections } = useGetCollections(user?.id ? String(user.id) : undefined);
+  const { unreadCount: mailUnreadCount } = useGetMailUnreadCount(Boolean(user?.id));
 
   const settings = useSettingsContext();
 
@@ -90,17 +93,29 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
     return baseNavData.map((group) => ({
       ...group,
       items: group.items.map((item) => {
-        if (item.title !== 'Collections' || !item.children) {
-          return item;
+        if (item.title === 'Collections' && item.children) {
+          return {
+            ...item,
+            children: [...item.children, ...collectionSubitems],
+          };
         }
 
-        return {
-          ...item,
-          children: [...item.children, ...collectionSubitems],
-        };
+        if (item.title === 'Mail') {
+          return {
+            ...item,
+            info:
+              mailUnreadCount > 0 ? (
+                <Label color="error" variant="inverted">
+                  {mailUnreadCount}
+                </Label>
+              ) : undefined,
+          };
+        }
+
+        return item;
       }),
     }));
-  }, [data?.nav, collectionSubitems]);
+  }, [data?.nav, collectionSubitems, mailUnreadCount]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

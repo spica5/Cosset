@@ -7,7 +7,6 @@ import { paths } from 'src/routes/paths';
 
 import { CONFIG } from 'src/config-global';
 
-import { Label } from 'src/components/dashboard/label';
 import { SvgColor } from 'src/components/dashboard/svg-color';
 
 // ----------------------------------------------------------------------
@@ -136,11 +135,6 @@ export const navData = [
         title: 'Mail',
         path: paths.dashboard.mail,
         icon: ICONS.mail,
-        info: (
-          <Label color="error" variant="inverted">
-            +32
-          </Label>
-        ),
       },
       {
         title: 'Chat',

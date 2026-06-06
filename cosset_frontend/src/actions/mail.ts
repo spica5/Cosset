@@ -39,6 +39,19 @@ export function useGetLabels() {
   return memoizedValue;
 }
 
+export function useGetMailUnreadCount(enabled = true) {
+  const url = enabled ? endpoints.mail.labels : '';
+
+  const { data, isLoading } = useSWR<LabelsData>(url, fetcher, swrOptions);
+
+  const unreadCount = useMemo(() => {
+    const inbox = data?.labels?.find((label) => label.id === 'inbox');
+    return inbox?.unreadCount ?? 0;
+  }, [data?.labels]);
+
+  return { unreadCount, unreadCountLoading: isLoading };
+}
+
 // ----------------------------------------------------------------------
 
 type MailsData = {
