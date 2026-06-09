@@ -1,4 +1,8 @@
+'use client';
+
 import type { IMail, IMailLabel } from 'src/types/mail';
+
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -17,7 +21,10 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { fDateTime } from 'src/utils/format-time';
 
 import { CONFIG } from 'src/config-global';
+import { deleteMail, sendMail } from 'src/actions/mail';
 import { maxLine, stylesMode } from 'src/theme/dashboard/styles';
+import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+import { toast } from 'src/components/dashboard/snackbar';
 
 import { Label } from 'src/components/dashboard/label';
 import { Editor } from 'src/components/dashboard/editor';
@@ -29,6 +36,7 @@ import { FileThumbnail } from 'src/components/dashboard/file-thumbnail';
 import { LoadingScreen } from 'src/components/dashboard/loading-screen';
 
 import { MailAvatar } from './mail-avatar';
+import { buildQuotedMessage, buildReplySubject, getReplyRecipient } from './mail-compose-utils';
 
 // ----------------------------------------------------------------------
 
@@ -37,11 +45,11 @@ type Props = {
   empty: boolean;
   loading: boolean;
   renderLabel: (id: string) => IMailLabel;
+  onReplySent?: () => void;
+  onDeleted?: (mailId: string) => void;
 };
 
-export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
-  const showAttachments = useBoolean(true);
-
+export function MailDetails({ mail, renderLabel, empty, loading, onReplySent, onDeleted }: Props) {
   if (loading) {
     return <LoadingScreen />;
   }
@@ -55,6 +63,119 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
       />
     );
   }
+
+  return (
+    <MailDetailsContent
+      mail={mail}
+      renderLabel={renderLabel}
+      onReplySent={onReplySent}
+      onDeleted={onDeleted}
+    />
+  );
+}
+
+// ----------------------------------------------------------------------
+
+type ContentProps = {
+  mail: IMail;
+  renderLabel: (id: string) => IMailLabel;
+  onReplySent?: () => void;
+  onDeleted?: (mailId: string) => void;
+};
+
+function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: ContentProps) {
+  const showAttachments = useBoolean(true);
+  const { user } = useAuthContext();
+
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const userEmail = typeof user?.email === 'string' ? user.email : undefined;
+
+  useEffect(() => {
+    setReplyMessage('');
+  }, [mail.id]);
+
+  const handleSendReply = useCallback(async () => {
+    const trimmedReply = replyMessage.trim();
+    if (!trimmedReply) {
+      toast.error('Write a reply before sending.');
+      return;
+    }
+
+    const recipient = getReplyRecipient(mail, userEmail);
+    if (!recipient) {
+      toast.error('No recipient found for this reply.');
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      const result = await sendMail({
+        to: recipient,
+        subject: buildReplySubject(mail.subject),
+        message: `${trimmedReply}${buildQuotedMessage(mail)}`,
+      });
+
+      if (result.deliveryErrors?.length) {
+        toast.warning(result.message || 'Reply saved in Cosset mail.');
+      } else {
+        toast.success(result.message || 'Reply sent.');
+      }
+
+      setReplyMessage('');
+      onReplySent?.();
+    } catch (error: unknown) {
+      let msg = 'Could not send reply.';
+      if (typeof error === 'string') {
+        msg = error;
+      } else if (error instanceof Error) {
+        msg = error.message;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        const data = error as { message?: unknown };
+        if (typeof data.message === 'string') {
+          msg = data.message;
+        }
+      }
+      toast.error(msg);
+    } finally {
+      setSending(false);
+    }
+  }, [mail, onReplySent, replyMessage, userEmail]);
+
+  const handleDeleteMail = useCallback(async () => {
+    if (deleting) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      const result = await deleteMail(mail.id, mail);
+      toast.success(
+        result.message ||
+          (mail.folder === 'trash' ? 'Mail permanently deleted' : 'Mail moved to trash'),
+      );
+      onDeleted?.(mail.id);
+    } catch (error: unknown) {
+      let msg = 'Could not delete mail.';
+      if (typeof error === 'string') {
+        msg = error;
+      } else if (error instanceof Error) {
+        msg = error.message;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        const data = error as { message?: unknown };
+        if (typeof data.message === 'string') {
+          msg = data.message;
+        }
+      }
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleting, mail, onDeleted]);
 
   const renderHead = (
     <>
@@ -106,10 +227,12 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="Trash">
-          <IconButton>
-            <Iconify icon="solar:trash-bin-trash-bold" />
-          </IconButton>
+        <Tooltip title={mail.folder === 'trash' ? 'Delete permanently' : 'Move to trash'}>
+          <span>
+            <IconButton onClick={() => handleDeleteMail()} disabled={deleting}>
+              <Iconify icon="solar:trash-bin-trash-bold" />
+            </IconButton>
+          </span>
         </Tooltip>
 
         <IconButton>
@@ -233,14 +356,19 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
 
   const renderEditor = (
     <>
-      <Editor sx={{ maxHeight: 320 }} />
+      <Editor
+        value={replyMessage}
+        onChange={setReplyMessage}
+        placeholder="Write something awesome..."
+        sx={{ maxHeight: 320 }}
+      />
 
       <Box display="flex" alignItems="center">
-        <IconButton>
+        <IconButton disabled>
           <Iconify icon="solar:gallery-add-bold" />
         </IconButton>
 
-        <IconButton>
+        <IconButton disabled>
           <Iconify icon="eva:attach-2-fill" />
         </IconButton>
 
@@ -249,9 +377,11 @@ export function MailDetails({ mail, renderLabel, empty, loading }: Props) {
         <Button
           color="primary"
           variant="contained"
+          disabled={sending}
+          onClick={() => handleSendReply()}
           endIcon={<Iconify icon="iconamoon:send-fill" />}
         >
-          Send
+          {sending ? 'Sending...' : 'Send'}
         </Button>
       </Box>
     </>

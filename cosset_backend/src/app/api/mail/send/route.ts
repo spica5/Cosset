@@ -12,6 +12,7 @@ import {
 
 import { createUserMail } from 'src/models/user-mails';
 import { getUserById, getUserByEmail } from 'src/models/users';
+import { notifyMailReceived } from 'src/utils/mail-notifications';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -114,9 +115,12 @@ export async function POST(req: NextRequest) {
       });
     });
 
+    const senderAvatar =
+      sender.photoURL != null ? String(sender.photoURL).trim() : null;
+
     await Promise.all(
-      [...inboxRecipients.entries()].map(([recipientId, recipient]) =>
-        createUserMail({
+      [...inboxRecipients.entries()].map(async ([recipientId, recipient]) => {
+        const inboxMail = await createUserMail({
           ownerUserId: recipientId,
           folder: 'inbox',
           fromUserId: userId,
@@ -134,8 +138,18 @@ export async function POST(req: NextRequest) {
           subject,
           message,
           isUnread: true,
-        }),
-      ),
+        });
+
+        await notifyMailReceived({
+          recipientId,
+          mailId: inboxMail.id,
+          senderName,
+          senderAvatarUrl: senderAvatar,
+          subject,
+        });
+
+        return inboxMail;
+      }),
     );
 
     const deliveryResults = await Promise.all(

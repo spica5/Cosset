@@ -34,6 +34,7 @@ import { isUserAdmin } from 'src/auth/utils/role';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 
 import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
+import { formatCoffeeShopChatSentAt } from 'src/utils/format-time';
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -1289,9 +1290,7 @@ export function UniverseCoffeeShopChat({
                               sx={{ color: 'rgba(255,255,255,0.55)', flex: 1, minWidth: 0 }}
                             >
                               {m.authorName}
-                              {m.sentAt
-                                ? ` · ${new Date(m.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
-                                : ''}
+                              {m.sentAt ? ` · ${formatCoffeeShopChatSentAt(m.sentAt)}` : ''}
                             </Typography>
                             {m.chatMode && m.chatMode !== 'public' ? (
                               <Chip

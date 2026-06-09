@@ -67,6 +67,8 @@ type CandleSpec = {
   left: number;
   delay: number;
   width: number;
+  height: number;
+  bottomOffset: number;
 };
 
 type SparkSpec = {
@@ -90,13 +92,37 @@ function createSeededRandom(seed: number) {
 
 function buildCandles(count: number, seed: number): CandleSpec[] {
   const rnd = createSeededRandom(seed);
+  const segmentWidth = 92 / count;
 
-  return Array.from({ length: count }, (_, index) => ({
-    id: index,
-    left: rnd() * 100,
-    delay: rnd() * 0.5,
-    width: 10,
-  }));
+  return Array.from({ length: count }, (_, index) => {
+    const sizeRoll = rnd();
+    const isTall = sizeRoll > 0.62;
+    const isShort = sizeRoll < 0.34;
+
+    const height = isTall
+      ? 44 + rnd() * 28
+      : isShort
+        ? 14 + rnd() * 14
+        : 26 + rnd() * 16;
+
+    const width = isTall
+      ? 9 + rnd() * 5
+      : isShort
+        ? 5 + rnd() * 3
+        : 7 + rnd() * 4;
+
+    const baseLeft = 4 + index * segmentWidth;
+    const left = baseLeft + rnd() * segmentWidth * 0.9;
+
+    return {
+      id: index,
+      left,
+      delay: rnd() * 0.8,
+      width,
+      height,
+      bottomOffset: rnd() * 10,
+    };
+  });
 }
 
 function buildSparks(candles: CandleSpec[], seed: number): SparkSpec[] {
@@ -129,10 +155,12 @@ type Props = {
   candleCount?: number;
 };
 
+const DEFAULT_CANDLE_COUNT = 16;
+
 export function CoffeeShopCandles({
   seed = 1,
   layout = 'fullscreen',
-  candleCount = 5,
+  candleCount = DEFAULT_CANDLE_COUNT,
 }: Props) {
   const numericSeed =
     typeof seed === 'number'
@@ -154,6 +182,8 @@ export function CoffeeShopCandles({
       ? { position: 'fixed' as const, inset: 0 }
       : { position: 'absolute' as const, inset: 0 };
 
+  const baseBottom = layout === 'fullscreen' ? 6 : 2;
+
   return (
     <Box
       aria-hidden
@@ -167,85 +197,99 @@ export function CoffeeShopCandles({
         },
       }}
     >
-      {/* Candles at bottom of screen */}
-      {candles.map((candle) => (
-        <Box key={`candle-group-${candle.id}`}>
-          {/* Large ambient light around candle */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: layout === 'fullscreen' ? '24px' : '12px',
-              left: `${candle.left}%`,
-              width: 200,
-              height: 200,
-              transform: 'translateX(-50%) translateY(30%)',
-              borderRadius: '50%',
-              background:
-                'radial-gradient(circle, rgba(255, 165, 0, 0.25) 0%, rgba(255, 140, 0, 0.12) 30%, rgba(255, 100, 50, 0.05) 60%, transparent 100%)',
-              animation: `${candleLight} 4s ease-in-out ${candle.delay}s infinite`,
-              pointerEvents: 'none',
-            }}
-          />
+      {/* Candles scattered along the bottom of the view */}
+      {candles.map((candle) => {
+        const stickBottom = baseBottom + candle.bottomOffset;
+        const flameHeight = Math.max(9, Math.min(20, candle.height * 0.32));
+        const flameBottom = stickBottom + candle.height - 2;
+        const glowSize = Math.max(36, Math.min(72, candle.height * 1.4));
+        const ambientSize = Math.max(120, Math.min(240, candle.height * 3.2));
 
-          {/* Candle glow background */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: layout === 'fullscreen' ? '24px' : '12px',
-              left: `${candle.left}%`,
-              width: 48,
-              height: 48,
-              transform: 'translateX(-50%)',
-              borderRadius: '50%',
-              background:
-                'radial-gradient(circle, rgba(255, 140, 0, 0.4) 0%, rgba(255, 180, 60, 0.2) 40%, transparent 70%)',
-              animation: `${candleGlow} 3s ease-in-out ${candle.delay}s infinite`,
-            }}
-          />
+        return (
+          <Box key={`candle-group-${candle.id}`}>
+            {/* Large ambient light around candle */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: stickBottom + candle.height * 0.35,
+                left: `${candle.left}%`,
+                width: ambientSize,
+                height: ambientSize,
+                transform: 'translateX(-50%) translateY(30%)',
+                borderRadius: '50%',
+                background:
+                  'radial-gradient(circle, rgba(255, 165, 0, 0.25) 0%, rgba(255, 140, 0, 0.12) 30%, rgba(255, 100, 50, 0.05) 60%, transparent 100%)',
+                animation: `${candleLight} 4s ease-in-out ${candle.delay}s infinite`,
+                pointerEvents: 'none',
+              }}
+            />
 
-          {/* Candle flame */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: layout === 'fullscreen' ? '45px' : '20px',
-              left: `${candle.left}%`,
-              width: candle.width * 1.2,
-              height: 14,
-              transform: 'translateX(-50%)',
-              borderRadius: '50% 50% 40% 40%',
-              background:
-                'linear-gradient(180deg, rgba(255, 255, 150, 0.95) 0%, rgba(255, 200, 0, 0.8) 40%, rgba(255, 100, 0, 0.6) 100%)',
-              boxShadow:
-                '0 0 12px 2px rgba(255, 140, 0, 0.7), 0 0 4px rgba(255, 200, 0, 0.9), inset -1px 0 4px rgba(255, 220, 100, 0.5)',
-              animation: `${candleFlame} 1.5s ease-in-out ${candle.delay}s infinite`,
-              filter: 'drop-shadow(0 0 6px rgba(255, 180, 0, 0.6))',
-            }}
-          />
+            {/* Candle glow background */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: stickBottom + candle.height * 0.45,
+                left: `${candle.left}%`,
+                width: glowSize,
+                height: glowSize,
+                transform: 'translateX(-50%)',
+                borderRadius: '50%',
+                background:
+                  'radial-gradient(circle, rgba(255, 140, 0, 0.4) 0%, rgba(255, 180, 60, 0.2) 40%, transparent 70%)',
+                animation: `${candleGlow} 3s ease-in-out ${candle.delay}s infinite`,
+              }}
+            />
 
-          {/* Candle stick */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: layout === 'fullscreen' ? '6px' : '2px',
-              left: `calc(${candle.left}% + ${candle.width/2}px)`,
-              width: candle.width,
-              height: 36,
-              transform: 'translateX(-50%)',
-              background:
-                'linear-gradient(90deg, rgba(180, 140, 80, 0.7) 0%, rgba(200, 160, 100, 0.8) 50%, rgba(180, 140, 80, 0.7) 100%)',
-              borderRadius: '25%',
-            }}
-          />
-        </Box>
-      ))}
+            {/* Candle flame */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: flameBottom,
+                left: `${candle.left}%`,
+                width: candle.width * 1.25,
+                height: flameHeight,
+                transform: 'translateX(-50%)',
+                borderRadius: '50% 50% 40% 40%',
+                background:
+                  'linear-gradient(180deg, rgba(255, 255, 150, 0.95) 0%, rgba(255, 200, 0, 0.8) 40%, rgba(255, 100, 0, 0.6) 100%)',
+                boxShadow:
+                  '0 0 12px 2px rgba(255, 140, 0, 0.7), 0 0 4px rgba(255, 200, 0, 0.9), inset -1px 0 4px rgba(255, 220, 100, 0.5)',
+                animation: `${candleFlame} 1.5s ease-in-out ${candle.delay}s infinite`,
+                filter: 'drop-shadow(0 0 6px rgba(255, 180, 0, 0.6))',
+              }}
+            />
+
+            {/* Candle stick */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: stickBottom,
+                left: `calc(${candle.left}% + ${candle.width/2}px)`,
+                width: candle.width,
+                height: candle.height,
+                transform: 'translateX(-50%)',
+                background:
+                  'linear-gradient(90deg, rgba(180, 140, 80, 0.7) 0%, rgba(200, 160, 100, 0.8) 50%, rgba(180, 140, 80, 0.7) 100%)',
+                borderRadius: '25%',
+              }}
+            />
+          </Box>
+        );
+      })}
 
       {/* Spark particles */}
-      {sparks.map((spark) => (
+      {sparks.map((spark) => {
+        const candle = candles[spark.candleId];
+        const sparkBottom = candle
+          ? baseBottom + candle.bottomOffset + candle.height + 6
+          : baseBottom + 40;
+
+        return (
         <Box
           key={`spark-${spark.id}`}
           sx={{
             position: 'absolute',
-            bottom: layout === 'fullscreen' ? '48px' : '32px',
+            bottom: sparkBottom,
             left: `${spark.left}%`,
             width: 2,
             height: 2,
@@ -255,10 +299,11 @@ export function CoffeeShopCandles({
             boxShadow: '0 0 3px 1px rgba(255, 180, 0, 0.9)',
             '--tx': `${spark.tx}px`,
             '--ty': `${spark.ty}px`,
-            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + (candles[spark.candleId]?.delay || 0)}s infinite`,
+            animation: `${sparkParticle} ${spark.duration}s ease-out ${spark.delay + (candle?.delay || 0)}s infinite`,
           } as any}
         />
-      ))}
+        );
+      })}
     </Box>
   );
 }

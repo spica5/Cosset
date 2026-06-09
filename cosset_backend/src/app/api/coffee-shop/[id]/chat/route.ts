@@ -53,6 +53,28 @@ const trimDisplayName = (value: unknown): string => {
   return value.trim().slice(0, MAX_DISPLAY_NAME_LEN);
 };
 
+/** DB timestamps are UTC but often returned without a timezone suffix. */
+const toUtcIsoTimestamp = (value: Date | string): string => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return new Date().toISOString();
+  }
+
+  const normalized = raw.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+  const hasTimezone = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized);
+  const parsed = new Date(hasTimezone ? normalized : `${normalized}Z`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString();
+  }
+
+  return parsed.toISOString();
+};
+
 /**
  * Determine if a viewer can see a message based on chat modes and friend relationships.
  * Rules:
@@ -178,12 +200,7 @@ export async function GET(
         fileUrl: r.fileUrl ?? null,
         fileName: r.fileName ?? null,
         mimeType: r.mimeType ?? null,
-        sentAt:
-          typeof r.createdAt === 'string'
-            ? new Date(r.createdAt).toISOString()
-            : r.createdAt instanceof Date
-              ? r.createdAt.toISOString()
-              : new Date(String(r.createdAt)).toISOString(),
+        sentAt: toUtcIsoTimestamp(r.createdAt),
       };
     });
 
@@ -324,7 +341,7 @@ export async function POST(
       fileUrl: hasFile ? fileUrl : null,
       fileName: hasFile ? fileName || null : null,
       mimeType: hasFile ? mimeType || null : null,
-      sentAt: inserted.createdAt, // new Date().toISOString(),
+      sentAt: toUtcIsoTimestamp(inserted.createdAt),
     };
 
     const pusher = getPusherServer();

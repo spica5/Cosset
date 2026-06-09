@@ -12,12 +12,11 @@ import { iconButtonClasses } from '@mui/material/IconButton';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
-import { _contacts } from 'src/_mock/dashboard';
-
 import { useGetCollections } from 'src/actions/collection';
 import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
+import { useMailNotifications } from 'src/hooks/use-mail-notifications';
 
 import { Logo } from 'src/components/dashboard/logo';
 import { Label } from 'src/components/dashboard/label';
@@ -60,7 +59,9 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const mobileNavOpen = useBoolean();
   const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
   const { collections } = useGetCollections(user?.id ? String(user.id) : undefined);
-  const { unreadCount: mailUnreadCount } = useGetMailUnreadCount(Boolean(user?.id));
+  const userId = user?.id ? String(user.id) : undefined;
+  const { unreadCount: mailUnreadCount } = useGetMailUnreadCount(Boolean(userId));
+  useMailNotifications(userId);
 
   const settings = useSettingsContext();
 
@@ -204,7 +205,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
                 {/* -- Notifications popover -- */}
                 <NotificationsDrawer data={notifications} customerId={user?.id ? String(user.id) : undefined} />
                 {/* -- Contacts popover -- */}
-                <ContactsPopover data={_contacts} />
+                <ContactsPopover />
                 {/* -- Account drawer -- */}
                 <AccountDrawer data={_account} />
               </Box>

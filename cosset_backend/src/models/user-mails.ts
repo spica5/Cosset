@@ -1,5 +1,5 @@
 import { DatabaseError } from '@/db/errors';
-import { executeQuery, queryMany, queryOne } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'user_mails';
 
@@ -267,6 +267,109 @@ export async function listUserMails(ownerUserId: string): Promise<UserMailRow[]>
     throw new DatabaseError({
       code: 'USER_MAIL_LIST_ERROR',
       message: `Failed to list mails: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function markUserMailAsRead(
+  ownerUserId: string,
+  mailId: string | number,
+): Promise<UserMailRow | null> {
+  try {
+    await ensureUserMailsTable();
+
+    const updated = await queryOne<Record<string, unknown>>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET is_unread = FALSE, updated_at = CURRENT_TIMESTAMP
+        WHERE owner_user_id = $1
+          AND id = $2
+          AND is_deleted = FALSE
+          AND is_unread = TRUE
+        RETURNING
+          id::text AS id,
+          owner_user_id::text AS "ownerUserId",
+          folder,
+          from_user_id::text AS "fromUserId",
+          from_name AS "fromName",
+          from_email AS "fromEmail",
+          to_recipients AS "toRecipients",
+          cc_recipients AS "ccRecipients",
+          bcc_recipients AS "bccRecipients",
+          subject,
+          message,
+          label_ids AS "labelIds",
+          is_unread AS "isUnread",
+          is_starred AS "isStarred",
+          is_important AS "isImportant",
+          attachments,
+          created_at AS "createdAt"
+      `,
+      [ownerUserId.trim().toLowerCase(), mailId],
+    );
+
+    if (updated) {
+      return mapRow(updated);
+    }
+
+    return await getUserMailById(ownerUserId, mailId);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'USER_MAIL_MARK_READ_ERROR',
+      message: `Failed to mark mail as read: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function deleteUserMail(
+  ownerUserId: string,
+  mailId: string | number,
+): Promise<{ permanent: boolean } | null> {
+  try {
+    await ensureUserMailsTable();
+
+    const existing = await getUserMailById(ownerUserId, mailId);
+    if (!existing) {
+      return null;
+    }
+
+    if (existing.folder === 'trash') {
+      await executeQuery(
+        `
+          UPDATE ${TABLE_NAME}
+          SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP
+          WHERE owner_user_id = $1
+            AND id = $2
+            AND is_deleted = FALSE
+        `,
+        [ownerUserId.trim().toLowerCase(), mailId],
+      );
+
+      return { permanent: true };
+    }
+
+    await executeQuery(
+      `
+        UPDATE ${TABLE_NAME}
+        SET folder = 'trash', updated_at = CURRENT_TIMESTAMP
+        WHERE owner_user_id = $1
+          AND id = $2
+          AND is_deleted = FALSE
+      `,
+      [ownerUserId.trim().toLowerCase(), mailId],
+    );
+
+    return { permanent: false };
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'USER_MAIL_DELETE_ERROR',
+      message: `Failed to delete mail: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }

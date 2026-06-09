@@ -56,6 +56,27 @@ function parseToLocal(date: DatePickerFormat) {
 
 // ----------------------------------------------------------------------
 
+/** Values without an explicit offset are treated as UTC (database timestamps). */
+export function normalizeUtcTimestamp(date: DatePickerFormat): string | null {
+  if (!date) {
+    return null;
+  }
+
+  if (date instanceof Date) {
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  const raw = String(date).trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+  const hasTimezone = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized);
+
+  return hasTimezone ? normalized : `${normalized}Z`;
+}
+
 /** output: 17 Apr 2022 12:00 am
  */
 export function fDateTime(date: DatePickerFormat, format?: string) {
@@ -66,6 +87,55 @@ export function fDateTime(date: DatePickerFormat, format?: string) {
     : date
       ? 'Invalid time value'
       : null;
+}
+
+/** Format a UTC database timestamp in the viewer's local timezone. */
+export function fDateTimeFromUtc(date: DatePickerFormat, format?: string) {
+  const utcValue = normalizeUtcTimestamp(date);
+  if (!utcValue) {
+    return null;
+  }
+
+  const instant = new Date(utcValue);
+  if (Number.isNaN(instant.getTime())) {
+    return 'Invalid time value';
+  }
+
+  return dayjs(instant).format(format ?? `${formatStr.dateTime} z`);
+}
+
+/** Coffee-shop chat: UTC DB value -> viewer local time (e.g. "09 Jun 11:53 am PDT"). */
+export function formatCoffeeShopChatSentAt(date: DatePickerFormat): string {
+  const utcValue = normalizeUtcTimestamp(date);
+  if (!utcValue) {
+    return '';
+  }
+
+  const instant = new Date(utcValue);
+  if (Number.isNaN(instant.getTime())) {
+    return '';
+  }
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).formatToParts(instant);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  const day = get('day');
+  const month = get('month');
+  const hour = get('hour');
+  const minute = get('minute');
+  const dayPeriod = get('dayPeriod').toLowerCase();
+  const timeZone = get('timeZoneName');
+
+  return `${day} ${month} ${hour}:${minute} ${dayPeriod} ${timeZone}`.trim();
 }
 
 // ----------------------------------------------------------------------

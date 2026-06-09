@@ -14,6 +14,11 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
+const mailUnreadPollOptions = {
+  ...swrOptions,
+  refreshInterval: 30_000,
+};
+
 // ----------------------------------------------------------------------
 
 type LabelsData = {
@@ -42,7 +47,7 @@ export function useGetLabels() {
 export function useGetMailUnreadCount(enabled = true) {
   const url = enabled ? endpoints.mail.labels : '';
 
-  const { data, isLoading } = useSWR<LabelsData>(url, fetcher, swrOptions);
+  const { data, isLoading } = useSWR<LabelsData>(url, fetcher, mailUnreadPollOptions);
 
   const unreadCount = useMemo(() => {
     const inbox = data?.labels?.find((label) => label.id === 'inbox');
@@ -105,6 +110,145 @@ export function useGetMail(mailId: string) {
 
 // ----------------------------------------------------------------------
 
+function shouldDecrementLabelUnread(label: IMailLabel, mail: IMail): boolean {
+  if (label.id === 'all') {
+    return true;
+  }
+  if (label.id === 'inbox') {
+    return mail.folder === 'inbox';
+  }
+  if (label.id === 'spam') {
+    return mail.folder === 'spam';
+  }
+  if (label.id === 'important') {
+    return mail.isImportant;
+  }
+  if (label.id === 'starred') {
+    return mail.isStarred;
+  }
+  if (label.type === 'custom') {
+    return mail.labelIds.includes(label.id);
+  }
+  return false;
+}
+
+export async function refreshMailCaches() {
+  await Promise.all([
+    mutate(endpoints.mail.labels),
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.list),
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.details),
+  ]);
+}
+
+export async function markMailAsRead(mailId: string, mail?: IMail) {
+  if (mail?.isUnread) {
+    await mutate(
+      endpoints.mail.labels,
+      (current?: LabelsData) => {
+        if (!current?.labels) {
+          return current;
+        }
+
+        return {
+          labels: current.labels.map((label) => {
+            if (!shouldDecrementLabelUnread(label, mail)) {
+              return label;
+            }
+
+            return {
+              ...label,
+              unreadCount: Math.max(0, (label.unreadCount ?? 0) - 1),
+            };
+          }),
+        };
+      },
+      { revalidate: false },
+    );
+
+    await mutate(
+      (key) => Array.isArray(key) && key[0] === endpoints.mail.list,
+      (current?: MailsData) => {
+        if (!current?.mails) {
+          return current;
+        }
+
+        return {
+          mails: current.mails.map((item) =>
+            item.id === mailId ? { ...item, isUnread: false } : item,
+          ),
+        };
+      },
+      { revalidate: false },
+    );
+
+    await mutate(
+      (key) =>
+        Array.isArray(key) &&
+        key[0] === endpoints.mail.details &&
+        (key[1] as { params?: { mailId?: string } })?.params?.mailId === mailId,
+      (current?: MailData) => {
+        if (!current?.mail) {
+          return current;
+        }
+
+        return { mail: { ...current.mail, isUnread: false } };
+      },
+      { revalidate: false },
+    );
+  }
+
+  await axios.patch(endpoints.mail.read, { mailId });
+  await refreshMailCaches();
+}
+
+export async function deleteMail(mailId: string, mail?: IMail) {
+  if (mail?.isUnread) {
+    await mutate(
+      endpoints.mail.labels,
+      (current?: LabelsData) => {
+        if (!current?.labels) {
+          return current;
+        }
+
+        return {
+          labels: current.labels.map((label) => {
+            if (!shouldDecrementLabelUnread(label, mail)) {
+              return label;
+            }
+
+            return {
+              ...label,
+              unreadCount: Math.max(0, (label.unreadCount ?? 0) - 1),
+            };
+          }),
+        };
+      },
+      { revalidate: false },
+    );
+  }
+
+  await mutate(
+    (key) => Array.isArray(key) && key[0] === endpoints.mail.list,
+    (current?: MailsData) => {
+      if (!current?.mails) {
+        return current;
+      }
+
+      return {
+        mails: current.mails.filter((item) => item.id !== mailId),
+      };
+    },
+    { revalidate: false },
+  );
+
+  const res = await axios.delete(endpoints.mail.delete(mailId));
+  await refreshMailCaches();
+
+  return res.data as { ok?: boolean; permanent?: boolean; message?: string };
+}
+
+// ----------------------------------------------------------------------
+
 export type SendMailBody = {
   to: string;
   cc?: string;
@@ -122,11 +266,7 @@ export async function sendMail(body: SendMailBody): Promise<{
 }> {
   const res = await axios.post(endpoints.mail.send, body);
 
-  await Promise.all([
-    mutate(endpoints.mail.labels),
-    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.list),
-    mutate((key) => Array.isArray(key) && key[0] === endpoints.mail.details),
-  ]);
+  await refreshMailCaches();
 
   return res.data as {
     message?: string;

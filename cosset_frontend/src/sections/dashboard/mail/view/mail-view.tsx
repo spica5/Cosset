@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 
 import Typography from '@mui/material/Typography';
 
@@ -11,7 +11,7 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { useResponsive } from 'src/hooks/use-responsive';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
-import { useGetMail, useGetMails, useGetLabels } from 'src/actions/mail';
+import { markMailAsRead, useGetMail, useGetMails, useGetLabels } from 'src/actions/mail';
 
 import { Layout } from '../layout';
 import { MailNav } from '../mail-nav';
@@ -40,6 +40,8 @@ export function MailView() {
   const openMail = useBoolean();
 
   const openCompose = useBoolean();
+
+  const markedReadRef = useRef<Set<string>>(new Set());
 
   const { labels, labelsLoading, labelsEmpty } = useGetLabels();
 
@@ -89,6 +91,25 @@ export function MailView() {
     [openMail, router, selectedLabelId, mdUp]
   );
 
+  const handleMailDeleted = useCallback(
+    (deletedMailId: string) => {
+      const remainingIds = mails.allIds.filter((id) => id !== deletedMailId);
+      const nextMailId = remainingIds[0];
+
+      if (nextMailId) {
+        handleClickMail(nextMailId);
+        return;
+      }
+
+      const href =
+        selectedLabelId !== LABEL_INDEX
+          ? `${paths.dashboard.mail}?label=${selectedLabelId}`
+          : paths.dashboard.mail;
+      router.push(href);
+    },
+    [handleClickMail, mails.allIds, router, selectedLabelId],
+  );
+
   useEffect(() => {
     if (mailsError || mailError) {
       router.push(paths.dashboard.mail);
@@ -100,6 +121,23 @@ export function MailView() {
       handleClickMail(firstMailId);
     }
   }, [firstMailId, handleClickMail, selectedMailId]);
+
+  useEffect(() => {
+    if (!selectedMailId) {
+      return;
+    }
+
+    const listMail = mails.byId[selectedMailId];
+    if (!listMail?.isUnread || markedReadRef.current.has(selectedMailId)) {
+      return;
+    }
+
+    markedReadRef.current.add(selectedMailId);
+
+    markMailAsRead(selectedMailId, listMail).catch(() => {
+      markedReadRef.current.delete(selectedMailId);
+    });
+  }, [mails.byId, selectedMailId]);
 
   useEffect(() => {
     if (openCompose.value) {
@@ -164,6 +202,8 @@ export function MailView() {
                 empty={mailsEmpty}
                 loading={mailsLoading || mailLoading}
                 renderLabel={(id: string) => labels.filter((label) => label.id === id)[0]}
+                onReplySent={() => router.push(`${paths.dashboard.mail}?label=sent`)}
+                onDeleted={handleMailDeleted}
               />
             ),
           }}

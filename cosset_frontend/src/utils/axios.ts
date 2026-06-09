@@ -55,7 +55,9 @@ export const endpoints = {
     list: '/api/mail/list',
     details: '/api/mail/details',
     labels: '/api/mail/labels',
+    read: '/api/mail/read',
     send: '/api/mail/send',
+    delete: (mailId: string | number) => `/api/mail/${mailId}`,
   },
   notification: {
     list: '/api/notification/list',

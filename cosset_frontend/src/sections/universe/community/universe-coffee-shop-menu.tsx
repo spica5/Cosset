@@ -163,17 +163,29 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
           }}
         >
           <Box
-            component="img"
-            src={selectedItem.resolvedImageUrl}
-            alt={selectedItem.name}
             sx={{
               width: '100%',
               height: 140,
-              objectFit: 'cover',
               borderRadius: 1,
-              display: 'block',
+              bgcolor: 'rgba(255,255,255,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
             }}
-          />
+          >
+            <Box
+              component="img"
+              src={selectedItem.resolvedImageUrl}
+              alt={selectedItem.name}
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </Box>
           <Typography variant="subtitle2" sx={{ color: 'common.white', mt: 1, px: 0.5 }}>
             {selectedItem.name}
           </Typography>
@@ -272,18 +284,32 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
                       }}
                     >
                       <Box
-                        component="img"
-                        src={item.resolvedImageUrl || undefined}
-                        alt={item.name}
                         sx={{
                           width: 48,
                           height: 48,
                           borderRadius: 1,
-                          objectFit: 'cover',
                           bgcolor: 'rgba(255,255,255,0.08)',
                           flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
                         }}
-                      />
+                      >
+                        {item.resolvedImageUrl ? (
+                          <Box
+                            component="img"
+                            src={item.resolvedImageUrl}
+                            alt={item.name}
+                            sx={{
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain',
+                              display: 'block',
+                            }}
+                          />
+                        ) : null}
+                      </Box>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography variant="body2" sx={{ color: 'common.white' }} noWrap>
                           {item.name}
