@@ -83,9 +83,9 @@ export function useMailNotifications(userId?: string) {
       playChatNotificationSound();
       toast.info(`New email from ${fromName}: ${subject}`);
 
-      void incrementMailUnreadLabels();
-      void refreshNotificationList(userId);
-      void refreshMailCaches();
+      incrementMailUnreadLabels();
+      refreshNotificationList(userId);
+      refreshMailCaches();
     };
 
     channel.bind(USER_MAIL_NEW_EVENT, handleNewMail);
