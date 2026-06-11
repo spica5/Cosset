@@ -21,7 +21,7 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { fDateTime } from 'src/utils/format-time';
 
 import { CONFIG } from 'src/config-global';
-import { deleteMail, sendMail } from 'src/actions/mail';
+import { deleteMail, sendMail, updateMailFlags } from 'src/actions/mail';
 import { maxLine, stylesMode } from 'src/theme/dashboard/styles';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { toast } from 'src/components/dashboard/snackbar';
@@ -29,14 +29,25 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Label } from 'src/components/dashboard/label';
 import { Editor } from 'src/components/dashboard/editor';
 import { Iconify } from 'src/components/dashboard/iconify';
-import { Markdown } from 'src/components/dashboard/markdown';
 import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { FileThumbnail } from 'src/components/dashboard/file-thumbnail';
 import { LoadingScreen } from 'src/components/dashboard/loading-screen';
 
+import {
+  DEFAULT_MAIL_PAPER_STYLE,
+  type MailPaperStyleId,
+} from 'src/constants/mail-paper-styles';
+
 import { MailAvatar } from './mail-avatar';
-import { buildQuotedMessage, buildReplySubject, getReplyRecipient } from './mail-compose-utils';
+import { MailWritingFonts } from './mail-writing-fonts';
+import { MailMessageContent } from './mail-message-content';
+import {
+  buildQuotedMessage,
+  buildReplySubject,
+  getReplyRecipient,
+  hasMailMessageContent,
+} from './mail-compose-utils';
 
 // ----------------------------------------------------------------------
 
@@ -88,18 +99,20 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
   const { user } = useAuthContext();
 
   const [replyMessage, setReplyMessage] = useState('');
+  const [paperStyle, setPaperStyle] = useState<MailPaperStyleId>(DEFAULT_MAIL_PAPER_STYLE);
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [updatingFlags, setUpdatingFlags] = useState(false);
 
   const userEmail = typeof user?.email === 'string' ? user.email : undefined;
 
   useEffect(() => {
     setReplyMessage('');
+    setPaperStyle(DEFAULT_MAIL_PAPER_STYLE);
   }, [mail.id]);
 
   const handleSendReply = useCallback(async () => {
-    const trimmedReply = replyMessage.trim();
-    if (!trimmedReply) {
+    if (!hasMailMessageContent(replyMessage)) {
       toast.error('Write a reply before sending.');
       return;
     }
@@ -116,7 +129,8 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       const result = await sendMail({
         to: recipient,
         subject: buildReplySubject(mail.subject),
-        message: `${trimmedReply}${buildQuotedMessage(mail)}`,
+        message: `${replyMessage}${buildQuotedMessage(mail)}`,
+        paperStyle,
       });
 
       if (result.deliveryErrors?.length) {
@@ -143,7 +157,7 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
     } finally {
       setSending(false);
     }
-  }, [mail, onReplySent, replyMessage, userEmail]);
+  }, [mail, onReplySent, paperStyle, replyMessage, userEmail]);
 
   const handleDeleteMail = useCallback(async () => {
     if (deleting) {
@@ -177,6 +191,52 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
     }
   }, [deleting, mail, onDeleted]);
 
+  const handleToggleStarred = useCallback(async () => {
+    if (updatingFlags) {
+      return;
+    }
+
+    setUpdatingFlags(true);
+    try {
+      await updateMailFlags(mail.id, { isStarred: !mail.isStarred }, mail);
+    } catch {
+      toast.error('Could not update starred status.');
+    } finally {
+      setUpdatingFlags(false);
+    }
+  }, [mail, updatingFlags]);
+
+  const handleToggleImportant = useCallback(async () => {
+    if (updatingFlags) {
+      return;
+    }
+
+    setUpdatingFlags(true);
+    try {
+      await updateMailFlags(mail.id, { isImportant: !mail.isImportant }, mail);
+    } catch {
+      toast.error('Could not update important status.');
+    } finally {
+      setUpdatingFlags(false);
+    }
+  }, [mail, updatingFlags]);
+
+  const handleMarkUnread = useCallback(async () => {
+    if (updatingFlags || mail.isUnread) {
+      return;
+    }
+
+    setUpdatingFlags(true);
+    try {
+      await updateMailFlags(mail.id, { isUnread: true }, mail);
+      toast.success('Marked as unread.');
+    } catch {
+      toast.error('Could not mark mail as unread.');
+    } finally {
+      setUpdatingFlags(false);
+    }
+  }, [mail, updatingFlags]);
+
   const renderHead = (
     <>
       <Box gap={1} display="flex" flexGrow={1}>
@@ -199,32 +259,42 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       </Box>
 
       <Box display="flex" alignItems="center">
-        <Checkbox
-          color="warning"
-          icon={<Iconify icon="eva:star-outline" />}
-          checkedIcon={<Iconify icon="eva:star-fill" />}
-          checked={mail.isStarred}
-          inputProps={{ id: 'starred-checkbox', 'aria-label': 'Starred checkbox' }}
-        />
+        <Tooltip title={mail.isStarred ? 'Remove star' : 'Star'}>
+          <Checkbox
+            color="warning"
+            icon={<Iconify icon="eva:star-outline" />}
+            checkedIcon={<Iconify icon="eva:star-fill" />}
+            checked={mail.isStarred}
+            disabled={updatingFlags}
+            onChange={() => handleToggleStarred()}
+            inputProps={{ id: 'starred-checkbox', 'aria-label': 'Starred checkbox' }}
+          />
+        </Tooltip>
 
-        <Checkbox
-          color="warning"
-          icon={<Iconify icon="material-symbols:label-important-rounded" />}
-          checkedIcon={<Iconify icon="material-symbols:label-important-rounded" />}
-          checked={mail.isImportant}
-          inputProps={{ id: 'important-checkbox', 'aria-label': 'Important checkbox' }}
-        />
+        <Tooltip title={mail.isImportant ? 'Remove important' : 'Mark important'}>
+          <Checkbox
+            color="warning"
+            icon={<Iconify icon="material-symbols:label-important-rounded" />}
+            checkedIcon={<Iconify icon="material-symbols:label-important-rounded" />}
+            checked={mail.isImportant}
+            disabled={updatingFlags}
+            onChange={() => handleToggleImportant()}
+            inputProps={{ id: 'important-checkbox', 'aria-label': 'Important checkbox' }}
+          />
+        </Tooltip>
 
-        <Tooltip title="Archive">
+        {/* <Tooltip title="Archive">
           <IconButton>
             <Iconify icon="solar:archive-down-minimlistic-bold" />
           </IconButton>
-        </Tooltip>
+        </Tooltip> */}
 
-        <Tooltip title="Mark Unread">
-          <IconButton>
-            <Iconify icon="fluent:mail-unread-20-filled" />
-          </IconButton>
+        <Tooltip title={mail.isUnread ? 'Already unread' : 'Mark as unread'}>
+          <span>
+            <IconButton disabled={updatingFlags || mail.isUnread} onClick={() => handleMarkUnread()}>
+              <Iconify icon="fluent:mail-unread-20-filled" />
+            </IconButton>
+          </span>
         </Tooltip>
 
         <Tooltip title={mail.folder === 'trash' ? 'Delete permanently' : 'Move to trash'}>
@@ -249,7 +319,11 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       </Typography>
 
       <Stack spacing={0.5}>
+        
         <Box display="flex" alignItems="center" justifyContent="flex-end">
+          <Typography variant="caption" noWrap sx={{ color: 'text.disabled' }}>
+            {fDateTime(mail.createdAt)}
+          </Typography>
           <IconButton size="small">
             <Iconify width={18} icon="solar:reply-bold" />
           </IconButton>
@@ -261,11 +335,7 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
           <IconButton size="small">
             <Iconify width={18} icon="solar:forward-bold" />
           </IconButton>
-        </Box>
-
-        <Typography variant="caption" noWrap sx={{ color: 'text.disabled' }}>
-          {fDateTime(mail.createdAt)}
-        </Typography>
+        </Box>        
       </Stack>
     </>
   );
@@ -351,7 +421,7 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
   );
 
   const renderContent = (
-    <Markdown children={mail.message} sx={{ px: 2, '& p': { typography: 'body2' } }} />
+    <MailMessageContent message={mail.message} paperStyle={mail.paperStyle} />
   );
 
   const renderEditor = (
@@ -359,7 +429,11 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       <Editor
         value={replyMessage}
         onChange={setReplyMessage}
-        placeholder="Write something awesome..."
+        editable={!sending}
+        typographyTools
+        paperStyle={paperStyle}
+        onPaperStyleChange={setPaperStyle}
+        placeholder="Write your reply..."
         sx={{ maxHeight: 320 }}
       />
 
@@ -389,10 +463,25 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
 
   return (
     <>
-      <Box display="flex" alignItems="center" flexShrink={0} sx={{ pl: 2, pr: 1, height: 56 }}>
-        {renderHead}
-      </Box>
+      <MailWritingFonts />
 
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        flexShrink={0}
+        sx={{ px: 2, height: 56 }}
+      >
+        <Box display="flex" alignItems="center" flexGrow={1}>
+          {renderSender}
+        </Box>
+
+        <Box display="flex" alignItems="center">
+          {renderHead}
+        </Box>
+        
+      </Box>
+      
       <Box
         gap={2}
         flexShrink={0}
@@ -400,19 +489,14 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
         sx={(theme) => ({
           p: 2,
           borderTop: `1px dashed ${theme.vars.palette.divider}`,
-          borderBottom: `1px dashed ${theme.vars.palette.divider}`,
         })}
       >
         {renderSubject}
       </Box>
 
-      <Box display="flex" alignItems="center" flexShrink={0} sx={{ pt: 2, px: 2 }}>
-        {renderSender}
-      </Box>
-
       {!!mail.attachments.length && <Stack sx={{ px: 2, mt: 2 }}> {renderAttachments} </Stack>}
 
-      <Scrollbar sx={{ mt: 3, flex: '1 1 240px' }}>{renderContent}</Scrollbar>
+      <Scrollbar sx={{ mt: 1, flex: '1 1 240px', pb: 1 }}>{renderContent}</Scrollbar>
 
       <Stack flexShrink={0} spacing={2} sx={{ p: 2 }}>
         {renderEditor}

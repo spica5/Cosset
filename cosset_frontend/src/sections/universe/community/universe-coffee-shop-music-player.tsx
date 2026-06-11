@@ -14,6 +14,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 
+import { touchCoffeeShopActivity } from 'src/actions/coffee-shop';
+
 import { getS3SignedUrl } from 'src/utils/helper';
 import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 import { fetcher, endpoints } from 'src/utils/axios';
@@ -67,6 +69,19 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
   const currentIndexRef = useRef(0);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
+  const lastMusicActivityAtRef = useRef(0);
+
+  const stopPlayback = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, []);
 
   useEffect(() => {
     setPortalTarget(document.body);
@@ -75,6 +90,37 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!isPresent) {
+      stopPlayback();
+    }
+  }, [isPresent, stopPlayback]);
+
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isPlaying || !isPresent) {
+      return undefined;
+    }
+
+    touchCoffeeShopActivity(coffeeShopId);
+    lastMusicActivityAtRef.current = Date.now();
+
+    const intervalId = window.setInterval(() => {
+      touchCoffeeShopActivity(coffeeShopId);
+      lastMusicActivityAtRef.current = Date.now();
+    }, 60 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [coffeeShopId, isPlaying, isPresent]);
 
   useEffect(() => {
     if (!sourceTracks.length) {
@@ -136,6 +182,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
         try {
           await audio.play();
           setIsPlaying(true);
+          touchCoffeeShopActivity(coffeeShopId);
         } catch {
           setIsPlaying(false);
         }
@@ -145,7 +192,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
         setLoading(false);
       }
     },
-    [tracks],
+    [coffeeShopId, tracks],
   );
 
 
@@ -170,6 +217,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
     try {
       await audio.play();
       setIsPlaying(true);
+      touchCoffeeShopActivity(coffeeShopId);
     } catch {
       setIsPlaying(false);
     }
@@ -455,7 +503,19 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
         <audio
           ref={audioRef}
           preload="metadata"
-          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          onTimeUpdate={(e) => {
+            setCurrentTime(e.currentTarget.currentTime);
+
+            if (!isPresent) {
+              return;
+            }
+
+            const now = Date.now();
+            if (now - lastMusicActivityAtRef.current >= 60 * 1000) {
+              lastMusicActivityAtRef.current = now;
+              touchCoffeeShopActivity(coffeeShopId);
+            }
+          }}
           onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
           onEnded={() => {
             if (tracks.length > 1) {

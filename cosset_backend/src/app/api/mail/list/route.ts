@@ -7,6 +7,7 @@ import {
   mapUserMailToApi,
   SYSTEM_MAIL_LABELS,
   filterMailsByLabelId,
+  filterMailsBySearchQuery,
   buildPhotoByEmailForRows,
   getUserIdFromMailRequest,
 } from 'src/utils/mail';
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const labelId = searchParams.get('labelId') || 'inbox';
+    const searchQuery = searchParams.get('q') || '';
 
     const labelExists = SYSTEM_MAIL_LABELS.some((label) => label.id === labelId);
     if (!labelExists) {
@@ -32,7 +34,10 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = await listUserMails(userId);
-    const filteredRows = filterMailsByLabelId(rows, labelId);
+    const filteredRows = filterMailsBySearchQuery(
+      filterMailsByLabelId(rows, labelId),
+      searchQuery,
+    );
     const senderIds = filteredRows
       .map((row) => row.fromUserId)
       .filter((id): id is string => Boolean(id?.trim()));

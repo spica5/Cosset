@@ -160,6 +160,11 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       const uid = String(user.id);
       setParticipants((prev) => removeParticipant(prev, uid));
       try {
+        window.localStorage.removeItem(coffeeShopActivityStorageKey(coffeeShopId));
+      } catch {
+        // ignore
+      }
+      try {
         await leaveCoffeeShopPresence(coffeeShopId);
       } catch {
         // still navigate away
@@ -333,6 +338,12 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
 
       try {
         await leaveCoffeeShopPresence(coffeeShopId);
+      } catch {
+        // ignore
+      }
+
+      try {
+        window.localStorage.removeItem(activityKey);
       } catch {
         // ignore
       }

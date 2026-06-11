@@ -1,7 +1,10 @@
 import { common, createLowlight } from 'lowlight';
+import { Color } from '@tiptap/extension-color';
 import LinkExtension from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import ImageExtension from '@tiptap/extension-image';
+import TextStyle from '@tiptap/extension-text-style';
+import { FontFamily } from '@tiptap/extension-font-family';
 import StarterKitExtension from '@tiptap/starter-kit';
 import TextAlignExtension from '@tiptap/extension-text-align';
 import PlaceholderExtension from '@tiptap/extension-placeholder';
@@ -35,6 +38,9 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
       className,
       editable = true,
       fullItem = false,
+      typographyTools = false,
+      paperStyle = null,
+      onPaperStyleChange,
       value: content = '',
       placeholder = 'Write something awesome...',
       ...other
@@ -82,6 +88,13 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
             return ReactNodeViewRenderer(CodeHighlightBlock);
           },
         }).configure({ lowlight, HTMLAttributes: { class: editorClasses.content.codeBlock } }),
+        ...(typographyTools
+          ? [
+              TextStyle,
+              FontFamily.configure({ types: ['textStyle'] }),
+              Color.configure({ types: ['textStyle'] }),
+            ]
+          : []),
       ],
       onUpdate({ editor: _editor }) {
         const html = _editor.getHTML();
@@ -123,12 +136,17 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
             error={!!error}
             disabled={!editable}
             fullScreen={fullScreen}
+            paperStyle={paperStyle}
             className={editorClasses.root.concat(className ? ` ${className}` : '')}
             sx={sx}
           >
             <Toolbar
               editor={editor}
               fullItem={fullItem}
+              typographyTools={typographyTools}
+              paperStyle={paperStyle}
+              onPaperStyleChange={onPaperStyleChange}
+              disabled={!editable}
               fullScreen={fullScreen}
               onToggleFullScreen={handleToggleFullScreen}
             />

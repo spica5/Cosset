@@ -63,8 +63,15 @@ type MailsData = {
   mails: IMail[];
 };
 
-export function useGetMails(labelId: string) {
-  const url = labelId ? [endpoints.mail.list, { params: { labelId } }] : '';
+export function useGetMails(labelId: string, searchQuery = '') {
+  const trimmedQuery = searchQuery.trim();
+  const params: Record<string, string> = { labelId };
+
+  if (trimmedQuery) {
+    params.q = trimmedQuery;
+  }
+
+  const url = labelId ? [endpoints.mail.list, { params }] : '';
 
   const { data, isLoading, error, isValidating } = useSWR<MailsData>(url, fetcher, swrOptions);
 
@@ -201,6 +208,89 @@ export async function markMailAsRead(mailId: string, mail?: IMail) {
   await refreshMailCaches();
 }
 
+export type MailFlagsUpdate = {
+  isStarred?: boolean;
+  isImportant?: boolean;
+  isUnread?: boolean;
+};
+
+async function mutateMailInCaches(mailId: string, patch: Partial<IMail>) {
+  await mutate(
+    (key) => Array.isArray(key) && key[0] === endpoints.mail.list,
+    (current?: MailsData) => {
+      if (!current?.mails) {
+        return current;
+      }
+
+      return {
+        mails: current.mails.map((item) => (item.id === mailId ? { ...item, ...patch } : item)),
+      };
+    },
+    { revalidate: false },
+  );
+
+  await mutate(
+    (key) =>
+      Array.isArray(key) &&
+      key[0] === endpoints.mail.details &&
+      (key[1] as { params?: { mailId?: string } })?.params?.mailId === mailId,
+    (current?: MailData) => {
+      if (!current?.mail) {
+        return current;
+      }
+
+      return { mail: { ...current.mail, ...patch } };
+    },
+    { revalidate: false },
+  );
+}
+
+async function mutateMailUnreadCount(mail: IMail, delta: number) {
+  await mutate(
+    endpoints.mail.labels,
+    (current?: LabelsData) => {
+      if (!current?.labels) {
+        return current;
+      }
+
+      return {
+        labels: current.labels.map((label) => {
+          if (!shouldDecrementLabelUnread(label, mail)) {
+            return label;
+          }
+
+          return {
+            ...label,
+            unreadCount: Math.max(0, (label.unreadCount ?? 0) + delta),
+          };
+        }),
+      };
+    },
+    { revalidate: false },
+  );
+}
+
+export async function updateMailFlags(mailId: string, flags: MailFlagsUpdate, mail?: IMail) {
+  const patch: Partial<IMail> = { ...flags };
+
+  if (mail && typeof flags.isUnread === 'boolean' && flags.isUnread !== mail.isUnread) {
+    await mutateMailUnreadCount(mail, flags.isUnread ? 1 : -1);
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await mutateMailInCaches(mailId, patch);
+  }
+
+  try {
+    const res = await axios.patch(endpoints.mail.flags, { mailId, ...flags });
+    await refreshMailCaches();
+    return res.data as { mail?: IMail };
+  } catch (error) {
+    await refreshMailCaches();
+    throw error;
+  }
+}
+
 export async function deleteMail(mailId: string, mail?: IMail) {
   if (mail?.isUnread) {
     await mutate(
@@ -255,6 +345,7 @@ export type SendMailBody = {
   bcc?: string;
   subject?: string;
   message: string;
+  paperStyle?: string;
 };
 
 export async function sendMail(body: SendMailBody): Promise<{

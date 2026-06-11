@@ -83,7 +83,7 @@ export function fDateTime(date: DatePickerFormat, format?: string) {
   const parsed = parseToLocal(date);
 
   return parsed
-    ? parsed.format(format ?? `${formatStr.dateTime} z`)
+    ? parsed.format(format ?? `${formatStr.dateTime}`)
     : date
       ? 'Invalid time value'
       : null;
@@ -101,7 +101,7 @@ export function fDateTimeFromUtc(date: DatePickerFormat, format?: string) {
     return 'Invalid time value';
   }
 
-  return dayjs(instant).format(format ?? `${formatStr.dateTime} z`);
+  return dayjs(instant).format(format ?? `${formatStr.dateTime}`);
 }
 
 /** Coffee-shop chat: UTC DB value -> viewer local time (e.g. "09 Jun 11:53 am PDT"). */

@@ -16,11 +16,34 @@ export type ApiMailLabel = {
   unreadCount?: number;
 };
 
+export const VALID_MAIL_PAPER_STYLES = [
+  'classic-lined',
+  'plain-cream',
+  'parchment',
+  'notebook',
+  'vintage',
+  'blush',
+  'sky',
+  'mint',
+  'lavender',
+  'kraft',
+  'elegant',
+  'dotted',
+  'graph',
+  'charcoal',
+  'watercolor',
+] as const;
+
+export type MailPaperStyleId = (typeof VALID_MAIL_PAPER_STYLES)[number];
+
+export const DEFAULT_MAIL_PAPER_STYLE: MailPaperStyleId = 'classic-lined';
+
 export type ApiMail = {
   id: string;
   folder: string;
   subject: string;
   message: string;
+  paperStyle: MailPaperStyleId;
   isUnread: boolean;
   from: {
     name: string;
@@ -151,6 +174,33 @@ export function displayNameFromUser(user?: {
   return fromProfile || user?.email?.split('@')[0] || 'Member';
 }
 
+const MAIL_PAPER_COMMENT_RE = /^<!--\s*mail-paper:([\w-]+)\s*-->\s*/i;
+
+export function normalizeMailPaperStyle(value: unknown): MailPaperStyleId {
+  const style = typeof value === 'string' ? value.trim() : '';
+  if ((VALID_MAIL_PAPER_STYLES as readonly string[]).includes(style)) {
+    return style as MailPaperStyleId;
+  }
+  return DEFAULT_MAIL_PAPER_STYLE;
+}
+
+export function stripMailPaperComment(message: string): string {
+  return message.replace(MAIL_PAPER_COMMENT_RE, '');
+}
+
+export function resolveMailPaperStyle(message: string, paperStyle?: string | null): MailPaperStyleId {
+  const match = message.match(MAIL_PAPER_COMMENT_RE);
+  if (match?.[1]) {
+    return normalizeMailPaperStyle(match[1]);
+  }
+
+  if (paperStyle && (VALID_MAIL_PAPER_STYLES as readonly string[]).includes(paperStyle.trim())) {
+    return paperStyle.trim() as MailPaperStyleId;
+  }
+
+  return DEFAULT_MAIL_PAPER_STYLE;
+}
+
 export function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -158,6 +208,44 @@ export function stripHtml(html: string): string {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function collectRecipientSearchText(recipients: MailRecipient[]): string {
+  return recipients
+    .flatMap((recipient) => [recipient.name, recipient.email])
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function filterMailsBySearchQuery(
+  mails: UserMailRow[],
+  query?: string | null,
+): UserMailRow[] {
+  const trimmed = query?.trim().toLowerCase();
+  if (!trimmed) {
+    return mails;
+  }
+
+  const terms = trimmed.split(/\s+/).filter(Boolean);
+  if (!terms.length) {
+    return mails;
+  }
+
+  return mails.filter((mail) => {
+    const haystack = [
+      mail.subject,
+      mail.fromName,
+      mail.fromEmail,
+      collectRecipientSearchText(mail.toRecipients),
+      collectRecipientSearchText(mail.ccRecipients),
+      collectRecipientSearchText(mail.bccRecipients),
+      stripHtml(mail.message),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return terms.every((term) => haystack.includes(term));
+  });
 }
 
 export function filterMailsByLabelId(mails: UserMailRow[], labelId?: string | null): UserMailRow[] {
@@ -251,7 +339,8 @@ export function mapUserMailToApi(
     id: row.id,
     folder: row.folder,
     subject: row.subject,
-    message: row.message,
+    message: stripMailPaperComment(row.message),
+    paperStyle: resolveMailPaperStyle(row.message, row.paperStyle),
     isUnread: row.isUnread,
     from: listFrom,
     to: row.toRecipients,

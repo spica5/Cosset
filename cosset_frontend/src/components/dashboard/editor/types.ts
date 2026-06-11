@@ -1,12 +1,19 @@
 import type { Theme, SxProps } from '@mui/material/styles';
 import type { Editor, Extension, EditorOptions } from '@tiptap/react';
 
+import type { MailPaperStyleId } from 'src/constants/mail-paper-styles';
+
 // ----------------------------------------------------------------------
 
 export type EditorProps = Partial<EditorOptions> & {
   value?: string;
   error?: boolean;
   fullItem?: boolean;
+  /** Handwriting fonts and ink colors for mail-style writing. */
+  typographyTools?: boolean;
+  /** Letter paper background style for mail writing. */
+  paperStyle?: MailPaperStyleId | null;
+  onPaperStyleChange?: (value: MailPaperStyleId) => void;
   className?: string;
   sx?: SxProps<Theme>;
   resetValue?: boolean;
@@ -23,6 +30,10 @@ export type EditorToolbarProps = {
   editor: Editor | null;
   onToggleFullScreen: () => void;
   fullItem?: EditorProps['fullItem'];
+  typographyTools?: EditorProps['typographyTools'];
+  paperStyle?: EditorProps['paperStyle'];
+  onPaperStyleChange?: EditorProps['onPaperStyleChange'];
+  disabled?: boolean;
 };
 
 export type EditorToolbarItemProps = {

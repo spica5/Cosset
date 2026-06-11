@@ -4,6 +4,25 @@ import { fDateTime } from 'src/utils/format-time';
 
 // ----------------------------------------------------------------------
 
+export function hasMailMessageContent(html: string): boolean {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length > 0;
+}
+
+export function getMailMessageSnippet(html: string, maxLength = 72): string {
+  const text = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) {
+    return '';
+  }
+
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
 export function buildReplySubject(subject: string): string {
   const trimmed = subject.trim() || '(No subject)';
   if (/^re:/i.test(trimmed)) {

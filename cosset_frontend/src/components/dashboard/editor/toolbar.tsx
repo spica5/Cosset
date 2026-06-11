@@ -8,6 +8,9 @@ import { LinkBlock } from './components/link-block';
 import { ImageBlock } from './components/image-block';
 import { ToolbarItem } from './components/toolbar-item';
 import { HeadingBlock } from './components/heading-block';
+import { TextColorBlock } from './components/text-color-block';
+import { FontFamilyBlock } from './components/font-family-block';
+import { PaperStyleBlock } from './components/paper-style-block';
 
 import type { EditorToolbarProps } from './types';
 
@@ -17,7 +20,16 @@ import type { EditorToolbarProps } from './types';
  * https://remixicon.com
  */
 
-export function Toolbar({ editor, fullItem, fullScreen, onToggleFullScreen }: EditorToolbarProps) {
+export function Toolbar({
+  editor,
+  fullItem,
+  typographyTools,
+  paperStyle,
+  onPaperStyleChange,
+  disabled,
+  fullScreen,
+  onToggleFullScreen,
+}: EditorToolbarProps) {
   if (!editor) {
     return null;
   }
@@ -40,6 +52,18 @@ export function Toolbar({ editor, fullItem, fullScreen, onToggleFullScreen }: Ed
       }}
     >
       <HeadingBlock editor={editor} />
+
+      {typographyTools ? (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <FontFamilyBlock editor={editor} />
+          <PaperStyleBlock
+            paperStyle={paperStyle}
+            onPaperStyleChange={onPaperStyleChange}
+            disabled={disabled}
+          />
+          <TextColorBlock editor={editor} />
+        </Stack>
+      ) : null}
 
       {/* Text style */}
       <Stack direction="row" spacing={0.5}>

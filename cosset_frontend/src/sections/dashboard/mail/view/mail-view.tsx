@@ -1,16 +1,17 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
-
-import Typography from '@mui/material/Typography';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import { paths } from 'src/routes/paths';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 import { useResponsive } from 'src/hooks/use-responsive';
+import { useDebouncedValue } from 'src/hooks/use-debounced-value';
+import { useMailLayoutMode } from 'src/hooks/use-mail-layout-mode';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
+
 import { markMailAsRead, useGetMail, useGetMails, useGetLabels } from 'src/actions/mail';
 
 import { Layout } from '../layout';
@@ -19,10 +20,37 @@ import { MailList } from '../mail-list';
 import { MailHeader } from '../mail-header';
 import { MailCompose } from '../mail-compose';
 import { MailDetails } from '../mail-details';
+import { MailTopBar } from '../mail-top-bar';
+import { MailNavHorizontal } from '../mail-nav-horizontal';
 
 // ----------------------------------------------------------------------
 
 const LABEL_INDEX = 'inbox';
+
+type MailUrlOptions = {
+  label?: string;
+  id?: string;
+  q?: string;
+};
+
+function buildMailUrl({ label = LABEL_INDEX, id, q }: MailUrlOptions = {}) {
+  const params = new URLSearchParams();
+
+  if (label !== LABEL_INDEX) {
+    params.set('label', label);
+  }
+
+  if (id) {
+    params.set('id', id);
+  }
+
+  if (q?.trim()) {
+    params.set('q', q.trim());
+  }
+
+  const query = params.toString();
+  return query ? `${paths.dashboard.mail}?${query}` : paths.dashboard.mail;
+}
 
 export function MailView() {
   const router = useRouter();
@@ -33,7 +61,17 @@ export function MailView() {
 
   const selectedMailId = searchParams.get('id') ?? '';
 
+  const urlSearchQuery = searchParams.get('q') ?? '';
+
+  const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
+
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
+
   const mdUp = useResponsive('up', 'md');
+
+  const { layoutMode, setMailLayoutMode } = useMailLayoutMode();
+
+  const isHorizontal = layoutMode === 'horizontal';
 
   const openNav = useBoolean();
 
@@ -45,16 +83,24 @@ export function MailView() {
 
   const { labels, labelsLoading, labelsEmpty } = useGetLabels();
 
-  const { mails, mailsLoading, mailsError, mailsEmpty } = useGetMails(selectedLabelId);
+  const { mails, mailsLoading, mailsError, mailsEmpty } = useGetMails(
+    selectedLabelId,
+    debouncedSearchQuery
+  );
 
   const { mail, mailLoading, mailError } = useGetMail(selectedMailId);
 
   const firstMailId = mails.allIds[0] || '';
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+  }, []);
+
   const handleToggleCompose = useCallback(() => {
     if (openNav.value) {
       openNav.onFalse();
     }
+
     openCompose.onToggle();
   }, [openCompose, openNav]);
 
@@ -65,14 +111,15 @@ export function MailView() {
       }
 
       if (labelId) {
-        const href =
-          labelId !== LABEL_INDEX
-            ? `${paths.dashboard.mail}?label=${labelId}`
-            : paths.dashboard.mail;
-        router.push(href);
+        router.push(
+          buildMailUrl({
+            label: labelId,
+            q: debouncedSearchQuery,
+          })
+        );
       }
     },
-    [openNav, router, mdUp]
+    [debouncedSearchQuery, openNav, router, mdUp]
   );
 
   const handleClickMail = useCallback(
@@ -81,14 +128,15 @@ export function MailView() {
         openMail.onFalse();
       }
 
-      const href =
-        selectedLabelId !== LABEL_INDEX
-          ? `${paths.dashboard.mail}?id=${mailId}&label=${selectedLabelId}`
-          : `${paths.dashboard.mail}?id=${mailId}`;
-
-      router.push(href);
+      router.push(
+        buildMailUrl({
+          label: selectedLabelId,
+          id: mailId,
+          q: debouncedSearchQuery,
+        })
+      );
     },
-    [openMail, router, selectedLabelId, mdUp]
+    [debouncedSearchQuery, openMail, router, selectedLabelId, mdUp]
   );
 
   const handleMailDeleted = useCallback(
@@ -101,14 +149,37 @@ export function MailView() {
         return;
       }
 
-      const href =
-        selectedLabelId !== LABEL_INDEX
-          ? `${paths.dashboard.mail}?label=${selectedLabelId}`
-          : paths.dashboard.mail;
-      router.push(href);
+      router.push(
+        buildMailUrl({
+          label: selectedLabelId,
+          q: debouncedSearchQuery,
+        })
+      );
     },
-    [handleClickMail, mails.allIds, router, selectedLabelId],
+    [debouncedSearchQuery, handleClickMail, mails.allIds, router, selectedLabelId]
   );
+
+  useEffect(() => {
+    setSearchQuery(urlSearchQuery);
+  }, [urlSearchQuery]);
+
+  useEffect(() => {
+    const nextUrl = buildMailUrl({
+      label: selectedLabelId,
+      id: selectedMailId || undefined,
+      q: debouncedSearchQuery,
+    });
+
+    const currentUrl = buildMailUrl({
+      label: selectedLabelId,
+      id: selectedMailId || undefined,
+      q: urlSearchQuery,
+    });
+
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl);
+    }
+  }, [debouncedSearchQuery, router, selectedLabelId, selectedMailId, urlSearchQuery]);
 
   useEffect(() => {
     if (mailsError || mailError) {
@@ -121,6 +192,16 @@ export function MailView() {
       handleClickMail(firstMailId);
     }
   }, [firstMailId, handleClickMail, selectedMailId]);
+
+  useEffect(() => {
+    if (!selectedMailId || !mails.allIds.length) {
+      return;
+    }
+
+    if (!mails.byId[selectedMailId]) {
+      handleClickMail(mails.allIds[0]);
+    }
+  }, [handleClickMail, mails.allIds, mails.byId, selectedMailId]);
 
   useEffect(() => {
     if (!selectedMailId) {
@@ -153,20 +234,31 @@ export function MailView() {
         maxWidth={false}
         sx={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}
       >
-        <Typography variant="h4" sx={{ mb: { xs: 3, md: 5 } }}>
-          Mail
-        </Typography>
-
         <Layout
+          layoutMode={layoutMode}
           sx={{
-            p: 1,
+            p: isHorizontal ? 0 : 1,
             borderRadius: 2,
             flex: '1 1 auto',
-            bgcolor: 'background.neutral',
+            bgcolor: isHorizontal ? 'transparent' : 'background.neutral',
           }}
           slots={{
+            topBar: (
+              <MailTopBar
+                layoutMode={layoutMode}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                onToggleLayout={() =>
+                  setMailLayoutMode(layoutMode === 'horizontal' ? 'sidebar' : 'horizontal')
+                }
+                onSetLayoutMode={setMailLayoutMode}
+                onToggleCompose={handleToggleCompose}
+              />
+            ),
             header: (
               <MailHeader
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
                 onOpenNav={openNav.onTrue}
                 onOpenMail={mailsEmpty ? undefined : openMail.onTrue}
                 sx={{ display: { md: 'none' } }}
@@ -184,6 +276,13 @@ export function MailView() {
                 onToggleCompose={handleToggleCompose}
               />
             ),
+            navHorizontal: (
+              <MailNavHorizontal
+                labels={labels}
+                selectedLabelId={selectedLabelId}
+                onSelectLabel={handleClickLabel}
+              />
+            ),
             list: (
               <MailList
                 mails={mails}
@@ -194,6 +293,9 @@ export function MailView() {
                 onClickMail={handleClickMail}
                 selectedLabelId={selectedLabelId}
                 selectedMailId={selectedMailId}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                hideSearch={isHorizontal}
               />
             ),
             details: (

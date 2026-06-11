@@ -1,3 +1,5 @@
+import type { MailPaperStyleId } from 'src/constants/mail-paper-styles';
+
 import type { IDateValue } from './common';
 
 // ----------------------------------------------------------------------
@@ -32,6 +34,7 @@ export type IMail = {
   folder: string;
   subject: string;
   message: string;
+  paperStyle?: MailPaperStyleId;
   isUnread: boolean;
   from: IMailSender;
   to: IMailSender[];

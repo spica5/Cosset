@@ -20,6 +20,14 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Editor } from 'src/components/dashboard/editor';
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import {
+  DEFAULT_MAIL_PAPER_STYLE,
+  type MailPaperStyleId,
+} from 'src/constants/mail-paper-styles';
+
+import { MailWritingFonts } from './mail-writing-fonts';
+import { hasMailMessageContent } from './mail-compose-utils';
+
 // ----------------------------------------------------------------------
 
 const POSITION = 20;
@@ -41,6 +49,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
   const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [paperStyle, setPaperStyle] = useState<MailPaperStyleId>(DEFAULT_MAIL_PAPER_STYLE);
   const [sending, setSending] = useState(false);
 
   const handleChangeMessage = useCallback((value: string) => {
@@ -53,7 +62,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
       return;
     }
 
-    if (!message.trim()) {
+    if (!hasMailMessageContent(message)) {
       toast.error('Write a message before sending.');
       return;
     }
@@ -67,6 +76,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
         bcc: showBcc.value ? bcc.trim() : undefined,
         subject: subject.trim(),
         message,
+        paperStyle,
       });
 
       if (result.deliveryErrors?.length) {
@@ -92,7 +102,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
     } finally {
       setSending(false);
     }
-  }, [bcc, cc, message, onCloseCompose, onSent, showBcc.value, showCc.value, subject, to]);
+  }, [bcc, cc, message, onCloseCompose, onSent, paperStyle, showBcc.value, showCc.value, subject, to]);
 
   return (
     <Portal>
@@ -218,10 +228,16 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
             overflow: 'hidden',
           }}
         >
+          <MailWritingFonts />
+
           <Editor
             value={message}
             onChange={handleChangeMessage}
-            placeholder="Type a message"
+            editable={!sending}
+            typographyTools
+            paperStyle={paperStyle}
+            onPaperStyleChange={setPaperStyle}
+            placeholder="Write your letter..."
             slotProps={{
               wrap: {
                 ...(fullScreen.value && { minHeight: 0, flex: '1 1 auto' }),

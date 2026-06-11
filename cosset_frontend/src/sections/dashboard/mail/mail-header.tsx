@@ -10,11 +10,20 @@ import { Iconify } from 'src/components/dashboard/iconify';
 // ----------------------------------------------------------------------
 
 type Props = StackProps & {
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
   onOpenNav: () => void;
   onOpenMail?: () => void;
 };
 
-export function MailHeader({ onOpenNav, onOpenMail, sx, ...other }: Props) {
+export function MailHeader({
+  searchQuery,
+  onSearchChange,
+  onOpenNav,
+  onOpenMail,
+  sx,
+  ...other
+}: Props) {
   return (
     <Stack direction="row" alignItems="center" sx={{ py: 1, mb: 1, ...sx }} {...other}>
       <IconButton onClick={onOpenNav}>
@@ -30,13 +39,27 @@ export function MailHeader({ onOpenNav, onOpenMail, sx, ...other }: Props) {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search..."
+        value={searchQuery}
+        onChange={(event) => onSearchChange(event.target.value)}
+        placeholder="Search mail..."
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
               <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
             </InputAdornment>
           ),
+          endAdornment: searchQuery ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                edge="end"
+                aria-label="Clear search"
+                onClick={() => onSearchChange('')}
+              >
+                <Iconify icon="mingcute:close-line" width={16} />
+              </IconButton>
+            </InputAdornment>
+          ) : undefined,
         }}
         sx={{ ml: 2 }}
       />

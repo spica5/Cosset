@@ -4,6 +4,8 @@ import Stack from '@mui/material/Stack';
 import { styled } from '@mui/material/styles';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
+import type { MailPaperStyleId } from 'src/constants/mail-paper-styles';
+import { getMailPaperSurfaceStyles } from 'src/constants/mail-paper-styles';
 
 import { editorClasses } from './classes';
 
@@ -15,11 +17,16 @@ type StyledRootProps = StackProps & {
   error?: boolean;
   disabled?: boolean;
   fullScreen?: boolean;
+  paperStyle?: MailPaperStyleId | null;
 };
 
 export const StyledRoot = styled(Stack, {
-  shouldForwardProp: (prop) => prop !== 'error' && prop !== 'disabled' && prop !== 'fullScreen',
-})<StyledRootProps>(({ error, disabled, fullScreen, theme }) => ({
+  shouldForwardProp: (prop) =>
+    prop !== 'error' && prop !== 'disabled' && prop !== 'fullScreen' && prop !== 'paperStyle',
+})<StyledRootProps>(({ error, disabled, fullScreen, paperStyle, theme }) => {
+  const paperSurface = paperStyle ? getMailPaperSurfaceStyles(theme, paperStyle) : null;
+
+  return {
   minHeight: 240,
   borderRadius: theme.shape.borderRadius,
   border: `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.2)}`,
@@ -75,6 +82,11 @@ export const StyledRoot = styled(Stack, {
     borderBottomLeftRadius: 'inherit',
     borderBottomRightRadius: 'inherit',
     backgroundColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.08),
+    ...(paperSurface && {
+      ...paperSurface,
+      minHeight: 160,
+      backgroundColor: paperSurface.bgcolor,
+    }),
     ...(error && {
       backgroundColor: varAlpha(theme.vars.palette.error.mainChannel, 0.08),
     }),
@@ -210,4 +222,5 @@ export const StyledRoot = styled(Stack, {
       },
     },
   },
-}));
+};
+});

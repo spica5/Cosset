@@ -4,12 +4,14 @@ import type { ListItemButtonProps } from '@mui/material/ListItemButton';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 
 import { fToNow } from 'src/utils/format-time';
 
+import { Iconify } from 'src/components/dashboard/iconify';
+
 import { MailAvatar } from './mail-avatar';
+import { getMailMessageSnippet } from './mail-compose-utils';
 
 // ----------------------------------------------------------------------
 
@@ -19,53 +21,33 @@ type Props = ListItemButtonProps & {
 };
 
 export function MailItem({ mail, selected, sx, ...other }: Props) {
+  const snippet = getMailMessageSnippet(mail.message);
+
   return (
     <Box component="li" sx={{ display: 'flex' }}>
       <ListItemButton
         disableGutters
         sx={{
-          p: 1,
-          gap: 2,
+          px: 1,
+          py: 1.25,
+          gap: 1.25,
           borderRadius: 1,
+          alignItems: 'flex-start',
           ...(selected && { bgcolor: 'action.selected' }),
           ...sx,
         }}
         {...other}
       >
-        <MailAvatar
-          name={mail.from.name}
-          photoKeyOrUrl={mail.from.avatarUrl}
-          sx={{ width: 40, height: 40 }}
-        />
-
-        <ListItemText
-          primary={mail.subject?.trim() || '(No subject)'}
-          secondary={mail.from.name}
-          primaryTypographyProps={{
-            noWrap: true,
-            component: 'span',
-            variant: mail.isUnread ? 'subtitle2' : 'body2',
-            fontWeight: mail.isUnread ? 600 : 400,
+        <Box
+          sx={{
+            width: 10,
+            pt: 1.5,
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'center',
           }}
-          secondaryTypographyProps={{
-            noWrap: true,
-            component: 'span',
-            variant: 'caption',
-            color: 'text.secondary',
-          }}
-        />
-
-        <Stack alignItems="flex-end" sx={{ alignSelf: 'stretch' }}>
-          <Typography
-            noWrap
-            variant="body2"
-            component="span"
-            sx={{ mb: 1.5, fontSize: 12, color: 'text.disabled' }}
-          >
-            {fToNow(mail.createdAt)}
-          </Typography>
-
-          {!!mail.isUnread && (
+        >
+          {mail.isUnread ? (
             <Box
               sx={{
                 width: 8,
@@ -74,7 +56,56 @@ export function MailItem({ mail, selected, sx, ...other }: Props) {
                 bgcolor: 'info.main',
               }}
             />
-          )}
+          ) : null}
+        </Box>
+
+        <MailAvatar
+          name={mail.from.name}
+          photoKeyOrUrl={mail.from.avatarUrl}
+          sx={{ width: 40, height: 40, flexShrink: 0 }}
+        />
+
+        <Stack spacing={0.25} sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography
+              noWrap
+              variant="subtitle2"
+              sx={{
+                flex: 1,
+                fontWeight: mail.isUnread ? 700 : 600,
+              }}
+            >
+              {mail.from.name}
+            </Typography>
+            <Typography noWrap variant="caption" sx={{ color: 'text.disabled', flexShrink: 0 }}>
+              {fToNow(mail.createdAt)}
+            </Typography>
+          </Stack>
+
+          <Typography
+            noWrap
+            variant="body2"
+            sx={{
+              fontWeight: mail.isUnread ? 600 : 400,
+              color: mail.isUnread ? 'text.primary' : 'text.secondary',
+            }}
+          >
+            {mail.subject?.trim() || '(No subject)'}
+          </Typography>
+
+          {snippet ? (
+            <Typography noWrap variant="caption" sx={{ color: 'text.disabled' }}>
+              {snippet}
+            </Typography>
+          ) : null}
+        </Stack>
+
+        <Stack alignItems="center" justifyContent="center" sx={{ pt: 0.5, flexShrink: 0 }}>
+          <Iconify
+            icon={mail.isStarred ? 'eva:star-fill' : 'eva:star-outline'}
+            width={18}
+            sx={{ color: mail.isStarred ? 'warning.main' : 'text.disabled' }}
+          />
         </Stack>
       </ListItemButton>
     </Box>

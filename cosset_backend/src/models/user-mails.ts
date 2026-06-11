@@ -23,6 +23,7 @@ export type UserMailRow = {
   bccRecipients: MailRecipient[];
   subject: string;
   message: string;
+  paperStyle: string;
   labelIds: string[];
   isUnread: boolean;
   isStarred: boolean;
@@ -42,6 +43,7 @@ export type UserMailInsert = {
   bccRecipients?: MailRecipient[];
   subject: string;
   message: string;
+  paperStyle?: string;
   labelIds?: string[];
   isUnread?: boolean;
   isStarred?: boolean;
@@ -66,6 +68,7 @@ const ensureUserMailsTable = async (): Promise<void> => {
             bcc_recipients JSONB NOT NULL DEFAULT '[]'::jsonb,
             subject VARCHAR(500) NOT NULL DEFAULT '',
             message TEXT NOT NULL DEFAULT '',
+            paper_style VARCHAR(40) NOT NULL DEFAULT 'classic-lined',
             label_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
             is_unread BOOLEAN NOT NULL DEFAULT TRUE,
             is_starred BOOLEAN NOT NULL DEFAULT FALSE,
@@ -83,6 +86,9 @@ const ensureUserMailsTable = async (): Promise<void> => {
       );
       await executeQuery(
         `CREATE INDEX IF NOT EXISTS idx_user_mails_owner_created ON ${TABLE_NAME} (owner_user_id, created_at DESC)`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS paper_style VARCHAR(40) NOT NULL DEFAULT 'classic-lined'`,
       );
     })().catch((error) => {
       ensureTablePromise = null;
@@ -135,6 +141,7 @@ const mapRow = (row: Record<string, unknown>): UserMailRow => ({
   bccRecipients: parseRecipients(row.bccRecipients),
   subject: String(row.subject ?? ''),
   message: String(row.message ?? ''),
+  paperStyle: String(row.paperStyle ?? 'classic-lined'),
   labelIds: Array.isArray(row.labelIds)
     ? row.labelIds.map((label) => String(label)).filter(Boolean)
     : [],
@@ -162,6 +169,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           bcc_recipients,
           subject,
           message,
+          paper_style,
           label_ids,
           is_unread,
           is_starred,
@@ -169,7 +177,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           attachments,
           is_deleted
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12, $13, $14, $15::jsonb, FALSE)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11, $12::jsonb, $13, $14, $15, $16::jsonb, FALSE)
         RETURNING
           id::text AS id,
           owner_user_id::text AS "ownerUserId",
@@ -182,6 +190,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           bcc_recipients AS "bccRecipients",
           subject,
           message,
+          paper_style AS "paperStyle",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -200,6 +209,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
         JSON.stringify(row.bccRecipients ?? []),
         row.subject.slice(0, 500),
         row.message,
+        (row.paperStyle || 'classic-lined').slice(0, 40),
         JSON.stringify(row.labelIds ?? []),
         row.isUnread ?? true,
         row.isStarred ?? false,
@@ -245,6 +255,7 @@ export async function listUserMails(ownerUserId: string): Promise<UserMailRow[]>
           bcc_recipients AS "bccRecipients",
           subject,
           message,
+          paper_style AS "paperStyle",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -298,6 +309,7 @@ export async function markUserMailAsRead(
           bcc_recipients AS "bccRecipients",
           subject,
           message,
+          paper_style AS "paperStyle",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -320,6 +332,85 @@ export async function markUserMailAsRead(
     throw new DatabaseError({
       code: 'USER_MAIL_MARK_READ_ERROR',
       message: `Failed to mark mail as read: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export type UserMailFlagsUpdate = {
+  isStarred?: boolean;
+  isImportant?: boolean;
+  isUnread?: boolean;
+};
+
+const MAIL_ROW_RETURNING = `
+  id::text AS id,
+  owner_user_id::text AS "ownerUserId",
+  folder,
+  from_user_id::text AS "fromUserId",
+  from_name AS "fromName",
+  from_email AS "fromEmail",
+  to_recipients AS "toRecipients",
+  cc_recipients AS "ccRecipients",
+  bcc_recipients AS "bccRecipients",
+  subject,
+  message,
+  paper_style AS "paperStyle",
+  label_ids AS "labelIds",
+  is_unread AS "isUnread",
+  is_starred AS "isStarred",
+  is_important AS "isImportant",
+  attachments,
+  created_at AS "createdAt"
+`;
+
+export async function updateUserMailFlags(
+  ownerUserId: string,
+  mailId: string | number,
+  flags: UserMailFlagsUpdate,
+): Promise<UserMailRow | null> {
+  try {
+    await ensureUserMailsTable();
+
+    const sets = ['updated_at = CURRENT_TIMESTAMP'];
+    const params: unknown[] = [ownerUserId.trim().toLowerCase(), mailId];
+
+    if (typeof flags.isStarred === 'boolean') {
+      params.push(flags.isStarred);
+      sets.push(`is_starred = $${params.length}`);
+    }
+    if (typeof flags.isImportant === 'boolean') {
+      params.push(flags.isImportant);
+      sets.push(`is_important = $${params.length}`);
+    }
+    if (typeof flags.isUnread === 'boolean') {
+      params.push(flags.isUnread);
+      sets.push(`is_unread = $${params.length}`);
+    }
+
+    if (sets.length === 1) {
+      return await getUserMailById(ownerUserId, mailId);
+    }
+
+    const updated = await queryOne<Record<string, unknown>>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET ${sets.join(', ')}
+        WHERE owner_user_id = $1
+          AND id = $2
+          AND is_deleted = FALSE
+        RETURNING ${MAIL_ROW_RETURNING}
+      `,
+      params,
+    );
+
+    return updated ? mapRow(updated) : null;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'USER_MAIL_FLAGS_UPDATE_ERROR',
+      message: `Failed to update mail flags: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }
@@ -395,6 +486,7 @@ export async function getUserMailById(
           bcc_recipients AS "bccRecipients",
           subject,
           message,
+          paper_style AS "paperStyle",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",

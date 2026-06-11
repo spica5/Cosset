@@ -8,6 +8,8 @@ import {
   displayNameFromUser,
   parseRecipientInput,
   getUserIdFromMailRequest,
+  normalizeMailPaperStyle,
+  stripMailPaperComment,
 } from 'src/utils/mail';
 
 import { createUserMail } from 'src/models/user-mails';
@@ -46,7 +48,9 @@ export async function POST(req: NextRequest) {
     const ccEmails = parseRecipientInput(body?.cc);
     const bccEmails = parseRecipientInput(body?.bcc);
     const subject = typeof body?.subject === 'string' ? body.subject.trim().slice(0, 500) : '';
-    const message = typeof body?.message === 'string' ? body.message.trim() : '';
+    const rawMessage = typeof body?.message === 'string' ? body.message.trim() : '';
+    const paperStyle = normalizeMailPaperStyle(body?.paperStyle);
+    const message = stripMailPaperComment(rawMessage);
 
     if (!toEmails.length) {
       return response({ message: 'At least one recipient is required' }, STATUS.BAD_REQUEST);
@@ -82,6 +86,7 @@ export async function POST(req: NextRequest) {
       bccRecipients,
       subject,
       message,
+      paperStyle,
       isUnread: false,
     });
 
@@ -137,6 +142,7 @@ export async function POST(req: NextRequest) {
           bccRecipients,
           subject,
           message,
+          paperStyle,
           isUnread: true,
         });
 

@@ -2,7 +2,7 @@
 
 import type { ReactionType } from 'src/actions/reaction';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useEffect} from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,17 +11,19 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
 import { recordActivityNotification } from 'src/actions/notification';
+
+import { useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
+
 import {
   reactToBlogForLoggedInCustomer,
   unreactToBlogForLoggedInCustomer,

@@ -6,21 +6,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
-// ----------------------------------------------------------------------
-
-const LABEL_ICONS: Record<string, string> = {
-  all: 'fluent:mail-24-filled',
-  inbox: 'solar:inbox-bold',
-  trash: 'solar:trash-bin-trash-bold',
-  drafts: 'solar:file-text-bold',
-  spam: 'solar:danger-bold',
-  sent: 'iconamoon:send-fill',
-  starred: 'eva:star-fill',
-  important: 'material-symbols:label-important-rounded',
-  social: 'solar:tag-horizontal-bold-duotone',
-  promotions: 'solar:tag-horizontal-bold-duotone',
-  forums: 'solar:tag-horizontal-bold-duotone',
-};
+import { MAIL_LABEL_ICONS } from './mail-label-icons';
 
 // ----------------------------------------------------------------------
 
@@ -31,7 +17,7 @@ type Props = ListItemButtonProps & {
 };
 
 export function MailNavItem({ selected, label, onClickNavItem, ...other }: Props) {
-  const labelIcon = LABEL_ICONS[label.id];
+  const labelIcon = MAIL_LABEL_ICONS[label.id];
 
   return (
     <Box component="li" sx={{ display: 'flex' }}>

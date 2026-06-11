@@ -117,14 +117,14 @@ export function UniverseCoffeeShopParticipants({
         </Typography>
         {participants
           .map((p) => {
-            // if leftAt is set and older than 30min, skip rendering here
-            // if (p.leftAt) {
-            //   const leftTs = new Date(p.leftAt).getTime();
+            if (p.leftAt) {
+              const normalized = p.leftAt.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+              const leftTs = new Date(`${normalized}Z`).getTime();
 
-            //   if (!Number.isNaN(leftTs) && Date.now() - leftTs > THIRTY_MIN) {
-            //     return null;
-            //   }
-            // }
+              if (!Number.isNaN(leftTs) && Date.now() - leftTs > THIRTY_MIN) {
+                return null;
+              }
+            }
 
             const isFriend =
               typeof p.userId === 'string' && userIdStr

@@ -2,11 +2,11 @@
 
 import type { IBlogItem } from 'src/types/blog';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
-import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Popover from '@mui/material/Popover';
@@ -26,22 +26,21 @@ import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { createBlog, updateBlog, useGetBlog } from 'src/actions/blog';
-import { stylesMode } from 'src/theme/dashboard/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
 import {
-  BLOG_CONTENT_BACKGROUND_OPTIONS,
   BLOG_CONTENT_FONT_COLOR,
-  BLOG_CONTENT_FONT_OPTIONS,
+  BLOG_CONTENT_FONT_OPTIONS,  
+  BLOG_CONTENT_BACKGROUND_OPTIONS,
   DEFAULT_BLOG_CONTENT_APPEARANCE,
-  getBlogContentAppearance,
-  getBlogContentBackgroundSx,
   getBlogContentFontSx,
-  isBlogContentBackgroundPreset,
   isBlogContentFontPreset,
-  type BlogContentBackgroundPreset,
+  getBlogContentAppearance,
   type BlogContentFontPreset,
+  getBlogContentBackgroundSx,  
+  isBlogContentBackgroundPreset,  
+  type BlogContentBackgroundPreset,  
 } from 'src/sections/dashboard/blog/blog-content-style';
 
 import { toast } from 'src/components/dashboard/snackbar';
