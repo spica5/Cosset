@@ -18,6 +18,18 @@ export type SignUpParams = {
   lastName: string;
 };
 
+const INACTIVE_CUSTOMER_MESSAGE = "Your account isn't active and can't log in. Please contact support.";
+
+function getCustomerState(user: Record<string, any> | null | undefined) {
+  return String(user?.state || user?.status || 'active').trim().toLowerCase();
+}
+
+function assertCustomerCanSignIn(user: Record<string, any> | null | undefined) {
+  if (getCustomerState(user) !== 'active') {
+    throw new Error(INACTIVE_CUSTOMER_MESSAGE);
+  }
+}
+
 /** **************************************
  * Sign in
  *************************************** */
@@ -27,14 +39,24 @@ export const signInWithPassword = async ({ email, password }: SignInParams): Pro
 
     const res = await axios.post(endpoints.auth.signIn, params);
 
-    const { accessToken } = res.data;
+    const { accessToken, user } = res.data;
 
     if (!accessToken) {
       throw new Error('Access token not found in response');
     }
 
-    setSession(accessToken);
+    if (user) {
+      assertCustomerCanSignIn(user);
+    } else {
+      const meRes = await axios.get(endpoints.auth.me, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      assertCustomerCanSignIn(meRes.data?.user);
+    }
+
+    await setSession(accessToken);
   } catch (error) {
+    await setSession(null);
     console.error('Error during sign in:', error);
     throw error;
   }

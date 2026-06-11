@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { getAllUsers } from '@/models/users';
+import { getAllUsers, getUserById } from '@/models/users';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, response } from 'src/utils/response';
@@ -26,6 +26,12 @@ export async function GET(req: NextRequest) {
 
     if (!data.userId) {
       return response('Invalid authorization token', STATUS.UNAUTHORIZED);
+    }
+
+    const actor = await getUserById(data.userId);
+
+    if (!actor || actor.role !== 'admin') {
+      return response({ message: 'Admin access required' }, STATUS.FORBIDDEN);
     }
 
     const { searchParams } = req.nextUrl;

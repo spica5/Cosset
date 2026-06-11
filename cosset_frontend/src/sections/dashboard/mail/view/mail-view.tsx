@@ -261,6 +261,7 @@ export function MailView() {
                 onSearchChange={handleSearchChange}
                 onOpenNav={openNav.onTrue}
                 onOpenMail={mailsEmpty ? undefined : openMail.onTrue}
+                hideSearch={!isHorizontal}
                 sx={{ display: { md: 'none' } }}
               />
             ),
@@ -295,7 +296,7 @@ export function MailView() {
                 selectedMailId={selectedMailId}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearchChange}
-                hideSearch={isHorizontal}
+                hideSearch
               />
             ),
             details: (

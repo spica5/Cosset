@@ -1,14 +1,19 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserById } from '@/models/users';
+import { getUserById, updateUser } from '@/models/users';
 
+import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
+
+import { JWT_SECRET } from 'src/config-global';
 
 // ----------------------------------------------------------------------
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
+
+const CUSTOMER_STATES = new Set(['active', 'blocked', 'deleted', 'pending', 'inactive']);
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -42,5 +47,48 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     );
   } catch (error) {
     return handleError('User - details', error as Error);
+  }
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const authorization = req.headers.get('authorization');
+
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return response({ message: 'Authorization token missing or invalid' }, STATUS.UNAUTHORIZED);
+    }
+
+    const accessToken = `${authorization}`.split(' ')[1];
+    const data = await verify(accessToken, JWT_SECRET);
+
+    if (!data.userId) {
+      return response({ message: 'Invalid authorization token' }, STATUS.UNAUTHORIZED);
+    }
+
+    const actor = await getUserById(data.userId);
+
+    if (!actor || actor.role !== 'admin') {
+      return response({ message: 'Admin access required' }, STATUS.FORBIDDEN);
+    }
+
+    const { id } = await params;
+
+    if (!id) {
+      return response({ message: 'User ID is required' }, STATUS.BAD_REQUEST);
+    }
+
+    const body = await req.json();
+    const state = String(body?.state || '').trim().toLowerCase();
+
+    if (!CUSTOMER_STATES.has(state)) {
+      return response({ message: 'Invalid customer state' }, STATUS.BAD_REQUEST);
+    }
+
+    const updatedUser = await updateUser(id, { state });
+    const { password: _password, ...safeUser } = updatedUser;
+
+    return response({ user: safeUser }, STATUS.OK);
+  } catch (error) {
+    return handleError('User - update', error as Error);
   }
 }

@@ -16,6 +16,7 @@ import { useGetCollections } from 'src/actions/collection';
 import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 import { useMailNotifications } from 'src/hooks/use-mail-notifications';
 
 import { Logo } from 'src/components/dashboard/logo';
@@ -90,8 +91,11 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const navData = useMemo<NavSectionProps['data']>(() => {
     const baseNavData = data?.nav ?? dashboardNavData;
+    const visibleNavData = isUserAdmin(user?.role)
+      ? baseNavData
+      : baseNavData.filter((group) => group.subheader !== 'Admin');
 
-    return baseNavData.map((group) => ({
+    return visibleNavData.map((group) => ({
       ...group,
       items: group.items.map((item) => {
         if (item.title === 'Collections' && item.children) {
@@ -116,7 +120,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
         return item;
       }),
     }));
-  }, [data?.nav, collectionSubitems, mailUnreadCount]);
+  }, [data?.nav, collectionSubitems, mailUnreadCount, user?.role]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

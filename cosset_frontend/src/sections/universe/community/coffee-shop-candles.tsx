@@ -105,12 +105,6 @@ function buildCandles(count: number, seed: number): CandleSpec[] {
         ? 14 + rnd() * 14
         : 26 + rnd() * 16;
 
-    const width = isTall
-      ? 9 + rnd() * 5
-      : isShort
-        ? 5 + rnd() * 3
-        : 7 + rnd() * 4;
-
     const baseLeft = 4 + index * segmentWidth;
     const left = baseLeft + rnd() * segmentWidth * 0.9;
 
@@ -118,7 +112,7 @@ function buildCandles(count: number, seed: number): CandleSpec[] {
       id: index,
       left,
       delay: rnd() * 0.8,
-      width,
+      width: CANDLE_WIDTH,
       height,
       bottomOffset: rnd() * 10,
     };
@@ -156,6 +150,7 @@ type Props = {
 };
 
 const DEFAULT_CANDLE_COUNT = 16;
+const CANDLE_WIDTH = 12;
 
 export function CoffeeShopCandles({
   seed = 1,

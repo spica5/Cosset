@@ -60,6 +60,19 @@ const ICONS = {
 
 export const navData = [
   /**
+   * Admin
+   */
+  {
+    subheader: 'Admin',
+    items: [
+      {
+        title: 'Customers',
+        path: paths.dashboard.customers,
+        icon: ICONS.user,
+      },
+    ],
+  },
+  /**
    * Overview
    */
   {

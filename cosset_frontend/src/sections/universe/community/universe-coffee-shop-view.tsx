@@ -2,9 +2,9 @@
 
 import type { CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
-import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
-
 import { mutate } from 'swr';
+
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';

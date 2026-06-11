@@ -36,6 +36,7 @@ export function MailTopBar({
   onSetLayoutMode,
 }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const isSidebar = layoutMode === 'sidebar';
 
   const handleLayoutChange = (_: React.MouseEvent<HTMLElement>, value: MailLayoutMode | null) => {
     if (!value) {
@@ -53,6 +54,10 @@ export function MailTopBar({
   };
 
   useEffect(() => {
+    if (isSidebar) {
+      return undefined;
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -62,7 +67,7 @@ export function MailTopBar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isSidebar]);
 
   return (
     <Stack
@@ -81,7 +86,7 @@ export function MailTopBar({
         <Iconify icon="fluent:mail-24-filled" width={28} sx={{ color: 'primary.main' }} />
         <Typography variant="h5">Mail</Typography>
       </Stack>
-
+   
       <TextField
         fullWidth
         size="small"
@@ -111,7 +116,7 @@ export function MailTopBar({
                   variant="caption"
                   sx={{ color: 'text.disabled', display: { xs: 'none', md: 'block' } }}
                 >
-                  ⌘ K
+                  Ctrl K
                 </Typography>
               )}
             </InputAdornment>
@@ -120,15 +125,23 @@ export function MailTopBar({
         sx={{ maxWidth: { md: 1 } }}
       />
 
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
-        <Button
-          variant="contained"
-          startIcon={<Iconify icon="solar:pen-bold" />}
-          onClick={onToggleCompose}
-          sx={{ whiteSpace: 'nowrap' }}
-        >
-          Compose
-        </Button>
+
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ flexShrink: 0, ml: { md: isSidebar ? 'auto' : 0 } }}
+      >
+        {!isSidebar && (
+          <Button
+            variant="contained"
+            startIcon={<Iconify icon="solar:pen-bold" />}
+            onClick={onToggleCompose}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Compose
+          </Button>
+        )}
 
         <ToggleButtonGroup
           exclusive

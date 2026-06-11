@@ -14,6 +14,7 @@ type Props = StackProps & {
   onSearchChange: (value: string) => void;
   onOpenNav: () => void;
   onOpenMail?: () => void;
+  hideSearch?: boolean;
 };
 
 export function MailHeader({
@@ -21,6 +22,7 @@ export function MailHeader({
   onSearchChange,
   onOpenNav,
   onOpenMail,
+  hideSearch = false,
   sx,
   ...other
 }: Props) {
@@ -36,33 +38,35 @@ export function MailHeader({
         </IconButton>
       )}
 
-      <TextField
-        fullWidth
-        size="small"
-        value={searchQuery}
-        onChange={(event) => onSearchChange(event.target.value)}
-        placeholder="Search mail..."
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
-            </InputAdornment>
-          ),
-          endAdornment: searchQuery ? (
-            <InputAdornment position="end">
-              <IconButton
-                size="small"
-                edge="end"
-                aria-label="Clear search"
-                onClick={() => onSearchChange('')}
-              >
-                <Iconify icon="mingcute:close-line" width={16} />
-              </IconButton>
-            </InputAdornment>
-          ) : undefined,
-        }}
-        sx={{ ml: 2 }}
-      />
+      {!hideSearch && (
+        <TextField
+          fullWidth
+          size="small"
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Search mail..."
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+              </InputAdornment>
+            ),
+            endAdornment: searchQuery ? (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  edge="end"
+                  aria-label="Clear search"
+                  onClick={() => onSearchChange('')}
+                >
+                  <Iconify icon="mingcute:close-line" width={16} />
+                </IconButton>
+              </InputAdornment>
+            ) : undefined,
+          }}
+          sx={{ ml: 2 }}
+        />
+      )}
     </Stack>
   );
 }

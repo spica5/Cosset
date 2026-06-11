@@ -84,3 +84,29 @@ export async function updateCurrentUser(updatedData: Record<string, any>) {
 
   return response.data.user;
 }
+
+/**
+ * Update a customer's state from the admin customers page
+ */
+export async function updateCustomerState(customerId: string | number, state: string) {
+  try {
+    const response = await axios.put(endpoints.user.details(customerId), { state });
+
+    mutate(
+      (key) => typeof key === 'string' && key.startsWith(endpoints.user.list),
+      undefined,
+      { revalidate: true }
+    );
+
+    return response.data?.user || response.data;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to update customer state')
+          : 'Failed to update customer state';
+
+    throw new Error(message);
+  }
+}

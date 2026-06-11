@@ -1,18 +1,17 @@
 'use client';
 
 import type { Slide } from 'yet-another-react-lightbox';
-import type { IAlbumItem, IAlbumImage } from 'src/types/album';
 import type { ReactionType } from 'src/actions/reaction';
+import type { IAlbumItem, IAlbumImage } from 'src/types/album';
 
 import { useRef, useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Container from '@mui/material/Container';
@@ -27,16 +26,17 @@ import { RouterLink } from 'src/routes/components';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { recordAlbumView, useGetAlbumComments } from 'src/actions/album';
+import { useGetCurrentUser } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
+import { updatePostCommentVisibility } from 'src/actions/post';
+import { recordActivityNotification } from 'src/actions/notification';
+import { recordAlbumView, useGetAlbumComments } from 'src/actions/album';
 import {
   reactToAlbumForLoggedInCustomer,
   unreactToAlbumForLoggedInCustomer,
   useGetReactionSummary,
 } from 'src/actions/reaction';
-import { recordActivityNotification } from 'src/actions/notification';
-import { useGetCurrentUser } from 'src/actions/user';
-import { updatePostCommentVisibility } from 'src/actions/post';
+
 import { useAuthContext } from 'src/auth/hooks';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 

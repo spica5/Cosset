@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -50,6 +51,7 @@ export function SignInView() {
       reset();
     } catch (error) {
       console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Unable to sign in.');
     }
   });
 

@@ -24,6 +24,7 @@ export const paths = {
     // root: ROOTS.DASHBOARD,
     root: `${ROOTS.DASHBOARD}/home-space/guest-area`,
     preview: `${ROOTS.DASHBOARD}/preview`,
+    customers: `${ROOTS.DASHBOARD}/customers`,
     blog: {
       root: `${ROOTS.DASHBOARD}/blog`,
       list: `${ROOTS.DASHBOARD}/blog`,

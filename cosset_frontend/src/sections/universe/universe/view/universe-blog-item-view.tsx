@@ -20,18 +20,18 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { updatePostCommentVisibility } from 'src/actions/post';
 import { recordActivityNotification } from 'src/actions/notification';
-
 import { useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
-
+import { getBlogCategoryLabel } from 'src/sections/dashboard/blog/blog-categories';
 import {
   reactToBlogForLoggedInCustomer,
   unreactToBlogForLoggedInCustomer,
   useGetReactionSummary,
 } from 'src/actions/reaction';
-import { updatePostCommentVisibility } from 'src/actions/post';
+
 import { useAuthContext } from 'src/auth/hooks';
-import { getBlogCategoryLabel } from 'src/sections/dashboard/blog/blog-categories';
+
 import {
   BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
@@ -42,7 +42,6 @@ import {
 } from 'src/sections/dashboard/blog/blog-content-style';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
-import { stylesMode } from 'src/theme/universe/styles';
 import { Iconify } from 'src/components/universe/iconify';
 import { CommentsSection } from 'src/components/universe/comment-section';
 
