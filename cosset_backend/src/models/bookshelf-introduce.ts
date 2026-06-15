@@ -1,9 +1,10 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-const TABLE_NAME = 'bookshelf_introduce_books';
+const TABLE_NAME = 'bookshelf_introduce';
+const LEGACY_TABLE_NAME = 'bookshelf_introduce_books';
 
-export interface BookshelfIntroduceBook {
+export interface BookshelfIntroduce {
   id: number;
   title: string;
   description?: string | null;
@@ -41,6 +42,19 @@ const ensureTable = async (): Promise<void> => {
     ensureTablePromise = (async () => {
       await executeQuery(
         `
+          DO $$
+          BEGIN
+            IF to_regclass('public.${LEGACY_TABLE_NAME}') IS NOT NULL
+               AND to_regclass('public.${TABLE_NAME}') IS NULL
+            THEN
+              ALTER TABLE ${LEGACY_TABLE_NAME} RENAME TO ${TABLE_NAME};
+            END IF;
+          END $$;
+        `,
+      );
+
+      await executeQuery(
+        `
           CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
             id BIGSERIAL PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
@@ -61,17 +75,17 @@ const ensureTable = async (): Promise<void> => {
   await ensureTablePromise;
 };
 
-export async function getAllBookshelfIntroduceBooks(
+export async function getAllBookshelfIntroduce(
   limit: number = 100,
   offset: number = 0,
-): Promise<BookshelfIntroduceBook[]> {
+): Promise<BookshelfIntroduce[]> {
   try {
     await ensureTable();
 
     const normalizedLimit = Math.max(1, Math.min(300, parseInteger(limit) ?? 100));
     const normalizedOffset = Math.max(0, parseInteger(offset) ?? 0);
 
-    return await queryMany<BookshelfIntroduceBook>(
+    return await queryMany<BookshelfIntroduce>(
       `
         SELECT
           id,
@@ -90,8 +104,8 @@ export async function getAllBookshelfIntroduceBooks(
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
-        code: 'GET_BOOKSHELF_INTRODUCE_BOOKS_ERROR',
-        message: `Failed to fetch bookshelf introduce books: ${error.message}`,
+        code: 'GET_BOOKSHELF_INTRODUCE_ERROR',
+        message: `Failed to fetch bookshelf introduce items: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -100,9 +114,7 @@ export async function getAllBookshelfIntroduceBooks(
   }
 }
 
-export async function getBookshelfIntroduceBookById(
-  id: number,
-): Promise<BookshelfIntroduceBook | null> {
+export async function getBookshelfIntroduceById(id: number): Promise<BookshelfIntroduce | null> {
   try {
     await ensureTable();
 
@@ -110,12 +122,12 @@ export async function getBookshelfIntroduceBookById(
 
     if (normalizedId === null) {
       throw new DatabaseError({
-        code: 'INVALID_BOOKSHELF_INTRODUCE_BOOK_ID',
+        code: 'INVALID_BOOKSHELF_INTRODUCE_ID',
         message: 'id must be a valid integer',
       });
     }
 
-    return await queryOne<BookshelfIntroduceBook>(
+    return await queryOne<BookshelfIntroduce>(
       `
         SELECT
           id,
@@ -134,8 +146,8 @@ export async function getBookshelfIntroduceBookById(
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
-        code: 'GET_BOOKSHELF_INTRODUCE_BOOK_ERROR',
-        message: `Failed to fetch bookshelf introduce book: ${error.message}`,
+        code: 'GET_BOOKSHELF_INTRODUCE_ITEM_ERROR',
+        message: `Failed to fetch bookshelf introduce item: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -144,13 +156,13 @@ export async function getBookshelfIntroduceBookById(
   }
 }
 
-export async function createBookshelfIntroduceBook(
-  book: Omit<BookshelfIntroduceBook, 'id' | 'createdAt'>,
-): Promise<BookshelfIntroduceBook> {
+export async function createBookshelfIntroduce(
+  item: Omit<BookshelfIntroduce, 'id' | 'createdAt'>,
+): Promise<BookshelfIntroduce> {
   try {
     await ensureTable();
 
-    const created = await queryOne<BookshelfIntroduceBook>(
+    const created = await queryOne<BookshelfIntroduce>(
       `
         INSERT INTO ${TABLE_NAME} (
           title,
@@ -171,18 +183,18 @@ export async function createBookshelfIntroduceBook(
           created_at as "createdAt"
       `,
       [
-        book.title,
-        book.description ?? null,
-        book.coverImage ?? null,
-        book.fileUrl,
-        normalizeNullableInteger(book.order),
+        item.title,
+        item.description ?? null,
+        item.coverImage ?? null,
+        item.fileUrl,
+        normalizeNullableInteger(item.order),
       ],
     );
 
     if (!created) {
       throw new DatabaseError({
-        code: 'CREATE_BOOKSHELF_INTRODUCE_BOOK_FAILED',
-        message: 'Failed to create bookshelf introduce book',
+        code: 'CREATE_BOOKSHELF_INTRODUCE_FAILED',
+        message: 'Failed to create bookshelf introduce item',
       });
     }
 
@@ -190,8 +202,8 @@ export async function createBookshelfIntroduceBook(
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
-        code: 'CREATE_BOOKSHELF_INTRODUCE_BOOK_ERROR',
-        message: `Failed to create bookshelf introduce book: ${error.message}`,
+        code: 'CREATE_BOOKSHELF_INTRODUCE_ERROR',
+        message: `Failed to create bookshelf introduce item: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -200,10 +212,10 @@ export async function createBookshelfIntroduceBook(
   }
 }
 
-export async function updateBookshelfIntroduceBook(
+export async function updateBookshelfIntroduce(
   id: number,
-  updates: Partial<Omit<BookshelfIntroduceBook, 'id' | 'createdAt'>>,
-): Promise<BookshelfIntroduceBook> {
+  updates: Partial<Omit<BookshelfIntroduce, 'id' | 'createdAt'>>,
+): Promise<BookshelfIntroduce> {
   try {
     await ensureTable();
 
@@ -211,7 +223,7 @@ export async function updateBookshelfIntroduceBook(
 
     if (normalizedId === null) {
       throw new DatabaseError({
-        code: 'INVALID_BOOKSHELF_INTRODUCE_BOOK_ID',
+        code: 'INVALID_BOOKSHELF_INTRODUCE_ID',
         message: 'id must be a valid integer',
       });
     }
@@ -251,11 +263,11 @@ export async function updateBookshelfIntroduceBook(
     }
 
     if (!fields.length) {
-      const existing = await getBookshelfIntroduceBookById(normalizedId);
+      const existing = await getBookshelfIntroduceById(normalizedId);
       if (!existing) {
         throw new DatabaseError({
-          code: 'BOOKSHELF_INTRODUCE_BOOK_NOT_FOUND',
-          message: 'Bookshelf introduce book not found',
+          code: 'BOOKSHELF_INTRODUCE_NOT_FOUND',
+          message: 'Bookshelf introduce item not found',
         });
       }
 
@@ -264,7 +276,7 @@ export async function updateBookshelfIntroduceBook(
 
     values.push(normalizedId);
 
-    const updated = await queryOne<BookshelfIntroduceBook>(
+    const updated = await queryOne<BookshelfIntroduce>(
       `
         UPDATE ${TABLE_NAME}
         SET ${fields.join(', ')}
@@ -283,8 +295,8 @@ export async function updateBookshelfIntroduceBook(
 
     if (!updated) {
       throw new DatabaseError({
-        code: 'BOOKSHELF_INTRODUCE_BOOK_NOT_FOUND',
-        message: 'Bookshelf introduce book not found',
+        code: 'BOOKSHELF_INTRODUCE_NOT_FOUND',
+        message: 'Bookshelf introduce item not found',
       });
     }
 
@@ -292,8 +304,8 @@ export async function updateBookshelfIntroduceBook(
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
-        code: 'UPDATE_BOOKSHELF_INTRODUCE_BOOK_ERROR',
-        message: `Failed to update bookshelf introduce book: ${error.message}`,
+        code: 'UPDATE_BOOKSHELF_INTRODUCE_ERROR',
+        message: `Failed to update bookshelf introduce item: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -302,7 +314,7 @@ export async function updateBookshelfIntroduceBook(
   }
 }
 
-export async function deleteBookshelfIntroduceBook(id: number): Promise<boolean> {
+export async function deleteBookshelfIntroduce(id: number): Promise<boolean> {
   try {
     await ensureTable();
 
@@ -310,7 +322,7 @@ export async function deleteBookshelfIntroduceBook(id: number): Promise<boolean>
 
     if (normalizedId === null) {
       throw new DatabaseError({
-        code: 'INVALID_BOOKSHELF_INTRODUCE_BOOK_ID',
+        code: 'INVALID_BOOKSHELF_INTRODUCE_ID',
         message: 'id must be a valid integer',
       });
     }
@@ -328,8 +340,8 @@ export async function deleteBookshelfIntroduceBook(id: number): Promise<boolean>
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
-        code: 'DELETE_BOOKSHELF_INTRODUCE_BOOK_ERROR',
-        message: `Failed to delete bookshelf introduce book: ${error.message}`,
+        code: 'DELETE_BOOKSHELF_INTRODUCE_ERROR',
+        message: `Failed to delete bookshelf introduce item: ${error.message}`,
         detail: error.detail,
       });
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import type { IBookshelfIntroduceBook } from 'src/types/bookshelf-introduce-book';
+import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
 import { useEffect, useState } from 'react';
 
@@ -18,10 +18,10 @@ import { Iconify } from 'src/components/dashboard/iconify';
 // ----------------------------------------------------------------------
 
 type Props = {
-  book: IBookshelfIntroduceBook;
+  book: IBookshelfIntroduce;
   canManage?: boolean;
-  onEdit?: (book: IBookshelfIntroduceBook) => void;
-  onDelete?: (book: IBookshelfIntroduceBook) => void;
+  onEdit?: (book: IBookshelfIntroduce) => void;
+  onDelete?: (book: IBookshelfIntroduce) => void;
 };
 
 const resolveCoverImage = async (coverImage?: string | null) => {
@@ -38,7 +38,7 @@ const resolveCoverImage = async (coverImage?: string | null) => {
   return (await getS3SignedUrl(normalized)) || normalized;
 };
 
-export function BookshelfIntroduceBookCard({ book, canManage, onEdit, onDelete }: Props) {
+export function BookshelfIntroduceCard({ book, canManage, onEdit, onDelete }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
 
   useEffect(() => {

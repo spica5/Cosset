@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { createBookshelfIntroduceBook } from 'src/models/bookshelf-introduce-books';
+import { createBookshelfIntroduce } from 'src/models/bookshelf-introduce';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return response({ message: 'File URL is required' }, STATUS.BAD_REQUEST);
     }
 
-    const created = await createBookshelfIntroduceBook({
+    const created = await createBookshelfIntroduce({
       title: book.title.trim(),
       description: book.description ?? null,
       coverImage: book.coverImage ?? null,

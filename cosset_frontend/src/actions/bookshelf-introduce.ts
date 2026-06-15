@@ -1,4 +1,4 @@
-import type { IBookshelfIntroduceBook } from 'src/types/bookshelf-introduce-book';
+import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -14,14 +14,14 @@ const swrOptions = {
 };
 
 type BooksData = {
-  books?: IBookshelfIntroduceBook[];
+  books?: IBookshelfIntroduce[];
 };
 
 type BookData = {
-  book?: IBookshelfIntroduceBook;
+  book?: IBookshelfIntroduce;
 };
 
-export function useGetBookshelfIntroduceBooks() {
+export function useGetBookshelfIntroduce() {
   const { data, isLoading, error, isValidating } = useSWR<BooksData>(
     LIST_ENDPOINT,
     fetcher,
@@ -40,7 +40,7 @@ export function useGetBookshelfIntroduceBooks() {
   );
 }
 
-export function useGetBookshelfIntroduceBook(id: string | number | '') {
+export function useGetBookshelfIntroduceById(id: string | number | '') {
   const url = id ? endpoints.bookshelf.introduce.details(id) : null;
   const { data, isLoading, error, isValidating } = useSWR<BookData>(url, fetcher, swrOptions);
 
@@ -55,11 +55,11 @@ export function useGetBookshelfIntroduceBook(id: string | number | '') {
   );
 }
 
-export async function createBookshelfIntroduceBook(
-  book: Omit<IBookshelfIntroduceBook, 'id' | 'createdAt'>,
+export async function createBookshelfIntroduce(
+  book: Omit<IBookshelfIntroduce, 'id' | 'createdAt'>,
 ) {
   const res = await axios.post(endpoints.bookshelf.introduce.add, { book });
-  const createdBook = res.data?.book as IBookshelfIntroduceBook | undefined;
+  const createdBook = res.data?.book as IBookshelfIntroduce | undefined;
 
   if (createdBook) {
     await mutate<BooksData>(
@@ -76,13 +76,13 @@ export async function createBookshelfIntroduceBook(
   return res.data;
 }
 
-export async function updateBookshelfIntroduceBook(
+export async function updateBookshelfIntroduce(
   id: string | number,
-  updates: Partial<IBookshelfIntroduceBook>,
+  updates: Partial<IBookshelfIntroduce>,
 ) {
   const res = await axios.put(endpoints.bookshelf.introduce.update(id), { updates });
 
-  const updatedBook = res.data?.book as IBookshelfIntroduceBook | undefined;
+  const updatedBook = res.data?.book as IBookshelfIntroduce | undefined;
   const normalizedId = String(id);
 
   if (updatedBook) {
@@ -114,7 +114,7 @@ export async function updateBookshelfIntroduceBook(
   return res.data;
 }
 
-export async function deleteBookshelfIntroduceBook(id: string | number) {
+export async function deleteBookshelfIntroduce(id: string | number) {
   const res = await axios.delete(endpoints.bookshelf.introduce.delete(id));
 
   const normalizedId = String(id);

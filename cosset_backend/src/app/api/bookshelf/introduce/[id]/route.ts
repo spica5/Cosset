@@ -3,10 +3,10 @@ import type { NextRequest } from 'next/server';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import {
-  getBookshelfIntroduceBookById,
-  updateBookshelfIntroduceBook,
-  deleteBookshelfIntroduceBook,
-} from 'src/models/bookshelf-introduce-books';
+  getBookshelfIntroduceById,
+  updateBookshelfIntroduce,
+  deleteBookshelfIntroduce,
+} from 'src/models/bookshelf-introduce';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,7 +24,7 @@ export async function GET(
       return response({ message: 'Invalid book id' }, STATUS.BAD_REQUEST);
     }
 
-    const book = await getBookshelfIntroduceBookById(bookId);
+    const book = await getBookshelfIntroduceById(bookId);
 
     if (!book) {
       return response({ message: 'Book not found' }, STATUS.NOT_FOUND);
@@ -63,7 +63,7 @@ export async function PUT(
       return response({ message: 'File URL is required' }, STATUS.BAD_REQUEST);
     }
 
-    const book = await updateBookshelfIntroduceBook(bookId, {
+    const book = await updateBookshelfIntroduce(bookId, {
       title: updates.title,
       description: updates.description,
       coverImage: updates.coverImage,
@@ -89,7 +89,7 @@ export async function DELETE(
       return response({ message: 'Invalid book id' }, STATUS.BAD_REQUEST);
     }
 
-    const deleted = await deleteBookshelfIntroduceBook(bookId);
+    const deleted = await deleteBookshelfIntroduce(bookId);
 
     if (!deleted) {
       return response({ message: 'Book not found' }, STATUS.NOT_FOUND);

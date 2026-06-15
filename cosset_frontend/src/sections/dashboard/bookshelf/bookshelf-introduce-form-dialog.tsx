@@ -1,6 +1,6 @@
 'use client';
 
-import type { IBookshelfIntroduceBook } from 'src/types/bookshelf-introduce-book';
+import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
 import { useState, useEffect, useCallback } from 'react';
 
@@ -20,9 +20,9 @@ import { getS3SignedUrl } from 'src/utils/helper';
 
 import { uploadFileToS3 } from 'src/actions/upload';
 import {
-  createBookshelfIntroduceBook,
-  updateBookshelfIntroduceBook,
-} from 'src/actions/bookshelf-introduce-book';
+  createBookshelfIntroduce,
+  updateBookshelfIntroduce,
+} from 'src/actions/bookshelf-introduce';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -48,7 +48,7 @@ const emptyForm: FormState = {
 
 type Props = {
   open: boolean;
-  book?: IBookshelfIntroduceBook | null;
+  book?: IBookshelfIntroduce | null;
   onClose: () => void;
   onSaved?: () => void;
 };
@@ -63,7 +63,7 @@ const parseNullableInteger = (value: string): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-export function BookshelfIntroduceBookFormDialog({ open, book, onClose, onSaved }: Props) {
+export function BookshelfIntroduceFormDialog({ open, book, onClose, onSaved }: Props) {
   const isEditMode = !!book;
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -206,10 +206,10 @@ export function BookshelfIntroduceBookFormDialog({ open, book, onClose, onSaved 
       };
 
       if (isEditMode && book) {
-        await updateBookshelfIntroduceBook(book.id, payload);
+        await updateBookshelfIntroduce(book.id, payload);
         toast.success('Book updated successfully.');
       } else {
-        await createBookshelfIntroduceBook(payload);
+        await createBookshelfIntroduce(payload);
         toast.success('Book added successfully.');
       }
 

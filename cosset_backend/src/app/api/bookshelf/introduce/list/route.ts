@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { getAllBookshelfIntroduceBooks } from 'src/models/bookshelf-introduce-books';
+import { getAllBookshelfIntroduce } from 'src/models/bookshelf-introduce';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const limit = Number.parseInt(searchParams.get('limit') ?? '100', 10);
     const offset = Number.parseInt(searchParams.get('offset') ?? '0', 10);
 
-    const books = await getAllBookshelfIntroduceBooks(
+    const books = await getAllBookshelfIntroduce(
       Number.isNaN(limit) ? 100 : limit,
       Number.isNaN(offset) ? 0 : offset,
     );

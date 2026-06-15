@@ -1,4 +1,4 @@
-export type IBookshelfIntroduceBook = {
+export type IBookshelfIntroduce = {
   id: number;
   title: string;
   description?: string | null;

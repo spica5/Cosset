@@ -1,6 +1,6 @@
 'use client';
 
-import type { IBookshelfIntroduceBook } from 'src/types/bookshelf-introduce-book';
+import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
 import { useState, useCallback } from 'react';
 
@@ -17,9 +17,9 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import {
-  useGetBookshelfIntroduceBooks,
-  deleteBookshelfIntroduceBook,
-} from 'src/actions/bookshelf-introduce-book';
+  useGetBookshelfIntroduce,
+  deleteBookshelfIntroduce,
+} from 'src/actions/bookshelf-introduce';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -32,8 +32,8 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 import { FREE_EBOOK_SOURCES } from '../bookshelf-free-ebook-sources';
-import { BookshelfIntroduceBookCard } from '../bookshelf-introduce-book-card';
-import { BookshelfIntroduceBookFormDialog } from '../bookshelf-introduce-book-form-dialog';
+import { BookshelfIntroduceCard } from '../bookshelf-introduce-card';
+import { BookshelfIntroduceFormDialog } from '../bookshelf-introduce-form-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -41,17 +41,17 @@ export function BookshelfIntroduceView() {
   const { user } = useAuthContext();
   const canManage = isUserAdmin(user?.role);
 
-  const { books, booksLoading } = useGetBookshelfIntroduceBooks();
+  const { books, booksLoading } = useGetBookshelfIntroduce();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingBook, setEditingBook] = useState<IBookshelfIntroduceBook | null>(null);
+  const [editingBook, setEditingBook] = useState<IBookshelfIntroduce | null>(null);
 
   const handleOpenCreate = useCallback(() => {
     setEditingBook(null);
     setDialogOpen(true);
   }, []);
 
-  const handleOpenEdit = useCallback((book: IBookshelfIntroduceBook) => {
+  const handleOpenEdit = useCallback((book: IBookshelfIntroduce) => {
     setEditingBook(book);
     setDialogOpen(true);
   }, []);
@@ -61,14 +61,14 @@ export function BookshelfIntroduceView() {
     setEditingBook(null);
   }, []);
 
-  const handleDelete = useCallback(async (book: IBookshelfIntroduceBook) => {
+  const handleDelete = useCallback(async (book: IBookshelfIntroduce) => {
     const confirmed = window.confirm(`Delete "${book.title}"?`);
     if (!confirmed) {
       return;
     }
 
     try {
-      await deleteBookshelfIntroduceBook(book.id);
+      await deleteBookshelfIntroduce(book.id);
       toast.success('Book deleted successfully.');
     } catch (error) {
       console.error('Failed to delete book:', error);
@@ -188,7 +188,7 @@ export function BookshelfIntroduceView() {
                 }}
               >
                 {books.map((book) => (
-                  <BookshelfIntroduceBookCard
+                  <BookshelfIntroduceCard
                     key={book.id}
                     book={book}
                     canManage={canManage}
@@ -299,7 +299,7 @@ export function BookshelfIntroduceView() {
         </Card>
       </Stack>
 
-      <BookshelfIntroduceBookFormDialog
+      <BookshelfIntroduceFormDialog
         open={dialogOpen}
         book={editingBook}
         onClose={handleCloseDialog}
