@@ -317,11 +317,13 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
     <Box
       sx={{
         position: 'fixed',
-        top: { xs: 12, sm: 16 },
-        left: { xs: 12, sm: 16 },
+        top: { xs: 8, sm: 16 },
+        left: { xs: 100, sm: 'auto' },
+        right: { xs: 80, sm: 120 },
         zIndex: theme.zIndex.snackbar,
         pointerEvents: 'auto',
-        width: { xs: 'min(280px, calc(100vw - 24px))', sm: 300 },
+        width: { xs: 'auto', sm: 300 },
+        maxWidth: { xs: 'calc(100vw - 96px)', sm: 300 },
       }}
     >
       <Stack

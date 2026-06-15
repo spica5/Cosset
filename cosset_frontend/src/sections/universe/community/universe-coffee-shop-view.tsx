@@ -53,6 +53,8 @@ import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe
 import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
 import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
+import { UniverseCoffeeShopMobileDock } from 'src/sections/universe/community/universe-coffee-shop-mobile-dock';
+import { COFFEE_SHOP_MOBILE_DOCK } from 'src/sections/universe/community/coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -598,12 +600,12 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       <Stack
         sx={{
           position: 'fixed',
-          top: { xs: 12, sm: 16 },
-          right: { xs: 12, sm: 24 },
+          top: { xs: 8, sm: 16 },
+          right: { xs: 8, sm: 24 },
           zIndex: 10,
-          alignItems: 'flex-start',
-          gap: 0,
-          maxHeight: 'calc(100dvh - 24px)',
+          alignItems: 'flex-end',
+          gap: 0.75,
+          maxHeight: 'calc(100dvh - 16px)',
           pointerEvents: 'auto',
         }}
       >
@@ -619,7 +621,9 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             textTransform: 'none',
             fontWeight: 600,
             flexShrink: 0,
-            width: 80,
+            minWidth: { xs: 64, sm: 80 },
+            px: { xs: 1, sm: 1.5 },
+            fontSize: { xs: 12, sm: 14 },
             '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
           }}
           disabled={!isPresent}
@@ -639,7 +643,9 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
                 border: isHidden ? '1px solid' : '1px solid transparent',
                 borderColor: isHidden ? 'warning.main' : 'rgba(255,255,255,0.4)',
                 transition: 'all 0.3s',
-                width: 80,
+                minWidth: { xs: 64, sm: 80 },
+                px: { xs: 1, sm: 1.5 },
+                fontSize: { xs: 12, sm: 14 },
                 '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
               }}
               title={isHidden ? 'You are hidden - Click to show' : 'Hide yourself from the list'}
@@ -653,17 +659,26 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       <Stack
         sx={{
           position: 'fixed',
-          top: { xs: 82, sm: 100 },
-          left: { xs: 12, sm: 24 },
+          bottom: { xs: 10, sm: 16 },
+          left: { xs: '10px', sm: '20px' },
+          transform: { xs: 'none', sm: 'none' },
           zIndex: 10,
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: 1.25,
-          maxHeight: 'calc(100dvh - 24px)',
           pointerEvents: 'auto',
+          width: {
+            xs: `calc(100vw - ${COFFEE_SHOP_MOBILE_DOCK.rightInset + COFFEE_SHOP_MOBILE_DOCK.fabSize + 24}px)`,
+            sm: 'auto',
+          },
+          maxWidth: {
+            xs: `calc(100vw - ${COFFEE_SHOP_MOBILE_DOCK.rightInset + COFFEE_SHOP_MOBILE_DOCK.fabSize + 24}px)`,
+            sm: 'min(90vw, 480px)',
+          },
         }}
       >
         {!isGradient && resolvedImageUrls.length > 1 && (
           <Stack
+            direction="row"
             spacing={1}
             sx={{
               py: 1,
@@ -672,9 +687,11 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
               bgcolor: 'rgba(0,0,0,0.45)',
               border: '1px solid rgba(255,255,255,0.12)',
               backdropFilter: 'blur(8px)',
-              height: '40vh',
-              maxHeight: '40vh',
-              overflowY: 'auto',
+              maxHeight: 75,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              width: 1,
+              justifyContent: 'center',
             }}
           >
             {resolvedImageUrls.map((url, index) => (
@@ -690,8 +707,8 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
                   }
                 }}
                 sx={{
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   flexShrink: 0,
                   borderRadius: 1,
                   cursor: 'pointer',
@@ -713,11 +730,28 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         )}
       </Stack>
 
-      <Stack sx={{ position: 'relative', zIndex: 1, p: 4, pl: { xs: 10, sm: 14 } , display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',}}>
+      <Stack
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          px: { xs: 2, sm: 4 },
+          py: { xs: 1.5, sm: 4 },
+          pt: { xs: 7, sm: 4 },
+          pl: { xs: 2, sm: 14 },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Typography
           variant="subtitle2"
-          sx={{ color: 'common.white', textShadow: '0 2px 8px rgba(0,0,0,0.45)',textAlign: 'center', fontSize: '18px'}}
+          sx={{
+            color: 'common.white',
+            textShadow: '0 2px 8px rgba(0,0,0,0.45)',
+            textAlign: 'center',
+            fontSize: { xs: 16, sm: 18 },
+            px: { xs: 6, sm: 0 },
+          }}
         >
           {coffeeShop.title || coffeeShop.name}
         </Typography>
@@ -728,6 +762,8 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         selectedPrivateReceiverId={selectedPrivateReceiverId}
         onSelectPrivateReceiver={handleSelectPrivateReceiver}
       />
+
+      <UniverseCoffeeShopMobileDock />
 
       <UniverseCoffeeShopMenu coffeeShopId={coffeeShopId} isPresent={isPresent} />
 

@@ -153,7 +153,7 @@ export function CoffeeShopItem({
     <Card sx={{ p: 1.25, border: '1px solid', borderColor: 'divider' }}>
       <Stack spacing={1}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-          <Typography variant="subtitle2" noWrap sx={{ maxWidth: canManage ? 190 : 1, flex: 1 }}>
+          <Typography variant="subtitle2" noWrap sx={{ minWidth: 0, flex: 1 }}>
             {title || name}
           </Typography>
 
@@ -178,33 +178,57 @@ export function CoffeeShopItem({
         <Box
           onClick={openBackgroundPreviewWindow}
           sx={{
+            position: 'relative',
             width: '100%',
-            mx: 'auto',
-            height: 400,
+            pt: { xs: '56%', sm: '52%', md: '50%' },
             borderRadius: 1.25,
             border: '1px solid',
             borderColor: 'divider',
-            ...previewBackground,
-            display: 'grid',
-            placeItems: 'center',
             cursor: 'zoom-in',
+            overflow: 'hidden',
           }}
         >
-          {!resolvedBackground ||
-          (!resolvedBackground.includes('gradient(') && !resolvedBackground.startsWith('http')) ? (
-            <Iconify icon="solar:gallery-bold" width={20} sx={{ color: 'text.disabled' }} />
-          ) : null}
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              ...previewBackground,
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            {!resolvedBackground ||
+            (!resolvedBackground.includes('gradient(') && !resolvedBackground.startsWith('http')) ? (
+              <Iconify icon="solar:gallery-bold" width={20} sx={{ color: 'text.disabled' }} />
+            ) : null}
+          </Box>
         </Box>
 
         <Typography variant="body2" color="text.secondary" noWrap>
           {name}
         </Typography>
 
-        <Typography variant="caption" color="text.secondary" sx={{ minHeight: 32 }}>
-          {(description || 'No description').slice(0, 86)}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            minHeight: { xs: 'auto', sm: 32 },
+          }}
+        >
+          {description || 'No description'}
         </Typography>
 
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gap={1}
+        >
           <Stack direction="row" spacing={1} alignItems="center">
             <Stack direction="row" spacing={0.5} alignItems="center">
               <Iconify icon="solar:chat-round-dots-bold" width={14} sx={{ color: 'text.secondary' }} />

@@ -140,6 +140,15 @@ export const endpoints = {
     delete: (id: string | number) => `/api/blog/${id}`,
     view: '/api/blog/view',
   },
+  bookshelf: {
+    introduce: {
+      list: '/api/bookshelf/introduce/list',
+      add: '/api/bookshelf/introduce/new',
+      details: (id: string | number) => `/api/bookshelf/introduce/${id}`,
+      update: (id: string | number) => `/api/bookshelf/introduce/${id}`,
+      delete: (id: string | number) => `/api/bookshelf/introduce/${id}`,
+    },
+  },
   post: {
     list: '/api/post/list',
     latest: '/api/post/latest',

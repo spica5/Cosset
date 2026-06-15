@@ -17,6 +17,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { CONFIG } from 'src/config-global';
 
@@ -53,6 +55,13 @@ import {
   COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
   COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
 } from 'src/types/coffee-shop-chat';
+
+import {
+  COFFEE_SHOP_MOBILE_PANEL_EVENT,
+  closeCoffeeShopMobilePanel,
+  coffeeShopMobileChatFormBoxSx,
+  type CoffeeShopMobilePanel,
+} from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -312,10 +321,12 @@ export function UniverseCoffeeShopChat({
   onSelectPrivateReceiver,
   onSystemNotification,
 }: ChatProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { authenticated, user, loading: authLoading } = useAuthContext();
   const channelName = useMemo(() => channelNameForShop(coffeeShopId), [coffeeShopId]);
 
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<CoffeeShopChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [guestName, setGuestName] = useState('');
@@ -383,6 +394,40 @@ export function UniverseCoffeeShopChat({
   useEffect(() => {
     setPortalTarget(document.body);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return undefined;
+    }
+
+    const handleMobilePanelChange = (event: Event) => {
+      const panel = (event as CustomEvent<CoffeeShopMobilePanel>).detail;
+      setOpen(panel === 'chat');
+    };
+
+    window.addEventListener(COFFEE_SHOP_MOBILE_PANEL_EVENT, handleMobilePanelChange);
+
+    return () => {
+      window.removeEventListener(COFFEE_SHOP_MOBILE_PANEL_EVENT, handleMobilePanelChange);
+    };
+  }, [isMobile]);
+
+  const handleClosePanel = useCallback(() => {
+    if (isMobile) {
+      closeCoffeeShopMobilePanel();
+      return;
+    }
+
+    setOpen(false);
+  }, [isMobile]);
 
   const resolvedFileIdsRef = useRef<Set<string>>(new Set());
 
@@ -1019,15 +1064,21 @@ export function UniverseCoffeeShopChat({
     return null;
   }
 
+  if (isMobile && !open) {
+    return null;
+  }
+
   const panel = (
     <Box
       sx={{
         position: 'fixed',
-        right: { xs: 12, sm: 24 },
-        bottom: { xs: 12, sm: 24 },
-        zIndex: (theme) => theme.zIndex.snackbar,
+        left: { xs: coffeeShopMobileChatFormBoxSx.left, sm: 'auto' },
+        right: { xs: coffeeShopMobileChatFormBoxSx.right, sm: 24 },
+        bottom: { xs: coffeeShopMobileChatFormBoxSx.bottom, sm: 24 },
+        zIndex: (tm) => tm.zIndex.snackbar,
         maxWidth: '100%',
-        width: 360,
+        width: { xs: coffeeShopMobileChatFormBoxSx.width, sm: 360 },
+        maxHeight: { xs: coffeeShopMobileChatFormBoxSx.maxHeight, sm: 'none' },
         pointerEvents: 'auto',
       }}
     >
@@ -1045,22 +1096,30 @@ export function UniverseCoffeeShopChat({
           direction="row"
           alignItems="center"
           justifyContent="space-between"
+          spacing={0.5}
           sx={{
             px: 1.5,
             py: 1,
             borderBottom: open ? '1px solid rgba(255,255,255,0.08)' : 'none',
-            cursor: 'pointer',
+            cursor: isMobile ? 'default' : 'pointer',
+            minWidth: 0,
           }}
         >
-          <Stack direction="row" alignItems="center" spacing={1}  onClick={() => setOpen((v) => !v)}>
-            <Iconify icon="solar:chat-round-dots-bold" width={22} sx={{ color: 'common.white' }} />
-            <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            onClick={isMobile ? undefined : () => setOpen((v) => !v)}
+            sx={{ minWidth: 0, flex: 1 }}
+          >
+            <Iconify icon="solar:chat-round-dots-bold" width={22} sx={{ color: 'common.white', flexShrink: 0 }} />
+            <Typography variant="subtitle2" noWrap sx={{ color: 'common.white', minWidth: 0 }}>
               {chatModeTitle}
             </Typography>
           </Stack>
 
           {/* Chat Mode Selector - Icon Buttons */}
-            <Stack direction="row" spacing={0.5}>
+            <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
               <IconButton
                 size="small"
                 onClick={() => setChatMode('public')}
@@ -1112,17 +1171,25 @@ export function UniverseCoffeeShopChat({
                 sx={{ color: 'common.white' }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setOpen((v) => !v);
+                  if (isMobile) {
+                    handleClosePanel();
+                  } else {
+                    setOpen((v) => !v);
+                  }
                 }}
+                aria-label={isMobile ? 'Close chat' : open ? 'Collapse chat' : 'Expand chat'}
               >
-                <Iconify icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'} width={20} />
+                <Iconify
+                  icon={isMobile ? 'mingcute:close-line' : open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'}
+                  width={20}
+                />
               </IconButton>
             </Stack>
 
           
         </Stack>
 
-        <Collapse in={open}>
+        <Collapse in={isMobile ? true : open}>
           <Stack sx={{ p: 1.5, pt: 1 }} spacing={1.25}>
             {!hasClientPusherConfig && (
               <Typography variant="caption" sx={{ color: 'warning.light', lineHeight: 1.5 }}>
@@ -1225,7 +1292,7 @@ export function UniverseCoffeeShopChat({
             <Box
               ref={listRef}
               sx={{
-                maxHeight: 220,
+                maxHeight: { xs: '38vh', sm: 220 },
                 overflowY: 'auto',
                 pr: 0.5,
                 display: 'flex',

@@ -132,6 +132,16 @@ export const navData = [
           },
         ],
       },
+      {
+        title: 'Bookshelf',
+        path: paths.dashboard.bookshelf.root,
+        icon: ICONS.folder,
+        children: [
+          { title: 'Introduce', path: paths.dashboard.bookshelf.introduce },
+          { title: 'E-books', path: paths.dashboard.bookshelf.ebooks },
+          { title: 'Audio-books', path: paths.dashboard.bookshelf.audioBooks },
+        ],
+      },
       { title: 'Friends', path: paths.dashboard.friend, icon: ICONS.friend },
       { 
         title: 'Community', 

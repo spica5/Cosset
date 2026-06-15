@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import type { ICoffeeShopItem } from 'src/types/coffee-shop';
+
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
@@ -20,10 +21,23 @@ import { isUserAdmin } from 'src/auth/utils/role';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { orderBy } from 'src/utils/helper';
+
 import { Iconify } from 'src/components/universe/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 import { CoffeeShopItem } from 'src/sections/dashboard/coffee-shop/coffee-shop-item';
+import { CoffeeShopSort } from 'src/sections/dashboard/coffee-shop/coffee-shop-sort';
+
+// ----------------------------------------------------------------------
+
+const COFFEE_SHOP_SORT_OPTIONS = [
+  { label: 'Randomize', value: 'randomize' },
+  { label: 'Latest', value: 'latest' },
+  { label: 'Oldest', value: 'oldest' },
+  { label: 'Name (A-Z)', value: 'name' },
+  { label: 'Name (Z-A)', value: 'name-desc' },
+];
 
 // ----------------------------------------------------------------------
 
@@ -31,13 +45,21 @@ export function CoffeeShopListView() {
   const router = useRouter();
   const { user } = useAuthContext();
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('randomize');
+  const [randomFirstId, setRandomFirstId] = useState<number | null>(null);
   const canManage = isUserAdmin(user?.role);
 
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
 
-  // no auto-redirect: allow users to view the coffee shop list without being forced into a universe page
+  const handleSortBy = useCallback((newValue: string) => {
+    setSortBy(newValue);
 
-  const filteredData = useMemo(() => {
+    if (newValue === 'randomize') {
+      setRandomFirstId(null);
+    }
+  }, []);
+
+  const searchedData = useMemo(() => {
     const q = search.trim().toLowerCase();
 
     if (!q) {
@@ -59,6 +81,32 @@ export function CoffeeShopListView() {
       return haystack.includes(q);
     });
   }, [search, coffeeShops]);
+
+  useEffect(() => {
+    if (sortBy !== 'randomize') {
+      return;
+    }
+
+    if (searchedData.length === 0) {
+      setRandomFirstId(null);
+      return;
+    }
+
+    setRandomFirstId((current) => {
+      if (current !== null && searchedData.some((item) => item.id === current)) {
+        return current;
+      }
+
+      return searchedData[Math.floor(Math.random() * searchedData.length)].id;
+    });
+  }, [sortBy, searchedData]);
+
+  // no auto-redirect: allow users to view the coffee shop list without being forced into a universe page
+
+  const filteredData = useMemo(
+    () => applyFilter({ inputData: searchedData, sortBy, randomFirstId }),
+    [searchedData, sortBy, randomFirstId]
+  );
 
   const handleDelete = async (id: number) => {
     try {
@@ -96,21 +144,46 @@ export function CoffeeShopListView() {
               placeholder="Search by name, title, type, or file"
             />
 
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: { xs: 1, md: 'auto' } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                Showing {filteredData.length} of {coffeeShops.length}
-              </Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              sx={{ width: { xs: 1, md: 'auto' }, flexShrink: 0 }}
+            >
+              <CoffeeShopSort
+                sort={sortBy}
+                onSort={handleSortBy}
+                sortOptions={COFFEE_SHOP_SORT_OPTIONS}
+              />
 
-              {canManage ? (
-                <Button
-                  variant="contained"
-                  startIcon={<Iconify icon="mingcute:add-line" />}
-                  onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
-                  sx={{ whiteSpace: 'nowrap' }}
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1.5}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                sx={{ flexShrink: 0 }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    whiteSpace: 'nowrap',
+                    textAlign: { xs: 'center', sm: 'left' },
+                  }}
                 >
-                  Add Coffee Shop
-                </Button>
-              ) : null}
+                  Showing {filteredData.length} of {coffeeShops.length}
+                </Typography>
+
+                {canManage ? (
+                  <Button
+                    variant="contained"
+                    startIcon={<Iconify icon="mingcute:add-line" />}
+                    onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
+                    sx={{ whiteSpace: 'nowrap', width: { xs: 1, sm: 'auto' } }}
+                  >
+                    Add Coffee Shop
+                  </Button>
+                ) : null}
+              </Stack>
             </Stack>
           </Stack>
 
@@ -163,3 +236,48 @@ export function CoffeeShopListView() {
     </DashboardContent>
   );
 }
+
+// ----------------------------------------------------------------------
+
+type ApplyFilterProps = {
+  sortBy: string;
+  inputData: ICoffeeShopItem[];
+  randomFirstId?: number | null;
+};
+
+const applyFilter = ({ inputData, sortBy, randomFirstId }: ApplyFilterProps) => {
+  if (sortBy === 'randomize') {
+    if (!randomFirstId || inputData.length <= 1) {
+      return inputData;
+    }
+
+    const firstIndex = inputData.findIndex((item) => item.id === randomFirstId);
+
+    if (firstIndex === -1) {
+      return inputData;
+    }
+
+    const reordered = [...inputData];
+    const [firstItem] = reordered.splice(firstIndex, 1);
+
+    return [firstItem, ...reordered];
+  }
+
+  if (sortBy === 'latest') {
+    return orderBy(inputData, ['createdAt'], ['desc']);
+  }
+
+  if (sortBy === 'oldest') {
+    return orderBy(inputData, ['createdAt'], ['asc']);
+  }
+
+  if (sortBy === 'name') {
+    return orderBy(inputData, ['name'], ['asc']);
+  }
+
+  if (sortBy === 'name-desc') {
+    return orderBy(inputData, ['name'], ['desc']);
+  }
+
+  return inputData;
+};

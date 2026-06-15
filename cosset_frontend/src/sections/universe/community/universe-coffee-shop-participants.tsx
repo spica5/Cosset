@@ -83,25 +83,30 @@ export function UniverseCoffeeShopParticipants({
     <Box
       sx={{
         position: 'fixed',
-        right: { xs: 12, sm: 24 },
-        top: '35%',
-        transform: 'translateY(-50%)',
+        right: { xs: 8, sm: 24 },
+        top: { xs: 85, sm: '35%' },
+        bottom: { xs: 'auto', sm: 'auto' },
+        left: { xs: 8, sm: 'auto' },
+        transform: { xs: 'none', sm: 'translateY(-50%)' },
         zIndex: 7,
         pointerEvents: 'auto',
+        maxWidth: { xs: 'calc(100vw - 16px)', sm: 'none' },
       }}
     >
       <Stack
-        spacing={1.25}
+        direction={{ xs: 'row', sm: 'column' }}
+        spacing={{ xs: 1, sm: 1.25 }}
         alignItems="center"
         sx={{
-          py: 1.5,
-          px: 1,
+          py: { xs: 1, sm: 1.5 },
+          px: { xs: 1, sm: 1 },
           borderRadius: 2,
           bgcolor: 'rgba(0,0,0,0.35)',
           border: '1px solid rgba(255,255,255,0.12)',
           backdropFilter: 'blur(8px)',
-          maxHeight: 'min(50vh, 420px)',
-          overflowY: 'auto',
+          maxHeight: { xs: 72, sm: 'min(50vh, 420px)' },
+          overflowX: { xs: 'auto', sm: 'hidden' },
+          overflowY: { xs: 'hidden', sm: 'auto' },
         }}
       >
         <Typography
@@ -111,6 +116,7 @@ export function UniverseCoffeeShopParticipants({
             px: 0.5,
             textAlign: 'center',
             lineHeight: 1.2,
+            display: { xs: 'none', sm: 'block' },
           }}
         >
           Here today
@@ -176,7 +182,7 @@ export function UniverseCoffeeShopParticipants({
                   <CoffeeShopChatAvatar
                     photoKeyOrUrl={p.photoURL}
                     name={p.name}
-                    size={44}
+                    size={40}
                     showTooltip={false}
                     status={!p.leftAt ? 'online' : 'left'}
                     isFriend={isFriend}
@@ -189,6 +195,7 @@ export function UniverseCoffeeShopParticipants({
                         color: 'rgba(255,255,255,0.5)',
                         fontSize: '10px',
                         lineHeight: 1,
+                        display: { xs: 'none', sm: 'block' },
                       }}
                     >
                       {joinTimeStr}

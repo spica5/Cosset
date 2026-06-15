@@ -540,8 +540,18 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
           />
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} flexWrap="wrap">
-            <Button variant="outlined" component="label" disabled={backgroundUploading || saving}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            flexWrap="wrap"
+          >
+            <Button
+              variant="outlined"
+              component="label"
+              disabled={backgroundUploading || saving}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
+            >
               {backgroundUploading ? 'Uploading…' : 'Upload background images'}
               <input
                 hidden
@@ -587,7 +597,13 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   }
                 }}
                 size="small"
-                sx={{ width: 'fit-content' }}
+                sx={{
+                  width: { xs: 1, sm: 'fit-content' },
+                  flexWrap: 'wrap',
+                  '& .MuiToggleButton-root': {
+                    flex: { xs: 1, sm: 'none' },
+                  },
+                }}
               >
                 <ToggleButton value="day" disabled={saving}>
                   Day
@@ -662,9 +678,9 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
               position: 'relative',
               overflow: 'hidden',
               width: '100%',
-              maxWidth: 400,
+              maxWidth: { xs: 1, sm: 400 },
               mx: 'auto',
-              height: 300,
+              height: { xs: 220, sm: 260, md: 300 },
               borderRadius: 1.5,
               border: '1px solid',
               borderColor: 'divider',
@@ -797,16 +813,25 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
           ) : null}
 
 {menuItems.length > 0 && (
-            <Stack direction="row" flexWrap="wrap" gap={2}>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: {
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  sm: 'repeat(auto-fill, minmax(160px, 1fr))',
+                },
+              }}
+            >
               {menuItems.map((item, index) => {
                 const thumbUrl = menuResolvedUrls[index];
                 return (
-                  <Stack key={item.id} spacing={0.75} sx={{ width: 160 }}>
+                  <Stack key={item.id} spacing={0.75} sx={{ width: 1, minWidth: 0 }}>
                     <Box
                       sx={{
                         position: 'relative',
-                        width: 160,
-                        height: 120,
+                        width: 1,
+                        pt: '75%',
                         borderRadius: 1,
                         overflow: 'hidden',
                         border: '1px solid',
@@ -818,10 +843,24 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                           component="img"
                           alt={item.name}
                           src={thumbUrl}
-                          sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+                          sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: 1,
+                            height: 1,
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
                         />
                       ) : (
-                        <Box sx={{ width: 1, height: 1, display: 'grid', placeItems: 'center' }}>
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                          }}
+                        >
                           <CircularProgress size={20} />
                         </Box>
                       )}
@@ -867,7 +906,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   </Stack>
                 );
               })}
-            </Stack>
+            </Box>
           )}
 
           <Typography variant="subtitle2" sx={{ pt: 1 }}>
@@ -919,12 +958,12 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                     required
                     error={!track.title.trim()}
                     helperText={!track.title.trim() ? 'Required' : ' '}
-                    sx={{ flex: 1, minWidth: 200 }}
+                    sx={{ flex: 1, minWidth: { xs: 0, sm: 200 } }}
                   />
                   <Typography
                     variant="caption"
                     color="text.secondary"
-                    sx={{ flex: 1, minWidth: 88, whiteSpace: 'nowrap' }}
+                    sx={{ flex: 1, minWidth: { xs: 0, sm: 88 } }}
                   >
                     {formatMusicTrackFileInfo(track)}
                   </Typography>
@@ -994,15 +1033,26 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             </Box>
           </Dialog>
 
-          <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={1.5}
+            justifyContent="flex-end"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <Button
               color="inherit"
               onClick={() => router.push(paths.dashboard.community.coffeeShop.list)}
               disabled={saving}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
             >
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={saving}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
+            >
               {saving ? 'Saving...' : 'Save'}
             </Button>
           </Stack>

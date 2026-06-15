@@ -78,6 +78,12 @@ export const paths = {
       editItem: (collectionId: string | number, itemId: string | number) =>
         `${ROOTS.DASHBOARD}/collections/items/${collectionId}/${itemId}/edit`,
     },
+    bookshelf: {
+      root: `${ROOTS.DASHBOARD}/bookshelf`,
+      introduce: `${ROOTS.DASHBOARD}/bookshelf/introduce`,
+      ebooks: `${ROOTS.DASHBOARD}/bookshelf/e-books`,
+      audioBooks: `${ROOTS.DASHBOARD}/bookshelf/audio-books`,
+    },
     friend: `${ROOTS.DASHBOARD}/friend`,
     community: {
       root: `${ROOTS.DASHBOARD}/community`,

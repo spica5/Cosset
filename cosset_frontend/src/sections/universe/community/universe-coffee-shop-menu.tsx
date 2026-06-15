@@ -13,12 +13,24 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Iconify } from 'src/components/universe/iconify';
 
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { fetchCoffeeShopMenu, placeCoffeeShopOrder } from 'src/actions/coffee-shop';
 import { getS3SignedUrl } from 'src/utils/helper';
+
+import {
+  COFFEE_SHOP_MOBILE_DOCK,
+  COFFEE_SHOP_MOBILE_PANEL_EVENT,
+  closeCoffeeShopMobilePanel,
+  coffeeShopMobileFabSx,
+  coffeeShopMobileMenuFormBoxSx,
+  toggleCoffeeShopMobilePanel,
+  type CoffeeShopMobilePanel,
+} from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -30,6 +42,8 @@ type Props = {
 type MenuItemWithUrl = CoffeeShopMenuItem & { resolvedImageUrl?: string };
 
 export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { authenticated, user } = useAuthContext();
 
   const [open, setOpen] = useState(false);
@@ -44,6 +58,32 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
   useEffect(() => {
     setPortalTarget(document.body);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return undefined;
+    }
+
+    const handleMobilePanelChange = (event: Event) => {
+      const panel = (event as CustomEvent<CoffeeShopMobilePanel>).detail;
+      setOpen(panel === 'menu');
+    };
+
+    window.addEventListener(COFFEE_SHOP_MOBILE_PANEL_EVENT, handleMobilePanelChange);
+
+    return () => {
+      window.removeEventListener(COFFEE_SHOP_MOBILE_PANEL_EVENT, handleMobilePanelChange);
+    };
+  }, [isMobile]);
+
+  const handleClosePanel = useCallback(() => {
+    if (isMobile) {
+      closeCoffeeShopMobilePanel();
+      return;
+    }
+
+    setOpen(false);
+  }, [isMobile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,19 +175,86 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
     return null;
   }
 
+  const mobileMenuFab =
+    isMobile ? (
+      <Box
+        sx={{
+          position: 'fixed',
+          left: COFFEE_SHOP_MOBILE_DOCK.left,
+          top: COFFEE_SHOP_MOBILE_DOCK.top,
+          zIndex: (muiTheme) => muiTheme.zIndex.snackbar,
+          pointerEvents: 'auto',
+        }}
+      >
+        <IconButton
+          onClick={() => toggleCoffeeShopMobilePanel('menu')}
+          aria-label="Open menu"
+          aria-pressed={open}
+          sx={{
+            ...coffeeShopMobileFabSx,
+            p: 0,
+            overflow: 'hidden',
+            ...(open
+              ? {
+                  border: '2px solid',
+                  borderColor: 'warning.main',
+                }
+              : undefined),
+          }}
+        >
+          {loading ? (
+            <CircularProgress size={22} sx={{ color: 'common.white' }} />
+          ) : selectedItem?.resolvedImageUrl ? (
+            <Box sx={{ position: 'relative', width: 1, height: 1 }}>
+              <Box
+                component="img"
+                src={selectedItem.resolvedImageUrl}
+                alt={selectedItem.name}
+                sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  right: 3,
+                  bottom: 3,
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(15, 20, 28, 0.92)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                }}
+              >
+                <Iconify icon="solar:cup-hot-bold" width={12} sx={{ color: 'common.white' }} />
+              </Box>
+            </Box>
+          ) : (
+            <Iconify icon="solar:cup-hot-bold" width={32} />
+          )}
+        </IconButton>
+      </Box>
+    ) : null;
+
   const panel = (
     <Box
       sx={{
         position: 'fixed',
-        left: { xs: 12, sm: 24 },
-        bottom: { xs: 12, sm: 24 },
-        zIndex: (theme) => theme.zIndex.snackbar,
+        left: { xs: coffeeShopMobileMenuFormBoxSx.left, sm: 24 },
+        top: { xs: coffeeShopMobileMenuFormBoxSx.top, sm: 24 },
+        right: { xs: COFFEE_SHOP_MOBILE_DOCK.rightInset, sm: 'auto' },
+        bottom: 'auto',
+        zIndex: (tm) => tm.zIndex.snackbar,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
         gap: 1.25,
         pointerEvents: 'auto',
-        maxWidth: 'min(320px, calc(100vw - 24px))',
+        width: { xs: coffeeShopMobileMenuFormBoxSx.width, sm: 'auto' },
+        maxWidth: { xs: coffeeShopMobileMenuFormBoxSx.maxWidth, sm: 320 },
+        maxHeight: { xs: coffeeShopMobileMenuFormBoxSx.maxHeight, sm: 'none' },
       }}
     >
       {selectedItem?.resolvedImageUrl ? (
@@ -159,7 +266,8 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             bgcolor: 'rgba(15, 20, 28, 0.88)',
             border: '1px solid rgba(255,255,255,0.14)',
             backdropFilter: 'blur(10px)',
-            width: 200,
+            width: { xs: 1, sm: 200 },
+            display: { xs: 'none', sm: 'block' },
           }}
         >
           <Box
@@ -205,7 +313,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
           bgcolor: 'rgba(15, 20, 28, 0.88)',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255,255,255,0.12)',
-          width: 250,
+          width: { xs: 1, sm: 250 },
         }}
       >
         <Stack
@@ -216,9 +324,9 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             px: 1.5,
             py: 1,
             borderBottom: open ? '1px solid rgba(255,255,255,0.08)' : 'none',
-            cursor: 'pointer',
+            cursor: isMobile ? 'default' : 'pointer',
           }}
-          onClick={() => setOpen((v) => !v)}
+          onClick={isMobile ? undefined : () => setOpen((v) => !v)}
         >
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify icon="solar:cup-hot-bold" width={22} sx={{ color: 'common.white' }} />
@@ -231,15 +339,49 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             sx={{ color: 'common.white' }}
             onClick={(e) => {
               e.stopPropagation();
-              setOpen((v) => !v);
+              if (isMobile) {
+                handleClosePanel();
+              } else {
+                setOpen((v) => !v);
+              }
             }}
+            aria-label={isMobile ? 'Close menu' : open ? 'Collapse menu' : 'Expand menu'}
           >
-            <Iconify icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'} width={20} />
+            <Iconify
+              icon={isMobile ? 'mingcute:close-line' : open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'}
+              width={20}
+            />
           </IconButton>
         </Stack>
 
-        <Collapse in={open}>
+        <Collapse in={isMobile ? true : open}>
           <Stack sx={{ p: 1.5, pt: 0 }} spacing={1.25}>
+            {isMobile && selectedItem?.resolvedImageUrl ? (
+              <Box
+                sx={{
+                  width: 1,
+                  height: 140,
+                  borderRadius: 1,
+                  bgcolor: 'rgba(255,255,255,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  component="img"
+                  src={selectedItem.resolvedImageUrl}
+                  alt={selectedItem.name}
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+            ) : null}
             {loading ? (
               <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
                 <CircularProgress size={24} sx={{ color: 'common.white' }} />
@@ -249,7 +391,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
                 No drinks on the menu yet.
               </Typography>
             ) : (
-              <Stack spacing={1} sx={{ maxHeight: 220, overflowY: 'auto' }}>
+              <Stack spacing={1} sx={{ maxHeight: { xs: '40vh', sm: 220 }, overflowY: 'auto' }}>
                 {items.map((item) => {
                   const isSelected = item.id === selectedId;
                   return (
@@ -358,5 +500,11 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
   </Box>
   );
 
-  return createPortal(panel, portalTarget);
+  return createPortal(
+    <>
+      {mobileMenuFab}
+      {!isMobile || open ? panel : null}
+    </>,
+    portalTarget,
+  );
 }
