@@ -24,8 +24,30 @@ export const getCoffeeShopMobileChatFormRight = () =>
 export const getCoffeeShopMobileMenuFormWidth = () =>
   `calc(100vw - ${getCoffeeShopMobileMenuFormLeft() + COFFEE_SHOP_MOBILE_DOCK.rightInset}px)`;
 
+export const getCoffeeShopMobileLeftDockReservedWidth = () =>
+  COFFEE_SHOP_MOBILE_DOCK.left + getCoffeeShopMobileDockSideWidth();
+
 export const getCoffeeShopMobileChatFormWidth = () =>
-  `calc(100vw - ${COFFEE_SHOP_MOBILE_DOCK.left + getCoffeeShopMobileChatFormRight()}px)`;
+  `calc(100vw - ${getCoffeeShopMobileLeftDockReservedWidth() + getCoffeeShopMobileChatFormRight()}px)`;
+
+export const getCoffeeShopLeftDockStep = () =>
+  COFFEE_SHOP_MOBILE_DOCK.fabSize + COFFEE_SHOP_MOBILE_DOCK.gap;
+
+export const getCoffeeShopParticipantsDockBottom = (stackAboveBackground: boolean) =>
+  stackAboveBackground
+    ? COFFEE_SHOP_MOBILE_DOCK.bottom + getCoffeeShopLeftDockStep()
+    : COFFEE_SHOP_MOBILE_DOCK.bottom;
+
+export const coffeeShopLeftDockPanelSx = {
+  py: 1,
+  px: 1,
+  borderRadius: 2,
+  bgcolor: 'rgba(0,0,0,0.35)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  backdropFilter: 'blur(8px)',
+  maxHeight: 'min(50dvh, 360px)',
+  overflowY: 'auto' as const,
+} as const;
 
 export const coffeeShopMobileFabSx = {
   width: COFFEE_SHOP_MOBILE_DOCK.fabSize,
@@ -50,7 +72,7 @@ export const coffeeShopMobileMenuFormBoxSx = {
 
 export const coffeeShopMobileChatFormBoxSx = {
   position: 'fixed' as const,
-  left: COFFEE_SHOP_MOBILE_DOCK.left,
+  left: getCoffeeShopMobileLeftDockReservedWidth(),
   right: getCoffeeShopMobileChatFormRight(),
   bottom: COFFEE_SHOP_MOBILE_DOCK.bottom,
   width: getCoffeeShopMobileChatFormWidth(),

@@ -2,16 +2,26 @@
 
 import type { CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 
 import { useGetFriends } from 'src/actions/friend';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-shop-chat-avatar';
+import { Iconify } from 'src/components/universe/iconify';
+
+import {
+  COFFEE_SHOP_MOBILE_DOCK,
+  coffeeShopLeftDockPanelSx,
+  coffeeShopMobileFabSx,
+  getCoffeeShopParticipantsDockBottom,
+} from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -19,7 +29,10 @@ type Props = {
   participants: CoffeeShopChatParticipant[];
   selectedPrivateReceiverId?: string | null;
   onSelectPrivateReceiver?: (participant: CoffeeShopChatParticipant) => void;
+  stackAboveBackground?: boolean;
 };
+
+const THIRTY_MIN = 30 * 60 * 1000;
 
 const formatJoinTime = (joinedAtStr?: string): string => {
   if (!joinedAtStr) return '';
@@ -28,7 +41,6 @@ const formatJoinTime = (joinedAtStr?: string): string => {
     .replace(' ', 'T')
     .replace(/(\.\d{3})\d+$/, '$1');
 
-  // Add Z because DB time is UTC
   const joinedAt = new Date(`${normalized}Z`);
 
   if (Number.isNaN(joinedAt.getTime())) {
@@ -44,11 +56,103 @@ const formatJoinTime = (joinedAtStr?: string): string => {
   });
 };
 
+type ParticipantItemProps = {
+  participant: CoffeeShopChatParticipant;
+  userIdStr?: string;
+  friendIdSet: Set<string>;
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CoffeeShopChatParticipant) => void;
+  showJoinTime?: boolean;
+};
+
+function ParticipantItem({
+  participant: p,
+  userIdStr,
+  friendIdSet,
+  selectedPrivateReceiverId,
+  onSelectPrivateReceiver,
+  showJoinTime = false,
+}: ParticipantItemProps) {
+  const isFriend =
+    typeof p.userId === 'string' && userIdStr
+      ? friendIdSet.has(p.userId.trim().toLowerCase())
+      : false;
+
+  const isCurrentUser =
+    typeof p.userId === 'string' && userIdStr
+      ? p.userId.trim().toLowerCase() === userIdStr.toLowerCase()
+      : false;
+
+  const isSelectedReceiver =
+    typeof p.userId === 'string' && selectedPrivateReceiverId
+      ? p.userId.trim().toLowerCase() === selectedPrivateReceiverId.toLowerCase()
+      : false;
+
+  const canSelectForPrivate = Boolean(onSelectPrivateReceiver && isFriend && !isCurrentUser && !p.leftAt);
+  const joinTimeStr = formatJoinTime(p.joinedAt);
+  const tooltipTitle = `${p.name}${joinTimeStr ? ` • Joined ${joinTimeStr}` : ''}`;
+
+  return (
+    <Tooltip title={tooltipTitle} placement="left">
+      <Stack
+        alignItems="center"
+        spacing={0.5}
+        role={canSelectForPrivate ? 'button' : undefined}
+        tabIndex={canSelectForPrivate ? 0 : undefined}
+        onClick={() => {
+          if (canSelectForPrivate) {
+            onSelectPrivateReceiver?.(p);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (canSelectForPrivate && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onSelectPrivateReceiver?.(p);
+          }
+        }}
+        sx={{
+          cursor: canSelectForPrivate ? 'pointer' : 'default',
+          borderRadius: 1.5,
+          boxSizing: 'border-box',
+          border: '2px solid',
+          borderColor: isSelectedReceiver ? 'rgba(255, 100, 100, 0.8)' : 'transparent',
+          p: 0.5,
+        }}
+      >
+        <CoffeeShopChatAvatar
+          photoKeyOrUrl={p.photoURL}
+          name={p.name}
+          size={40}
+          showTooltip={false}
+          status={!p.leftAt ? 'online' : 'left'}
+          isFriend={isFriend}
+          isCurrentUser={isCurrentUser}
+        />
+        {showJoinTime && joinTimeStr ? (
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '10px',
+              lineHeight: 1,
+            }}
+          >
+            {joinTimeStr}
+          </Typography>
+        ) : null}
+      </Stack>
+    </Tooltip>
+  );
+}
+
 export function UniverseCoffeeShopParticipants({
   participants,
   selectedPrivateReceiverId,
   onSelectPrivateReceiver,
+  stackAboveBackground = false,
 }: Props) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
 
   const { user } = useAuthContext();
   const userIdStr = user?.id != null ? String(user.id) : undefined;
@@ -73,9 +177,22 @@ export function UniverseCoffeeShopParticipants({
     return s;
   }, [acceptedFriends, userIdStr]);
 
-  const THIRTY_MIN = 30 * 60 * 1000;
+  const visibleParticipants = useMemo(
+    () =>
+      participants.filter((p) => {
+        if (!p.leftAt) {
+          return true;
+        }
 
-  if (!participants?.length) {
+        const normalized = p.leftAt.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+        const leftTs = new Date(`${normalized}Z`).getTime();
+
+        return !Number.isNaN(leftTs) && Date.now() - leftTs <= THIRTY_MIN;
+      }),
+    [participants],
+  );
+
+  if (!visibleParticipants.length) {
     return null;
   }
 
@@ -83,129 +200,82 @@ export function UniverseCoffeeShopParticipants({
     <Box
       sx={{
         position: 'fixed',
-        right: { xs: 8, sm: 24 },
-        top: { xs: 85, sm: '35%' },
-        bottom: { xs: 'auto', sm: 'auto' },
-        left: { xs: 8, sm: 'auto' },
-        transform: { xs: 'none', sm: 'translateY(-50%)' },
-        zIndex: 7,
+        left: COFFEE_SHOP_MOBILE_DOCK.left,
+        bottom: getCoffeeShopParticipantsDockBottom(stackAboveBackground),
+        zIndex: theme.zIndex.snackbar,
         pointerEvents: 'auto',
-        maxWidth: { xs: 'calc(100vw - 16px)', sm: 'none' },
       }}
     >
-      <Stack
-        direction={{ xs: 'row', sm: 'column' }}
-        spacing={{ xs: 1, sm: 1.25 }}
-        alignItems="center"
-        sx={{
-          py: { xs: 1, sm: 1.5 },
-          px: { xs: 1, sm: 1 },
-          borderRadius: 2,
-          bgcolor: 'rgba(0,0,0,0.35)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          backdropFilter: 'blur(8px)',
-          maxHeight: { xs: 72, sm: 'min(50vh, 420px)' },
-          overflowX: { xs: 'auto', sm: 'hidden' },
-          overflowY: { xs: 'hidden', sm: 'auto' },
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'rgba(255,255,255,0.55)',
-            px: 0.5,
-            textAlign: 'center',
-            lineHeight: 1.2,
-            display: { xs: 'none', sm: 'block' },
-          }}
-        >
-          Here today
-        </Typography>
-        {participants
-          .map((p) => {
-            if (p.leftAt) {
-              const normalized = p.leftAt.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
-              const leftTs = new Date(`${normalized}Z`).getTime();
+      <Stack direction="column" alignItems="flex-start" spacing={1}>
+        {open ? (
+          <Stack spacing={1} sx={coffeeShopLeftDockPanelSx}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'rgba(255,255,255,0.55)',
+                px: 0.5,
+                textAlign: 'center',
+                lineHeight: 1.2,
+              }}
+            >
+              Here today
+            </Typography>
 
-              if (!Number.isNaN(leftTs) && Date.now() - leftTs > THIRTY_MIN) {
-                return null;
-              }
-            }
+            {visibleParticipants.map((p) => (
+              <ParticipantItem
+                key={p.userId}
+                participant={p}
+                userIdStr={userIdStr}
+                friendIdSet={friendIdSet}
+                selectedPrivateReceiverId={selectedPrivateReceiverId}
+                onSelectPrivateReceiver={onSelectPrivateReceiver}
+              />
+            ))}
+          </Stack>
+        ) : null}
 
-            const isFriend =
-              typeof p.userId === 'string' && userIdStr
-                ? friendIdSet.has(p.userId.trim().toLowerCase())
-                : false;
-
-            const isCurrentUser =
-              typeof p.userId === 'string' && userIdStr
-                ? p.userId.trim().toLowerCase() === userIdStr.toLowerCase()
-                : false;
-            const isSelectedReceiver =
-              typeof p.userId === 'string' && selectedPrivateReceiverId
-                ? p.userId.trim().toLowerCase() === selectedPrivateReceiverId.toLowerCase()
-                : false;
-            const canSelectForPrivate = Boolean(onSelectPrivateReceiver && isFriend && !isCurrentUser && !p.leftAt);
-            
-            const joinTimeStr = formatJoinTime(p.joinedAt);
-            const tooltipTitle = `${p.name}${joinTimeStr ? ` • Joined ${joinTimeStr}` : ''}`;
-
-            return (
-              <Tooltip key={p.userId} title={tooltipTitle} placement="left">
-                <Stack
-                  alignItems="center"
-                  spacing={0.5}
-                  role={canSelectForPrivate ? 'button' : undefined}
-                  tabIndex={canSelectForPrivate ? 0 : undefined}
-                  onClick={() => {
-                    if (canSelectForPrivate) {
-                      onSelectPrivateReceiver?.(p);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (canSelectForPrivate && (e.key === 'Enter' || e.key === ' ')) {
-                      e.preventDefault();
-                      onSelectPrivateReceiver?.(p);
-                    }
-                  }}
-                  sx={{
-                    cursor: canSelectForPrivate ? 'pointer' : 'default',
-                    borderRadius: 1.5,
-                    boxSizing: 'border-box',
+        <Box sx={{ position: 'relative' }}>
+          <IconButton
+            onClick={() => setOpen((value) => !value)}
+            aria-label={open ? 'Hide participants' : 'Show participants'}
+            aria-pressed={open}
+            sx={{
+              ...coffeeShopMobileFabSx,
+              ...(open
+                ? {
                     border: '2px solid',
-                    borderColor: isSelectedReceiver
-                      ? 'rgba(255, 100, 100, 0.8)'
-                      : 'transparent',
-                    p: 0.5,
-                  }}
-                >
-                  <CoffeeShopChatAvatar
-                    photoKeyOrUrl={p.photoURL}
-                    name={p.name}
-                    size={40}
-                    showTooltip={false}
-                    status={!p.leftAt ? 'online' : 'left'}
-                    isFriend={isFriend}
-                    isCurrentUser={isCurrentUser}
-                  />
-                  {joinTimeStr && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'rgba(255,255,255,0.5)',
-                        fontSize: '10px',
-                        lineHeight: 1,
-                        display: { xs: 'none', sm: 'block' },
-                      }}
-                    >
-                      {joinTimeStr}
-                    </Typography>
-                  )}
-                </Stack>
-              </Tooltip>
-            );
-          })
-          .filter(Boolean)}
+                    borderColor: 'info.main',
+                  }
+                : undefined),
+            }}
+          >
+            <Iconify icon="solar:users-group-rounded-bold" width={26} />
+          </IconButton>
+
+          {!open ? (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                minWidth: 20,
+                height: 20,
+                px: 0.5,
+                borderRadius: 10,
+                bgcolor: 'info.main',
+                color: 'common.white',
+                fontSize: 11,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid rgba(15, 20, 28, 0.88)',
+              }}
+            >
+              {visibleParticipants.length}
+            </Box>
+          ) : null}
+        </Box>
       </Stack>
     </Box>
   );

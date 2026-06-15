@@ -53,8 +53,8 @@ import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe
 import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
 import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
+import { UniverseCoffeeShopBackgroundPicker } from 'src/sections/universe/community/universe-coffee-shop-background-picker';
 import { UniverseCoffeeShopMobileDock } from 'src/sections/universe/community/universe-coffee-shop-mobile-dock';
-import { COFFEE_SHOP_MOBILE_DOCK } from 'src/sections/universe/community/coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -515,6 +515,8 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     [coffeeShop?.atmosphere],
   );
 
+  const hasBackgroundPicker = !isGradient && resolvedImageUrls.length > 1;
+
   const musicPlayer = (
     <UniverseCoffeeShopMusicPlayer
       coffeeShopId={coffeeShopId}
@@ -656,79 +658,6 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       </Stack>
 
       {musicPlayer}
-      <Stack
-        sx={{
-          position: 'fixed',
-          bottom: { xs: 10, sm: 16 },
-          left: { xs: '10px', sm: '20px' },
-          transform: { xs: 'none', sm: 'none' },
-          zIndex: 10,
-          alignItems: 'center',
-          gap: 1.25,
-          pointerEvents: 'auto',
-          width: {
-            xs: `calc(100vw - ${COFFEE_SHOP_MOBILE_DOCK.rightInset + COFFEE_SHOP_MOBILE_DOCK.fabSize + 24}px)`,
-            sm: 'auto',
-          },
-          maxWidth: {
-            xs: `calc(100vw - ${COFFEE_SHOP_MOBILE_DOCK.rightInset + COFFEE_SHOP_MOBILE_DOCK.fabSize + 24}px)`,
-            sm: 'min(90vw, 480px)',
-          },
-        }}
-      >
-        {!isGradient && resolvedImageUrls.length > 1 && (
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              py: 1,
-              px: 1,
-              borderRadius: 2,
-              bgcolor: 'rgba(0,0,0,0.45)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(8px)',
-              maxHeight: 75,
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              width: 1,
-              justifyContent: 'center',
-            }}
-          >
-            {resolvedImageUrls.map((url, index) => (
-              <Box
-                key={`${index}-${url.slice(0, 40)}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedBackgroundIndex(index)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedBackgroundIndex(index);
-                  }
-                }}
-                sx={{
-                  width: 56,
-                  height: 56,
-                  flexShrink: 0,
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  backgroundImage: `url(${url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  border:
-                    index === selectedBackgroundIndex
-                      ? '2px solid rgba(255,255,255,0.95)'
-                      : '1px solid rgba(255,255,255,0.25)',
-                  boxShadow:
-                    index === selectedBackgroundIndex ? '0 0 0 2px rgba(0,0,0,0.35)' : undefined,
-                  opacity: index === selectedBackgroundIndex ? 1 : 0.85,
-                  '&:hover': { opacity: 1 },
-                }}
-              />
-            ))}
-          </Stack>
-        )}
-      </Stack>
 
       <Stack
         sx={{
@@ -757,10 +686,19 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         </Typography>
       </Stack>
 
+      {hasBackgroundPicker ? (
+        <UniverseCoffeeShopBackgroundPicker
+          imageUrls={resolvedImageUrls}
+          selectedIndex={selectedBackgroundIndex}
+          onSelect={setSelectedBackgroundIndex}
+        />
+      ) : null}
+
       <UniverseCoffeeShopParticipants
         participants={participants}
         selectedPrivateReceiverId={selectedPrivateReceiverId}
         onSelectPrivateReceiver={handleSelectPrivateReceiver}
+        stackAboveBackground={hasBackgroundPicker}
       />
 
       <UniverseCoffeeShopMobileDock />
