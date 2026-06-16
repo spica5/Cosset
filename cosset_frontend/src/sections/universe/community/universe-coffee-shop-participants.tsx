@@ -218,7 +218,7 @@ export function UniverseCoffeeShopParticipants({
                 lineHeight: 1.2,
               }}
             >
-              Here today
+              Vistors
             </Typography>
 
             {visibleParticipants.map((p) => (
