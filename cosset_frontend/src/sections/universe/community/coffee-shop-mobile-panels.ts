@@ -4,10 +4,10 @@ export type CoffeeShopMobilePanel = 'menu' | 'chat' | null;
 
 export const COFFEE_SHOP_MOBILE_DOCK = {
   left: 12,
-  top: 10,
+  top: 12,
   bottom: 12,
   fabSize: 65,
-  gap: 8,
+  gap: 1,
   formGap: 8,
   rightInset: 10,
 } as const;
@@ -45,7 +45,7 @@ export const coffeeShopLeftDockPanelSx = {
   bgcolor: 'rgba(0,0,0,0.35)',
   border: '1px solid rgba(255,255,255,0.12)',
   backdropFilter: 'blur(8px)',
-  maxHeight: 'min(50dvh, 360px)',
+  maxHeight: 'min(50dvh, 250px)',
   overflowY: 'auto' as const,
 } as const;
 
@@ -59,6 +59,16 @@ export const coffeeShopMobileFabSx = {
   boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
   '&:hover': { bgcolor: 'rgba(0,0,0,0.72)' },
 } as const;
+
+export const COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH = 250;
+
+export const getCoffeeShopMobileMenuPanelMaxHeight = () =>
+  `calc(100dvh - ${
+    COFFEE_SHOP_MOBILE_DOCK.top +
+    COFFEE_SHOP_MOBILE_DOCK.fabSize +
+    COFFEE_SHOP_MOBILE_DOCK.gap +
+    COFFEE_SHOP_MOBILE_DOCK.bottom
+  }px)`;
 
 export const coffeeShopMobileMenuFormBoxSx = {
   position: 'fixed' as const,

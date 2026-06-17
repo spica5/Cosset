@@ -18,7 +18,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { endpoints } from 'src/utils/axios';
 import {
-  parseCoffeeShopAtmosphere,
+  parseCoffeeShopAtmosphereConfig,
+  getAtmosphereForBackgroundImage,
+  getAtmosphereForBackgroundIndex,
   getTimeOfDay,
   getBackgroundFilter,
 } from 'src/utils/coffee-shop-atmosphere';
@@ -510,9 +512,29 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     Boolean(activeImageUrl) &&
     (activeImageUrl.startsWith('http://') || activeImageUrl.startsWith('https://'));
 
-  const atmosphere = useMemo(
-    () => parseCoffeeShopAtmosphere(coffeeShop?.atmosphere),
+  const atmosphereConfig = useMemo(
+    () => parseCoffeeShopAtmosphereConfig(coffeeShop?.atmosphere),
     [coffeeShop?.atmosphere],
+  );
+
+  const activeAtmosphere = useMemo(() => {
+    if (isGradient) {
+      return atmosphereConfig.default;
+    }
+
+    return getAtmosphereForBackgroundIndex(
+      atmosphereConfig,
+      backgroundImageKeys,
+      selectedBackgroundIndex,
+    );
+  }, [atmosphereConfig, backgroundImageKeys, selectedBackgroundIndex, isGradient]);
+
+  const backgroundImageFilters = useMemo(
+    () =>
+      backgroundImageKeys.map((key) =>
+        getBackgroundFilter(getTimeOfDay(getAtmosphereForBackgroundImage(atmosphereConfig, key)), false),
+      ),
+    [atmosphereConfig, backgroundImageKeys],
   );
 
   const hasBackgroundPicker = !isGradient && resolvedImageUrls.length > 1;
@@ -566,7 +588,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             inset: 0,
             zIndex: 0,
             background: rawBackground,
-            filter: getBackgroundFilter(getTimeOfDay(atmosphere), true),
+            filter: getBackgroundFilter(getTimeOfDay(activeAtmosphere), true),
           }}
         />
       ) : null}
@@ -588,13 +610,13 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             bgcolor: '#0b0f14',
             cursor: 'zoom-in',
             display: 'block',
-            filter: getBackgroundFilter(getTimeOfDay(atmosphere), false),
+            filter: getBackgroundFilter(getTimeOfDay(activeAtmosphere), false),
           }}
         />
       ) : null}
 
       <CoffeeShopAtmosphereLayers
-        atmosphere={atmosphere}
+        atmosphere={activeAtmosphere}
         seed={coffeeShopId}
         layout="fullscreen"
       />
@@ -689,6 +711,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       {hasBackgroundPicker ? (
         <UniverseCoffeeShopBackgroundPicker
           imageUrls={resolvedImageUrls}
+          imageFilters={backgroundImageFilters}
           selectedIndex={selectedBackgroundIndex}
           onSelect={setSelectedBackgroundIndex}
         />
@@ -865,6 +888,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
                 objectFit: 'cover',
                 objectPosition: 'center',
                 display: 'block',
+                filter: getBackgroundFilter(getTimeOfDay(activeAtmosphere), false),
               }}
             />
           ) : null}

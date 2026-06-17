@@ -18,12 +18,14 @@ import {
 
 type Props = {
   imageUrls: string[];
+  imageFilters?: (string | undefined)[];
   selectedIndex: number;
   onSelect: (index: number) => void;
 };
 
 export function UniverseCoffeeShopBackgroundPicker({
   imageUrls,
+  imageFilters,
   selectedIndex,
   onSelect,
 }: Props) {
@@ -35,6 +37,7 @@ export function UniverseCoffeeShopBackgroundPicker({
   }
 
   const activeImageUrl = imageUrls[Math.min(selectedIndex, imageUrls.length - 1)] || imageUrls[0];
+  const activeImageFilter = imageFilters?.[Math.min(selectedIndex, imageUrls.length - 1)];
 
   return (
     <Box
@@ -69,7 +72,13 @@ export function UniverseCoffeeShopBackgroundPicker({
               component="img"
               src={activeImageUrl}
               alt="Selected background"
-              sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+              sx={{
+                width: 1,
+                height: 1,
+                objectFit: 'cover',
+                display: 'block',
+                filter: activeImageFilter,
+              }}
             />
           </IconButton>
 
@@ -155,6 +164,7 @@ export function UniverseCoffeeShopBackgroundPicker({
                   backgroundImage: `url(${url})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
+                  filter: imageFilters?.[index],
                   border:
                     index === selectedIndex
                       ? '2px solid rgba(255,255,255,0.95)'

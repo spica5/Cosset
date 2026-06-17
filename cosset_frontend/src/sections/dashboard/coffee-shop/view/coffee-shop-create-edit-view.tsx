@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -45,9 +45,14 @@ import {
   DEFAULT_COFFEE_SHOP_ATMOSPHERE,
   hasSparklesAtmosphere,
   hasCandlesAtmosphere,
-  parseCoffeeShopAtmosphere,
+  parseCoffeeShopAtmosphereConfig,
+  serializeCoffeeShopAtmosphereConfig,
+  getAtmosphereForBackgroundImage,
+  hasCustomAtmosphereForBackgroundImage,
   getTimeOfDay,
+  getBackgroundFilter,
   buildAtmosphereEffect,
+  type CoffeeShopAtmosphereConfig,
   type CoffeeShopAtmosphereEffect,
   type CoffeeShopTimeOfDay,
 } from 'src/utils/coffee-shop-atmosphere';
@@ -111,9 +116,10 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
   const [musicTracks, setMusicTracks] = useState<CoffeeShopMusicTrack[]>([]);
   const [musicUploading, setMusicUploading] = useState(false);
   const [musicError, setMusicError] = useState<string | null>(null);
-  const [atmosphere, setAtmosphere] = useState<CoffeeShopAtmosphereEffect>(
-    DEFAULT_COFFEE_SHOP_ATMOSPHERE,
-  );
+  const [atmosphereConfig, setAtmosphereConfig] = useState<CoffeeShopAtmosphereConfig>(() => ({
+    default: DEFAULT_COFFEE_SHOP_ATMOSPHERE,
+    images: {},
+  }));
 
   const uploadFileToStorage = async (file: File, folder: string): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
@@ -145,6 +151,16 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
         const merged = [...existing, ...uploadedKeys];
         return { ...prev, background: serializeCoffeeShopBackgroundKeys(merged) };
       });
+
+      setAtmosphereConfig((prev) => {
+        const images = { ...prev.images };
+        uploadedKeys.forEach((key) => {
+          if (!images[key]) {
+            images[key] = prev.default;
+          }
+        });
+        return { ...prev, images };
+      });
     } catch (error) {
       console.error('Failed to upload background images:', error);
     } finally {
@@ -164,6 +180,12 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
         ...prev,
         background: keys.length ? serializeCoffeeShopBackgroundKeys(keys) : DEFAULT_BACKGROUND,
       };
+    });
+
+    setAtmosphereConfig((prev) => {
+      const images = { ...prev.images };
+      delete images[keyToRemove];
+      return { ...prev, images };
     });
   };
 
@@ -301,7 +323,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     });
     setMenuItems(getCoffeeShopMenuItems(coffeeShop.menu, coffeeShop.files));
     setMusicTracks(getCoffeeShopMusicTracks(coffeeShop.music));
-    setAtmosphere(parseCoffeeShopAtmosphere(coffeeShop.atmosphere));
+    setAtmosphereConfig(parseCoffeeShopAtmosphereConfig(coffeeShop.atmosphere));
   }, [coffeeShop, isEditMode]);
 
   useEffect(() => {
@@ -408,6 +430,51 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
 
   const atmospherePreviewSeed = coffeeShopId || form.name || 'draft';
 
+  const selectedBackgroundKey =
+    backgroundKeysForThumbs[selectedBackgroundPreview] || backgroundKeysForThumbs[0] || '';
+
+  const selectedBackgroundEffect = useMemo(() => {
+    if (isCoffeeShopGradientBackground(form.background)) {
+      return atmosphereConfig.default;
+    }
+
+    if (!selectedBackgroundKey) {
+      return atmosphereConfig.default;
+    }
+
+    return getAtmosphereForBackgroundImage(atmosphereConfig, selectedBackgroundKey);
+  }, [atmosphereConfig, form.background, selectedBackgroundKey]);
+
+  const updateSelectedBackgroundAtmosphere = useCallback(
+    (effect: CoffeeShopAtmosphereEffect) => {
+      if (isCoffeeShopGradientBackground(form.background) || !selectedBackgroundKey) {
+        setAtmosphereConfig((prev) => ({ ...prev, default: effect }));
+        return;
+      }
+
+      setAtmosphereConfig((prev) => ({
+        ...prev,
+        images: { ...prev.images, [selectedBackgroundKey]: effect },
+      }));
+    },
+    [form.background, selectedBackgroundKey],
+  );
+
+  const backgroundAtmosphereFilter = useMemo(
+    () =>
+      getBackgroundFilter(
+        getTimeOfDay(selectedBackgroundEffect),
+        isCoffeeShopGradientBackground(form.background),
+      ),
+    [selectedBackgroundEffect, form.background],
+  );
+
+  const getImageAtmosphereFilter = useCallback(
+    (imageKey: string) =>
+      getBackgroundFilter(getTimeOfDay(getAtmosphereForBackgroundImage(atmosphereConfig, imageKey)), false),
+    [atmosphereConfig],
+  );
+
   const handleSave = async () => {
     const normalizedName = form.name.trim();
     const normalizedTitle = form.title.trim();
@@ -450,7 +517,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
         background: form.background.trim() || DEFAULT_BACKGROUND,
         menu: serializedMenu || null,
         music: serializedMusic || null,
-        atmosphere,
+        atmosphere: serializeCoffeeShopAtmosphereConfig(atmosphereConfig),
       };
 
       if (isEditMode && coffeeShopId) {
@@ -575,25 +642,28 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             </Typography>
           </Stack>
 
-          <Typography variant="subtitle2">Universe atmosphere</Typography>
+          <Typography variant="subtitle2">
+            {backgroundKeysForThumbs.length > 1 ? 'Atmosphere for selected background' : 'Universe atmosphere'}
+          </Typography>
 
           <Stack spacing={1.5}>
             {/* Time of Day Selection */}
             <Stack>
               <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary' }}>
                 Time of day
+                {backgroundKeysForThumbs.length > 1 ? ' (selected image)' : ''}
               </Typography>
               <ToggleButtonGroup
                 exclusive
-                value={getTimeOfDay(atmosphere)}
+                value={getTimeOfDay(selectedBackgroundEffect)}
                 onChange={(_event, value: CoffeeShopTimeOfDay | null) => {
                   if (value) {
                     const newAtmosphere = buildAtmosphereEffect(
                       value,
-                      hasSparklesAtmosphere(atmosphere),
-                      hasCandlesAtmosphere(atmosphere),
+                      hasSparklesAtmosphere(selectedBackgroundEffect),
+                      hasCandlesAtmosphere(selectedBackgroundEffect),
                     );
-                    setAtmosphere(newAtmosphere);
+                    updateSelectedBackgroundAtmosphere(newAtmosphere);
                   }
                 }}
                 size="small"
@@ -626,14 +696,14 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={hasSparklesAtmosphere(atmosphere)}
+                      checked={hasSparklesAtmosphere(selectedBackgroundEffect)}
                       onChange={(e) => {
                         const newAtmosphere = buildAtmosphereEffect(
-                          getTimeOfDay(atmosphere),
+                          getTimeOfDay(selectedBackgroundEffect),
                           e.target.checked,
-                          hasCandlesAtmosphere(atmosphere),
+                          hasCandlesAtmosphere(selectedBackgroundEffect),
                         );
-                        setAtmosphere(newAtmosphere);
+                        updateSelectedBackgroundAtmosphere(newAtmosphere);
                       }}
                       disabled={saving}
                     />
@@ -644,14 +714,14 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={hasCandlesAtmosphere(atmosphere)}
+                      checked={hasCandlesAtmosphere(selectedBackgroundEffect)}
                       onChange={(e) => {
                         const newAtmosphere = buildAtmosphereEffect(
-                          getTimeOfDay(atmosphere),
-                          hasSparklesAtmosphere(atmosphere),
+                          getTimeOfDay(selectedBackgroundEffect),
+                          hasSparklesAtmosphere(selectedBackgroundEffect),
                           e.target.checked,
                         );
-                        setAtmosphere(newAtmosphere);
+                        updateSelectedBackgroundAtmosphere(newAtmosphere);
                       }}
                       disabled={saving}
                     />
@@ -663,9 +733,10 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
           </Stack>
 
           <Typography variant="caption" color="text.secondary">
-            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.find((o) => o.value === atmosphere)?.description}
-            {' — '}
-            Shown on the universe coffee-shop page.
+            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.find((o) => o.value === selectedBackgroundEffect)?.description}
+            {backgroundKeysForThumbs.length > 1
+              ? ' — Select a thumbnail below to edit that background’s atmosphere.'
+              : ' — Shown on the universe coffee-shop page.'}
           </Typography>
 
           <Box
@@ -699,6 +770,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
+                  filter: backgroundAtmosphereFilter,
                 }}
               />
             ) : (
@@ -718,7 +790,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             )}
 
             <CoffeeShopAtmosphereLayers
-              atmosphere={atmosphere}
+              atmosphere={selectedBackgroundEffect}
               seed={atmospherePreviewSeed}
               layout="contained"
             />
@@ -728,6 +800,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             <Stack direction="row" flexWrap="wrap" gap={1} justifyContent="center">
               {backgroundKeysForThumbs.map((key, index) => {
                 const thumbUrl = backgroundResolvedUrls[index];
+                const hasCustomEffect = hasCustomAtmosphereForBackgroundImage(atmosphereConfig, key);
                 return (
                   <Box
                     key={key}
@@ -753,7 +826,13 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                         component="img"
                         alt=""
                         src={thumbUrl}
-                        sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+                        sx={{
+                          width: 1,
+                          height: 1,
+                          objectFit: 'cover',
+                          display: 'block',
+                          filter: getImageAtmosphereFilter(key),
+                        }}
                       />
                     ) : (
                       <Box sx={{ width: 1, height: 1, display: 'grid', placeItems: 'center' }}>
@@ -762,6 +841,20 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                         </Typography>
                       </Box>
                     )}
+                    {hasCustomEffect ? (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: 4,
+                          bottom: 4,
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: 'warning.main',
+                          border: '1px solid rgba(255,255,255,0.8)',
+                        }}
+                      />
+                    ) : null}
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -997,9 +1090,10 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                 position: 'relative',
                 width: '100vw',
                 height: '100vh',
-                bgcolor: 'common.black',
-                display: 'grid',
-                placeItems: 'center',
+                bgcolor: '#0b0f14',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 p: { xs: 1, md: 3 },
               }}
             >
@@ -1009,6 +1103,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                   position: 'absolute',
                   top: 12,
                   right: 12,
+                  zIndex: 2,
                   color: 'common.white',
                   border: '1px solid',
                   borderColor: 'rgba(255,255,255,0.35)',
@@ -1019,17 +1114,35 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
 
               <Box
                 sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
                   width: '100%',
                   height: '100%',
                   borderRadius: 1,
-                  bgcolor: 'common.black',
-                  background: isCoffeeShopGradientBackground(form.background) ? form.background : undefined,
-                  backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
-                  backgroundSize: 'contain',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
+                  bgcolor: '#0b0f14',
                 }}
-              />
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: isCoffeeShopGradientBackground(form.background)
+                      ? form.background
+                      : undefined,
+                    backgroundImage: backgroundPreviewUrl ? `url(${backgroundPreviewUrl})` : undefined,
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    filter: backgroundAtmosphereFilter,
+                  }}
+                />
+
+                <CoffeeShopAtmosphereLayers
+                  atmosphere={selectedBackgroundEffect}
+                  seed={atmospherePreviewSeed}
+                  layout="contained"
+                />
+              </Box>
             </Box>
           </Dialog>
 

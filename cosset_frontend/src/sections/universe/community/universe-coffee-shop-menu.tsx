@@ -24,9 +24,11 @@ import { getS3SignedUrl } from 'src/utils/helper';
 
 import {
   COFFEE_SHOP_MOBILE_DOCK,
+  COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH,
   COFFEE_SHOP_MOBILE_PANEL_EVENT,
   closeCoffeeShopMobilePanel,
-  coffeeShopMobileMenuFormBoxSx,
+  coffeeShopMobileFabSx,
+  getCoffeeShopMobileMenuPanelMaxHeight,
   toggleCoffeeShopMobilePanel,
   type CoffeeShopMobilePanel,
 } from './coffee-shop-mobile-panels';
@@ -258,48 +260,50 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         </Typography>
       ) : null}
 
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        onClick={handleToggleMenu}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleToggleMenu();
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label={open ? 'Hide menu' : 'Open menu'}
-        aria-pressed={open}
-        sx={{
-          mt: 1,
-          px: 1.25,
-          py: 0.75,
-          borderRadius: 1.5,
-          bgcolor: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          cursor: 'pointer',
-          ...(open
-            ? {
-                borderColor: 'warning.main',
-              }
-            : undefined),
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Iconify icon="solar:cup-hot-bold" width={20} sx={{ color: 'common.white' }} />
-          <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
-            Menu
-          </Typography>
+      {!isMobile ? (
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          onClick={handleToggleMenu}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleToggleMenu();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={open ? 'Hide menu' : 'Open menu'}
+          aria-pressed={open}
+          sx={{
+            mt: 1,
+            px: 1.25,
+            py: 0.75,
+            borderRadius: 1.5,
+            bgcolor: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            cursor: 'pointer',
+            ...(open
+              ? {
+                  borderColor: 'warning.main',
+                }
+              : undefined),
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Iconify icon="solar:cup-hot-bold" width={20} sx={{ color: 'common.white' }} />
+            <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
+              Menu
+            </Typography>
+          </Stack>
+          <Iconify
+            icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'}
+            width={18}
+            sx={{ color: 'common.white' }}
+          />
         </Stack>
-        <Iconify
-          icon={open ? 'eva:arrow-down-fill' : 'eva:arrow-up-fill'}
-          width={18}
-          sx={{ color: 'common.white' }}
-        />
-      </Stack>
+      ) : null}
     </Paper>
   ) : null;
 
@@ -315,30 +319,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         width: { xs: 1, sm: 240 },
       }}
     >
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{
-          px: 1.5,
-          py: 1,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
-          Menu
-        </Typography>
-        <IconButton
-          size="small"
-          sx={{ color: 'common.white' }}
-          onClick={handleClosePanel}
-          aria-label="Close menu"
-        >
-          <Iconify icon="mingcute:close-line" width={20} />
-        </IconButton>
-      </Stack>
-
-      <Stack sx={{ p: 1.5, pt: 0 }} spacing={1.25}>
+      <Stack sx={{ p: 1.5, pt: 1}} spacing={1.25}>
         {loading ? (
           <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
             <CircularProgress size={24} sx={{ color: 'common.white' }} />
@@ -348,7 +329,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             No drinks on the menu yet.
           </Typography>
         ) : (
-          <Stack spacing={1} sx={{ maxHeight: { xs: '40vh', sm: 220 }, overflowY: 'auto' }}>
+          <Stack spacing={1} sx={{ maxHeight: { xs: '30vh', sm: 220 }, overflowY: 'auto' }}>
             {items.map((item) => {
               const isSelected = item.id === selectedId;
               return (
@@ -407,7 +388,13 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
                           display: 'block',
                         }}
                       />
-                    ) : null}
+                    ) : (
+                      <Iconify
+                        icon="solar:cup-hot-bold"
+                        width={22}
+                        sx={{ color: 'rgba(255,255,255,0.45)' }}
+                      />
+                    )}
                   </Box>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="body2" sx={{ color: 'common.white' }} noWrap>
@@ -455,50 +442,121 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
     </Paper>
   ) : null;
 
+  const mobileMenuFab = (
+    <Box sx={{ position: 'relative', flexShrink: 0 }}>
+      <IconButton
+        onClick={handleToggleMenu}
+        aria-label={open ? 'Hide menu' : 'Open menu'}
+        aria-pressed={open}
+        sx={{
+          ...coffeeShopMobileFabSx,
+          p: 0,
+          overflow: 'hidden',
+          ...(open
+            ? {
+                border: '2px solid',
+                borderColor: 'warning.main',
+              }
+            : undefined),
+        }}
+      >
+        {loading ? (
+          <CircularProgress size={24} sx={{ color: 'common.white' }} />
+        ) : selectedItem?.resolvedImageUrl ? (
+          <Box
+            component="img"
+            src={selectedItem.resolvedImageUrl}
+            alt={selectedItem.name}
+            sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <Iconify icon="solar:cup-hot-bold" width={26} />
+        )}
+      </IconButton>
+
+      {selectedItem?.resolvedImageUrl ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            right: 3,
+            bottom: 3,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            bgcolor: 'rgba(15, 20, 28, 0.92)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            pointerEvents: 'none',
+          }}
+        >
+          <Iconify icon="solar:cup-hot-bold" width={12} sx={{ color: 'common.white' }} />
+        </Box>
+      ) : null}
+    </Box>
+  );
+
   const panel = (
     <Box
       sx={{
         position: 'fixed',
         left: { xs: COFFEE_SHOP_MOBILE_DOCK.left, sm: 24 },
         top: { xs: COFFEE_SHOP_MOBILE_DOCK.top, sm: 24 },
-        right: { xs: COFFEE_SHOP_MOBILE_DOCK.rightInset, sm: 'auto' },
+        right: { xs: 'auto', sm: 'auto' },
         bottom: 'auto',
         zIndex: (tm) => tm.zIndex.snackbar,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 0.2,
+        gap: { xs: COFFEE_SHOP_MOBILE_DOCK.gap, sm: 0.2 },
         pointerEvents: 'auto',
-        width: {
-          xs: open ? coffeeShopMobileMenuFormBoxSx.width : 'auto',
-          sm: 'auto',
-        },
-        maxWidth: {
-          xs: open ? coffeeShopMobileMenuFormBoxSx.maxWidth : 320,
-          sm: 320,
-        },
-        maxHeight: { xs: coffeeShopMobileMenuFormBoxSx.maxHeight, sm: 'none' },
+        width: { xs: COFFEE_SHOP_MOBILE_DOCK.fabSize, sm: 'auto' },
+        maxWidth: { xs: COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH, sm: 320 },
+        maxHeight: { xs: getCoffeeShopMobileMenuPanelMaxHeight(), sm: 'none' },
       }}
     >
-      {loading && !selectedItem ? (
-        <Paper
-          elevation={8}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            bgcolor: 'rgba(15, 20, 28, 0.88)',
-            border: '1px solid rgba(255,255,255,0.14)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size={24} sx={{ color: 'common.white' }} />
-        </Paper>
+      {isMobile ? mobileMenuFab : null}
+
+      {isMobile ? (
+        open ? (
+          <Stack
+            spacing={0.2}
+            sx={{
+              width: COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH,
+              maxWidth: COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH,
+              maxHeight: getCoffeeShopMobileMenuPanelMaxHeight(),
+              overflowY: 'auto',
+            }}
+          >
+            {drinkInfoCard}
+            {menuForm}
+          </Stack>
+        ) : null
       ) : (
-        drinkInfoCard
+        <>
+          {loading && !selectedItem ? (
+            <Paper
+              elevation={8}
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(15, 20, 28, 0.88)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                backdropFilter: 'blur(10px)',
+                display: 'flex',
+                justifyContent: 'center',
+              }}
+            >
+              <CircularProgress size={24} sx={{ color: 'common.white' }} />
+            </Paper>
+          ) : (
+            drinkInfoCard
+          )}
+          {menuForm}
+        </>
       )}
-      {menuForm}
     </Box>
   );
 

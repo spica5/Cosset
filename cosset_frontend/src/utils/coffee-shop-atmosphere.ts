@@ -173,3 +173,98 @@ export function getBackgroundFilter(
   }
   return undefined;
 }
+
+export type CoffeeShopAtmosphereConfig = {
+  default: CoffeeShopAtmosphereEffect;
+  images: Record<string, CoffeeShopAtmosphereEffect>;
+};
+
+export function parseCoffeeShopAtmosphereConfig(value: unknown): CoffeeShopAtmosphereConfig {
+  const raw = String(value ?? '').trim();
+
+  if (!raw) {
+    return { default: DEFAULT_COFFEE_SHOP_ATMOSPHERE, images: {} };
+  }
+
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw) as {
+        default?: unknown;
+        images?: Record<string, unknown>;
+      };
+
+      const images: Record<string, CoffeeShopAtmosphereEffect> = {};
+
+      if (parsed.images && typeof parsed.images === 'object') {
+        Object.entries(parsed.images).forEach(([key, effectValue]) => {
+          const normalizedKey = key.trim();
+          if (normalizedKey) {
+            images[normalizedKey] = parseCoffeeShopAtmosphere(effectValue);
+          }
+        });
+      }
+
+      return {
+        default: parseCoffeeShopAtmosphere(parsed.default),
+        images,
+      };
+    } catch {
+      return { default: parseCoffeeShopAtmosphere(raw), images: {} };
+    }
+  }
+
+  return { default: parseCoffeeShopAtmosphere(raw), images: {} };
+}
+
+export function serializeCoffeeShopAtmosphereConfig(config: CoffeeShopAtmosphereConfig): string {
+  const hasCustomImageEffects = Object.values(config.images).some(
+    (effect) => effect !== config.default,
+  );
+
+  if (!hasCustomImageEffects) {
+    return config.default;
+  }
+
+  return JSON.stringify({
+    default: config.default,
+    images: config.images,
+  });
+}
+
+export function getAtmosphereForBackgroundImage(
+  config: CoffeeShopAtmosphereConfig,
+  imageKey: string,
+): CoffeeShopAtmosphereEffect {
+  const normalizedKey = imageKey.trim();
+  if (!normalizedKey) {
+    return config.default;
+  }
+
+  return config.images[normalizedKey] ?? config.default;
+}
+
+export function getAtmosphereForBackgroundIndex(
+  config: CoffeeShopAtmosphereConfig,
+  backgroundKeys: string[],
+  index: number,
+): CoffeeShopAtmosphereEffect {
+  const key = backgroundKeys[index]?.trim();
+  if (!key) {
+    return config.default;
+  }
+
+  return getAtmosphereForBackgroundImage(config, key);
+}
+
+export function hasCustomAtmosphereForBackgroundImage(
+  config: CoffeeShopAtmosphereConfig,
+  imageKey: string,
+): boolean {
+  const normalizedKey = imageKey.trim();
+  if (!normalizedKey) {
+    return false;
+  }
+
+  const effect = config.images[normalizedKey];
+  return effect != null && effect !== config.default;
+}
