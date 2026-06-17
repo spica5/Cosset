@@ -52,7 +52,7 @@ export function CoffeeShopListView() {
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
 
   useEffect(() => {
-    void revalidateCoffeeShopList();
+    revalidateCoffeeShopList();
   }, []);
 
   const handleSortBy = useCallback((newValue: string) => {
