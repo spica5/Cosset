@@ -41,17 +41,20 @@ import {
   type CoffeeShopMusicTrack,
 } from 'src/utils/coffee-shop-music';
 import {
-  COFFEE_SHOP_ATMOSPHERE_OPTIONS,
   DEFAULT_COFFEE_SHOP_ATMOSPHERE,
   hasSparklesAtmosphere,
   hasCandlesAtmosphere,
+  hasBigSparklesAtmosphere,
+  hasDarkScreenAtmosphere,
+  getAtmosphereOverlays,
   parseCoffeeShopAtmosphereConfig,
   serializeCoffeeShopAtmosphereConfig,
   getAtmosphereForBackgroundImage,
   hasCustomAtmosphereForBackgroundImage,
+  getAtmosphereDescription,
   getTimeOfDay,
-  getBackgroundFilter,
-  buildAtmosphereEffect,
+  getAtmosphereBackgroundFilter,
+  buildAtmosphereFromOverlays,
   type CoffeeShopAtmosphereConfig,
   type CoffeeShopAtmosphereEffect,
   type CoffeeShopTimeOfDay,
@@ -462,8 +465,8 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
 
   const backgroundAtmosphereFilter = useMemo(
     () =>
-      getBackgroundFilter(
-        getTimeOfDay(selectedBackgroundEffect),
+      getAtmosphereBackgroundFilter(
+        selectedBackgroundEffect,
         isCoffeeShopGradientBackground(form.background),
       ),
     [selectedBackgroundEffect, form.background],
@@ -471,7 +474,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
 
   const getImageAtmosphereFilter = useCallback(
     (imageKey: string) =>
-      getBackgroundFilter(getTimeOfDay(getAtmosphereForBackgroundImage(atmosphereConfig, imageKey)), false),
+      getAtmosphereBackgroundFilter(getAtmosphereForBackgroundImage(atmosphereConfig, imageKey), false),
     [atmosphereConfig],
   );
 
@@ -658,12 +661,10 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                 value={getTimeOfDay(selectedBackgroundEffect)}
                 onChange={(_event, value: CoffeeShopTimeOfDay | null) => {
                   if (value) {
-                    const newAtmosphere = buildAtmosphereEffect(
-                      value,
-                      hasSparklesAtmosphere(selectedBackgroundEffect),
-                      hasCandlesAtmosphere(selectedBackgroundEffect),
+                    const overlays = getAtmosphereOverlays(selectedBackgroundEffect);
+                    updateSelectedBackgroundAtmosphere(
+                      buildAtmosphereFromOverlays(value, overlays),
                     );
-                    updateSelectedBackgroundAtmosphere(newAtmosphere);
                   }
                 }}
                 size="small"
@@ -698,12 +699,13 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                     <Checkbox
                       checked={hasSparklesAtmosphere(selectedBackgroundEffect)}
                       onChange={(e) => {
-                        const newAtmosphere = buildAtmosphereEffect(
-                          getTimeOfDay(selectedBackgroundEffect),
-                          e.target.checked,
-                          hasCandlesAtmosphere(selectedBackgroundEffect),
+                        const overlays = getAtmosphereOverlays(selectedBackgroundEffect);
+                        updateSelectedBackgroundAtmosphere(
+                          buildAtmosphereFromOverlays(getTimeOfDay(selectedBackgroundEffect), {
+                            ...overlays,
+                            sparkles: e.target.checked,
+                          }),
                         );
-                        updateSelectedBackgroundAtmosphere(newAtmosphere);
                       }}
                       disabled={saving}
                     />
@@ -716,24 +718,63 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
                     <Checkbox
                       checked={hasCandlesAtmosphere(selectedBackgroundEffect)}
                       onChange={(e) => {
-                        const newAtmosphere = buildAtmosphereEffect(
-                          getTimeOfDay(selectedBackgroundEffect),
-                          hasSparklesAtmosphere(selectedBackgroundEffect),
-                          e.target.checked,
+                        const overlays = getAtmosphereOverlays(selectedBackgroundEffect);
+                        updateSelectedBackgroundAtmosphere(
+                          buildAtmosphereFromOverlays(getTimeOfDay(selectedBackgroundEffect), {
+                            ...overlays,
+                            candles: e.target.checked,
+                          }),
                         );
-                        updateSelectedBackgroundAtmosphere(newAtmosphere);
                       }}
                       disabled={saving}
                     />
                   }
                   label="Candles"
                 />
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasBigSparklesAtmosphere(selectedBackgroundEffect)}
+                      onChange={(e) => {
+                        const overlays = getAtmosphereOverlays(selectedBackgroundEffect);
+                        updateSelectedBackgroundAtmosphere(
+                          buildAtmosphereFromOverlays(getTimeOfDay(selectedBackgroundEffect), {
+                            ...overlays,
+                            bigSparkles: e.target.checked,
+                          }),
+                        );
+                      }}
+                      disabled={saving}
+                    />
+                  }
+                  label="Big sparkles"
+                />
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasDarkScreenAtmosphere(selectedBackgroundEffect)}
+                      onChange={(e) => {
+                        const overlays = getAtmosphereOverlays(selectedBackgroundEffect);
+                        updateSelectedBackgroundAtmosphere(
+                          buildAtmosphereFromOverlays(getTimeOfDay(selectedBackgroundEffect), {
+                            ...overlays,
+                            darkScreen: e.target.checked,
+                          }),
+                        );
+                      }}
+                      disabled={saving}
+                    />
+                  }
+                  label="Dark screen"
+                />
               </Stack>
             </Stack>
           </Stack>
 
           <Typography variant="caption" color="text.secondary">
-            {COFFEE_SHOP_ATMOSPHERE_OPTIONS.find((o) => o.value === selectedBackgroundEffect)?.description}
+            {getAtmosphereDescription(selectedBackgroundEffect)}
             {backgroundKeysForThumbs.length > 1
               ? ' — Select a thumbnail below to edit that background’s atmosphere.'
               : ' — Shown on the universe coffee-shop page.'}
