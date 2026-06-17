@@ -48,6 +48,8 @@ type Props = {
 
 // Template images for design space
 const templateImages = [
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`, name: 'default1' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default4.png`, name: 'default2' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`, name: 'Modern Living Room1' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template4.jpg`, name: 'Modern Living Room2' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template3.jpg`, name: 'Classical Living Room' },

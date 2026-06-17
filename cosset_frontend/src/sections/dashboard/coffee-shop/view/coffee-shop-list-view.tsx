@@ -14,7 +14,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { useGetCoffeeShops, deleteCoffeeShop } from 'src/actions/coffee-shop';
+import { useGetCoffeeShops, deleteCoffeeShop, revalidateCoffeeShopList } from 'src/actions/coffee-shop';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -50,6 +50,10 @@ export function CoffeeShopListView() {
   const canManage = isUserAdmin(user?.role);
 
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
+
+  useEffect(() => {
+    void revalidateCoffeeShopList();
+  }, []);
 
   const handleSortBy = useCallback((newValue: string) => {
     setSortBy(newValue);

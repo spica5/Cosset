@@ -16,6 +16,22 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
+export const revalidateCoffeeShopList = async () => {
+  try {
+    await mutate(COFFEE_SHOP_LIST_ENDPOINT, undefined, { revalidate: true });
+  } catch {
+    // Ignore cache refresh failures; CRUD already succeeded on the server.
+  }
+};
+
+const revalidateCoffeeShopDetail = async (id: string | number) => {
+  try {
+    await mutate(endpoints.coffeeShop.details(id), undefined, { revalidate: true });
+  } catch {
+    // Ignore cache refresh failures; CRUD already succeeded on the server.
+  }
+};
+
 type CoffeeShopsData = {
   coffeeShops?: ICoffeeShopItem[];
 };
@@ -62,77 +78,25 @@ export async function createCoffeeShop(
   coffeeShop: Omit<ICoffeeShopItem, 'id' | 'createdAt'>,
 ) {
   const res = await axios.post(endpoints.coffeeShop.add, { coffeeShop });
-  const createdCoffeeShop = res.data?.coffeeShop as ICoffeeShopItem | undefined;
 
-  if (createdCoffeeShop) {
-    await mutate<CoffeeShopsData>(
-      COFFEE_SHOP_LIST_ENDPOINT,
-      (current) => ({
-        ...current,
-        coffeeShops: [createdCoffeeShop, ...(current?.coffeeShops || [])],
-      }),
-      false,
-    );
-  }
+  await revalidateCoffeeShopList();
 
-  await mutate(COFFEE_SHOP_LIST_ENDPOINT);
   return res.data;
 }
 
 export async function updateCoffeeShop(id: string | number, updates: Partial<ICoffeeShopItem>) {
   const res = await axios.put(endpoints.coffeeShop.update(id), { updates });
 
-  const updatedCoffeeShop = res.data?.coffeeShop as ICoffeeShopItem | undefined;
-  const normalizedId = String(id);
+  await Promise.all([revalidateCoffeeShopList(), revalidateCoffeeShopDetail(id)]);
 
-  if (updatedCoffeeShop) {
-    mutate<CoffeeShopsData>(
-      COFFEE_SHOP_LIST_ENDPOINT,
-      (current) => {
-        const currentList = current?.coffeeShops || [];
-        return {
-          ...current,
-          coffeeShops: currentList.map((item) =>
-            String(item.id) === normalizedId ? { ...item, ...updatedCoffeeShop } : item,
-          ),
-        };
-      },
-      false,
-    );
-
-    mutate<CoffeeShopData>(
-      endpoints.coffeeShop.details(id),
-      (current) => ({
-        ...current,
-        coffeeShop: current?.coffeeShop
-          ? { ...current.coffeeShop, ...updatedCoffeeShop }
-          : updatedCoffeeShop,
-      }),
-      false,
-    );
-  }
-
-  await Promise.all([
-    mutate(COFFEE_SHOP_LIST_ENDPOINT),
-    mutate(endpoints.coffeeShop.details(id)),
-  ]);
   return res.data;
 }
 
 export async function deleteCoffeeShop(id: string | number) {
   const res = await axios.delete(endpoints.coffeeShop.delete(id));
 
-  const normalizedId = String(id);
-  mutate<CoffeeShopsData>(
-    COFFEE_SHOP_LIST_ENDPOINT,
-    (current) => ({
-      ...current,
-      coffeeShops: (current?.coffeeShops || []).filter((item) => String(item.id) !== normalizedId),
-    }),
-    false,
-  );
+  await revalidateCoffeeShopList();
 
-  await mutate(COFFEE_SHOP_LIST_ENDPOINT);
   return res.data;
 }
 
