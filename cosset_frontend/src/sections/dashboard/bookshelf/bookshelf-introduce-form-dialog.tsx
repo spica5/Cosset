@@ -32,6 +32,7 @@ import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
 type FormState = {
   title: string;
+  author: string;
   description: string;
   coverImage: string;
   fileUrl: string;
@@ -40,6 +41,7 @@ type FormState = {
 
 const emptyForm: FormState = {
   title: '',
+  author: '',
   description: '',
   coverImage: '',
   fileUrl: '',
@@ -87,9 +89,13 @@ export function BookshelfIntroduceFormDialog({ open, book, onClose, onSaved }: P
       return;
     }
 
+    const legacyAuthor = (book.author || '').trim();
+    const legacyDescription = (book.description || '').trim();
+
     setForm({
       title: book.title || '',
-      description: book.description || '',
+      author: legacyAuthor || legacyDescription,
+      description: legacyAuthor ? legacyDescription : '',
       coverImage: book.coverImage || '',
       fileUrl: book.fileUrl || '',
       order: book.order != null ? String(book.order) : '',
@@ -199,6 +205,7 @@ export function BookshelfIntroduceFormDialog({ open, book, onClose, onSaved }: P
 
       const payload = {
         title: form.title.trim(),
+        author: form.author.trim() || null,
         description: form.description.trim() || null,
         coverImage,
         fileUrl: form.fileUrl.trim(),
@@ -251,13 +258,21 @@ export function BookshelfIntroduceFormDialog({ open, book, onClose, onSaved }: P
             />
 
             <TextField
+              label="Author"
+              value={form.author}
+              onChange={handleFieldChange('author')}
+              fullWidth
+              placeholder="e.g. Lee"
+            />
+
+            <TextField
               label="Description"
               value={form.description}
               onChange={handleFieldChange('description')}
               fullWidth
               multiline
               minRows={3}
-              placeholder="A short introduction about this book"
+              placeholder="A short summary about this book"
             />
 
             <TextField

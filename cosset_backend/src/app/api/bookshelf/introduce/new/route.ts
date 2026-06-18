@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
 
     const created = await createBookshelfIntroduce({
       title: book.title.trim(),
+      author: book.author ?? null,
       description: book.description ?? null,
       coverImage: book.coverImage ?? null,
       fileUrl: book.fileUrl.trim(),

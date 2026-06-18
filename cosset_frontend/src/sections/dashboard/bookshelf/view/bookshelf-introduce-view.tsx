@@ -28,11 +28,10 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
-import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 import { FREE_EBOOK_SOURCES } from '../bookshelf-free-ebook-sources';
-import { BookshelfIntroduceCard } from '../bookshelf-introduce-card';
+import { BookshelfIntroduceFeatured } from '../bookshelf-introduce-featured';
 import { BookshelfIntroduceFormDialog } from '../bookshelf-introduce-form-dialog';
 
 // ----------------------------------------------------------------------
@@ -85,7 +84,7 @@ export function BookshelfIntroduceView() {
           { name: 'Bookshelf', href: paths.dashboard.bookshelf.root },
           { name: 'Introduce' },
         ]}
-        sx={{ mb: { xs: 3, md: 5 } }}
+        sx={{ mb: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}
       />
 
       <Stack spacing={3}>
@@ -128,109 +127,35 @@ export function BookshelfIntroduceView() {
           </Stack>
         </Card>
 
-        <Card sx={{ p: { xs: 2.5, md: 4 } }}>
-          <Stack spacing={2.5}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              alignItems={{ sm: 'center' }}
-              justifyContent="space-between"
-              spacing={1.5}
-            >
-              <Box>
-                <Typography variant="h5" sx={{ mb: 1 }}>
-                  Featured books
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Browse recommended books with cover images and direct links to read them online.
-                </Typography>
-              </Box>
-
-              {canManage ? (
-                <Button
-                  variant="contained"
-                  startIcon={<Iconify icon="mingcute:add-line" />}
-                  onClick={handleOpenCreate}
-                  sx={{ flexShrink: 0 }}
-                >
-                  Add book
-                </Button>
-              ) : null}
-            </Stack>
-
-            {booksLoading ? (
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
-                <Iconify icon="solar:refresh-outline" width={16} />
-                <Typography variant="body2" color="text.secondary">
-                  Loading books...
-                </Typography>
-              </Stack>
-            ) : books.length === 0 ? (
-              <EmptyContent
-                title="No featured books yet"
-                description={
-                  canManage
-                    ? 'Add a book with a cover image and file URL to help users discover free reading.'
-                    : 'Check back soon for featured book recommendations.'
-                }
-                filled
-                sx={{ py: 8 }}
-              />
-            ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2,
-                  gridTemplateColumns: {
-                    xs: 'repeat(2, minmax(0, 1fr))',
-                    sm: 'repeat(3, minmax(0, 1fr))',
-                    md: 'repeat(4, minmax(0, 1fr))',
-                  },
-                }}
-              >
-                {books.map((book) => (
-                  <BookshelfIntroduceCard
-                    key={book.id}
-                    book={book}
-                    canManage={canManage}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </Box>
-            )}
-          </Stack>
-        </Card>
+        <BookshelfIntroduceFeatured
+          books={books}
+          booksLoading={booksLoading}
+          canManage={canManage}
+          onAdd={handleOpenCreate}
+          onEdit={handleOpenEdit}
+          onDelete={handleDelete}
+        />
 
         <Card sx={{ p: { xs: 2.5, md: 4 } }}>
           <Stack spacing={2.5}>
-            <Box>
-              <Typography variant="h5" sx={{ mb: 1 }}>
-                Why start with free e-books?
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Not everyone knows that thousands of books are legally available at no cost. Public-domain
-                works and community-run libraries make it easy to explore literature, history, science, and
-                more without buying a copy first.
-              </Typography>
-            </Box>
+            <BoxSection
+              title="Why start with free e-books?"
+              description="Not everyone knows that thousands of books are legally available at no cost. Public-domain works and community-run libraries make it easy to explore literature, history, science, and more without buying a copy first."
+            />
 
             <Alert severity="info" icon={<Iconify icon="solar:info-circle-bold" />}>
-              These external sites are independent resources. Cosset links to them to help you discover free
-              reading, but each site has its own catalog and terms of use.
+              These external sites are independent resources. Cosset links to them to help you discover
+              free reading, but each site has its own catalog and terms of use.
             </Alert>
           </Stack>
         </Card>
 
         <Card sx={{ p: { xs: 2.5, md: 4 } }}>
           <Stack spacing={2.5}>
-            <Box>
-              <Typography variant="h5" sx={{ mb: 1 }}>
-                Trusted free e-book sources
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                These are well-known places to find free books online. Open any source below to start browsing.
-              </Typography>
-            </Box>
+            <BoxSection
+              title="Trusted free e-book sources"
+              description="These are well-known places to find free books online. Open any source below to start browsing."
+            />
 
             <Stack spacing={2} divider={<Divider flexItem />}>
               {FREE_EBOOK_SOURCES.map((source) => (
@@ -241,12 +166,7 @@ export function BookshelfIntroduceView() {
                   alignItems={{ sm: 'center' }}
                   justifyContent="space-between"
                 >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="subtitle1">{source.name}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {source.description}
-                    </Typography>
-                  </Box>
+                  <BoxSection title={source.name} description={source.description} compact />
 
                   <Button
                     component={Link}
@@ -267,14 +187,10 @@ export function BookshelfIntroduceView() {
 
         <Card sx={{ p: { xs: 2.5, md: 4 } }}>
           <Stack spacing={2}>
-            <Box>
-              <Typography variant="h5" sx={{ mb: 1 }}>
-                Continue in Cosset
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                When you are ready, explore the Bookshelf sections inside your dashboard.
-              </Typography>
-            </Box>
+            <BoxSection
+              title="Continue in Cosset"
+              description="When you are ready, explore the Bookshelf sections inside your dashboard."
+            />
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button
@@ -305,5 +221,24 @@ export function BookshelfIntroduceView() {
         onClose={handleCloseDialog}
       />
     </DashboardContent>
+  );
+}
+
+// ----------------------------------------------------------------------
+
+type BoxSectionProps = {
+  title: string;
+  description: string;
+  compact?: boolean;
+};
+
+function BoxSection({ title, description, compact }: BoxSectionProps) {
+  return (
+    <Stack spacing={compact ? 0.5 : 1}>
+      <Typography variant={compact ? 'subtitle1' : 'h5'}>{title}</Typography>
+      <Typography variant="body2" color="text.secondary">
+        {description}
+      </Typography>
+    </Stack>
   );
 }

@@ -7,6 +7,7 @@ const LEGACY_TABLE_NAME = 'bookshelf_introduce_books';
 export interface BookshelfIntroduce {
   id: number;
   title: string;
+  author?: string | null;
   description?: string | null;
   coverImage?: string | null;
   fileUrl: string;
@@ -58,12 +59,20 @@ const ensureTable = async (): Promise<void> => {
           CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
             id BIGSERIAL PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
+            author VARCHAR(255),
             description TEXT,
             cover_image TEXT,
             file_url TEXT NOT NULL,
             "order" INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS author VARCHAR(255)
         `,
       );
     })().catch((error) => {
@@ -90,6 +99,7 @@ export async function getAllBookshelfIntroduce(
         SELECT
           id,
           title,
+          author,
           description,
           cover_image as "coverImage",
           file_url as "fileUrl",
@@ -132,6 +142,7 @@ export async function getBookshelfIntroduceById(id: number): Promise<BookshelfIn
         SELECT
           id,
           title,
+          author,
           description,
           cover_image as "coverImage",
           file_url as "fileUrl",
@@ -166,16 +177,18 @@ export async function createBookshelfIntroduce(
       `
         INSERT INTO ${TABLE_NAME} (
           title,
+          author,
           description,
           cover_image,
           file_url,
           "order",
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
         RETURNING
           id,
           title,
+          author,
           description,
           cover_image as "coverImage",
           file_url as "fileUrl",
@@ -184,6 +197,7 @@ export async function createBookshelfIntroduce(
       `,
       [
         item.title,
+        item.author ?? null,
         item.description ?? null,
         item.coverImage ?? null,
         item.fileUrl,
@@ -238,6 +252,12 @@ export async function updateBookshelfIntroduce(
       paramIndex += 1;
     }
 
+    if (updates.author !== undefined) {
+      fields.push(`author = $${paramIndex}`);
+      values.push(updates.author ?? null);
+      paramIndex += 1;
+    }
+
     if (updates.description !== undefined) {
       fields.push(`description = $${paramIndex}`);
       values.push(updates.description ?? null);
@@ -284,6 +304,7 @@ export async function updateBookshelfIntroduce(
         RETURNING
           id,
           title,
+          author,
           description,
           cover_image as "coverImage",
           file_url as "fileUrl",

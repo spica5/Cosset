@@ -65,6 +65,7 @@ export async function PUT(
 
     const book = await updateBookshelfIntroduce(bookId, {
       title: updates.title,
+      author: updates.author,
       description: updates.description,
       coverImage: updates.coverImage,
       fileUrl: updates.fileUrl,
