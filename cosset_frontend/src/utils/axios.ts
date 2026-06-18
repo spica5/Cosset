@@ -148,6 +148,20 @@ export const endpoints = {
       update: (id: string | number) => `/api/bookshelf/introduce/${id}`,
       delete: (id: string | number) => `/api/bookshelf/introduce/${id}`,
     },
+    ebook: {
+      list: '/api/bookshelf/ebook/list',
+      add: '/api/bookshelf/ebook/new',
+      details: (id: string | number) => `/api/bookshelf/ebook/${id}`,
+      update: (id: string | number) => `/api/bookshelf/ebook/${id}`,
+      delete: (id: string | number) => `/api/bookshelf/ebook/${id}`,
+    },
+    audiobook: {
+      list: '/api/bookshelf/audiobook/list',
+      add: '/api/bookshelf/audiobook/new',
+      details: (id: string | number) => `/api/bookshelf/audiobook/${id}`,
+      update: (id: string | number) => `/api/bookshelf/audiobook/${id}`,
+      delete: (id: string | number) => `/api/bookshelf/audiobook/${id}`,
+    },
   },
   post: {
     list: '/api/post/list',

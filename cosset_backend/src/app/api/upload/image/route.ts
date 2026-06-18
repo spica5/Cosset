@@ -39,6 +39,8 @@ function getMimeType(ext: string) {
     m4v: "video/x-m4v",
     webm: "video/webm",
     pdf: "application/pdf",
+    txt: "text/plain",
+    text: "text/plain",
     mp3: "audio/mpeg",
     wav: "audio/wav",
     aac: "audio/aac",
@@ -49,7 +51,7 @@ function getMimeType(ext: string) {
   return map[ext.toLowerCase()] || "application/octet-stream";
 }
 
-type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'unsupported';
+type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'txt' | 'unsupported';
 
 const IMAGE_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm']);
@@ -61,6 +63,7 @@ const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number
   video: 1500 * 1024 * 1024,
   audio: 250 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
+  txt: 5 * 1024 * 1024,
 };
 
 function getUploadFileKind(file: File): UploadFileKind {
@@ -82,6 +85,10 @@ function getUploadFileKind(file: File): UploadFileKind {
     return 'pdf';
   }
 
+  if (mime === 'text/plain') {
+    return 'txt';
+  }
+
   const ext = getFileExtension(file);
 
   if (IMAGE_FILE_EXTENSIONS.has(ext)) {
@@ -100,6 +107,10 @@ function getUploadFileKind(file: File): UploadFileKind {
     return 'pdf';
   }
 
+  if (ext === 'txt') {
+    return 'txt';
+  }
+
   return 'unsupported';
 }
 
@@ -109,7 +120,7 @@ function validateSingleUploadFile(file: File): { valid: true } | { valid: false;
   if (kind === 'unsupported') {
     return {
       valid: false,
-      message: 'Only image, video, audio, or PDF files are supported',
+      message: 'Only image, video, audio, PDF, or TXT files are supported',
     };
   }
 

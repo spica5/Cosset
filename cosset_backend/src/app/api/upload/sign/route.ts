@@ -42,6 +42,7 @@ function getMimeType(ext: string) {
     m4v: 'video/x-m4v',
     webm: 'video/webm',
     pdf: 'application/pdf',
+    txt: 'text/plain',
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
     aac: 'audio/aac',
