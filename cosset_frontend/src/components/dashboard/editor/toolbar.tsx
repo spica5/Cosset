@@ -10,6 +10,8 @@ import { ToolbarItem } from './components/toolbar-item';
 import { HeadingBlock } from './components/heading-block';
 import { TextColorBlock } from './components/text-color-block';
 import { FontFamilyBlock } from './components/font-family-block';
+import { FontSizeBlock } from './components/font-size-block';
+import { EmoticonBlock } from './components/emoticon-block';
 import { PaperStyleBlock } from './components/paper-style-block';
 
 import type { EditorToolbarProps } from './types';
@@ -56,12 +58,14 @@ export function Toolbar({
       {typographyTools ? (
         <Stack direction="row" spacing={0.5} alignItems="center">
           <FontFamilyBlock editor={editor} />
+          <FontSizeBlock editor={editor} />
           <PaperStyleBlock
             paperStyle={paperStyle}
             onPaperStyleChange={onPaperStyleChange}
             disabled={disabled}
           />
           <TextColorBlock editor={editor} />
+          <EmoticonBlock editor={editor} />
         </Stack>
       ) : null}
 

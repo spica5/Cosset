@@ -3,7 +3,6 @@
 import type { CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
 import { mutate } from 'swr';
-
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
@@ -17,11 +16,13 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { endpoints } from 'src/utils/axios';
+import { getS3SignedUrl } from 'src/utils/helper';
+
 import {
+  getAtmosphereBackgroundFilter,
   parseCoffeeShopAtmosphereConfig,
   getAtmosphereForBackgroundImage,
   getAtmosphereForBackgroundIndex,
-  getAtmosphereBackgroundFilter,
 } from 'src/utils/coffee-shop-atmosphere';
 
 import {
@@ -29,20 +30,18 @@ import {
   parseCoffeeShopBackgroundImages,
 } from 'src/utils/coffee-shop-background';
 
-import { getS3SignedUrl } from 'src/utils/helper';
-
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import {
+import {  
   COFFEE_SHOP_IDLE_MS,
-  COFFEE_SHOP_ACTIVITY_EVENT,
-  coffeeShopActivityStorageKey,
-  joinCoffeeShopPresence,
-  leaveCoffeeShopPresence,
-  pingCoffeeShopPresence,
-  setCoffeeShopPresenceHidden,
+  COFFEE_SHOP_ACTIVITY_EVENT,  
   useGetCoffeeShop,
+  joinCoffeeShopPresence,
+  pingCoffeeShopPresence,
+  leaveCoffeeShopPresence,  
+  setCoffeeShopPresenceHidden,
+  coffeeShopActivityStorageKey,
 } from 'src/actions/coffee-shop';
 
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
@@ -52,10 +51,10 @@ import { Iconify } from 'src/components/universe/iconify';
 import { UniverseCoffeeShopChat } from 'src/sections/universe/community/universe-coffee-shop-chat';
 import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe-coffee-shop-menu';
 import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
+import { UniverseCoffeeShopMobileDock } from 'src/sections/universe/community/universe-coffee-shop-mobile-dock';
 import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
 import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
 import { UniverseCoffeeShopBackgroundPicker } from 'src/sections/universe/community/universe-coffee-shop-background-picker';
-import { UniverseCoffeeShopMobileDock } from 'src/sections/universe/community/universe-coffee-shop-mobile-dock';
 
 // ----------------------------------------------------------------------
 

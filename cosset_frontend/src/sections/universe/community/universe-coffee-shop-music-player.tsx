@@ -2,23 +2,24 @@
 
 import type { CoffeeShopMusicTrack } from 'src/utils/coffee-shop-music';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import useSWR from 'swr';
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import useSWR from 'swr';
 
 import Box from '@mui/material/Box';
-import Collapse from '@mui/material/Collapse';
-import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+import Collapse from '@mui/material/Collapse';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { touchCoffeeShopActivity } from 'src/actions/coffee-shop';
 
 import { getS3SignedUrl } from 'src/utils/helper';
-import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 import { fetcher, endpoints } from 'src/utils/axios';
+import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
+
 import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------

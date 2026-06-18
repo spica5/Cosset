@@ -20,7 +20,9 @@ import FormHelperText from '@mui/material/FormHelperText';
 import { Toolbar } from './toolbar';
 import { StyledRoot } from './styles';
 import { editorClasses } from './classes';
+import { FontSize } from './extensions/font-size';
 import { CodeHighlightBlock } from './components/code-highlight-block';
+import { EmoticonSuggestion } from './components/emoticon-suggestion';
 
 import type { EditorProps } from './types';
 
@@ -92,6 +94,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
           ? [
               TextStyle,
               FontFamily.configure({ types: ['textStyle'] }),
+              FontSize.configure({ types: ['textStyle'] }),
               Color.configure({ types: ['textStyle'] }),
             ]
           : []),
@@ -158,6 +161,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
               editor={editor}
               className={editorClasses.content.root}
             />
+            {typographyTools ? <EmoticonSuggestion editor={editor} /> : null}
           </StyledRoot>
 
           {helperText && (

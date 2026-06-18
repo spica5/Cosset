@@ -23,5 +23,14 @@ export const MAIL_INK_COLORS = [
   { label: 'Sepia', value: '#78350f' },
 ] as const;
 
+export const MAIL_FONT_SIZES = [
+  { label: 'Default', value: '' },
+  { label: 'Small', value: '13px' },
+  { label: 'Normal', value: '16px' },
+  { label: 'Large', value: '20px' },
+  { label: 'X-Large', value: '24px' },
+  { label: 'XX-Large', value: '28px' },
+] as const;
+
 export const MAIL_WRITING_FONTS_STYLESHEET =
   'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Dancing+Script:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&display=swap';

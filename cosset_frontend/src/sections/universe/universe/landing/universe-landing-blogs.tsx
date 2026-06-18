@@ -17,14 +17,12 @@ import CardContent from '@mui/material/CardContent';
 import { RouterLink } from 'src/routes/components';
 import {
   BLOG_CONTENT_FONT_COLOR,
+  getBlogContentFontSx,
+  isBlogContentFontPreset,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
-  getBlogContentFontSx,
-  isBlogContentBackgroundPreset,
-  isBlogContentFontPreset,
+  isBlogContentBackgroundPreset,  
 } from 'src/sections/dashboard/blog/blog-content-style';
-
-import { stylesMode } from 'src/theme/universe/styles';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';

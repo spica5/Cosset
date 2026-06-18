@@ -13,23 +13,23 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
+import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { CONFIG } from 'src/config-global';
 
 import {
-  coffeeShopActivityStorageKey,
-  deleteCoffeeShopChatMessage,
-  fetchCoffeeShopChatToday,
   joinCoffeeShopPresence,
-  leaveCoffeeShopPresence,
-  sendCoffeeShopChatMessage,
   touchCoffeeShopActivity,
+  leaveCoffeeShopPresence,
+  fetchCoffeeShopChatToday,
+  sendCoffeeShopChatMessage,
+  deleteCoffeeShopChatMessage,
+  coffeeShopActivityStorageKey, 
 } from 'src/actions/coffee-shop';
 
 import { isUserAdmin } from 'src/auth/utils/role';

@@ -1,31 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Dialog from '@mui/material/Dialog';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
+import Dialog from '@mui/material/Dialog';
+import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
-import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+
 import { uuidv4 } from 'src/utils/uuidv4';
-import axiosInstance, { endpoints } from 'src/utils/axios';
 import { getS3SignedUrl } from 'src/utils/helper';
-import {
-  isCoffeeShopGradientBackground,
-  parseCoffeeShopBackgroundImages,
-  serializeCoffeeShopBackgroundKeys,
-} from 'src/utils/coffee-shop-background';
 import {
   createDraftMenuItem,
   getCoffeeShopMenuItems,
@@ -34,33 +29,36 @@ import {
 } from 'src/utils/coffee-shop-menu';
 import {
   createDraftMusicTrack,
+  titleFromAudioFileName,
   formatMusicTrackFileInfo,
   getCoffeeShopMusicTracks,
-  serializeCoffeeShopMusicTracks,
-  titleFromAudioFileName,
+  serializeCoffeeShopMusicTracks,  
   type CoffeeShopMusicTrack,
 } from 'src/utils/coffee-shop-music';
 import {
-  DEFAULT_COFFEE_SHOP_ATMOSPHERE,
-  hasSparklesAtmosphere,
-  hasCandlesAtmosphere,
-  hasBigSparklesAtmosphere,
-  hasDarkScreenAtmosphere,
-  getAtmosphereOverlays,
-  parseCoffeeShopAtmosphereConfig,
-  serializeCoffeeShopAtmosphereConfig,
-  getAtmosphereForBackgroundImage,
-  hasCustomAtmosphereForBackgroundImage,
-  getAtmosphereDescription,
+  isCoffeeShopGradientBackground,
+  parseCoffeeShopBackgroundImages,
+  serializeCoffeeShopBackgroundKeys,
+} from 'src/utils/coffee-shop-background';
+import {
   getTimeOfDay,
-  getAtmosphereBackgroundFilter,
+  hasCandlesAtmosphere,
+  getAtmosphereOverlays,
+  hasSparklesAtmosphere,
+  hasDarkScreenAtmosphere,
+  hasBigSparklesAtmosphere,
+  getAtmosphereDescription,
   buildAtmosphereFromOverlays,
-  type CoffeeShopAtmosphereConfig,
-  type CoffeeShopAtmosphereEffect,
+  getAtmosphereBackgroundFilter,
+  DEFAULT_COFFEE_SHOP_ATMOSPHERE,
+  parseCoffeeShopAtmosphereConfig,
+  getAtmosphereForBackgroundImage,
+  serializeCoffeeShopAtmosphereConfig,
+  hasCustomAtmosphereForBackgroundImage,
   type CoffeeShopTimeOfDay,
+  type CoffeeShopAtmosphereConfig,
+  type CoffeeShopAtmosphereEffect,  
 } from 'src/utils/coffee-shop-atmosphere';
-
-import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 
 import {
   useGetCoffeeShop,
@@ -68,13 +66,16 @@ import {
   updateCoffeeShop,
 } from 'src/actions/coffee-shop';
 import { uploadFileToS3 } from 'src/actions/upload';
+
 import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
-import { Iconify } from 'src/components/dashboard/iconify';
+
+import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 
 // ----------------------------------------------------------------------
 
