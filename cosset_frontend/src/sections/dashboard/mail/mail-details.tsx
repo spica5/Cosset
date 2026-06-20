@@ -21,33 +21,32 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { fDateTime } from 'src/utils/format-time';
 
 import { CONFIG } from 'src/config-global';
-import { deleteMail, sendMail, updateMailFlags } from 'src/actions/mail';
+import { deleteMail, updateMailFlags } from 'src/actions/mail';
 import { maxLine, stylesMode } from 'src/theme/dashboard/styles';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { toast } from 'src/components/dashboard/snackbar';
 
 import { Label } from 'src/components/dashboard/label';
-import { Editor } from 'src/components/dashboard/editor';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { FileThumbnail } from 'src/components/dashboard/file-thumbnail';
 import { LoadingScreen } from 'src/components/dashboard/loading-screen';
 
-import {
-  DEFAULT_MAIL_PAPER_STYLE,
-  type MailPaperStyleId,
-} from 'src/constants/mail-paper-styles';
-
 import { MailAvatar } from './mail-avatar';
 import { MailWritingFonts } from './mail-writing-fonts';
+import { MailReplyCompose } from './mail-reply-compose';
 import { MailMessageContent } from './mail-message-content';
-import {
-  buildQuotedMessage,
-  buildReplySubject,
-  getReplyRecipient,
-  hasMailMessageContent,
-} from './mail-compose-utils';
+
+// ----------------------------------------------------------------------
+
+const mailDetailsRootSx = {
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+} as const;
 
 // ----------------------------------------------------------------------
 
@@ -62,16 +61,22 @@ type Props = {
 
 export function MailDetails({ mail, renderLabel, empty, loading, onReplySent, onDeleted }: Props) {
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <Stack sx={mailDetailsRootSx}>
+        <LoadingScreen />
+      </Stack>
+    );
   }
 
   if (empty || !mail) {
     return (
-      <EmptyContent
-        title="No conversation selected"
-        description="Select a conversation to read"
-        imgUrl={`${CONFIG.dashboard.assetsDir}/assets/icons/empty/ic-email-selected.svg`}
-      />
+      <Stack sx={mailDetailsRootSx}>
+        <EmptyContent
+          title="No conversation selected"
+          description="Select a conversation to read"
+          imgUrl={`${CONFIG.dashboard.assetsDir}/assets/icons/empty/ic-email-selected.svg`}
+        />
+      </Stack>
     );
   }
 
@@ -96,68 +101,18 @@ type ContentProps = {
 
 function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: ContentProps) {
   const showAttachments = useBoolean(true);
+  const showReplyComposer = useBoolean(false);
   const { user } = useAuthContext();
 
-  const [replyMessage, setReplyMessage] = useState('');
-  const [paperStyle, setPaperStyle] = useState<MailPaperStyleId>(DEFAULT_MAIL_PAPER_STYLE);
-  const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [updatingFlags, setUpdatingFlags] = useState(false);
 
   const userEmail = typeof user?.email === 'string' ? user.email : undefined;
 
   useEffect(() => {
-    setReplyMessage('');
-    setPaperStyle(DEFAULT_MAIL_PAPER_STYLE);
+    showReplyComposer.onFalse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mail.id]);
-
-  const handleSendReply = useCallback(async () => {
-    if (!hasMailMessageContent(replyMessage)) {
-      toast.error('Write a reply before sending.');
-      return;
-    }
-
-    const recipient = getReplyRecipient(mail, userEmail);
-    if (!recipient) {
-      toast.error('No recipient found for this reply.');
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      const result = await sendMail({
-        to: recipient,
-        subject: buildReplySubject(mail.subject),
-        message: `${replyMessage}${buildQuotedMessage(mail)}`,
-        paperStyle,
-      });
-
-      if (result.deliveryErrors?.length) {
-        toast.warning(result.message || 'Reply saved in Cosset mail.');
-      } else {
-        toast.success(result.message || 'Reply sent.');
-      }
-
-      setReplyMessage('');
-      onReplySent?.();
-    } catch (error: unknown) {
-      let msg = 'Could not send reply.';
-      if (typeof error === 'string') {
-        msg = error;
-      } else if (error instanceof Error) {
-        msg = error.message;
-      } else if (error && typeof error === 'object' && 'message' in error) {
-        const data = error as { message?: unknown };
-        if (typeof data.message === 'string') {
-          msg = data.message;
-        }
-      }
-      toast.error(msg);
-    } finally {
-      setSending(false);
-    }
-  }, [mail, onReplySent, paperStyle, replyMessage, userEmail]);
 
   const handleDeleteMail = useCallback(async () => {
     if (deleting) {
@@ -259,6 +214,18 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       </Box>
 
       <Box display="flex" alignItems="center">
+        <Tooltip title="Reply">
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Iconify icon="solar:reply-bold" />}
+            onClick={showReplyComposer.onTrue}
+            sx={{ mr: 0.5, flexShrink: 0 }}
+          >
+            Reply
+          </Button>
+        </Tooltip>
+
         <Tooltip title={mail.isStarred ? 'Remove star' : 'Star'}>
           <Checkbox
             color="warning"
@@ -282,12 +249,6 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
             inputProps={{ id: 'important-checkbox', 'aria-label': 'Important checkbox' }}
           />
         </Tooltip>
-
-        {/* <Tooltip title="Archive">
-          <IconButton>
-            <Iconify icon="solar:archive-down-minimlistic-bold" />
-          </IconButton>
-        </Tooltip> */}
 
         <Tooltip title={mail.isUnread ? 'Already unread' : 'Mark as unread'}>
           <span>
@@ -319,14 +280,10 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
       </Typography>
 
       <Stack spacing={0.5}>
-        
         <Box display="flex" alignItems="center" justifyContent="flex-end">
           <Typography variant="caption" noWrap sx={{ color: 'text.disabled' }}>
             {fDateTime(mail.createdAt)}
           </Typography>
-          <IconButton size="small">
-            <Iconify width={18} icon="solar:reply-bold" />
-          </IconButton>
 
           <IconButton size="small">
             <Iconify width={18} icon="solar:multiple-forward-left-broken" />
@@ -335,7 +292,7 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
           <IconButton size="small">
             <Iconify width={18} icon="solar:forward-bold" />
           </IconButton>
-        </Box>        
+        </Box>
       </Stack>
     </>
   );
@@ -421,48 +378,15 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
   );
 
   const renderContent = (
-    <MailMessageContent message={mail.message} paperStyle={mail.paperStyle} />
-  );
-
-  const renderEditor = (
-    <>
-      <Editor
-        value={replyMessage}
-        onChange={setReplyMessage}
-        editable={!sending}
-        typographyTools
-        paperStyle={paperStyle}
-        onPaperStyleChange={setPaperStyle}
-        placeholder="Write your reply..."
-        sx={{ maxHeight: 320 }}
-      />
-
-      <Box display="flex" alignItems="center">
-        <IconButton disabled>
-          <Iconify icon="solar:gallery-add-bold" />
-        </IconButton>
-
-        <IconButton disabled>
-          <Iconify icon="eva:attach-2-fill" />
-        </IconButton>
-
-        <Stack flexGrow={1} />
-
-        <Button
-          color="primary"
-          variant="contained"
-          disabled={sending}
-          onClick={() => handleSendReply()}
-          endIcon={<Iconify icon="iconamoon:send-fill" />}
-        >
-          {sending ? 'Sending...' : 'Send'}
-        </Button>
-      </Box>
-    </>
+    <MailMessageContent
+      message={mail.message}
+      paperStyle={mail.paperStyle}
+      paperBackgroundImage={mail.paperBackgroundImage}
+    />
   );
 
   return (
-    <>
+    <Stack sx={mailDetailsRootSx}>
       <MailWritingFonts />
 
       <Box
@@ -479,9 +403,8 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
         <Box display="flex" alignItems="center">
           {renderHead}
         </Box>
-        
       </Box>
-      
+
       <Box
         gap={2}
         flexShrink={0}
@@ -494,13 +417,32 @@ function MailDetailsContent({ mail, renderLabel, onReplySent, onDeleted }: Conte
         {renderSubject}
       </Box>
 
-      {!!mail.attachments.length && <Stack sx={{ px: 2, mt: 2 }}> {renderAttachments} </Stack>}
+      {!!mail.attachments.length && (
+        <Stack flexShrink={0} sx={{ px: 2, mt: 2 }}>
+          {renderAttachments}
+        </Stack>
+      )}
 
-      <Scrollbar sx={{ mt: 1, flex: '1 1 240px', pb: 1 }}>{renderContent}</Scrollbar>
+      <Scrollbar
+        fillContent
+        slotProps={{
+          wrapper: { height: '100%' },
+          contentWrapper: { height: '100%' },
+          content: { minHeight: '100%', display: 'flex', flexDirection: 'column' },
+        }}
+        sx={{ mt: 1, flex: '1 1 auto', minHeight: 0, pb: 1 }}
+      >
+        {renderContent}
+      </Scrollbar>
 
-      <Stack flexShrink={0} spacing={2} sx={{ p: 2 }}>
-        {renderEditor}
-      </Stack>
-    </>
+      {showReplyComposer.value ? (
+        <MailReplyCompose
+          mail={mail}
+          userEmail={userEmail}
+          onCloseReply={showReplyComposer.onFalse}
+          onSent={onReplySent}
+        />
+      ) : null}
+    </Stack>
   );
 }

@@ -84,13 +84,8 @@ export const paths = {
       ebooks: `${ROOTS.DASHBOARD}/bookshelf/e-books`,
       audioBooks: `${ROOTS.DASHBOARD}/bookshelf/audio-books`,
     },
-    friend: `${ROOTS.DASHBOARD}/friend`,
     community: {
       root: `${ROOTS.DASHBOARD}/community`,
-      neighbor: {
-        root: `${ROOTS.DASHBOARD}/community/neighbor`,
-        details: (id: string) => `${ROOTS.DASHBOARD}/community/neighbor/${id}`,
-      },
       post: {
         root: `${ROOTS.DASHBOARD}/community/post`,
         list: `${ROOTS.DASHBOARD}/community/post`,
@@ -105,6 +100,11 @@ export const paths = {
         view: (id: string | number) => `${ROOTS.UNIVERSE}/community/coffee-shop/${id}/view`,
       },
       cinema:  `${ROOTS.DASHBOARD}/community/cinema`,
+      friend: `${ROOTS.DASHBOARD}/community/friend`,
+      neighbor: {
+        root: `${ROOTS.DASHBOARD}/community/neighbor`,
+        details: (id: string) => `${ROOTS.DASHBOARD}/community/neighbor/${id}`,
+      },
     },
     mail: `${ROOTS.DASHBOARD}/mail`,
     chat: `${ROOTS.DASHBOARD}/chat`,

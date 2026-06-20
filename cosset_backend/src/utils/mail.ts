@@ -44,6 +44,7 @@ export type ApiMail = {
   subject: string;
   message: string;
   paperStyle: MailPaperStyleId;
+  paperBackgroundImage: string | null;
   isUnread: boolean;
   from: {
     name: string;
@@ -186,6 +187,19 @@ export function normalizeMailPaperStyle(value: unknown): MailPaperStyleId {
 
 export function stripMailPaperComment(message: string): string {
   return message.replace(MAIL_PAPER_COMMENT_RE, '');
+}
+
+export function normalizeMailPaperBackgroundImage(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const key = value.trim();
+  if (!key || key.length > 500 || key.includes('..')) {
+    return null;
+  }
+
+  return key;
 }
 
 export function resolveMailPaperStyle(message: string, paperStyle?: string | null): MailPaperStyleId {
@@ -341,6 +355,7 @@ export function mapUserMailToApi(
     subject: row.subject,
     message: stripMailPaperComment(row.message),
     paperStyle: resolveMailPaperStyle(row.message, row.paperStyle),
+    paperBackgroundImage: row.paperBackgroundImage,
     isUnread: row.isUnread,
     from: listFrom,
     to: row.toRecipients,

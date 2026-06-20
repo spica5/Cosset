@@ -11,6 +11,7 @@ import { useDebouncedValue } from 'src/hooks/use-debounced-value';
 import { useMailLayoutMode } from 'src/hooks/use-mail-layout-mode';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
+import { useSettingsContext } from 'src/components/dashboard/settings';
 
 import { markMailAsRead, useGetMail, useGetMails, useGetLabels } from 'src/actions/mail';
 
@@ -70,6 +71,9 @@ export function MailView() {
   const mdUp = useResponsive('up', 'md');
 
   const { layoutMode, setMailLayoutMode } = useMailLayoutMode();
+
+  const settings = useSettingsContext();
+  const isNavHorizontal = settings.navLayout === 'horizontal';
 
   const isHorizontal = layoutMode === 'horizontal';
 
@@ -232,14 +236,28 @@ export function MailView() {
     <>
       <DashboardContent
         maxWidth={false}
-        sx={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}
+        sx={{
+          flex: '1 1 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden',
+          height: {
+            xs: 'calc(100dvh - var(--layout-header-mobile-height) - var(--layout-dashboard-content-pt) - var(--layout-dashboard-content-pb))',
+            lg: isNavHorizontal
+              ? 'calc(100dvh - var(--layout-header-desktop-height) - var(--layout-nav-horizontal-height) - var(--layout-dashboard-content-pt) - var(--layout-dashboard-content-pb))'
+              : 'calc(100dvh - var(--layout-header-desktop-height) - var(--layout-dashboard-content-pt) - var(--layout-dashboard-content-pb))',
+          },
+        }}
       >
         <Layout
           layoutMode={layoutMode}
           sx={{
             p: isHorizontal ? 0 : 1,
             borderRadius: 2,
-            flex: '1 1 auto',
+            flex: '1 1 0',
+            minHeight: 0,
+            overflow: 'hidden',
             bgcolor: isHorizontal ? 'transparent' : 'background.neutral',
           }}
           slots={{

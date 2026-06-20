@@ -1,9 +1,13 @@
+'use client';
+
 import { useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Menu from '@mui/material/Menu';
 import Stack from '@mui/material/Stack';
+import Divider from '@mui/material/Divider';
 import ButtonBase from '@mui/material/ButtonBase';
+import Typography from '@mui/material/Typography';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
 import {
@@ -11,6 +15,8 @@ import {
   getMailPaperPreviewStyles,
   type MailPaperStyleId,
 } from 'src/constants/mail-paper-styles';
+import { MailPaperBackgroundPickerContent } from 'src/sections/dashboard/mail/mail-paper-background-picker';
+import { useMailPaperBackgroundUrl } from 'src/sections/dashboard/mail/use-mail-paper-background-url';
 
 import { Iconify } from '../../iconify';
 
@@ -21,9 +27,19 @@ import type { EditorToolbarProps } from '../types';
 export function PaperStyleBlock({
   paperStyle,
   onPaperStyleChange,
+  paperBackgroundImage,
+  onPaperBackgroundImageChange,
   disabled,
-}: Pick<EditorToolbarProps, 'paperStyle' | 'onPaperStyleChange' | 'disabled'>) {
+}: Pick<
+  EditorToolbarProps,
+  | 'paperStyle'
+  | 'onPaperStyleChange'
+  | 'paperBackgroundImage'
+  | 'onPaperBackgroundImageChange'
+  | 'disabled'
+>) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const backgroundPreviewUrl = useMailPaperBackgroundUrl(paperBackgroundImage);
 
   if (!paperStyle || !onPaperStyleChange) {
     return null;
@@ -32,16 +48,21 @@ export function PaperStyleBlock({
   const currentLabel =
     MAIL_PAPER_STYLE_OPTIONS.find((option) => option.id === paperStyle)?.label ?? 'Paper';
   const currentPreview = getMailPaperPreviewStyles(paperStyle);
+  const hasBackground = Boolean(paperBackgroundImage);
+  const displayLabel = hasBackground ? 'image' : currentLabel;
 
-  const handleSelect = (value: MailPaperStyleId) => {
+  const handleSelectStyle = (value: MailPaperStyleId) => {
     onPaperStyleChange(value);
+  };
+
+  const handleClose = () => {
     setAnchorEl(null);
   };
 
   return (
     <>
       <ButtonBase
-        aria-label="Paper style"
+        aria-label="Paper and background"
         aria-controls={anchorEl ? 'paper-style-menu' : undefined}
         aria-haspopup="true"
         aria-expanded={anchorEl ? 'true' : undefined}
@@ -55,27 +76,46 @@ export function PaperStyleBlock({
           borderRadius: 0.75,
           typography: 'body2',
           justifyContent: 'space-between',
-          border: (theme) => `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.2)}`,
+          border: (theme) =>
+            `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.2)}`,
+          ...(hasBackground && {
+            borderColor: 'primary.main',
+          }),
         }}
       >
         <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-          <Box
-            sx={{
-              width: 20,
-              height: 20,
-              borderRadius: 0.5,
-              flexShrink: 0,
-              overflow: 'hidden',
-              ...currentPreview,
-              minHeight: 0,
-              p: 0,
-            }}
-          />
+          <Box sx={{ position: 'relative', flexShrink: 0 }}>
+            {hasBackground && backgroundPreviewUrl ? (
+              <Box
+                component="img"
+                src={backgroundPreviewUrl}
+                alt="Background"
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 0.5,
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 0.5,
+                  overflow: 'hidden',
+                  ...currentPreview,
+                  minHeight: 0,
+                  p: 0,
+                }}
+              />
+            )}
+          </Box>
           <Box
             component="span"
             sx={{ maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
-            {currentLabel}
+            {displayLabel}
           </Box>
         </Stack>
         <Iconify
@@ -88,14 +128,18 @@ export function PaperStyleBlock({
         id="paper-style-menu"
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
+        onClose={handleClose}
         slotProps={{
           paper: {
-            sx: { mt: 0.5, p: 1.25, maxWidth: 360 },
+            sx: { mt: 0.5, p: 1.5, maxWidth: 360, maxHeight: 'min(80vh, 560px)', overflowY: 'auto' },
           },
         }}
       >
-        <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          Paper style
+        </Typography>
+
+        <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap sx={{ mb: 1.5 }}>
           {MAIL_PAPER_STYLE_OPTIONS.map((option) => {
             const selected = option.id === paperStyle;
             const preview = getMailPaperPreviewStyles(option.id);
@@ -105,7 +149,7 @@ export function PaperStyleBlock({
                 key={option.id}
                 aria-label={option.label}
                 aria-pressed={selected}
-                onClick={() => handleSelect(option.id)}
+                onClick={() => handleSelectStyle(option.id)}
                 sx={{
                   width: 72,
                   p: 0.5,
@@ -144,6 +188,18 @@ export function PaperStyleBlock({
             );
           })}
         </Stack>
+
+        {onPaperBackgroundImageChange ? (
+          <>
+            <Divider sx={{ my: 1.5 }} />
+            <MailPaperBackgroundPickerContent
+              selectedImageKey={paperBackgroundImage}
+              onSelect={onPaperBackgroundImageChange}
+              disabled={disabled}
+              enabled={Boolean(anchorEl)}
+            />
+          </>
+        ) : null}
       </Menu>
     </>
   );

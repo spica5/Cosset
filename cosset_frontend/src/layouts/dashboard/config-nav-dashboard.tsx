@@ -142,16 +142,16 @@ export const navData = [
           { title: 'Audio-books', path: paths.dashboard.bookshelf.audioBooks },
         ],
       },
-      { title: 'Friends', path: paths.dashboard.friend, icon: ICONS.friend },
       { 
         title: 'Community', 
         path: paths.dashboard.community.root, 
         icon: ICONS.star, 
         children: [
-          { title: 'Posts', path: paths.dashboard.community.post.list },
-          { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },          
+          { title: 'Posts', path: paths.dashboard.community.post.list },         
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop.root },
           { title: 'Cinema', path: paths.dashboard.community.cinema },
+          { title: 'Friends', path: paths.dashboard.community.friend },
+          { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },
         ],
       },
       {

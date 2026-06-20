@@ -24,6 +24,7 @@ export type UserMailRow = {
   subject: string;
   message: string;
   paperStyle: string;
+  paperBackgroundImage: string | null;
   labelIds: string[];
   isUnread: boolean;
   isStarred: boolean;
@@ -44,6 +45,7 @@ export type UserMailInsert = {
   subject: string;
   message: string;
   paperStyle?: string;
+  paperBackgroundImage?: string | null;
   labelIds?: string[];
   isUnread?: boolean;
   isStarred?: boolean;
@@ -69,6 +71,7 @@ const ensureUserMailsTable = async (): Promise<void> => {
             subject VARCHAR(500) NOT NULL DEFAULT '',
             message TEXT NOT NULL DEFAULT '',
             paper_style VARCHAR(40) NOT NULL DEFAULT 'classic-lined',
+            paper_background_image VARCHAR(500) NULL,
             label_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
             is_unread BOOLEAN NOT NULL DEFAULT TRUE,
             is_starred BOOLEAN NOT NULL DEFAULT FALSE,
@@ -89,6 +92,9 @@ const ensureUserMailsTable = async (): Promise<void> => {
       );
       await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS paper_style VARCHAR(40) NOT NULL DEFAULT 'classic-lined'`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS paper_background_image VARCHAR(500) NULL`,
       );
     })().catch((error) => {
       ensureTablePromise = null;
@@ -142,6 +148,10 @@ const mapRow = (row: Record<string, unknown>): UserMailRow => ({
   subject: String(row.subject ?? ''),
   message: String(row.message ?? ''),
   paperStyle: String(row.paperStyle ?? 'classic-lined'),
+  paperBackgroundImage:
+    typeof row.paperBackgroundImage === 'string' && row.paperBackgroundImage.trim()
+      ? row.paperBackgroundImage.trim()
+      : null,
   labelIds: Array.isArray(row.labelIds)
     ? row.labelIds.map((label) => String(label)).filter(Boolean)
     : [],
@@ -170,6 +180,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           subject,
           message,
           paper_style,
+          paper_background_image,
           label_ids,
           is_unread,
           is_starred,
@@ -177,7 +188,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           attachments,
           is_deleted
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11, $12::jsonb, $13, $14, $15, $16::jsonb, FALSE)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17::jsonb, FALSE)
         RETURNING
           id::text AS id,
           owner_user_id::text AS "ownerUserId",
@@ -191,6 +202,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
           subject,
           message,
           paper_style AS "paperStyle",
+          paper_background_image AS "paperBackgroundImage",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -210,6 +222,7 @@ export async function createUserMail(row: UserMailInsert): Promise<UserMailRow> 
         row.subject.slice(0, 500),
         row.message,
         (row.paperStyle || 'classic-lined').slice(0, 40),
+        row.paperBackgroundImage?.trim().slice(0, 500) || null,
         JSON.stringify(row.labelIds ?? []),
         row.isUnread ?? true,
         row.isStarred ?? false,
@@ -256,6 +269,7 @@ export async function listUserMails(ownerUserId: string): Promise<UserMailRow[]>
           subject,
           message,
           paper_style AS "paperStyle",
+          paper_background_image AS "paperBackgroundImage",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -310,6 +324,7 @@ export async function markUserMailAsRead(
           subject,
           message,
           paper_style AS "paperStyle",
+          paper_background_image AS "paperBackgroundImage",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",
@@ -355,6 +370,7 @@ const MAIL_ROW_RETURNING = `
   subject,
   message,
   paper_style AS "paperStyle",
+  paper_background_image AS "paperBackgroundImage",
   label_ids AS "labelIds",
   is_unread AS "isUnread",
   is_starred AS "isStarred",
@@ -487,6 +503,7 @@ export async function getUserMailById(
           subject,
           message,
           paper_style AS "paperStyle",
+          paper_background_image AS "paperBackgroundImage",
           label_ids AS "labelIds",
           is_unread AS "isUnread",
           is_starred AS "isStarred",

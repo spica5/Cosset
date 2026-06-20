@@ -149,7 +149,7 @@ export function ContactsPopover({ sx, ...other }: ContactsPopoverProps) {
 
   const handleSelectContact = (contact: ContactItem) => {
     popover.onClose();
-    router.push(paths.dashboard.friend);
+    router.push(paths.dashboard.community.friend);
   };
 
   return (

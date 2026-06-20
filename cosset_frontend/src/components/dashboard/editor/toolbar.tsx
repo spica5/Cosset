@@ -28,6 +28,8 @@ export function Toolbar({
   typographyTools,
   paperStyle,
   onPaperStyleChange,
+  paperBackgroundImage,
+  onPaperBackgroundImageChange,
   disabled,
   fullScreen,
   onToggleFullScreen,
@@ -62,6 +64,8 @@ export function Toolbar({
           <PaperStyleBlock
             paperStyle={paperStyle}
             onPaperStyleChange={onPaperStyleChange}
+            paperBackgroundImage={paperBackgroundImage}
+            onPaperBackgroundImageChange={onPaperBackgroundImageChange}
             disabled={disabled}
           />
           <TextColorBlock editor={editor} />

@@ -23,6 +23,8 @@ export type MailPaperStyleId =
 
 export const DEFAULT_MAIL_PAPER_STYLE: MailPaperStyleId = 'classic-lined';
 
+export type MailPaperSurfaceVariant = 'editor' | 'message';
+
 export type MailPaperStyleOption = {
   id: MailPaperStyleId;
   label: string;
@@ -350,16 +352,22 @@ function buildMailPaperSurface(
   theme: Theme,
   styleId: MailPaperStyleId,
   isDark: boolean,
+  variant: MailPaperSurfaceVariant = 'editor',
 ) {
   const palette = PAPER_PALETTES[styleId][isDark ? 'dark' : 'light'];
   const isCharcoal = styleId === 'charcoal';
+  const isMessage = variant === 'message';
 
   return {
     position: 'relative' as const,
     borderRadius: 1.5,
-    px: 2.5,
-    py: 2.5,
-    minHeight: 240,
+    px: 15,
+    py: 8,
+    minHeight: isMessage ? '100%' : 240,
+    ...(isMessage && {
+      boxSizing: 'border-box' as const,
+      flex: '1 1 auto',
+    }),
     color: isCharcoal && !isDark ? '#f4f4f5' : theme.vars.palette.text.primary,
     bgcolor: palette.bgcolor,
     border: palette.border,
@@ -372,8 +380,69 @@ function buildMailPaperSurface(
 export function getMailPaperSurfaceStyles(
   theme: Theme,
   styleId: MailPaperStyleId = DEFAULT_MAIL_PAPER_STYLE,
+  backgroundImageUrl?: string | null,
+  variant: MailPaperSurfaceVariant = 'editor',
 ) {
-  return buildMailPaperSurface(theme, styleId, theme.palette.mode === 'dark');
+  const isDark = theme.palette.mode === 'dark';
+  const base = buildMailPaperSurface(theme, styleId, isDark, variant);
+
+  if (!backgroundImageUrl) {
+    return base;
+  }
+
+  const overlay = isDark
+    ? 'linear-gradient(rgba(30, 30, 30, 0.28), rgba(30, 30, 30, 0.28))'
+    : 'linear-gradient(rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.32))';
+
+  return {
+    ...base,
+    backgroundImage: `${overlay}, url("${backgroundImageUrl}")`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center center',
+    backgroundRepeat: 'no-repeat',
+  };
+}
+
+/** Emotion/styled-component safe paper surface (no MUI sx-only props). */
+export function getMailPaperSurfaceCss(
+  theme: Theme,
+  styleId: MailPaperStyleId = DEFAULT_MAIL_PAPER_STYLE,
+  backgroundImageUrl?: string | null,
+  variant: MailPaperSurfaceVariant = 'editor',
+) {
+  const surface = getMailPaperSurfaceStyles(theme, styleId, backgroundImageUrl, variant);
+  const borderRadius =
+    typeof surface.borderRadius === 'number'
+      ? Number(theme.shape.borderRadius) * surface.borderRadius
+      : surface.borderRadius;
+
+  const css: Record<string, unknown> = {
+    position: surface.position,
+    borderRadius,
+    padding: theme.spacing(2.5),
+    minHeight: surface.minHeight,
+    color: surface.color,
+    backgroundColor: surface.bgcolor,
+    border: surface.border,
+    boxShadow: surface.boxShadow,
+    backgroundImage: surface.backgroundImage,
+    backgroundSize: surface.backgroundSize,
+  };
+
+  if ('boxSizing' in surface && surface.boxSizing) {
+    css.boxSizing = surface.boxSizing;
+  }
+
+  if ('flex' in surface && surface.flex) {
+    css.flex = surface.flex;
+  }
+
+  if (backgroundImageUrl) {
+    css.backgroundPosition = 'center center';
+    css.backgroundRepeat = 'no-repeat';
+  }
+
+  return css;
 }
 
 export function getMailPaperPreviewStyles(styleId: MailPaperStyleId) {

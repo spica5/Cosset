@@ -226,7 +226,7 @@ export function FriendCardsView() {
         heading="Friends"
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Friends', href: paths.dashboard.friend },
+          { name: 'Friends', href: paths.dashboard.community.friend },
           { name: 'List' }
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}

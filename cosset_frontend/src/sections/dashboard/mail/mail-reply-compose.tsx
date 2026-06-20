@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import type { IMail } from 'src/types/mail';
 
-import Box from '@mui/material/Box';
+import { useState, useEffect, useCallback } from 'react';
+
 import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Portal from '@mui/material/Portal';
@@ -26,27 +28,29 @@ import {
 } from 'src/constants/mail-paper-styles';
 
 import { MailWritingFonts } from './mail-writing-fonts';
-import { hasMailMessageContent } from './mail-compose-utils';
 import { MailPaperBackgroundPickerMenu } from './mail-paper-background-picker';
+import {
+  buildQuotedMessage,
+  buildReplySubject,
+  getReplyRecipient,
+  hasMailMessageContent,
+} from './mail-compose-utils';
 import { mailComposeEditorSx, mailComposePaperSx } from './mail-compose-layout';
 
 // ----------------------------------------------------------------------
 
 type Props = {
-  onCloseCompose: () => void;
+  mail: IMail;
+  userEmail?: string;
+  onCloseReply: () => void;
   onSent?: () => void;
 };
 
-export function MailCompose({ onCloseCompose, onSent }: Props) {
+export function MailReplyCompose({ mail, userEmail, onCloseReply, onSent }: Props) {
   const smUp = useResponsive('up', 'sm');
-
   const fullScreen = useBoolean();
-  const showCc = useBoolean();
-  const showBcc = useBoolean();
 
   const [to, setTo] = useState('');
-  const [cc, setCc] = useState('');
-  const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [paperStyle, setPaperStyle] = useState<MailPaperStyleId>(DEFAULT_MAIL_PAPER_STYLE);
@@ -54,18 +58,33 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
   const [sending, setSending] = useState(false);
   const [backgroundMenuAnchor, setBackgroundMenuAnchor] = useState<HTMLElement | null>(null);
 
+  useEffect(() => {
+    setTo(getReplyRecipient(mail, userEmail));
+    setSubject(buildReplySubject(mail.subject));
+    setMessage('');
+    setPaperStyle(DEFAULT_MAIL_PAPER_STYLE);
+    setPaperBackgroundImage(null);
+  }, [mail.id, mail, userEmail]);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const handleChangeMessage = useCallback((value: string) => {
     setMessage(value);
   }, []);
 
   const handleSend = useCallback(async () => {
     if (!to.trim()) {
-      toast.error('Add at least one recipient.');
+      toast.error('No recipient found for this reply.');
       return;
     }
 
     if (!hasMailMessageContent(message)) {
-      toast.error('Write a message before sending.');
+      toast.error('Write a reply before sending.');
       return;
     }
 
@@ -74,23 +93,22 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
     try {
       const result = await sendMail({
         to: to.trim(),
-        cc: showCc.value ? cc.trim() : undefined,
-        bcc: showBcc.value ? bcc.trim() : undefined,
         subject: subject.trim(),
-        message,
+        message: `${message}${buildQuotedMessage(mail)}`,
         paperStyle,
         paperBackgroundImage,
       });
 
       if (result.deliveryErrors?.length) {
-        toast.warning(result.message || 'Message saved in Cosset mail.');
+        toast.warning(result.message || 'Reply saved in Cosset mail.');
       } else {
-        toast.success(result.message || 'Message sent.');
+        toast.success(result.message || 'Reply sent.');
       }
-      onCloseCompose();
+
+      onCloseReply();
       onSent?.();
     } catch (error: unknown) {
-      let msg = 'Could not send message.';
+      let msg = 'Could not send reply.';
       if (typeof error === 'string') {
         msg = error;
       } else if (error instanceof Error) {
@@ -105,7 +123,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
     } finally {
       setSending(false);
     }
-  }, [bcc, cc, message, onCloseCompose, onSent, paperBackgroundImage, paperStyle, showBcc.value, showCc.value, subject, to]);
+  }, [mail, message, onCloseReply, onSent, paperBackgroundImage, paperStyle, subject, to]);
 
   return (
     <Portal>
@@ -120,14 +138,14 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
           sx={{ bgcolor: 'background.neutral', p: (theme) => theme.spacing(1.5, 1, 1.5, 2) }}
         >
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            New message
+            Reply
           </Typography>
 
           <IconButton onClick={fullScreen.onToggle}>
             <Iconify icon={fullScreen.value ? 'eva:collapse-fill' : 'eva:expand-fill'} />
           </IconButton>
 
-          <IconButton onClick={onCloseCompose} disabled={sending}>
+          <IconButton onClick={onCloseReply} disabled={sending}>
             <Iconify icon="mingcute:close-line" />
           </IconButton>
         </Stack>
@@ -137,22 +155,6 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
           value={to}
           onChange={(event) => setTo(event.target.value)}
           disabled={sending}
-          endAdornment={
-            <Stack direction="row" spacing={0.5} sx={{ typography: 'subtitle2' }}>
-              <Box
-                onClick={showCc.onToggle}
-                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              >
-                Cc
-              </Box>
-              <Box
-                onClick={showBcc.onToggle}
-                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              >
-                Bcc
-              </Box>
-            </Stack>
-          }
           sx={{
             px: 2,
             height: 48,
@@ -160,36 +162,6 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
               `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
           }}
         />
-
-        {showCc.value ? (
-          <InputBase
-            placeholder="Cc"
-            value={cc}
-            onChange={(event) => setCc(event.target.value)}
-            disabled={sending}
-            sx={{
-              px: 2,
-              height: 48,
-              borderBottom: (theme) =>
-                `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
-            }}
-          />
-        ) : null}
-
-        {showBcc.value ? (
-          <InputBase
-            placeholder="Bcc"
-            value={bcc}
-            onChange={(event) => setBcc(event.target.value)}
-            disabled={sending}
-            sx={{
-              px: 2,
-              height: 48,
-              borderBottom: (theme) =>
-                `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
-            }}
-          />
-        ) : null}
 
         <InputBase
           placeholder="Subject"
@@ -227,7 +199,7 @@ export function MailCompose({ onCloseCompose, onSent }: Props) {
             onPaperStyleChange={setPaperStyle}
             paperBackgroundImage={paperBackgroundImage}
             onPaperBackgroundImageChange={setPaperBackgroundImage}
-            placeholder="Write your letter..."
+            placeholder="Write your reply..."
             slotProps={{
               wrap: {
                 minHeight: 0,

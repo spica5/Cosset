@@ -17,6 +17,8 @@ import Portal from '@mui/material/Portal';
 import Backdrop from '@mui/material/Backdrop';
 import FormHelperText from '@mui/material/FormHelperText';
 
+import { useMailPaperBackgroundUrl } from 'src/sections/dashboard/mail/use-mail-paper-background-url';
+
 import { Toolbar } from './toolbar';
 import { StyledRoot } from './styles';
 import { editorClasses } from './classes';
@@ -43,6 +45,8 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
       typographyTools = false,
       paperStyle = null,
       onPaperStyleChange,
+      paperBackgroundImage = null,
+      onPaperBackgroundImageChange,
       value: content = '',
       placeholder = 'Write something awesome...',
       ...other
@@ -50,6 +54,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
     ref
   ) => {
     const [fullScreen, setFullScreen] = useState(false);
+    const paperBackgroundUrl = useMailPaperBackgroundUrl(paperBackgroundImage);
 
     const handleToggleFullScreen = useCallback(() => {
       setFullScreen((prev) => !prev);
@@ -140,6 +145,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
             disabled={!editable}
             fullScreen={fullScreen}
             paperStyle={paperStyle}
+            paperBackgroundUrl={paperBackgroundUrl}
             className={editorClasses.root.concat(className ? ` ${className}` : '')}
             sx={sx}
           >
@@ -149,6 +155,8 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
               typographyTools={typographyTools}
               paperStyle={paperStyle}
               onPaperStyleChange={onPaperStyleChange}
+              paperBackgroundImage={paperBackgroundImage}
+              onPaperBackgroundImageChange={onPaperBackgroundImageChange}
               disabled={!editable}
               fullScreen={fullScreen}
               onToggleFullScreen={handleToggleFullScreen}

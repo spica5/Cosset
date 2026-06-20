@@ -59,6 +59,11 @@ export const endpoints = {
     flags: '/api/mail/flags',
     send: '/api/mail/send',
     delete: (mailId: string | number) => `/api/mail/${mailId}`,
+    backgrounds: {
+      list: '/api/mail/backgrounds/list',
+      new: '/api/mail/backgrounds/new',
+      delete: (id: string | number) => `/api/mail/backgrounds/${id}`,
+    },
   },
   notification: {
     list: '/api/notification/list',

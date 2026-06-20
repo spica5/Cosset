@@ -8,6 +8,7 @@ import {
   type MailPaperStyleId,
 } from 'src/constants/mail-paper-styles';
 
+import { useMailPaperBackgroundUrl } from './use-mail-paper-background-url';
 import { resolveMailMessageContent, resolveMailPaperStyle } from './mail-paper-utils';
 
 // ----------------------------------------------------------------------
@@ -15,15 +16,17 @@ import { resolveMailMessageContent, resolveMailPaperStyle } from './mail-paper-u
 type Props = {
   message: string;
   paperStyle?: MailPaperStyleId | string | null;
+  paperBackgroundImage?: string | null;
 };
 
 const isHtmlContent = (message: string) => /<[a-z][\s\S]*>/i.test(message.trim());
 
-export function MailMessageContent({ message, paperStyle }: Props) {
+export function MailMessageContent({ message, paperStyle, paperBackgroundImage }: Props) {
   const theme = useTheme();
   const resolvedPaperStyle = resolveMailPaperStyle(message, paperStyle);
   const trimmed = resolveMailMessageContent(message, paperStyle).trim();
-  const paperSurface = getMailPaperSurfaceStyles(theme, resolvedPaperStyle);
+  const backgroundUrl = useMailPaperBackgroundUrl(paperBackgroundImage);
+  const paperSurface = getMailPaperSurfaceStyles(theme, resolvedPaperStyle, backgroundUrl, 'message');
 
   if (!trimmed) {
     return null;

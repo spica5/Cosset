@@ -74,6 +74,13 @@ export function Layout({ layoutMode, slots, sx, ...other }: Props) {
                 overflow: 'hidden',
                 bgcolor: 'background.paper',
                 boxShadow: (theme) => theme.customShadows?.z1,
+                display: 'flex',
+                flexDirection: 'column',
+                '& > *': {
+                  flex: '1 1 auto',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                },
               }}
             >
               {slots.details}
@@ -128,6 +135,13 @@ export function Layout({ layoutMode, slots, sx, ...other }: Props) {
             overflow: 'hidden',
             bgcolor: 'background.paper',
             boxShadow: (theme) => theme.customShadows?.z1,
+            display: 'flex',
+            flexDirection: 'column',
+            '& > *': {
+              flex: '1 1 auto',
+              minHeight: 0,
+              overflow: 'hidden',
+            },
           }}
         >
           {slots.details}

@@ -35,6 +35,7 @@ export type IMail = {
   subject: string;
   message: string;
   paperStyle?: MailPaperStyleId;
+  paperBackgroundImage?: string | null;
   isUnread: boolean;
   from: IMailSender;
   to: IMailSender[];

@@ -9,10 +9,12 @@ import {
   parseRecipientInput,
   getUserIdFromMailRequest,
   normalizeMailPaperStyle,
+  normalizeMailPaperBackgroundImage,
   stripMailPaperComment,
 } from 'src/utils/mail';
 
 import { createUserMail } from 'src/models/user-mails';
+import { isMailBackgroundImageKeyAllowed } from 'src/models/mail-background-images';
 import { getUserById, getUserByEmail } from 'src/models/users';
 import { notifyMailReceived } from 'src/utils/mail-notifications';
 
@@ -50,7 +52,15 @@ export async function POST(req: NextRequest) {
     const subject = typeof body?.subject === 'string' ? body.subject.trim().slice(0, 500) : '';
     const rawMessage = typeof body?.message === 'string' ? body.message.trim() : '';
     const paperStyle = normalizeMailPaperStyle(body?.paperStyle);
+    const paperBackgroundImage = normalizeMailPaperBackgroundImage(body?.paperBackgroundImage);
     const message = stripMailPaperComment(rawMessage);
+
+    if (paperBackgroundImage) {
+      const allowed = await isMailBackgroundImageKeyAllowed(paperBackgroundImage);
+      if (!allowed) {
+        return response({ message: 'Selected background image is not available' }, STATUS.BAD_REQUEST);
+      }
+    }
 
     if (!toEmails.length) {
       return response({ message: 'At least one recipient is required' }, STATUS.BAD_REQUEST);
@@ -87,6 +97,7 @@ export async function POST(req: NextRequest) {
       subject,
       message,
       paperStyle,
+      paperBackgroundImage,
       isUnread: false,
     });
 
@@ -143,6 +154,7 @@ export async function POST(req: NextRequest) {
           subject,
           message,
           paperStyle,
+          paperBackgroundImage,
           isUnread: true,
         });
 

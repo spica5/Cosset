@@ -346,6 +346,7 @@ export type SendMailBody = {
   subject?: string;
   message: string;
   paperStyle?: string;
+  paperBackgroundImage?: string | null;
 };
 
 export async function sendMail(body: SendMailBody): Promise<{

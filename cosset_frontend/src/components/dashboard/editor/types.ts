@@ -14,6 +14,9 @@ export type EditorProps = Partial<EditorOptions> & {
   /** Letter paper background style for mail writing. */
   paperStyle?: MailPaperStyleId | null;
   onPaperStyleChange?: (value: MailPaperStyleId) => void;
+  /** Optional uploaded background image (S3 key) behind the letter paper. */
+  paperBackgroundImage?: string | null;
+  onPaperBackgroundImageChange?: (value: string | null) => void;
   className?: string;
   sx?: SxProps<Theme>;
   resetValue?: boolean;
@@ -33,6 +36,8 @@ export type EditorToolbarProps = {
   typographyTools?: EditorProps['typographyTools'];
   paperStyle?: EditorProps['paperStyle'];
   onPaperStyleChange?: EditorProps['onPaperStyleChange'];
+  paperBackgroundImage?: EditorProps['paperBackgroundImage'];
+  onPaperBackgroundImageChange?: EditorProps['onPaperBackgroundImageChange'];
   disabled?: boolean;
 };
 
