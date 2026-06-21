@@ -117,13 +117,13 @@ export function PreviewClientContent() {
         },
       }}
     >
-      {showTopMenu ? (
+      {/* {showTopMenu ? (
         <HomeSpacePreviewHeaderBar
           currentPath={paths.dashboard.preview}
           isFullScreen={isFullScreen}
           onToggleFullScreen={handleToggleFullScreen}
         />
-      ) : null}
+      ) : null} */}
       <UniverseLandingView
         customerId={customerId}
         isFullScreen={isFullScreen}
