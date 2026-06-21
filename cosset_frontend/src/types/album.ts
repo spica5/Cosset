@@ -16,6 +16,7 @@ export type IAlbumItem = {
   updatedAt?: IDateValue;
   totalViews?: number;
   priority?: number;
+  imgCount?: number;
 };
 
 export type IAlbumImage = {

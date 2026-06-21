@@ -29,12 +29,13 @@ import { HeaderSection } from '../core/header-section';
 export type UniverseLayoutProps = {
   sx?: SxProps<Theme>;
   children: React.ReactNode;
+  minimal?: boolean;
   header?: {
     sx?: SxProps<Theme>;
   };
 };
 
-export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
+export function UniverseLayout({ sx, children, header, minimal = false }: UniverseLayoutProps) {
   const layoutQuery: Breakpoint = 'md';
   const pathname = usePathname();
   const [showTopMenu, setShowTopMenu] = useState(true);
@@ -120,7 +121,7 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
        * Header
        *************************************** */
       headerSection={
-        isUniverseViewPage && !showTopMenu ? null : (
+        minimal || (isUniverseViewPage && !showTopMenu) ? null : (
           <HeaderSection
             layoutQuery={layoutQuery}
             sx={header?.sx}
@@ -263,13 +264,21 @@ export function UniverseLayout({ sx, children, header }: UniverseLayoutProps) {
       /** **************************************
        * Footer
        *************************************** */
-      footerSection={<UniverseFooter />}
+      footerSection={minimal ? null : <UniverseFooter />}
       /** **************************************
        * Style
        *************************************** */
       sx={sx}
     >
-      <Main>{children}</Main>
+      <Main
+        sx={
+          minimal
+            ? { flex: '1 1 auto', minHeight: '100dvh', scrollSnapType: 'y proximity' }
+            : undefined
+        }
+      >
+        {children}
+      </Main>
     </LayoutSection>
   );
 }

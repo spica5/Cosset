@@ -9,6 +9,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany } from '@/db/neon';
 
+import { adjustAlbumImgCount } from 'src/models/albums';
+
 /**
  * Table name for album images
  */
@@ -200,6 +202,8 @@ export async function createAlbumImage(
       });
     }
 
+    await adjustAlbumImgCount(image.albumId, 1);
+
     return createdImage;
   } catch (error) {
     if (error instanceof DatabaseError) {
@@ -222,16 +226,22 @@ export async function createAlbumImage(
  */
 export async function deleteAlbumImage(id: number): Promise<boolean> {
   try {
-    const result = await queryOne<{ id: number }>(
+    const result = await queryOne<{ id: number; albumId: number }>(
       `
         DELETE FROM ${TABLE_NAME}
         WHERE id = $1
-        RETURNING id
+        RETURNING id, album_id as "albumId"
       `,
       [id],
     );
 
-    return !!result;
+    if (!result) {
+      return false;
+    }
+
+    await adjustAlbumImgCount(result.albumId, -1);
+
+    return true;
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({

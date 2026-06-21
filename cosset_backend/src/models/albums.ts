@@ -7,12 +7,38 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 /**
  * Table name for albums
  */
 const TABLE_NAME = 'albums';
+
+let ensureAlbumImgCountColumnPromise: Promise<void> | null = null;
+
+const ensureAlbumImgCountColumn = async (): Promise<void> => {
+  if (!ensureAlbumImgCountColumnPromise) {
+    ensureAlbumImgCountColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS img_count INTEGER NOT NULL DEFAULT 0`,
+      );
+
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} a
+         SET img_count = COALESCE((
+           SELECT COUNT(*)::int
+           FROM album_images ai
+           WHERE ai.album_id = a.id
+         ), 0)`,
+      );
+    })().catch((error) => {
+      ensureAlbumImgCountColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureAlbumImgCountColumnPromise;
+};
 
 const normalizeOpenness = (openness: unknown): 0 | 1 => {
   if (typeof openness === 'number') {
@@ -53,6 +79,8 @@ export interface Album {
   priority?: number | null;
   /** Total views */
   totalViews?: number | null;
+  /** Number of gallery images stored in album_images */
+  imgCount?: number | null;
   /** Creation timestamp */
   createdAt?: Date | null;
   /** Update timestamp */
@@ -68,6 +96,8 @@ export interface Album {
  */
 export async function getAlbumById(id: number): Promise<Album | null> {
   try {
+    await ensureAlbumImgCountColumn();
+
     const album = await queryOne<Album>(
       `
         SELECT
@@ -80,6 +110,7 @@ export async function getAlbumById(id: number): Promise<Album | null> {
           CASE WHEN openness = 1 THEN 'Public' ELSE 'Private' END as "openness",
           priority,
           total_views as "totalViews",
+          img_count as "imgCount",
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
@@ -116,30 +147,33 @@ export async function getAllAlbums(
   offset: number = 0,
 ): Promise<Album[]> {
   try {
+    await ensureAlbumImgCountColumn();
+
     let query = `
       SELECT
-        id,
-        user_id as "userId",
-        title,
-        description,
-        cover_url as "coverUrl",
-        category,
-        CASE WHEN openness = 1 THEN 'Public' ELSE 'Private' END as "openness",
-        priority,
-        total_views as "totalViews",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM ${TABLE_NAME}
+        a.id,
+        a.user_id as "userId",
+        a.title,
+        a.description,
+        a.cover_url as "coverUrl",
+        a.category,
+        CASE WHEN a.openness = 1 THEN 'Public' ELSE 'Private' END as "openness",
+        a.priority,
+        a.total_views as "totalViews",
+        a.img_count as "imgCount",
+        a.created_at as "createdAt",
+        a.updated_at as "updatedAt"
+      FROM ${TABLE_NAME} a
     `;
     const params: unknown[] = [];
 
     if (userId !== undefined) {
-      query += ` WHERE user_id = $1`;
+      query += ` WHERE a.user_id = $1`;
       params.push(userId);
-      query += ` ORDER BY created_at DESC LIMIT $2 OFFSET $3`;
+      query += ` ORDER BY a.created_at DESC LIMIT $2 OFFSET $3`;
       params.push(limit, offset);
     } else {
-      query += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`;
+      query += ` ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
     }
 
@@ -169,6 +203,8 @@ export async function createAlbum(
   album: Omit<Album, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<Album> {
   try {
+    await ensureAlbumImgCountColumn();
+
     const createdAlbum = await queryOne<Album>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -180,10 +216,11 @@ export async function createAlbum(
           openness,
           priority,
           total_views,
+          img_count,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW(), NOW())
         RETURNING
           id,
           user_id as "userId",
@@ -194,6 +231,7 @@ export async function createAlbum(
           CASE WHEN openness = 1 THEN 'Public' ELSE 'Private' END as "openness",
           priority,
           total_views as "totalViews",
+          img_count as "imgCount",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -242,6 +280,8 @@ export async function updateAlbum(
   album: Partial<Omit<Album, 'id' | 'createdAt' | 'updatedAt'>>,
 ): Promise<Album> {
   try {
+    await ensureAlbumImgCountColumn();
+
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -312,6 +352,7 @@ export async function updateAlbum(
           CASE WHEN openness = 1 THEN 'Public' ELSE 'Private' END as "openness",
           priority,
           total_views as "totalViews",
+          img_count as "imgCount",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `,
@@ -339,10 +380,44 @@ export async function updateAlbum(
 }
 
 /**
+ * Adjust img_count for an album (e.g. after image upload/delete).
+ */
+export async function adjustAlbumImgCount(albumId: number, delta: number): Promise<number> {
+  try {
+    await ensureAlbumImgCountColumn();
+
+    const result = await queryOne<{ imgCount: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET
+          img_count = GREATEST(COALESCE(img_count, 0) + $2, 0),
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING img_count as "imgCount"
+      `,
+      [albumId, delta],
+    );
+
+    return result?.imgCount ?? 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'ADJUST_ALBUM_IMG_COUNT_ERROR',
+        message: `Failed to adjust album image count: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
  * Atomically increment total_views for an album and return updated totalViews.
  */
 export async function incrementAlbumViews(id: number): Promise<number> {
   try {
+    await ensureAlbumImgCountColumn();
+
     const result = await queryOne<{ totalViews: number }>(
       `
         UPDATE ${TABLE_NAME}

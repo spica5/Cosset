@@ -1,19 +1,23 @@
 import type { BoxProps } from '@mui/material/Box';
 import type { IBlogItem } from 'src/types/blog';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useGetViewedBlogIds } from 'src/actions/blog';
+import { useGetReactionSummary } from 'src/actions/reaction';
 
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
+import IconButton from '@mui/material/IconButton';
+import Pagination from '@mui/material/Pagination';
+import InputAdornment from '@mui/material/InputAdornment';
+import CardActionArea from '@mui/material/CardActionArea';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 import {
   BLOG_CONTENT_FONT_COLOR,
@@ -21,26 +25,35 @@ import {
   isBlogContentFontPreset,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
-  isBlogContentBackgroundPreset,  
+  isBlogContentBackgroundPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
-import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
+
+import {
+  MySpaceSectionTitle,
+} from './myspace-section-title';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 
 type Props = BoxProps & {
   blogs: IBlogItem[];
   blogsLoading?: boolean;
-  viewAllHref?: string;
   ownerCustomerId?: string | number;
+  isOwner?: boolean;
   getBlogHref?: (blog: IBlogItem) => string;
 };
 
-const BLOG_PREVIEW_LIMIT = 3;
-const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+const PAGE_SIZE = 6;
 
-const formatDate = (value: unknown) => {
+const SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
+
+const CARD_BG = '#FAF6F0';
+
+const ACCENT_PINK = '#E8A0A8';
+
+const formatBlogDate = (value: unknown) => {
   if (!value) {
     return '-';
   }
@@ -50,326 +63,429 @@ const formatDate = (value: unknown) => {
     return '-';
   }
 
-  return parsed.toLocaleString();
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const year = parsed.getFullYear();
+
+  return `${day}/${month}/${year}`;
 };
 
-const getSummary = (blog: IBlogItem) => {
-  const source = (blog.description || blog.content || '').trim();
+const stripHtml = (value: string) => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const getPlainContent = (blog: IBlogItem) => {
+  const source = (blog.content || blog.description || '').trim();
   if (!source) {
-    return 'No description yet.';
+    return 'No content yet.';
   }
 
-  return source.length > 160 ? `${source.slice(0, 160)}...` : source;
+  return stripHtml(source);
 };
+
+const getExcerpt = (blog: IBlogItem) => {
+  const plain = getPlainContent(blog);
+  if (plain === 'No content yet.') {
+    return plain;
+  }
+
+  return plain.length > 72 ? `${plain.slice(0, 72)}...` : plain;
+};
+
+type BlogCardProps = {
+  blog: IBlogItem;
+  blogHref?: string;
+  isViewed: boolean;
+};
+
+function BlogCardHeart({ blogId }: { blogId: number }) {
+  const { reactionSummary } = useGetReactionSummary('blog', blogId);
+  const count = reactionSummary?.totalCount ?? 0;
+
+  return (
+    <IconButton
+      size="small"
+      aria-label="Reactions"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      sx={{
+        position: 'relative',
+        width: 32,
+        height: 32,
+        bgcolor: ACCENT_PINK,
+        color: 'common.white',
+        boxShadow: '0 2px 8px rgba(232, 160, 168, 0.45)',
+        '&:hover': { bgcolor: '#d88e96' },
+      }}
+    >
+      <Iconify icon="solar:heart-bold" width={16} />
+      {count > 0 ? (
+        <Box
+          component="span"
+          sx={{
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            minWidth: 16,
+            height: 16,
+            px: 0.5,
+            borderRadius: 99,
+            bgcolor: 'common.white',
+            color: ACCENT_PINK,
+            fontSize: 10,
+            fontWeight: 700,
+            display: 'grid',
+            placeItems: 'center',
+            boxShadow: 1,
+          }}
+        >
+          {count}
+        </Box>
+      ) : null}
+    </IconButton>
+  );
+}
+
+function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
+  const fallbackAppearance = getBlogContentAppearance(blog.comments);
+  const contentAppearance = {
+    fontPreset: isBlogContentFontPreset(blog.fontPreset)
+      ? blog.fontPreset
+      : fallbackAppearance.fontPreset,
+    backgroundPreset: isBlogContentBackgroundPreset(blog.backgroundPreset)
+      ? blog.backgroundPreset
+      : fallbackAppearance.backgroundPreset,
+  };
+
+  const plainContent = getPlainContent(blog);
+  const title = (blog.title || '').trim() || `Blog #${blog.id}`;
+
+  const cardBody = (
+    <>
+      <Box sx={{ position: 'relative', px: 1.5, pt: 1.5 }}>
+        <Box
+          sx={{
+            position: 'relative',
+            minHeight: 120,
+            borderRadius: 2,
+            overflow: 'hidden',
+            ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset),
+            border: '1px solid rgba(139, 119, 101, 0.14)',
+          }}
+        >
+          <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+            <BlogCardHeart blogId={blog.id} />
+          </Box>
+
+          {!isViewed ? (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                width: 8,
+                height: 10,
+                borderRadius: '2px 2px 4px 4px',
+                bgcolor: 'error.main',
+                zIndex: 1,
+              }}
+            />
+          ) : null}
+
+          <Typography
+            variant="body2"
+            sx={{
+              p: 1.5,
+              pr: 5,
+              pt: 4,
+              color: BLOG_CONTENT_FONT_COLOR,
+              ...getBlogContentFontSx(contentAppearance.fontPreset),
+              display: '-webkit-box',
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              lineHeight: 1.55,
+              minHeight: 112,
+            }}
+          >
+            {plainContent}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Stack spacing={0.75} sx={{ p: 2, pt: 1.5, flex: 1, position: 'relative' }}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontFamily: SECTION_SERIF,
+            fontWeight: 700,
+            fontSize: '1.05rem',
+            lineHeight: 1.35,
+          }}
+          noWrap
+        >
+          {title}
+        </Typography>
+
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Iconify icon="solar:calendar-minimalistic-bold" width={14} sx={{ color: 'text.disabled' }} />
+          <Typography variant="caption" color="text.secondary">
+            {formatBlogDate(blog.createdAt)}
+          </Typography>
+        </Stack>
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            lineHeight: 1.5,
+            flex: 1,
+          }}
+        >
+          {getExcerpt(blog)}
+        </Typography>
+
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ pt: 0.5 }}>
+          {blogHref ? (
+            <Typography
+              variant="body2"
+              sx={{
+                color: ACCENT_PINK,
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.25,
+              }}
+            >
+              See more
+              <Iconify icon="eva:arrow-ios-forward-fill" width={14} />
+            </Typography>
+          ) : (
+            <Box />
+          )}
+
+          <Iconify
+            icon="solar:flower-bold-duotone"
+            width={22}
+            sx={{ color: ACCENT_PINK, opacity: 0.75 }}
+          />
+        </Stack>
+      </Stack>
+    </>
+  );
+
+  const cardSx = {
+    height: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    borderRadius: 2.5,
+    overflow: 'hidden',
+    bgcolor: CARD_BG,
+    boxShadow: '0 4px 18px rgba(60, 45, 30, 0.08)',
+    border: '1px solid rgba(139, 119, 101, 0.12)',
+    transition: (theme: import('@mui/material/styles').Theme) =>
+      theme.transitions.create(['transform', 'box-shadow'], {
+        duration: theme.transitions.duration.shorter,
+      }),
+    '&:hover': {
+      transform: 'translateY(-3px)',
+      boxShadow: '0 10px 28px rgba(60, 45, 30, 0.12)',
+    },
+  };
+
+  if (!blogHref) {
+    return (
+      <Card sx={cardSx}>
+        {cardBody}
+      </Card>
+    );
+  }
+
+  return (
+    <Card sx={cardSx}>
+      <CardActionArea
+        component={RouterLink}
+        href={blogHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        sx={{ height: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
+      >
+        {cardBody}
+      </CardActionArea>
+    </Card>
+  );
+}
 
 export function UniverseLandingBlogs({
   blogs,
   blogsLoading = false,
-  viewAllHref,
   ownerCustomerId,
+  isOwner = false,
   getBlogHref,
   sx,
   ...other
 }: Props) {
   const { viewedBlogIds } = useGetViewedBlogIds(ownerCustomerId);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
 
   const viewedIdSet = useMemo(() => new Set(viewedBlogIds.map(String)), [viewedBlogIds]);
 
-  const totalCount = blogs.length;
-  const viewedCount = useMemo(
-    () => blogs.filter((blog) => viewedIdSet.has(String(blog.id))).length,
-    [blogs, viewedIdSet],
-  );
-  const unreadCount = totalCount - viewedCount;
-
-  const previewBlogs = useMemo(
+  const sortedBlogs = useMemo(
     () =>
-      [...blogs]
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-          return bTime - aTime;
-        })
-        .slice(0, BLOG_PREVIEW_LIMIT),
+      [...blogs].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      }),
     [blogs],
   );
 
+  const filteredBlogs = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return sortedBlogs;
+    }
+
+    return sortedBlogs.filter((blog) => {
+      const searchable = [blog.title, blog.description, blog.content]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return searchable.includes(query);
+    });
+  }, [searchQuery, sortedBlogs]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredBlogs.length / PAGE_SIZE));
+
+  const paginatedBlogs = useMemo(() => {
+    const safePage = Math.min(page, pageCount);
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredBlogs.slice(start, start + PAGE_SIZE);
+  }, [filteredBlogs, page, pageCount]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
+
   return (
-    <Card
+    <Box
       id="blogs-section"
       component="section"
-      sx={{ pb: 4, overflow: 'hidden', pt: { xs: 3, md: 6 }, ...sx }}
+      sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 }, ...sx }}
       {...other}
     >
-      <Container>
+      <Stack spacing={3}>
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.5}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'flex-start', md: 'flex-end' }}
           justifyContent="space-between"
         >
-          <Stack spacing={0.75}>
-            <Stack
-              direction="row"
-              spacing={1.25}
-              alignItems="center"
-              sx={{
-                px: 1.5,
-                py: 0.8,
-                borderRadius: 99,
-                border: '1px solid rgba(18, 96, 194, 0.32)',
-                background: 'linear-gradient(90deg, rgba(35, 126, 233, 0.16), rgba(35, 126, 233, 0.05))',
-                boxShadow: '0 8px 18px rgba(35, 126, 233, 0.14)',
-                width: 'fit-content',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: '1px solid rgba(35, 126, 233, 0.35)',
-                  bgcolor: 'rgba(255,255,255,0.35)',
-                }}
-              >
-                <Iconify icon="solar:document-text-bold" width={24} sx={{ color: 'primary.main' }} />
-              </Box>
-
-              <Typography
-                variant="h2"
-                sx={{
-                  fontFamily: SECTION_TITLE_FONT,
-                  fontWeight: 800,
-                  letterSpacing: '0.01em',
-                }}
-              >
-                <Box
-                  sx={{
-                    position: 'relative',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    lineHeight: 1,
-                  }}
-                >
-                  Blogs
-                  {unreadCount > 0 ? (
-                    <Label
-                      color="error"
-                      variant="filled"
-                      sx={{
-                        top: 0,
-                        left: '100%',
-                        px: 0.5,
-                        height: 24,
-                        position: 'absolute',
-                        transform: 'translate(-10%, -45%)',
-                        borderRadius: '50%',
-                      }}
-                    >
-                      {unreadCount}
-                    </Label>
-                  ) : viewedCount > 0 ? (
-                    <Label
-                      color="success"
-                      variant="filled"
-                      sx={{
-                        top: 0,
-                        left: '100%',
-                        px: 0.5,
-                        height: 24,
-                        position: 'absolute',
-                        transform: 'translate(-10%, -45%)',
-                        borderRadius: '50%',
-                      }}
-                    >
-                      {viewedCount}
-                    </Label>
-                  ) : null}
-                </Box>
-              </Typography>
-            </Stack>
-
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Typography
-                variant="body2"
-                sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
-              >
-                Shared stories and reflections from this universe
-              </Typography>
-
-              {totalCount > 0 && (
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Label color="success" variant="soft" sx={{ fontSize: 11 }}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Iconify icon="eva:eye-fill" width={12} />
-                      <Box component="span">{viewedCount} viewed</Box>
-                    </Stack>
-                  </Label>
-                  {unreadCount > 0 && (
-                    <Label color="warning" variant="soft" sx={{ fontSize: 11 }}>
-                      <Stack direction="row" spacing={0.5} alignItems="center">
-                        <Iconify icon="eva:eye-off-fill" width={12} />
-                        <Box component="span">{unreadCount} unread</Box>
-                      </Stack>
-                    </Label>
-                  )}
-                </Stack>
-              )}
-            </Stack>
+          <Stack spacing={1} sx={{ maxWidth: 520 }}>
+            <MySpaceSectionTitle
+              title="BLOGS"
+              subtitle="A place for thoughts, feelings, and everyday stories."
+              itemCount={sortedBlogs.length}
+            />
           </Stack>
 
-          {!blogsLoading && blogs.length > 0 && viewAllHref ? (
-            <Button
-              component={RouterLink}
-              href={viewAllHref}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            sx={{ width: { xs: 1, md: 'auto' } }}
+          >
+            <TextField
               size="small"
-              variant="outlined"
-              endIcon={<Iconify icon="eva:arrow-ios-forward-fill" width={14} />}
-            >
-              View all shared blogs
-            </Button>
-          ) : null}
+              placeholder="Search posts..."
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setPage(1);
+              }}
+              sx={{
+                minWidth: { sm: 240 },
+                bgcolor: 'background.paper',
+                borderRadius: 99,
+                '& .MuiOutlinedInput-root': { borderRadius: 99 },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Iconify icon="eva:search-fill" width={18} sx={{ color: 'text.disabled' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            {isOwner ? (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.blog.new}
+                variant="contained"
+                startIcon={<Iconify icon="mingcute:add-line" />}
+                sx={{
+                  borderRadius: 99,
+                  px: 2.5,
+                  whiteSpace: 'nowrap',
+                  bgcolor: ACCENT_PINK,
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#d88e96', boxShadow: 'none' },
+                }}
+              >
+                New Post
+              </Button>
+            ) : null}
+          </Stack>
         </Stack>
 
-        <Box sx={{ py: { xs: 4, md: 6 } }}>
-          {blogsLoading ? (
-            <Typography color="text.secondary">Loading blogs...</Typography>
-          ) : blogs.length === 0 ? (
-            <Typography color="text.secondary">No shared blog posts found.</Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {previewBlogs.map((blog) => {
-                const fallbackAppearance = getBlogContentAppearance(blog.comments);
-                const blogHref = getBlogHref?.(blog);
-                const isViewed = viewedIdSet.has(String(blog.id));
-                const contentAppearance = {
-                  fontPreset: isBlogContentFontPreset(blog.fontPreset)
-                    ? blog.fontPreset
-                    : fallbackAppearance.fontPreset,
-                  backgroundPreset: isBlogContentBackgroundPreset(blog.backgroundPreset)
-                    ? blog.backgroundPreset
-                    : fallbackAppearance.backgroundPreset,
-                };
+        {blogsLoading ? (
+          <Typography color="text.secondary">Loading blogs...</Typography>
+        ) : filteredBlogs.length === 0 ? (
+          <Typography color="text.secondary">
+            {searchQuery.trim() ? 'No blog posts match your search.' : 'No shared blog posts found.'}
+          </Typography>
+        ) : (
+          <>
+            <Box sx={myspaceItemGridSx}>
+              {paginatedBlogs.map((blog) => (
+                <Box key={blog.id} sx={myspaceItemCardSx}>
+                  <UniverseLandingBlogCard
+                    blog={blog}
+                    blogHref={getBlogHref?.(blog)}
+                    isViewed={viewedIdSet.has(String(blog.id))}
+                  />
+                </Box>
+              ))}
+            </Box>
 
-                const cardContent = (
-                  <CardContent
-                    sx={{
-                      ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset),
-                      minHeight: 180,
-                    }}
-                  >
-                    <Stack spacing={1}>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        spacing={1}
-                      >
-                        <Typography
-                          variant="h6"
-                          noWrap
-                          sx={{
-                            color: BLOG_CONTENT_FONT_COLOR,
-                            fontFamily: 'Georgia, "Times New Roman", serif',
-                          }}
-                        >
-                          {(blog.title || '').trim() || `Blog #${blog.id}`}
-                        </Typography>
-
-                        <Label
-                          color={isViewed ? 'success' : 'warning'}
-                          variant="soft"
-                          title={isViewed ? 'Viewed' : 'Unread'}
-                          sx={{
-                            minWidth: 28,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={18} />
-                        </Label>
-                      </Stack>
-
-                      <Stack direction="row" spacing={0.75} alignItems="center">
-                        <Iconify icon="eva:clock-outline" width={14} sx={{ color: 'warning.main' }} />
-                        <Typography variant="caption" color="text.secondary">
-                          Created: {formatDate(blog.createdAt)}
-                        </Typography>
-                      </Stack>
-
-                      <Stack direction="row" spacing={0.75} alignItems="flex-start">
-                        <Iconify
-                          icon="solar:notes-linear"
-                          width={14}
-                          sx={{ color: 'info.main', mt: '2px', flexShrink: 0 }}
-                        />
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: BLOG_CONTENT_FONT_COLOR,
-                            ...getBlogContentFontSx(contentAppearance.fontPreset),
-                            whiteSpace: 'pre-line',
-                          }}
-                        >
-                          {getSummary(blog)}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </CardContent>
-                );
-
-                return (
-                  <Grid item xs={12} sm={6} md={4} key={blog.id}>
-                    {blogHref ? (
-                      <Card
-                        component={RouterLink}
-                        href={blogHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{
-                          height: 1,
-                          cursor: 'pointer',
-                          overflow: 'hidden',
-                          border: '0px solid',
-                          borderColor: 'divider',
-                          textDecoration: 'none',
-                          color: 'inherit',
-                          transition: (theme) =>
-                            theme.transitions.create(['transform', 'box-shadow'], {
-                              duration: theme.transitions.duration.shorter,
-                            }),
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            borderColor: 'primary.main',
-                            boxShadow: (theme) => theme.shadows[8],
-                          },
-                        }}
-                      >
-                        {cardContent}
-                      </Card>
-                    ) : (
-                      <Card
-                        sx={{
-                          height: 1,
-                          overflow: 'hidden',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        }}
-                      >
-                        {cardContent}
-                      </Card>
-                    )}
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
-        </Box>
-      </Container>
-    </Card>
+            {pageCount > 1 ? (
+              <Stack alignItems="center" sx={{ pt: 1 }}>
+                <Pagination
+                  count={pageCount}
+                  page={Math.min(page, pageCount)}
+                  onChange={(_, value) => setPage(value)}
+                  shape="rounded"
+                  sx={{
+                    '& .MuiPaginationItem-root': {
+                      fontWeight: 600,
+                    },
+                    '& .Mui-selected': {
+                      bgcolor: `${ACCENT_PINK} !important`,
+                      color: 'common.white',
+                    },
+                  }}
+                />
+              </Stack>
+            ) : null}
+          </>
+        )}
+      </Stack>
+    </Box>
   );
 }

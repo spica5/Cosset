@@ -157,6 +157,17 @@ export function UniverseLandingHero({
     };
   }, []);
 
+  const handleShowCustomerSpace = () => {
+    const target = document.getElementById('myspace-section');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const customerSpaceLabel = customer?.name
+    ? `${customer.name}'s Space`
+    : "Customer's Space";
+
   if (!universe) {
     return null;
   }
@@ -287,16 +298,16 @@ export function UniverseLandingHero({
         <Card
           sx={{
             top: {
-              xs: showTopMenu ? 70 : 12,
-              md: showTopMenu ? 80 : 20,
+              xs: showTopMenu ? 12 : 12,
+              md: showTopMenu ? 25 : 25,
             },
-            right: { xs: 15, md: 30 },
+            left: { xs: 15, md: 30 },
             zIndex: 10,
             px: 1.5,
             py: 1.25,
             minWidth: { xs: 180, sm: 220 },
             maxWidth: { xs: 'calc(100vw - 24px)', sm: 260 },
-            position: 'fixed',
+            position: 'absolute',
             bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
             border: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
             color: 'common.white',
@@ -320,12 +331,13 @@ export function UniverseLandingHero({
                 alt={customer?.name || 'Customer'}
                 onClick={() => { if (customer?.avatarUrl) setOpenAvatarPreview(true); }}
                 sx={{
-                  width: 45,
-                  height: 45,
+                  width: 100,
+                  height: 120,
                   bgcolor: 'grey.700',
                   cursor: customer?.avatarUrl ? 'pointer' : 'default',
                   transition: 'opacity 0.2s',
                   '&:hover': customer?.avatarUrl ? { opacity: 0.8 } : {},
+                  borderRadius: 2,
                 }}
               />
               <Box sx={{ minWidth: 0 }}>
@@ -393,7 +405,31 @@ export function UniverseLandingHero({
             )}
           </Stack>
 
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Typography variant="subtitle2">Room Info</Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  onClick={() => {
+                    window.dispatchEvent(new Event('toggle-room-info'));
+                  }}
+                  sx={{
+                    borderColor: 'text.secondary',
+                    color: 'info.main',
+                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    '&:hover': {
+                      borderColor: 'text.secondary',
+                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      color: 'info.lighter',
+                    },
+                  }}
+                >
+                  {showRoomInfo ? 'Hide' : 'View'}
+                </Button>
+              </Stack>
+
+          {/* <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
             <Typography variant="subtitle2">Controls</Typography>
             <Button
               size="small"
@@ -463,10 +499,37 @@ export function UniverseLandingHero({
                 >
                   {showTopMenu ? 'Hide' : 'View'}
                 </Button>
-              </Stack>
+              </Stack> 
             </Stack>
-          </Collapse>
+          </Collapse> */}
         </Card>
+
+        <Button
+          variant="outlined"
+          onClick={handleShowCustomerSpace}
+          endIcon={<Iconify icon="eva:arrow-ios-downward-fill" width={18} />}
+          sx={{
+            position: 'absolute',
+            bottom: { xs: 20, md: 28 },
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            px: 2.5,
+            py: 1,
+            borderRadius: 99,
+            whiteSpace: 'nowrap',
+            borderColor: varAlpha(theme.vars.palette.common.whiteChannel, 0.4),
+            color: 'common.white',
+            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
+            backdropFilter: 'blur(4px)',
+            '&:hover': {
+              borderColor: 'common.white',
+              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.7),
+            },
+          }}
+        >
+          {customerSpaceLabel}
+        </Button>
 
         <IconButton
           aria-label="view design space gallery"

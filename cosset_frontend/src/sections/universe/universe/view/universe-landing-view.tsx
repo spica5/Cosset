@@ -27,6 +27,7 @@ import { UniverseLandingHero } from '../landing/universe-landing-hero';
 import { UniverseLandingBlogs } from '../landing/universe-landing-blogs';
 import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
 import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
+import { UniverseLandingMySpace } from '../landing/universe-landing-myspace';
 import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
@@ -99,7 +100,9 @@ export function UniverseLandingView({
   const [requestingFriend, setRequestingFriend] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [designGalleryUrls, setDesignGalleryUrls] = useState<string[]>([]);
-  const [sharedAlbums, setSharedAlbums] = useState<(IAlbumItem & { signedCoverUrl?: string })[]>([]);
+  const [sharedAlbums, setSharedAlbums] = useState<
+    (IAlbumItem & { signedCoverUrl?: string })[]
+  >([]);
   const [albumsLoading, setAlbumsLoading] = useState(false);
 
   const defaultCoverImage = `${CONFIG.universe.assetsDir}/assets/images/guest-area/cosset_default.png`;
@@ -388,16 +391,20 @@ export function UniverseLandingView({
           publicAlbums.map(async (album) => {
             const coverKey = album.coverUrl;
 
+            let signedCoverUrl = '';
             if (!coverKey) {
-              return { ...album, signedCoverUrl: '' };
+              signedCoverUrl = '';
+            } else if (coverKey.startsWith('http://') || coverKey.startsWith('https://')) {
+              signedCoverUrl = coverKey;
+            } else {
+              signedCoverUrl = (await getS3SignedUrl(coverKey)) || '';
             }
 
-            if (coverKey.startsWith('http://') || coverKey.startsWith('https://')) {
-              return { ...album, signedCoverUrl: coverKey };
-            }
-
-            const signedCoverUrl = await getS3SignedUrl(coverKey);
-            return { ...album, signedCoverUrl: signedCoverUrl || '' };
+            return {
+              ...album,
+              signedCoverUrl,
+              imgCount: Number(album.imgCount ?? 0),
+            };
           })
         );
 
@@ -623,6 +630,27 @@ export function UniverseLandingView({
   const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
   const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
 
+  const mySpaceSectionCounts = useMemo(
+    () => ({
+      ...(guestarea?.blog ? { 'blogs-section': sharedBlogViewItems.length } : {}),
+      ...(allowVisitorSections
+        ? {
+            'albums-section': sharedAlbums.length,
+            'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
+            'collection-items-section': sharedCollections.length,
+          }
+        : {}),
+    }),
+    [
+      allowVisitorSections,
+      guestarea?.blog,
+      sharedAlbums.length,
+      sharedBlogViewItems.length,
+      sharedCollections.length,
+      sharedDrawerItems,
+    ],
+  );
+
   const visitors = useMemo<VisitorItem[]>(() => {
     const normalizedCustomerId = String(customerId || '');
     const visitorMap = new Map<string, VisitorItem>();
@@ -756,38 +784,60 @@ export function UniverseLandingView({
           name: customerName,
           avatarUrl: customerAvatarUrl,
         }}
+        sx={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
       />
 
-      {allowVisitorSections ? (
-        <>
-          <UniverseLandingBlogs
-            blogs={sharedBlogViewItems}
-            blogsLoading={guestarea?.blog ? blogsLoading : false}
-            viewAllHref={paths.universe.blogs(customerId)}
-            ownerCustomerId={customerId}
-            getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
-          />
-
-          <UniverseLandingAlbums
-            albums={sharedAlbums}
-            albumsLoading={albumsLoading}
-            ownerUserId={customerId}
-          />
-
-          <UniverseLandingDrawer
-            items={sharedDrawerItems}
-            loading={drawerLoading}
-            sx={{ px: { xs: 2, md: 0 }, py: { xs: 5, md: 8 } }}
-          />
-
-          <UniverseLandingCollectionItems
-            customerId={customerId}
-            collections={sharedCollections}
-          />
-        </>
-      ) : null}
-
-      
+      <UniverseLandingMySpace
+        customerName={customerName}
+        customerAvatarUrl={customerAvatarUrl}
+        sectionCounts={mySpaceSectionCounts}
+        sections={{
+          ...(guestarea?.blog
+            ? {
+                'blogs-section': (
+                  <UniverseLandingBlogs
+                    blogs={sharedBlogViewItems}
+                    blogsLoading={blogsLoading}
+                    ownerCustomerId={customerId}
+                    isOwner={isCurrentCustomer}
+                    getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
+                  />
+                ),
+              }
+            : {}),
+          ...(allowVisitorSections
+            ? {
+                'albums-section': (
+                  <UniverseLandingAlbums
+                    albums={sharedAlbums}
+                    albumsLoading={albumsLoading}
+                    ownerUserId={customerId}
+                    isOwner={isCurrentCustomer}
+                    getAlbumHref={(album) => paths.universe.album(album.id)}
+                  />
+                ),
+                'drawers-section': (
+                  <UniverseLandingDrawer
+                    items={sharedDrawerItems}
+                    loading={drawerLoading}
+                    viewAllHref={
+                      isCurrentCustomer ? paths.dashboard.drawer.root : undefined
+                    }
+                  />
+                ),
+                'collection-items-section': (
+                  <UniverseLandingCollectionItems
+                    customerId={customerId}
+                    collections={sharedCollections}
+                    viewAllHref={
+                      isCurrentCustomer ? paths.dashboard.collections.root : undefined
+                    }
+                  />
+                ),
+              }
+            : {}),
+        }}
+      />
     </>
   );
 }

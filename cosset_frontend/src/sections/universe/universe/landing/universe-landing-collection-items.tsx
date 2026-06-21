@@ -1,39 +1,43 @@
 import type { BoxProps } from '@mui/material/Box';
 import type { ICollectionItem } from 'src/types/collection';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Container from '@mui/material/Container';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
 import { alpha } from '@mui/material/styles';
 
 import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
+
+import {
+  MySpaceSectionTitle,
+} from './myspace-section-title';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 
 type Props = BoxProps & {
   customerId: string;
   collections: ICollectionItem[];
+  viewAllHref?: string;
 };
 
-const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+const ACCENT_PINK = '#E8A0A8';
 
-type CollectionCardProps = {
-  customerId: string;
-  collection: ICollectionItem;
-  viewedItemIdSet: Set<string>;
-  viewedItemIdsLoading: boolean;
-  onStatsChange?: (collectionId: number, stats: { unreadCount: number; viewedCount: number }) => void;
-};
+const COLLECTION_CARD_THEMES = [
+  { icon: 'solar:widget-4-bold', iconColor: '#8E33FF', iconBg: '#EFD6FF' },
+  { icon: 'solar:book-2-bold', iconColor: '#8D6E63', iconBg: '#F5F0E8' },
+  { icon: 'solar:camera-bold', iconColor: '#42A5F5', iconBg: '#E3F2FD' },
+  { icon: 'solar:star-bold', iconColor: '#E57373', iconBg: '#FCE4EC' },
+] as const;
 
 const formatDate = (value: unknown) => {
   if (!value) {
@@ -48,15 +52,25 @@ const formatDate = (value: unknown) => {
   return parsed.toLocaleDateString();
 };
 
+const getCollectionTheme = (collectionId: number) =>
+  COLLECTION_CARD_THEMES[collectionId % COLLECTION_CARD_THEMES.length];
+
+type CollectionCardProps = {
+  customerId: string;
+  collection: ICollectionItem;
+  viewedItemIdSet: Set<string>;
+  viewedItemIdsLoading: boolean;
+};
+
 function UniverseCollectionItemsCard({
   customerId,
   collection,
   viewedItemIdSet,
   viewedItemIdsLoading,
-  onStatsChange,
 }: CollectionCardProps) {
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collection.id, customerId);
   const collectionItemsHref = paths.universe.collectionItems(customerId, collection.id);
+  const theme = getCollectionTheme(collection.id);
 
   const publicItems = useMemo(
     () => collectionItems.filter((item) => item.isPublic === 1),
@@ -70,342 +84,256 @@ function UniverseCollectionItemsCard({
   );
   const unreadCount = Math.max(0, publicItems.length - viewedCount);
   const isStatsLoading = collectionItemsLoading || viewedItemIdsLoading;
+  const collectionName = collection.name || `Collection #${collection.id}`;
 
-  useEffect(() => {
-    onStatsChange?.(collection.id, { unreadCount, viewedCount });
-  }, [collection.id, onStatsChange, unreadCount, viewedCount]);
+  const cardSx = {
+    height: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    borderRadius: 2,
+    overflow: 'hidden',
+    bgcolor: 'common.white',
+    border: '1px solid rgba(139, 119, 101, 0.16)',
+    boxShadow: '0 2px 10px rgba(60, 45, 30, 0.05)',
+    transition: (muiTheme: import('@mui/material/styles').Theme) =>
+      muiTheme.transitions.create(['box-shadow', 'transform'], {
+        duration: muiTheme.transitions.duration.shorter,
+      }),
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 8px 20px rgba(60, 45, 30, 0.08)',
+    },
+  };
 
   return (
-    <Grid item xs={12} sm={6} md={4}>
-      <Card
-        onClick={() => window.open(collectionItemsHref, '_blank', 'noopener,noreferrer')}
-        sx={{
-          height: 1,
-          textDecoration: 'none',
-          color: 'inherit',
-          border: '1px solid',
-          borderColor: 'divider',
-          cursor: 'pointer',
-          transition: (theme) =>
-            theme.transitions.create(['transform', 'box-shadow', 'border-color'], {
-              duration: theme.transitions.duration.shorter,
-            }),
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            borderColor: 'primary.main',
-            boxShadow: (theme) => theme.shadows[8],
-          },
-        }}
-      >
-        <CardContent>
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Iconify icon="solar:folder-with-files-bold" width={16} sx={{ color: 'primary.main' }} />
-                <Typography variant="h6" noWrap>
-                  {collection.name || `Collection #${collection.id}`}
-                </Typography>
-              </Stack>
-            </Stack>
+    <Card sx={cardSx}>
+      <Stack spacing={1.5} sx={{ p: 2, width: 1, height: 1, flex: 1 }}>
+        <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              bgcolor: theme.iconBg,
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Iconify icon={theme.icon} width={22} sx={{ color: theme.iconColor }} />
+          </Box>
+
+          <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle2" fontWeight={700} noWrap>
+              {collectionName}
+            </Typography>
 
             {isStatsLoading ? (
               <Stack direction="row" spacing={0.75} alignItems="center">
                 <Iconify icon="solar:refresh-outline" width={14} sx={{ color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="caption" color="text.secondary">
                   Loading collection info...
                 </Typography>
               </Stack>
             ) : (
-              <Stack spacing={0.5}>
-                <Stack direction="row" spacing={1.25} alignItems="center" useFlexGap flexWrap="wrap">
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                      <Iconify icon="eva:layers-fill" width={16} sx={{ color: 'text.secondary' }} />
-                      <Typography variant="caption" color="text.secondary">
-                      {publicItems.length} item{publicItems.length === 1 ? '' : 's'}
-                    </Typography>
-                  </Stack>        
+              <>
+                <Typography variant="caption" color="text.secondary">
+                  {publicItems.length} item{publicItems.length === 1 ? '' : 's'}
+                </Typography>
 
+                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Iconify icon="eva:eye-fill" width={14} sx={{ color: 'success.main' }} />
-                    <Typography variant="caption" color="success.dark">
+                    <Typography variant="caption" color="text.secondary">
                       {viewedCount} viewed
                     </Typography>
                   </Stack>
 
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Iconify icon="eva:eye-off-fill" width={14} sx={{ color: 'warning.main' }} />
-                    <Typography variant="caption" color="warning.dark">
+                    <Typography variant="caption" color="text.secondary">
                       {unreadCount} unread
                     </Typography>
                   </Stack>
-
-                   
                 </Stack>
-              </Stack>
-            )}
-
-            {!isStatsLoading && publicItems.length === 0 && (
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Iconify icon="solar:forbidden-circle-linear" width={14} sx={{ color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
-                  No public items in this collection.
-                </Typography>
-              </Stack>
-            )}
-
-            {!isStatsLoading && previewItems.length > 0 && (
-              <Stack spacing={0.75}>
-                {previewItems.map((item) => {
-                  const isViewed = viewedItemIdSet.has(String(item.id));
-
-                  return (
-                    <Box
-                      key={item.id}
-                      sx={(theme) => ({
-                        p: 1,
-                        borderRadius: 1,
-                        border: '1px dashed',
-                        borderColor: isViewed
-                          ? alpha(theme.palette.success.main, 0.6)
-                          : alpha(theme.palette.warning.main, 0.65),
-                        bgcolor: isViewed
-                          ? alpha(theme.palette.success.main, 0.08)
-                          : alpha(theme.palette.warning.main, 0.1),
-                      })}
-                    >
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                          <Iconify
-                            icon="solar:bookmark-square-minimalistic-bold"
-                            width={14}
-                            sx={{ color: isViewed ? 'success.main' : 'warning.main' }}
-                          />
-                          <Typography
-                            variant="body2"
-                            noWrap
-                            sx={{ color: isViewed ? 'success.dark' : 'warning.dark', fontWeight: 500 }}
-                          >
-                            {(item.title || '').trim() || `Item #${item.id}`}
-                          </Typography>
-                        </Stack>
-
-                        <Label
-                          color={isViewed ? 'success' : 'warning'}
-                          variant="soft"
-                          title={isViewed ? 'Viewed' : 'Unread'}
-                          sx={{
-                            minWidth: 26,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={16} />
-                        </Label>
-                      </Stack>
-
-                      <Stack direction="row" spacing={0.75} alignItems="center">
-                        <Iconify icon="eva:calendar-outline" width={14} sx={{ color: 'text.secondary' }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDate(item.date || item.updatedAt)}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  );
-                })}
-              </Stack>
+              </>
             )}
           </Stack>
-        </CardContent>
-      </Card>
-    </Grid>
+        </Stack>
+
+        {!isStatsLoading && publicItems.length === 0 ? (
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            <Iconify icon="solar:forbidden-circle-linear" width={14} sx={{ color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary">
+              No public items in this collection.
+            </Typography>
+          </Stack>
+        ) : null}
+
+        {!isStatsLoading && previewItems.length > 0 ? (
+          <Stack spacing={0.75} sx={{ flex: 1 }}>
+            {previewItems.map((item) => {
+              const isViewed = viewedItemIdSet.has(String(item.id));
+
+              return (
+                <Box
+                  key={item.id}
+                  sx={(muiTheme) => ({
+                    p: 1,
+                    borderRadius: 1,
+                    border: '1px dashed',
+                    borderColor: isViewed
+                      ? alpha(muiTheme.palette.success.main, 0.6)
+                      : alpha(muiTheme.palette.warning.main, 0.65),
+                    bgcolor: isViewed
+                      ? alpha(muiTheme.palette.success.main, 0.08)
+                      : alpha(muiTheme.palette.warning.main, 0.1),
+                  })}
+                >
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                      <Iconify
+                        icon="solar:bookmark-square-minimalistic-bold"
+                        width={14}
+                        sx={{ color: isViewed ? 'success.main' : 'warning.main' }}
+                      />
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ color: isViewed ? 'success.dark' : 'warning.dark', fontWeight: 500 }}
+                      >
+                        {(item.title || '').trim() || `Item #${item.id}`}
+                      </Typography>
+                    </Stack>
+
+                    <Label
+                      color={isViewed ? 'success' : 'warning'}
+                      variant="soft"
+                      title={isViewed ? 'Viewed' : 'Unread'}
+                      sx={{
+                        minWidth: 26,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Iconify icon={isViewed ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={16} />
+                    </Label>
+                  </Stack>
+
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Iconify icon="eva:calendar-outline" width={14} sx={{ color: 'text.secondary' }} />
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(item.date || item.updatedAt)}
+                    </Typography>
+                  </Stack>
+                </Box>
+              );
+            })}
+          </Stack>
+        ) : null}
+
+        <Button
+          component={RouterLink}
+          href={collectionItemsHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          size="small"
+          variant="outlined"
+          fullWidth
+          sx={{
+            mt: 'auto',
+            borderRadius: 99,
+            borderColor: ACCENT_PINK,
+            color: ACCENT_PINK,
+            fontWeight: 600,
+            '&:hover': {
+              borderColor: '#d88e96',
+              bgcolor: 'rgba(232, 160, 168, 0.08)',
+            },
+          }}
+        >
+          View items
+        </Button>
+      </Stack>
+    </Card>
   );
 }
 
 export function UniverseLandingCollectionItems({
   customerId,
   collections,
+  viewAllHref,
   sx,
   ...other
 }: Props) {
   const { viewedCollectionItemIds, viewedCollectionItemIdsLoading } = useGetViewedCollectionItemIds(customerId);
-  const [collectionStatsMap, setCollectionStatsMap] = useState<
-    Record<number, { unreadCount: number; viewedCount: number }>
-  >({});
 
   const viewedItemIdSet = useMemo(
     () => new Set(viewedCollectionItemIds.map(String)),
     [viewedCollectionItemIds],
   );
 
-  const handleCardStatsChange = useCallback((
-    collectionId: number,
-    stats: { unreadCount: number; viewedCount: number },
-  ) => {
-    setCollectionStatsMap((prev) => {
-      const previous = prev[collectionId];
-
-      if (
-        previous?.unreadCount === stats.unreadCount &&
-        previous?.viewedCount === stats.viewedCount
-      ) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [collectionId]: stats,
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    setCollectionStatsMap((prev) => {
-      const activeIds = new Set(collections.map((collection) => String(collection.id)));
-      const nextEntries = Object.entries(prev).filter(([collectionId]) => activeIds.has(collectionId));
-
-      if (nextEntries.length === Object.keys(prev).length) {
-        return prev;
-      }
-
-      return Object.fromEntries(nextEntries) as Record<
-        number,
-        { unreadCount: number; viewedCount: number }
-      >;
-    });
-  }, [collections]);
-
-  const totalUnreadCollectionItems = useMemo(
-    () =>
-      collections.reduce(
-        (sum, collection) => sum + (collectionStatsMap[collection.id]?.unreadCount ?? 0),
-        0,
-      ),
-    [collectionStatsMap, collections],
-  );
-
-  const totalViewedCollectionItems = useMemo(
-    () =>
-      collections.reduce(
-        (sum, collection) => sum + (collectionStatsMap[collection.id]?.viewedCount ?? 0),
-        0,
-      ),
-    [collectionStatsMap, collections],
-  );
-
-  const badgeCount = totalUnreadCollectionItems > 0
-    ? totalUnreadCollectionItems
-    : totalViewedCollectionItems;
-
   return (
-    <Card
+    <Box
       id="collection-items-section"
       component="section"
-      sx={{ pb: 4, overflow: 'hidden', pt: { xs: 3, md: 6 }, ...sx }}
+      sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 }, ...sx }}
       {...other}
     >
-      <Container>
+      <Stack spacing={2.5}>
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.5}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          justifyContent="flex-start"
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'flex-start', md: 'flex-end' }}
+          justifyContent="space-between"
         >
-          <Stack spacing={0.75} sx={{ textAlign: { xs: 'left', md: 'unset' } }}>
-            <Stack
-              direction="row"
-              spacing={1.25}
-              alignItems="center"
+          <Stack spacing={1} sx={{ maxWidth: 520 }}>
+            <MySpaceSectionTitle
+              title="COLLECTIONS"
+              subtitle="Curated highlights from shared collections."
+              itemCount={collections.length}
+            />
+          </Stack>
+
+          {viewAllHref ? (
+            <Typography
+              component={RouterLink}
+              href={viewAllHref}
+              variant="body2"
               sx={{
-                px: 1.5,
-                py: 0.8,
-                borderRadius: 99,
-                border: '1px solid rgba(112, 88, 210, 0.33)',
-                background: 'linear-gradient(90deg, rgba(112, 88, 210, 0.16), rgba(112, 88, 210, 0.06))',
-                boxShadow: '0 8px 18px rgba(112, 88, 210, 0.14)',
-                width: 'fit-content',
+                color: 'text.secondary',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.25,
+                whiteSpace: 'nowrap',
+                '&:hover': { color: ACCENT_PINK },
               }}
             >
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: '1px solid rgba(112, 88, 210, 0.35)',
-                  bgcolor: 'rgba(255,255,255,0.35)',
-                }}
-              >
-                <Iconify icon="solar:widget-4-bold" width={24} sx={{ color: 'primary.main' }} />
-              </Box>
-
-              <Typography
-                variant="h2"
-                sx={{
-                  fontFamily: SECTION_TITLE_FONT,
-                  fontWeight: 800,
-                  letterSpacing: '0.01em',
-                }}
-              >
-                <Box
-                  sx={{
-                    position: 'relative',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    lineHeight: 1,
-                  }}
-                >
-                  Collections
-                  {badgeCount > 0 && (
-                  <Label
-                    color={totalUnreadCollectionItems > 0 ? 'error' : 'success'}
-                    variant="filled"
-                    sx={{
-                      top: 0,
-                      left: '100%',
-                      px: 0.5,
-                      height: 24,
-                      position: 'absolute',
-                      transform: 'translate(-10%, -45%)',
-                      borderRadius: '50%',
-                    }}
-                  >
-                    {badgeCount}
-                  </Label>
-                  )}
-                </Box>
-              </Typography>
-            </Stack>
-
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
-            >
-              Curated highlights from shared collections
+              View all
+              <Iconify icon="eva:arrow-ios-forward-fill" width={14} />
             </Typography>
-          </Stack>
+          ) : null}
         </Stack>
 
-        <Box sx={{ py: { xs: 4, md: 6 } }}>
-          {collections.length === 0 ? (
-            <Typography color="text.secondary">No shared collections found.</Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {collections.map((collection) => (
+        {collections.length === 0 ? (
+          <Typography color="text.secondary">No shared collections found.</Typography>
+        ) : (
+          <Box sx={myspaceItemGridSx}>
+            {collections.map((collection) => (
+              <Box key={collection.id} sx={myspaceItemCardSx}>
                 <UniverseCollectionItemsCard
-                  key={collection.id}
                   customerId={customerId}
                   collection={collection}
                   viewedItemIdSet={viewedItemIdSet}
                   viewedItemIdsLoading={viewedCollectionItemIdsLoading}
-                  onStatsChange={handleCardStatsChange}
                 />
-              ))}
-            </Grid>
-          )}
-        </Box>
-      </Container>
-    </Card>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Stack>
+    </Box>
   );
 }

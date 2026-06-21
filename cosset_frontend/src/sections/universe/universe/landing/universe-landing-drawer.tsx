@@ -1,16 +1,21 @@
 import type { BoxProps } from '@mui/material/Box';
 
+import { useMemo } from 'react';
+
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
-import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
-import Container from '@mui/material/Container';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
 
 import { RouterLink } from 'src/routes/components';
+
 import { Iconify } from 'src/components/universe/iconify';
+
+import {
+  MySpaceSectionTitle,
+} from './myspace-section-title';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 
@@ -27,160 +32,232 @@ export type DrawerSharedItem = {
 type Props = BoxProps & {
   items?: DrawerSharedItem[];
   loading?: boolean;
+  viewAllHref?: string;
 };
 
-const SECTION_TITLE_FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+const ACCENT_PINK = '#E8A0A8';
 
-export function UniverseLandingDrawer({ items = [], loading = false, sx, ...other }: Props) {
-  return (
-    <Card
-      id="drawers-section"
-      component="section"
-      sx={{ pb: 10, overflow: 'hidden', pt: { xs: 3, md: 6 }, ...sx }}
-      {...other}
-    >
-      <Container>
-        <Stack spacing={2} sx={{ textAlign: { xs: 'center', md: 'unset' } }}>
-          <Stack spacing={0.75}>
-            <Stack
-              direction="row"
-              spacing={1.25}
-              alignItems="center"
-              sx={{
-                px: 1.5,
-                py: 0.8,
-                borderRadius: 99,
-                border: '1px solid rgba(199, 125, 18, 0.34)',
-                background: 'linear-gradient(90deg, rgba(199, 125, 18, 0.16), rgba(199, 125, 18, 0.06))',
-                boxShadow: '0 8px 18px rgba(199, 125, 18, 0.15)',
-                width: 'fit-content',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: '1px solid rgba(199, 125, 18, 0.35)',
-                  bgcolor: 'rgba(255,255,255,0.35)',
-                }}
-              >
-                <Iconify icon="solar:box-bold" width={20} sx={{ color: 'primary.main' }} />
-              </Box>
+const DRAWER_CARD_THEMES: Record<
+  string,
+  { icon: string; iconColor: string; iconBg: string }
+> = {
+  goodMemo: {
+    icon: 'solar:leaf-bold',
+    iconColor: '#4CAF50',
+    iconBg: '#E8F5E9',
+  },
+  letter: {
+    icon: 'solar:lock-keyhole-minimalistic-bold',
+    iconColor: '#8D6E63',
+    iconBg: '#F5F0E8',
+  },
+  sadMemo: {
+    icon: 'solar:checklist-minimalistic-bold',
+    iconColor: '#42A5F5',
+    iconBg: '#E3F2FD',
+  },
+  gift: {
+    icon: 'solar:heart-bold',
+    iconColor: '#E57373',
+    iconBg: '#FCE4EC',
+  },
+};
 
-              <Typography
-                variant="h2"
-                sx={{
-                  fontFamily: SECTION_TITLE_FONT,
-                  fontWeight: 800,
-                  letterSpacing: '0.01em',
-                }}
-              >
-                Drawers
+const DEFAULT_THEME = {
+  icon: 'solar:box-minimalistic-bold',
+  iconColor: '#8D6E63',
+  iconBg: '#F5F0E8',
+};
+
+const getDrawerTheme = (item: DrawerSharedItem) => {
+  if (item.key && DRAWER_CARD_THEMES[item.key]) {
+    const theme = DRAWER_CARD_THEMES[item.key];
+    return {
+      ...theme,
+      icon: item.icon || theme.icon,
+    };
+  }
+
+  return {
+    ...DEFAULT_THEME,
+    icon: item.icon || DEFAULT_THEME.icon,
+  };
+};
+
+const getDrawerCountLabel = (item: DrawerSharedItem) => {
+  const unit = item.key === 'gift' ? 'item' : 'note';
+  const plural = item.count === 1 ? unit : `${unit}s`;
+
+  return `${item.count} ${plural}`;
+};
+
+type DrawerCategoryCardProps = {
+  item: DrawerSharedItem;
+};
+
+function DrawerCategoryCard({ item }: DrawerCategoryCardProps) {
+  const theme = getDrawerTheme(item);
+  const viewedCount = item.viewedCount ?? 0;
+  const unreadCount = item.unreadCount ?? Math.max(0, item.count - viewedCount);
+
+  const cardBody = (
+    <Stack spacing={1.5} sx={{ p: 2, width: 1, height: 1 }}>
+      <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            bgcolor: theme.iconBg,
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Iconify icon={theme.icon} width={22} sx={{ color: theme.iconColor }} />
+        </Box>
+
+        <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2" fontWeight={700} noWrap>
+            {item.label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {getDrawerCountLabel(item)}
+          </Typography>
+
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Iconify icon="eva:eye-fill" width={14} sx={{ color: 'success.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                {viewedCount} viewed
               </Typography>
             </Stack>
 
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.secondary', fontFamily: SECTION_TITLE_FONT, letterSpacing: '0.01em' }}
-            >
-              Keepsakes, mementos, and meaningful shared moments
-            </Typography>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Iconify icon="eva:eye-off-fill" width={14} sx={{ color: 'warning.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                {unreadCount} unread
+              </Typography>
+            </Stack>
           </Stack>
         </Stack>
+      </Stack>
 
-        <Box sx={{ py: { xs: 3, md: 6 } }}>
-          {loading ? (
-            <Typography color="text.secondary">Loading drawer shared items...</Typography>
-          ) : items.length === 0 ? (
-            <Typography color="text.secondary">No shared drawer items found.</Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {items.map((item) => (
-                <Grid item xs={12} sm={6} md={3} key={item.key}>
-                  <Card
-                    onClick={() => {
-                      if (item.href) {
-                        window.open(item.href, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                    sx={{
-                        height: 1,
-                        cursor: item.href ? 'pointer' : 'default',
-                        overflow: 'hidden',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'background.neutral',
-                        '&:hover': {
-                          bgcolor: 'divider',
-                        },
-                      }}
-                  >
-                    <CardContent>
-                      <Stack spacing={1} alignItems="center">
-                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
-                          {item.icon ? (
-                            <Iconify icon={item.icon} width={20} sx={{ color: 'primary.main' }} />
-                          ) : (
-                            <Iconify icon="solar:box-minimalistic-bold" width={20} sx={{ color: 'primary.main' }} />
-                          )}
-                          <Typography variant="subtitle1">{item.label}</Typography>
-                        </Stack>
+      {item.href ? (
+        <Button
+          component={RouterLink}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          size="small"
+          variant="outlined"
+          fullWidth
+          sx={{
+            borderRadius: 99,
+            borderColor: ACCENT_PINK,
+            color: ACCENT_PINK,
+            fontWeight: 600,
+            '&:hover': {
+              borderColor: '#d88e96',
+              bgcolor: 'rgba(232, 160, 168, 0.08)',
+            },
+          }}
+        >
+          View items
+        </Button>
+      ) : null}
+    </Stack>
+  );
 
-                        <Stack direction="row" spacing={0.75} alignItems="center">
-                          <Iconify icon="eva:layers-fill" width={14} sx={{ color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            Total {item.count} item{item.count === 1 ? '' : 's'}
-                          </Typography>
-                        </Stack>
-                          <Stack direction="row" spacing={2} alignItems="center">
+  const cardSx = {
+    height: 1,
+    borderRadius: 2,
+    overflow: 'hidden',
+    bgcolor: 'common.white',
+    border: '1px solid rgba(139, 119, 101, 0.16)',
+    boxShadow: '0 2px 10px rgba(60, 45, 30, 0.05)',
+    transition: (muiTheme: import('@mui/material/styles').Theme) =>
+      muiTheme.transitions.create(['box-shadow', 'transform'], {
+        duration: muiTheme.transitions.duration.shorter,
+      }),
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 8px 20px rgba(60, 45, 30, 0.08)',
+    },
+  };
 
-                          <Stack direction="row" spacing={0.75} alignItems="center">
-                            <Iconify icon="eva:eye-fill" width={14} sx={{ color: 'success.main' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {item.viewedCount ?? 0} viewed
-                            </Typography>
-                          </Stack>
+  return <Card sx={cardSx}>{cardBody}</Card>;
+}
 
-                          <Stack direction="row" spacing={0.75} alignItems="center">
-                            <Iconify icon="eva:eye-off-fill" width={14} sx={{ color: 'warning.main' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {item.unreadCount ?? item.count} unread
-                            </Typography>
-                          </Stack>
-                        </Stack>
+export function UniverseLandingDrawer({
+  items = [],
+  loading = false,
+  viewAllHref,
+  sx,
+  ...other
+}: Props) {
+  const totalItemCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.count, 0),
+    [items],
+  );
 
-                        {item.href ? (
-                          <Link
-                            component={RouterLink}
-                            href={item.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(event) => event.stopPropagation()}
-                            underline="none"
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              typography: 'body2',
-                              color: 'primary.main',
-                            }}
-                          >
-                            <Iconify icon="eva:arrow-ios-forward-fill" width={14} />
-                            View items
-                          </Link>
-                        ) : null}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Box>
-      </Container>
-    </Card>
+  return (
+    <Box
+      id="drawers-section"
+      component="section"
+      sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 }, ...sx }}
+      {...other}
+    >
+      <Stack spacing={2.5}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'flex-start', md: 'flex-end' }}
+          justifyContent="space-between"
+        >
+          <Stack spacing={1} sx={{ maxWidth: 520 }}>
+            <MySpaceSectionTitle
+              title="DRAWERS"
+              subtitle="Keepsakes, mementos, and meaningful shared moments."
+              itemCount={totalItemCount}
+            />
+          </Stack>
+
+          {viewAllHref ? (
+            <Typography
+              component={RouterLink}
+              href={viewAllHref}
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.25,
+                whiteSpace: 'nowrap',
+                '&:hover': { color: ACCENT_PINK },
+              }}
+            >
+              View all
+              <Iconify icon="eva:arrow-ios-forward-fill" width={14} />
+            </Typography>
+          ) : null}
+        </Stack>
+
+        {loading ? (
+          <Typography color="text.secondary">Loading drawer items...</Typography>
+        ) : items.length === 0 ? (
+          <Typography color="text.secondary">No shared drawer items found.</Typography>
+        ) : (
+          <Box sx={myspaceItemGridSx}>
+            {items.map((item) => (
+              <Box key={item.key} sx={myspaceItemCardSx}>
+                <DrawerCategoryCard item={item} />
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Stack>
+    </Box>
   );
 }

@@ -7,13 +7,5 @@ type Props = {
 };
 
 export default function Layout({ children }: Props) {
-  return (
-    <UniverseLayout
-      header={{
-        sx: { position: { md: 'fixed' } },
-      }}
-    >
-      {children}
-    </UniverseLayout>
-  );
+  return <UniverseLayout minimal>{children}</UniverseLayout>;
 }
