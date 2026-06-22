@@ -23,6 +23,8 @@ import {
   updateBookshelfAudiobook,
 } from 'src/actions/bookshelf-audiobook';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
@@ -74,6 +76,7 @@ const parseNullableInteger = (value: string): number | null => {
 };
 
 export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved }: Props) {
+  const { user } = useAuthContext();
   const isEditMode = !!audiobook;
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -260,7 +263,13 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
         return;
       }
 
+      if (!isEditMode && !user?.id) {
+        toast.error('You must be signed in to add an audio-book.');
+        return;
+      }
+
       const payload = {
+        customerId: user?.id ? String(user.id) : audiobook?.customerId ?? null,
         title: form.title.trim(),
         author: form.author.trim() || null,
         description: form.description.trim() || null,
@@ -288,6 +297,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
       setSubmitting(false);
     }
   }, [
+    user?.id,
     audiobook,
     form,
     isEditMode,

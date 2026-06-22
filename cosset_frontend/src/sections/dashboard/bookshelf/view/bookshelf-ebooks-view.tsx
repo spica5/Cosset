@@ -37,7 +37,7 @@ export function BookshelfEbooksView() {
   const { user } = useAuthContext();
   const canManage = isUserAdmin(user?.role);
 
-  const { ebooks, ebooksLoading } = useGetBookshelfEbooks();
+  const { ebooks, ebooksLoading } = useGetBookshelfEbooks(user?.id);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -79,7 +79,7 @@ export function BookshelfEbooksView() {
     }
 
     try {
-      await deleteBookshelfEbook(ebook.id);
+      await deleteBookshelfEbook(ebook.id, user?.id);
       toast.success('E-book deleted successfully.');
     } catch (error) {
       console.error('Failed to delete e-book:', error);

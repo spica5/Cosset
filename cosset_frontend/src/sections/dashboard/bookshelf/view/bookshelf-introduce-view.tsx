@@ -78,11 +78,11 @@ export function BookshelfIntroduceView() {
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading="Introduce"
+        heading="Introduction"
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Bookshelf', href: paths.dashboard.bookshelf.root },
-          { name: 'Introduce' },
+          { name: 'Introduction' },
         ]}
         sx={{ mb: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}
       />

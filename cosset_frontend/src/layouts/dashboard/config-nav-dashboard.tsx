@@ -137,7 +137,7 @@ export const navData = [
         path: paths.dashboard.bookshelf.root,
         icon: ICONS.folder,
         children: [
-          { title: 'Introduce', path: paths.dashboard.bookshelf.introduce },
+          { title: 'Introduction', path: paths.dashboard.bookshelf.introduce },
           { title: 'E-books', path: paths.dashboard.bookshelf.ebooks },
           { title: 'Audio-books', path: paths.dashboard.bookshelf.audioBooks },
         ],

@@ -21,7 +21,12 @@ export async function POST(req: NextRequest) {
       return response({ message: 'Audio file is required' }, STATUS.BAD_REQUEST);
     }
 
+    if (!audiobook?.customerId || !String(audiobook.customerId).trim()) {
+      return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
+    }
+
     const created = await createBookshelfAudiobook({
+      customerId: String(audiobook.customerId).trim(),
       title: audiobook.title.trim(),
       author: audiobook.author ?? null,
       description: audiobook.description ?? null,

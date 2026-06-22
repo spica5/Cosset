@@ -9,6 +9,7 @@ export type BookshelfAudiobookFileType = 'mp3' | 'm4a' | 'wav' | 'ogg' | 'aac' |
 
 export interface BookshelfAudiobook {
   id: number;
+  customerId?: string | null;
   title: string;
   author?: string | null;
   description?: string | null;
@@ -16,10 +17,27 @@ export interface BookshelfAudiobook {
   fileUrl: string;
   fileType: BookshelfAudiobookFileType;
   order?: number | null;
+  isPublic?: number | null;
   createdAt?: Date | null;
 }
 
+const SELECT_COLUMNS = `
+  id,
+  customer_id as "customerId",
+  title,
+  author,
+  description,
+  cover_image as "coverImage",
+  file_url as "fileUrl",
+  file_type as "fileType",
+  "order",
+  is_public as "isPublic",
+  created_at as "createdAt"
+`;
+
 let ensureTablePromise: Promise<void> | null = null;
+let ensureIsPublicColumnPromise: Promise<void> | null = null;
+let ensureCustomerIdColumnPromise: Promise<void> | null = null;
 
 const parseInteger = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -47,6 +65,53 @@ const normalizeFileType = (value: unknown): BookshelfAudiobookFileType => {
   return AUDIO_FILE_TYPES.has(normalized) ? (normalized as BookshelfAudiobookFileType) : 'mp3';
 };
 
+const normalizeIsPublic = (value: unknown): 0 | 1 => {
+  if (typeof value === 'number') {
+    return value === 1 ? 1 : 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'public' || normalized === 'true' ? 1 : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  return 0;
+};
+
+const ensureIsPublicColumn = async (): Promise<void> => {
+  if (!ensureIsPublicColumnPromise) {
+    ensureIsPublicColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_public SMALLINT NOT NULL DEFAULT 0`,
+      );
+    })().catch((error) => {
+      ensureIsPublicColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureIsPublicColumnPromise;
+};
+
+const ensureCustomerIdColumn = async (): Promise<void> => {
+  if (!ensureCustomerIdColumnPromise) {
+    ensureCustomerIdColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS customer_id VARCHAR(255)`,
+      );
+    })().catch((error) => {
+      ensureCustomerIdColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureCustomerIdColumnPromise;
+};
+
 const ensureTable = async (): Promise<void> => {
   if (!ensureTablePromise) {
     ensureTablePromise = (async () => {
@@ -72,9 +137,12 @@ const ensureTable = async (): Promise<void> => {
   }
 
   await ensureTablePromise;
+  await ensureIsPublicColumn();
+  await ensureCustomerIdColumn();
 };
 
 export async function getAllBookshelfAudiobooks(
+  customerId?: string,
   limit: number = 100,
   offset: number = 0,
 ): Promise<BookshelfAudiobook[]> {
@@ -83,24 +151,22 @@ export async function getAllBookshelfAudiobooks(
 
     const normalizedLimit = Math.max(1, Math.min(300, parseInteger(limit) ?? 100));
     const normalizedOffset = Math.max(0, parseInteger(offset) ?? 0);
+    const normalizedCustomerId = String(customerId || '').trim();
+
+    if (!normalizedCustomerId) {
+      return [];
+    }
 
     return await queryMany<BookshelfAudiobook>(
       `
         SELECT
-          id,
-          title,
-          author,
-          description,
-          cover_image as "coverImage",
-          file_url as "fileUrl",
-          file_type as "fileType",
-          "order",
-          created_at as "createdAt"
+          ${SELECT_COLUMNS}
         FROM ${TABLE_NAME}
+        WHERE customer_id = $1
         ORDER BY COALESCE("order", 2147483647) ASC, created_at DESC, id DESC
-        LIMIT $1 OFFSET $2
+        LIMIT $2 OFFSET $3
       `,
-      [normalizedLimit, normalizedOffset],
+      [normalizedCustomerId, normalizedLimit, normalizedOffset],
     );
   } catch (error) {
     if (error instanceof DatabaseError) {
@@ -131,15 +197,7 @@ export async function getBookshelfAudiobookById(id: number): Promise<BookshelfAu
     return await queryOne<BookshelfAudiobook>(
       `
         SELECT
-          id,
-          title,
-          author,
-          description,
-          cover_image as "coverImage",
-          file_url as "fileUrl",
-          file_type as "fileType",
-          "order",
-          created_at as "createdAt"
+          ${SELECT_COLUMNS}
         FROM ${TABLE_NAME}
         WHERE id = $1
         LIMIT 1
@@ -168,6 +226,7 @@ export async function createBookshelfAudiobook(
     const created = await queryOne<BookshelfAudiobook>(
       `
         INSERT INTO ${TABLE_NAME} (
+          customer_id,
           title,
           author,
           description,
@@ -177,19 +236,12 @@ export async function createBookshelfAudiobook(
           "order",
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         RETURNING
-          id,
-          title,
-          author,
-          description,
-          cover_image as "coverImage",
-          file_url as "fileUrl",
-          file_type as "fileType",
-          "order",
-          created_at as "createdAt"
+          ${SELECT_COLUMNS}
       `,
       [
+        item.customerId ?? null,
         item.title,
         item.author ?? null,
         item.description ?? null,
@@ -283,6 +335,12 @@ export async function updateBookshelfAudiobook(
       paramIndex += 1;
     }
 
+    if (updates.isPublic !== undefined) {
+      fields.push(`is_public = $${paramIndex}`);
+      values.push(normalizeIsPublic(updates.isPublic));
+      paramIndex += 1;
+    }
+
     if (!fields.length) {
       const existing = await getBookshelfAudiobookById(normalizedId);
       if (!existing) {
@@ -303,15 +361,7 @@ export async function updateBookshelfAudiobook(
         SET ${fields.join(', ')}
         WHERE id = $${paramIndex}
         RETURNING
-          id,
-          title,
-          author,
-          description,
-          cover_image as "coverImage",
-          file_url as "fileUrl",
-          file_type as "fileType",
-          "order",
-          created_at as "createdAt"
+          ${SELECT_COLUMNS}
       `,
       values,
     );

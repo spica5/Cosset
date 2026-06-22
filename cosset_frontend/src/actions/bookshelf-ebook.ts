@@ -5,8 +5,6 @@ import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
-const LIST_ENDPOINT = endpoints.bookshelf.ebook.list;
-
 const swrOptions = {
   revalidateIfStale: false,
   revalidateOnFocus: false,
@@ -21,9 +19,18 @@ type EbookData = {
   ebook?: IBookshelfEbook;
 };
 
-export function useGetBookshelfEbooks() {
+export const getBookshelfEbookListEndpoint = (customerId?: string | number | '' | null) => {
+  const normalized = String(customerId ?? '').trim();
+  return normalized
+    ? `${endpoints.bookshelf.ebook.list}?customerId=${encodeURIComponent(normalized)}`
+    : null;
+};
+
+export function useGetBookshelfEbooks(customerId?: string | number | '' | null) {
+  const url = getBookshelfEbookListEndpoint(customerId);
+
   const { data, isLoading, error, isValidating } = useSWR<EbooksData>(
-    LIST_ENDPOINT,
+    url,
     fetcher,
     swrOptions,
   );
@@ -58,10 +65,11 @@ export function useGetBookshelfEbookById(id: string | number | '') {
 export async function createBookshelfEbook(ebook: Omit<IBookshelfEbook, 'id' | 'createdAt'>) {
   const res = await axios.post(endpoints.bookshelf.ebook.add, { ebook });
   const createdEbook = res.data?.ebook as IBookshelfEbook | undefined;
+  const listEndpoint = getBookshelfEbookListEndpoint(ebook.customerId || createdEbook?.customerId);
 
-  if (createdEbook) {
+  if (createdEbook && listEndpoint) {
     await mutate<EbooksData>(
-      LIST_ENDPOINT,
+      listEndpoint,
       (current) => ({
         ...current,
         ebooks: [createdEbook, ...(current?.ebooks || [])],
@@ -70,7 +78,9 @@ export async function createBookshelfEbook(ebook: Omit<IBookshelfEbook, 'id' | '
     );
   }
 
-  await mutate(LIST_ENDPOINT);
+  if (listEndpoint) {
+    await mutate(listEndpoint);
+  }
   return res.data;
 }
 
@@ -79,10 +89,13 @@ export async function updateBookshelfEbook(id: string | number, updates: Partial
 
   const updatedEbook = res.data?.ebook as IBookshelfEbook | undefined;
   const normalizedId = String(id);
+  const listEndpoint = getBookshelfEbookListEndpoint(
+    updates.customerId || updatedEbook?.customerId,
+  );
 
-  if (updatedEbook) {
+  if (updatedEbook && listEndpoint) {
     mutate<EbooksData>(
-      LIST_ENDPOINT,
+      listEndpoint,
       (current) => ({
         ...current,
         ebooks: (current?.ebooks || []).map((item) =>
@@ -102,26 +115,35 @@ export async function updateBookshelfEbook(id: string | number, updates: Partial
     );
   }
 
-  await Promise.all([
-    mutate(LIST_ENDPOINT),
-    mutate(endpoints.bookshelf.ebook.details(id)),
-  ]);
+  if (listEndpoint) {
+    await Promise.all([
+      mutate(listEndpoint),
+      mutate(endpoints.bookshelf.ebook.details(id)),
+    ]);
+  }
   return res.data;
 }
 
-export async function deleteBookshelfEbook(id: string | number) {
+export async function deleteBookshelfEbook(
+  id: string | number,
+  customerId?: string | number | '' | null,
+) {
   const res = await axios.delete(endpoints.bookshelf.ebook.delete(id));
 
   const normalizedId = String(id);
-  mutate<EbooksData>(
-    LIST_ENDPOINT,
-    (current) => ({
-      ...current,
-      ebooks: (current?.ebooks || []).filter((item) => String(item.id) !== normalizedId),
-    }),
-    false,
-  );
+  const listEndpoint = getBookshelfEbookListEndpoint(customerId);
 
-  await mutate(LIST_ENDPOINT);
+  if (listEndpoint) {
+    mutate<EbooksData>(
+      listEndpoint,
+      (current) => ({
+        ...current,
+        ebooks: (current?.ebooks || []).filter((item) => String(item.id) !== normalizedId),
+      }),
+      false,
+    );
+
+    await mutate(listEndpoint);
+  }
   return res.data;
 }

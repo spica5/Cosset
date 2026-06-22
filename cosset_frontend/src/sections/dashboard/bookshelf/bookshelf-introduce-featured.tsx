@@ -265,6 +265,7 @@ function BookDetailPanel({ book, canManage, onEdit, onDelete }: BookDetailPanelP
               whiteSpace: 'pre-wrap',
               minHeight: '150px',
               overflow: 'auto',
+              maxHeight: '180px',
             }}
           >
             {description ? `Description: ${description}` : 'No description available'}
@@ -349,84 +350,108 @@ function BookCover({ book, active, canManage, onSelect, onEdit, onDelete }: Book
         transition: 'transform 0.2s ease',
       }}
     >
-      <Box
-        sx={{
-          pt: '140%',
-          borderRadius: 0.5,
-          position: 'relative',
-          overflow: 'hidden',
-          border: active ? '2px solid #f6d58d' : '1px solid rgba(0,0,0,0.25)',
-          boxShadow: active
-            ? '0 10px 18px rgba(0,0,0,0.35)'
-            : '0 6px 12px rgba(0,0,0,0.28)',
-          bgcolor: '#d7c4a4',
-        }}
-      >
-        {coverUrl ? (
-          <Box
-            component="img"
-            src={coverUrl}
-            alt={book.title}
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              width: 1,
-              height: 1,
-              objectFit: 'cover',
-            }}
-          />
-        ) : (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              color: 'rgba(74,47,35,0.55)',
-            }}
-          >
-            <Iconify icon="solar:book-2-bold" width={28} />
+      <Box sx={{ position: 'relative' }}>
+        <Box
+          sx={{
+            pt: '140%',
+            borderRadius: 0.5,
+            position: 'relative',
+            overflow: 'hidden',
+            border: active ? '2px solid #f6d58d' : '1px solid rgba(0,0,0,0.25)',
+            boxShadow: active
+              ? '0 10px 18px rgba(0,0,0,0.35)'
+              : '0 6px 12px rgba(0,0,0,0.28)',
+            bgcolor: '#d7c4a4',
+          }}
+        >
+          {coverUrl ? (
+            <Box
+              component="img"
+              src={coverUrl}
+              alt={book.title}
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: 1,
+                height: 1,
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                color: 'rgba(74,47,35,0.55)',
+              }}
+            >
+              <Iconify icon="solar:book-2-bold" width={28} />
+            </Stack>
+          )}
+        </Box>
+
+        {canManage ? (
+          <Stack direction="row" spacing={0.25} sx={{ position: 'absolute', top: -8, right: -8 }}>
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit?.(book);
+              }}
+              sx={{
+                width: 22,
+                height: 22,
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'background.paper' },
+              }}
+            >
+              <Iconify icon="solar:pen-bold" width={14} />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete?.(book);
+              }}
+              sx={{
+                width: 22,
+                height: 22,
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'background.paper' },
+              }}
+            >
+              <Iconify icon="solar:trash-bin-trash-bold" width={14} />
+            </IconButton>
           </Stack>
-        )}
+        ) : null}
       </Box>
 
-      {canManage ? (
-        <Stack direction="row" spacing={0.25} sx={{ position: 'absolute', top: -8, right: -8 }}>
-          <IconButton
-            size="small"
-            onClick={(event) => {
-              event.stopPropagation();
-              onEdit?.(book);
-            }}
-            sx={{
-              width: 22,
-              height: 22,
-              bgcolor: 'background.paper',
-              boxShadow: 1,
-              '&:hover': { bgcolor: 'background.paper' },
-            }}
-          >
-            <Iconify icon="solar:pen-bold" width={14} />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete?.(book);
-            }}
-            sx={{
-              width: 22,
-              height: 22,
-              bgcolor: 'background.paper',
-              boxShadow: 1,
-              '&:hover': { bgcolor: 'background.paper' },
-            }}
-          >
-            <Iconify icon="solar:trash-bin-trash-bold" width={14} />
-          </IconButton>
-        </Stack>
-      ) : null}
+      <Box sx={{ mt: 0.5, minHeight: { xs: 22, sm: 24, md: 28 } }}>
+        <Typography
+          variant="caption"
+          title={book.title}
+          sx={{
+            px: 0.25,
+            textAlign: 'center',
+            color: active ? '#f6d58d' : '#f3e4c8',
+            fontWeight: active ? 600 : 400,
+            fontSize: { xs: 9, sm: 10, md: 11 },
+            lineHeight: 1.2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            display: '-webkit-box',
+          }}
+        >
+          {book.title}
+        </Typography>
+      </Box>
     </Box>
   );
 }
@@ -523,92 +548,84 @@ export function BookshelfIntroduceFeatured({
       />
 
       <Stack spacing={3} sx={{ position: 'relative', zIndex: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Box
-            sx={{
-              width: 56,
-              height: 56,
-              borderRadius: '20%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'rgba(255,255,255,0.92)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-            }}
-          >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+        >
+          <Stack direction="row" alignItems="center" spacing={2} sx={{ minWidth: 0 }}>
             <Box
               sx={{
-                position: 'relative',
-                width: 32,
-                height: 32,
+                width: 56,
+                height: 56,
+                borderRadius: '20%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                bgcolor: 'rgba(255,255,255,0.92)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                flexShrink: 0,
               }}
             >
-              <Iconify icon="solar:book-2-bold" width={28} sx={{ color: 'primary.main' }} />
-              <Iconify
-                icon="solar:star-bold"
-                width={15}
+              <Box
                 sx={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -4,
-                  color: 'warning.main',
+                  position: 'relative',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-              />
+              >
+                <Iconify icon="solar:book-2-bold" width={28} sx={{ color: 'primary.main' }} />
+                <Iconify
+                  icon="solar:star-bold"
+                  width={15}
+                  sx={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -4,
+                    color: 'warning.main',
+                  }}
+                />
+              </Box>
             </Box>
-          </Box>
 
-          <Box sx={{ textAlign: { xs: 'left', sm: 'left' } }}>
-            <Typography
-              variant="h3"
-              sx={{
-                color: 'common.white',
-                fontWeight: 800,
-                letterSpacing: 1.5,
-                textShadow: '0 4px 16px rgba(0,0,0,0.35)',
-                fontSize: { xs: '1.5rem', md: '2rem' },
-              }}
-            >
-              Featured Books
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                color: 'rgba(255,255,255,0.88)',
-                textShadow: '0 2px 8px rgba(0,0,0,0.35)',
-              }}
-            >
-              Browse recommended books with cover images.
-            </Typography>
-          </Box>
+            <Box sx={{ textAlign: { xs: 'left', sm: 'left' } }}>
+              <Typography
+                variant="h3"
+                sx={{
+                  color: 'common.white',
+                  fontWeight: 800,
+                  letterSpacing: 1.5,
+                  textShadow: '0 4px 16px rgba(0,0,0,0.35)',
+                  fontSize: { xs: '1.5rem', md: '2rem' },
+                }}
+              >
+                Featured Books
+              </Typography>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  color: 'rgba(255,255,255,0.88)',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                }}
+              >
+                Browse recommended books with cover images.
+              </Typography>
+            </Box>
+          </Stack>
 
-          {canManage ? (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Iconify icon="mingcute:add-line" />}
-              onClick={onAdd}
-              sx={{
-                display: { xs: 'none', md: 'inline-flex' },
-                position: 'absolute',
-                top: { md: 24 },
-                right: { md: 24 },
-              }}
-            >
-              Add book
-            </Button>
-          ) : null}
-        </Stack>
-
-        <Box sx={{ ...WOOD_FRAME_SX, p: { xs: 1.25, md: 2 } }}>
           <Stack
             direction="row"
             alignItems="center"
-            justifyContent="space-between"
-            spacing={1}
-            sx={{ mb: 1.5 }}
+            spacing={1.5}
+            sx={{
+              width: { xs: 1, md: 'auto' },
+              minWidth: { md: 320 },
+              flexShrink: 0,
+            }}
           >
             <Box
               sx={{
@@ -616,20 +633,22 @@ export function BookshelfIntroduceFeatured({
                 alignItems: 'center',
                 gap: 1,
                 px: 1.25,
-                py: 0.5,
-                minWidth: { xs: 160, sm: 220 },
+                py: 0.75,
+                flex: 1,
+                minWidth: 0,
                 borderRadius: 1,
                 bgcolor: '#e8d2a8',
                 border: '1px solid rgba(74,47,35,0.18)',
               }}
             >
-              <Iconify icon="eva:search-fill" width={18} sx={{ color: '#6b4a35' }} />
+              <Iconify icon="eva:search-fill" width={18} sx={{ color: '#6b4a35', flexShrink: 0 }} />
               <InputBase
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search books"
                 sx={{
                   flex: 1,
+                  minWidth: 0,
                   fontSize: 14,
                   color: '#4a2f23',
                   '& input::placeholder': {
@@ -642,21 +661,23 @@ export function BookshelfIntroduceFeatured({
 
             {canManage ? (
               <Button
-                size="small"
-                variant="outlined"
+                variant="contained"
+                color="primary"
                 startIcon={<Iconify icon="mingcute:add-line" />}
                 onClick={onAdd}
                 sx={{
-                  display: { xs: 'inline-flex', md: 'none' },
-                  color: '#f3e4c8',
-                  borderColor: 'rgba(243,228,200,0.45)',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  px: 2,
                 }}
               >
-                Add
+                Add book
               </Button>
             ) : null}
           </Stack>
+        </Stack>
 
+        <Box sx={{ ...WOOD_FRAME_SX, p: { xs: 1.25, md: 2 } }}>
           {booksLoading ? (
             <Stack alignItems="center" justifyContent="center" sx={{ py: 10 }}>
               <Iconify icon="solar:refresh-outline" width={24} sx={{ color: '#f3e4c8', mb: 1 }} />
@@ -697,7 +718,7 @@ export function BookshelfIntroduceFeatured({
                     <Stack
                       direction="row"
                       alignItems="flex-end"
-                      spacing={{ xs: 0.75, md: 1.25 }}
+                      spacing={{ xs: 0.75, md: 1.75 }}
                       sx={{
                         flex: 1,
                         px: 0.5,

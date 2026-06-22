@@ -5,8 +5,6 @@ import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
-const LIST_ENDPOINT = endpoints.bookshelf.audiobook.list;
-
 const swrOptions = {
   revalidateIfStale: false,
   revalidateOnFocus: false,
@@ -21,9 +19,18 @@ type AudiobookData = {
   audiobook?: IBookshelfAudiobook;
 };
 
-export function useGetBookshelfAudiobooks() {
+export const getBookshelfAudiobookListEndpoint = (customerId?: string | number | '' | null) => {
+  const normalized = String(customerId ?? '').trim();
+  return normalized
+    ? `${endpoints.bookshelf.audiobook.list}?customerId=${encodeURIComponent(normalized)}`
+    : null;
+};
+
+export function useGetBookshelfAudiobooks(customerId?: string | number | '' | null) {
+  const url = getBookshelfAudiobookListEndpoint(customerId);
+
   const { data, isLoading, error, isValidating } = useSWR<AudiobooksData>(
-    LIST_ENDPOINT,
+    url,
     fetcher,
     swrOptions,
   );
@@ -60,10 +67,13 @@ export async function createBookshelfAudiobook(
 ) {
   const res = await axios.post(endpoints.bookshelf.audiobook.add, { audiobook });
   const createdAudiobook = res.data?.audiobook as IBookshelfAudiobook | undefined;
+  const listEndpoint = getBookshelfAudiobookListEndpoint(
+    audiobook.customerId || createdAudiobook?.customerId,
+  );
 
-  if (createdAudiobook) {
+  if (createdAudiobook && listEndpoint) {
     await mutate<AudiobooksData>(
-      LIST_ENDPOINT,
+      listEndpoint,
       (current) => ({
         ...current,
         audiobooks: [createdAudiobook, ...(current?.audiobooks || [])],
@@ -72,7 +82,9 @@ export async function createBookshelfAudiobook(
     );
   }
 
-  await mutate(LIST_ENDPOINT);
+  if (listEndpoint) {
+    await mutate(listEndpoint);
+  }
   return res.data;
 }
 
@@ -84,10 +96,13 @@ export async function updateBookshelfAudiobook(
 
   const updatedAudiobook = res.data?.audiobook as IBookshelfAudiobook | undefined;
   const normalizedId = String(id);
+  const listEndpoint = getBookshelfAudiobookListEndpoint(
+    updates.customerId || updatedAudiobook?.customerId,
+  );
 
-  if (updatedAudiobook) {
+  if (updatedAudiobook && listEndpoint) {
     mutate<AudiobooksData>(
-      LIST_ENDPOINT,
+      listEndpoint,
       (current) => ({
         ...current,
         audiobooks: (current?.audiobooks || []).map((item) =>
@@ -101,32 +116,43 @@ export async function updateBookshelfAudiobook(
       endpoints.bookshelf.audiobook.details(id),
       (current) => ({
         ...current,
-        audiobook: current?.audiobook ? { ...current.audiobook, ...updatedAudiobook } : updatedAudiobook,
+        audiobook: current?.audiobook
+          ? { ...current.audiobook, ...updatedAudiobook }
+          : updatedAudiobook,
       }),
       false,
     );
   }
 
-  await Promise.all([
-    mutate(LIST_ENDPOINT),
-    mutate(endpoints.bookshelf.audiobook.details(id)),
-  ]);
+  if (listEndpoint) {
+    await Promise.all([
+      mutate(listEndpoint),
+      mutate(endpoints.bookshelf.audiobook.details(id)),
+    ]);
+  }
   return res.data;
 }
 
-export async function deleteBookshelfAudiobook(id: string | number) {
+export async function deleteBookshelfAudiobook(
+  id: string | number,
+  customerId?: string | number | '' | null,
+) {
   const res = await axios.delete(endpoints.bookshelf.audiobook.delete(id));
 
   const normalizedId = String(id);
-  mutate<AudiobooksData>(
-    LIST_ENDPOINT,
-    (current) => ({
-      ...current,
-      audiobooks: (current?.audiobooks || []).filter((item) => String(item.id) !== normalizedId),
-    }),
-    false,
-  );
+  const listEndpoint = getBookshelfAudiobookListEndpoint(customerId);
 
-  await mutate(LIST_ENDPOINT);
+  if (listEndpoint) {
+    mutate<AudiobooksData>(
+      listEndpoint,
+      (current) => ({
+        ...current,
+        audiobooks: (current?.audiobooks || []).filter((item) => String(item.id) !== normalizedId),
+      }),
+      false,
+    );
+
+    await mutate(listEndpoint);
+  }
   return res.data;
 }

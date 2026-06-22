@@ -1,6 +1,6 @@
 import type { IGuestAreaItem } from 'src/types/guestarea';
 
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { useMemo } from 'react';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
@@ -71,13 +71,19 @@ export function useGetGuestArea(customerId: string | number | '') {
 
 // ----------------------------------------------------------------------
 
-export async function updateGuestArea(updates: Partial<IGuestAreaItem> & { id: string }) {
+export async function updateGuestArea(
+  updates: Partial<IGuestAreaItem> & { id: string; customerId?: string },
+) {
   const url = endpoints.guestArea.root;
   const data = { guestArea: updates };
 
   const res = await axios.post(url, data);
 
-  // mutate(`${endpoints.guestArea.root}?customerId=${updates.id}`);
-  
+  const customerId = updates.customerId || res.data?.guestArea?.customerId;
+  if (customerId) {
+    await mutate(`${endpoints.guestArea.root}?customerId=${encodeURIComponent(String(customerId))}`);
+  }
+  await mutate(endpoints.guestArea.root);
+
   return res.data;
 }

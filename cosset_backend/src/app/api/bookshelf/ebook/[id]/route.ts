@@ -71,6 +71,7 @@ export async function PUT(
       fileUrl: updates.fileUrl,
       fileType: updates.fileType,
       order: updates.order,
+      isPublic: updates.isPublic,
     });
 
     return response({ ebook }, STATUS.OK);

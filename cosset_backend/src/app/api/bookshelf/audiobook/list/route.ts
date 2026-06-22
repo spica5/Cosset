@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     const offset = Number.parseInt(searchParams.get('offset') ?? '0', 10);
 
     const audiobooks = await getAllBookshelfAudiobooks(
+      searchParams.get('customerId') ?? undefined,
       Number.isNaN(limit) ? 100 : limit,
       Number.isNaN(offset) ? 0 : offset,
     );

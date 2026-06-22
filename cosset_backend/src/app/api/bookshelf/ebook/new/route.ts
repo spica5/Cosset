@@ -21,7 +21,12 @@ export async function POST(req: NextRequest) {
       return response({ message: 'File is required' }, STATUS.BAD_REQUEST);
     }
 
+    if (!ebook?.customerId || !String(ebook.customerId).trim()) {
+      return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
+    }
+
     const created = await createBookshelfEbook({
+      customerId: String(ebook.customerId).trim(),
       title: ebook.title.trim(),
       author: ebook.author ?? null,
       description: ebook.description ?? null,

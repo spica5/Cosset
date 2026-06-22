@@ -20,6 +20,8 @@ import { uuidv4 } from 'src/utils/uuidv4';
 import { uploadFileToS3 } from 'src/actions/upload';
 import { createBookshelfEbook, updateBookshelfEbook } from 'src/actions/bookshelf-ebook';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
@@ -72,6 +74,7 @@ const parseNullableInteger = (value: string): number | null => {
 const EBOOK_FILE_ACCEPT = 'application/pdf,.pdf,text/plain,.txt';
 
 export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Props) {
+  const { user } = useAuthContext();
   const isEditMode = !!ebook;
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -258,7 +261,13 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
         return;
       }
 
+      if (!isEditMode && !user?.id) {
+        toast.error('You must be signed in to add an e-book.');
+        return;
+      }
+
       const payload = {
+        customerId: user?.id ? String(user.id) : ebook?.customerId ?? null,
         title: form.title.trim(),
         author: form.author.trim() || null,
         description: form.description.trim() || null,
@@ -286,6 +295,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
       setSubmitting(false);
     }
   }, [
+    user?.id,
     ebook,
     form,
     isEditMode,

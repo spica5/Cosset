@@ -5,6 +5,7 @@ import type { ICollectionDrawerItem } from 'src/types/collection-item';
 import type { IUniverseProps } from 'src/types/universe';
 
 import { useMemo, useState, useEffect } from 'react';
+import { mutate } from 'swr';
 
 import { paths } from 'src/routes/paths';
 
@@ -17,6 +18,8 @@ import { useGetUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
+import { useGetBookshelfEbooks, getBookshelfEbookListEndpoint } from 'src/actions/bookshelf-ebook';
+import { useGetBookshelfAudiobooks, getBookshelfAudiobookListEndpoint } from 'src/actions/bookshelf-audiobook';
 import { createNotification } from 'src/actions/notification';
 import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
 import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
@@ -28,6 +31,7 @@ import { UniverseLandingBlogs } from '../landing/universe-landing-blogs';
 import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
 import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
 import { UniverseLandingMySpace } from '../landing/universe-landing-myspace';
+import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
 import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
@@ -50,6 +54,42 @@ const DRAWER_COLLECTION_MAP = {
   goodMemo: 1,
   sadMemo: 2,
 } as const;
+
+const isPublicBookshelfItem = (isPublic: unknown): boolean => {
+  if (typeof isPublic === 'number') {
+    return isPublic === 1;
+  }
+
+  if (typeof isPublic === 'string') {
+    const normalized = isPublic.trim().toLowerCase();
+    return normalized === '1' || normalized === 'public' || normalized === 'true';
+  }
+
+  if (typeof isPublic === 'boolean') {
+    return isPublic;
+  }
+
+  return false;
+};
+
+const sortBookshelfItems = <
+  T extends { order?: number | null; createdAt?: string | Date | null },
+>(
+  items: T[],
+) =>
+  [...items].sort((a, b) => {
+    const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+    return bTime - aTime;
+  });
 
 const buildDrawerCollectionStats = (
   collectionItems: ICollectionDrawerItem[],
@@ -93,6 +133,20 @@ export function UniverseLandingView({
   );
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const { collections } = useGetCollections(customerId);
+  const { ebooks, ebooksLoading } = useGetBookshelfEbooks(customerId);
+  const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(customerId);
+
+  useEffect(() => {
+    const ebookListEndpoint = getBookshelfEbookListEndpoint(customerId);
+    const audiobookListEndpoint = getBookshelfAudiobookListEndpoint(customerId);
+
+    if (ebookListEndpoint) {
+      mutate(ebookListEndpoint);
+    }
+    if (audiobookListEndpoint) {
+      mutate(audiobookListEndpoint);
+    }
+  }, [customerId]);
   const [heroUrl, setHeroUrl] = useState('');
   const [customerName, setCustomerName] = useState('Customer');
   const [customerAvatarKey, setCustomerAvatarKey] = useState('');
@@ -494,6 +548,8 @@ export function UniverseLandingView({
         letter: false,
         goodMemo: false,
         sadMemo: false,
+        ebooks: false,
+        audiobooks: false,
         collectionItems: {} as Record<string, boolean>,
       };
     }
@@ -504,6 +560,8 @@ export function UniverseLandingView({
         letter?: boolean;
         goodMemo?: boolean;
         sadMemo?: boolean;
+        ebooks?: boolean;
+        audiobooks?: boolean;
         collectionItems?: Record<string, unknown>;
       };
 
@@ -520,6 +578,8 @@ export function UniverseLandingView({
         letter: !!parsed.letter,
         goodMemo: !!parsed.goodMemo,
         sadMemo: !!parsed.sadMemo,
+        ebooks: !!parsed.ebooks,
+        audiobooks: !!parsed.audiobooks,
         collectionItems,
       };
     } catch {
@@ -528,6 +588,8 @@ export function UniverseLandingView({
         letter: false,
         goodMemo: false,
         sadMemo: false,
+        ebooks: false,
+        audiobooks: false,
         collectionItems: {} as Record<string, boolean>,
       };
     }
@@ -561,6 +623,19 @@ export function UniverseLandingView({
           return bTime - aTime;
         }),
     [blogs],
+  );
+
+  const publicEbooks = useMemo(
+    () => sortBookshelfItems(ebooks.filter((ebook) => isPublicBookshelfItem(ebook.isPublic))),
+    [ebooks],
+  );
+
+  const publicAudiobooks = useMemo(
+    () =>
+      sortBookshelfItems(
+        audiobooks.filter((audiobook) => isPublicBookshelfItem(audiobook.isPublic)),
+      ),
+    [audiobooks],
   );
 
   const drawerItems = useMemo(
@@ -629,6 +704,13 @@ export function UniverseLandingView({
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
   const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
   const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
+  const showBookshelfEbooks = drawerSettings.ebooks || publicEbooks.length > 0;
+  const showBookshelfAudiobooks = drawerSettings.audiobooks || publicAudiobooks.length > 0;
+  const showBookshelfSection =
+    allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
+  const sharedBookshelfCount =
+    (showBookshelfEbooks ? publicEbooks.length : 0) +
+    (showBookshelfAudiobooks ? publicAudiobooks.length : 0);
 
   const mySpaceSectionCounts = useMemo(
     () => ({
@@ -638,6 +720,7 @@ export function UniverseLandingView({
             'albums-section': sharedAlbums.length,
             'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
             'collection-items-section': sharedCollections.length,
+            ...(showBookshelfSection ? { 'bookshelf-section': sharedBookshelfCount } : {}),
           }
         : {}),
     }),
@@ -646,8 +729,10 @@ export function UniverseLandingView({
       guestarea?.blog,
       sharedAlbums.length,
       sharedBlogViewItems.length,
+      sharedBookshelfCount,
       sharedCollections.length,
       sharedDrawerItems,
+      showBookshelfSection,
     ],
   );
 
@@ -834,6 +919,20 @@ export function UniverseLandingView({
                     }
                   />
                 ),
+                ...(showBookshelfSection
+                  ? {
+                      'bookshelf-section': (
+                        <UniverseLandingBookshelf
+                          ebooks={showBookshelfEbooks ? publicEbooks : []}
+                          audiobooks={showBookshelfAudiobooks ? publicAudiobooks : []}
+                          showEbooks={showBookshelfEbooks}
+                          showAudiobooks={showBookshelfAudiobooks}
+                          loading={ebooksLoading || audiobooksLoading}
+                          isOwner={isCurrentCustomer}
+                        />
+                      ),
+                    }
+                  : {}),
               }
             : {}),
         }}

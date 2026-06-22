@@ -40,7 +40,7 @@ export function BookshelfAudiobooksView() {
   const { user } = useAuthContext();
   const canManage = isUserAdmin(user?.role);
 
-  const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks();
+  const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(user?.id);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -85,7 +85,7 @@ export function BookshelfAudiobooksView() {
     }
 
     try {
-      await deleteBookshelfAudiobook(audiobook.id);
+      await deleteBookshelfAudiobook(audiobook.id, user?.id);
       toast.success('Audio-book deleted successfully.');
     } catch (error) {
       console.error('Failed to delete audio-book:', error);

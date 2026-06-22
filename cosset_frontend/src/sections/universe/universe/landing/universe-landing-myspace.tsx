@@ -39,6 +39,7 @@ export const MYSPACE_SECTION_IDS = [
   'albums-section',
   'drawers-section',
   'collection-items-section',
+  'bookshelf-section',
 ] as const;
 
 export type MySpaceSectionId = (typeof MYSPACE_SECTION_IDS)[number];
@@ -71,6 +72,13 @@ const NAV_SECTIONS = [
     description: 'Saved favorites and inspiration.',
     icon: 'solar:widget-4-bold',
     image: `${MYSPACE_ASSETS}/Collections.png`,
+  },
+  {
+    id: 'bookshelf-section' as const,
+    title: 'BOOKSHELF',
+    description: 'E-books, audiobooks, and reading favorites.',
+    icon: 'solar:book-2-bold',
+    image: `${MYSPACE_ASSETS}/bookshelf.png`,
   },
 ] as const;
 
