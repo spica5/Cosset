@@ -12,9 +12,16 @@ import { paths } from 'src/routes/paths';
 import { CONFIG } from 'src/config-global';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
+import {
+  type DesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
+  getDesignSpaceOverlaySx,
+  getDesignSpaceBackgroundFilter,
+  normalizeDesignSpaceType,
+} from 'src/utils/design-space-type';
 
 import { useGetBlogs } from 'src/actions/blog';
-import { useGetUsers } from 'src/actions/user';
+import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
@@ -120,7 +127,7 @@ export function UniverseLandingView({
   const viewerId = String(user?.id || '').trim();
   const isCurrentCustomer = !!viewerId && viewerId === String(customerId || '').trim();
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
-  const { users } = useGetUsers(100, 0, authenticated);
+  const { users } = useGetCommunityUsers(100, 0, authenticated);
   const { friends: acceptedFriends, friendsLoading: acceptedFriendsLoading } = useGetFriends(
     viewerId,
     'accepted',
@@ -154,6 +161,7 @@ export function UniverseLandingView({
   const [requestingFriend, setRequestingFriend] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [designGalleryUrls, setDesignGalleryUrls] = useState<string[]>([]);
+  const [designSpaceType, setDesignSpaceType] = useState<DesignSpaceType>(DEFAULT_DESIGN_SPACE_TYPE);
   const [sharedAlbums, setSharedAlbums] = useState<
     (IAlbumItem & { signedCoverUrl?: string })[]
   >([]);
@@ -328,9 +336,13 @@ export function UniverseLandingView({
         });
 
         const designSpaces =
-          (res.data?.designSpaces ?? []) as Array<{ background?: string | null }>;
+          (res.data?.designSpaces ?? []) as Array<{
+            background?: string | null;
+            designType?: string | null;
+          }>;
 
         const backgroundRaw = designSpaces[0]?.background || '';
+        setDesignSpaceType(normalizeDesignSpaceType(designSpaces[0]?.designType));
 
         let imageKeys: string[] = [];
 
@@ -373,6 +385,7 @@ export function UniverseLandingView({
         console.error('Failed to load design space gallery for universe view', error);
         if (mounted) {
           setDesignGalleryUrls(defaultCoverImage ? [defaultCoverImage] : []);
+          setDesignSpaceType(DEFAULT_DESIGN_SPACE_TYPE);
         }
       }
     };
@@ -869,12 +882,14 @@ export function UniverseLandingView({
           name: customerName,
           avatarUrl: customerAvatarUrl,
         }}
+        designType={designSpaceType}
         sx={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
       />
 
       <UniverseLandingMySpace
         customerName={customerName}
         customerAvatarUrl={customerAvatarUrl}
+        designType={designSpaceType}
         sectionCounts={mySpaceSectionCounts}
         sections={{
           ...(guestarea?.blog

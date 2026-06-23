@@ -18,7 +18,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { useGetUsers } from 'src/actions/user';
+import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -116,7 +116,7 @@ export function ContactsPopover({ sx, ...other }: ContactsPopoverProps) {
     'accepted',
     canLoad,
   );
-  const { users, usersLoading } = useGetUsers(500, 0, canLoad);
+  const { users, usersLoading } = useGetCommunityUsers(500, 0, canLoad);
 
   const contacts = useMemo<ContactItem[]>(() => {
     if (!canLoad) {

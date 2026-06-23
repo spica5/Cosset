@@ -31,3 +31,16 @@ export const FREE_EBOOK_SOURCES: FreeEbookSource[] = [
     href: 'https://manybooks.net',
   },
 ];
+
+export function filterFreeEbookSources(sources: FreeEbookSource[], query: string) {
+  const normalized = query.trim().toLowerCase();
+
+  if (!normalized) {
+    return sources;
+  }
+
+  return sources.filter((source) => {
+    const searchable = [source.name, source.description, source.href].join(' ').toLowerCase();
+    return searchable.includes(normalized);
+  });
+}

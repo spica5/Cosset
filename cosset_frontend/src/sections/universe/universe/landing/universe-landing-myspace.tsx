@@ -22,11 +22,15 @@ import { Iconify } from 'src/components/universe/iconify';
 
 import COLORS from 'src/theme/universe/core/colors.json';
 
+import {
+  type DesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
+} from 'src/utils/design-space-type';
+
 import { MySpaceCountBadge } from './myspace-section-title';
+import { DesignSpaceThemeProvider, useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
-
-const PAGE_BG = '#F9F7F2';
 
 const SIDEBAR_WIDTH = 320;
 
@@ -88,6 +92,7 @@ type Props = {
   header?: ReactNode;
   customerName: string;
   customerAvatarUrl?: string;
+  designType?: DesignSpaceType;
   sections: Partial<Record<MySpaceSectionId, ReactNode>>;
   sectionCounts?: Partial<Record<MySpaceSectionId, number>>;
 };
@@ -101,6 +106,7 @@ function MySpaceCustomerTitle({
   customerAvatarUrl?: string;
   variant?: 'sidebar' | 'mobile';
 }) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const isSidebar = variant === 'sidebar';
 
   return (
@@ -112,8 +118,10 @@ function MySpaceCustomerTitle({
           width: isSidebar ? 50 : 36,
           height: isSidebar ? 50 : 36,
           border: '2px solid',
-          borderColor: 'background.paper',
-          boxShadow: '0 2px 8px rgba(60, 45, 30, 0.12)',
+          borderColor: spaceTheme.surfaceBg,
+          boxShadow: spaceTheme.isDark
+            ? '0 2px 8px rgba(0, 0, 0, 0.35)'
+            : '0 2px 8px rgba(60, 45, 30, 0.12)',
           flexShrink: 0,
         }}
       >
@@ -152,6 +160,8 @@ function MySpaceSidebar({
   onSelectSection: (sectionId: MySpaceSectionId) => void;
   onNavigate?: () => void;
 }) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+
   return (
     <Stack
       sx={{
@@ -317,7 +327,7 @@ function MySpaceSidebar({
           mt: 2,
           pt: 2,
           borderTop: '1px solid',
-          borderColor: 'divider',
+          borderColor: spaceTheme.divider,
         }}
       >
         <Logo
@@ -338,11 +348,44 @@ export function UniverseLandingMySpace({
   header,
   customerName,
   customerAvatarUrl,
+  designType = DEFAULT_DESIGN_SPACE_TYPE,
   sectionCounts,
 }: Props) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  return (
+    <DesignSpaceThemeProvider designType={designType} withMuiTheme>
+      <UniverseLandingMySpaceContent
+        sections={sections}
+        header={header}
+        customerName={customerName}
+        customerAvatarUrl={customerAvatarUrl}
+        sectionCounts={sectionCounts}
+        isDesktop={isDesktop}
+        mobileNavOpen={mobileNavOpen}
+        setMobileNavOpen={setMobileNavOpen}
+      />
+    </DesignSpaceThemeProvider>
+  );
+}
+
+function UniverseLandingMySpaceContent({
+  sections,
+  header,
+  customerName,
+  customerAvatarUrl,
+  sectionCounts,
+  isDesktop,
+  mobileNavOpen,
+  setMobileNavOpen,
+}: Omit<Props, 'designType'> & {
+  isDesktop: boolean;
+  mobileNavOpen: boolean;
+  setMobileNavOpen: (open: boolean) => void;
+}) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
 
   const visibleSections = useMemo(
     () => NAV_SECTIONS.filter((section) => Boolean(sections[section.id])),
@@ -392,7 +435,8 @@ export function UniverseLandingMySpace({
       sx={{
         minHeight: '100dvh',
         height: '100dvh',
-        bgcolor: PAGE_BG,
+        bgcolor: spaceTheme.pageBg,
+        color: spaceTheme.textPrimary,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
@@ -425,7 +469,7 @@ export function UniverseLandingMySpace({
               padding: 1,
               mr: 2.5,
               borderRight: '1px solid',
-              borderColor: 'rgba(139, 119, 101, 0.22)',
+              borderColor: spaceTheme.sidebarBorder,
             }}
           >
             {sidebar}
@@ -441,7 +485,8 @@ export function UniverseLandingMySpace({
             minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            bgcolor: PAGE_BG,
+            bgcolor: spaceTheme.pageBg,
+            color: spaceTheme.textPrimary,
             px: { xs: 2, sm: 3, lg: 0 },
             pl: { lg: 0.5 },
             pb: 3,
@@ -480,7 +525,8 @@ export function UniverseLandingMySpace({
         PaperProps={{
           sx: {
             width: SIDEBAR_WIDTH + 32,
-            bgcolor: PAGE_BG,
+            bgcolor: spaceTheme.pageBg,
+            color: spaceTheme.textPrimary,
             p: 2,
             height: '100%',
             overflow: 'hidden',

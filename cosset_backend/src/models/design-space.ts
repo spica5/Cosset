@@ -8,9 +8,11 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'design_space';
+
+export type DesignSpaceType = 'normal' | 'morning' | 'evening' | 'night';
 
 export interface DesignSpace {
   id: number;
@@ -18,9 +20,42 @@ export interface DesignSpace {
   background: string | null;
   rooms: string | null;
   effects: string | null;
+  designType: DesignSpaceType | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+let ensureDesignTypeColumnPromise: Promise<void> | null = null;
+
+const normalizeDesignType = (value: unknown): DesignSpaceType => {
+  const normalized = String(value || '').trim().toLowerCase();
+
+  if (normalized === 'morning' || normalized === 'evening' || normalized === 'night') {
+    return normalized;
+  }
+
+  return 'normal';
+};
+
+const ensureDesignTypeColumn = async (): Promise<void> => {
+  if (!ensureDesignTypeColumnPromise) {
+    ensureDesignTypeColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS design_type VARCHAR(32) NOT NULL DEFAULT 'normal'`,
+      );
+    })().catch((error) => {
+      ensureDesignTypeColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureDesignTypeColumnPromise;
+};
+
+const withDesignTypeColumn = async <T>(operation: () => Promise<T>): Promise<T> => {
+  await ensureDesignTypeColumn();
+  return operation();
+};
 
 /**
  * Create a new design space record
@@ -28,49 +63,54 @@ export interface DesignSpace {
 export async function createDesignSpace(
   data: Omit<DesignSpace, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<DesignSpace> {
-  try {
-    const row = await queryOne<DesignSpace>(
-      `
+  return withDesignTypeColumn(async () => {
+    try {
+      const row = await queryOne<DesignSpace>(
+        `
         INSERT INTO ${TABLE_NAME} (
           customer_id,
           background,
           rooms,
-          effects
+          effects,
+          design_type
         )
-        VALUES ($1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING
           id,
           customer_id as "customerId",
           background,
           rooms,
-          effects
+          effects,
+          design_type as "designType"
       `,
-      [
-        data.customerId ?? null,
-        data.background ?? null,
-        data.rooms ?? null,
-        data.effects ?? null,
-      ],
-    );
+        [
+          data.customerId ?? null,
+          data.background ?? null,
+          data.rooms ?? null,
+          data.effects ?? null,
+          normalizeDesignType(data.designType),
+        ],
+      );
 
-    if (!row) {
-      throw new DatabaseError({
-        code: 'CREATE_DESIGN_SPACE_FAILED',
-        message: 'Failed to create design space: No data returned',
-      });
-    }
+      if (!row) {
+        throw new DatabaseError({
+          code: 'CREATE_DESIGN_SPACE_FAILED',
+          message: 'Failed to create design space: No data returned',
+        });
+      }
 
-    return row;
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'CREATE_DESIGN_SPACE_ERROR',
-        message: `Failed to create design space: ${error.message}`,
-        detail: error.detail,
-      });
+      return row;
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        throw new DatabaseError({
+          code: 'CREATE_DESIGN_SPACE_ERROR',
+          message: `Failed to create design space: ${error.message}`,
+          detail: error.detail,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
 }
 
 /**
@@ -81,69 +121,75 @@ export async function getDesignSpaces(
   limit: number = 50,
   offset: number = 0,
 ): Promise<DesignSpace[]> {
-  try {
-    let query = `
+  return withDesignTypeColumn(async () => {
+    try {
+      let query = `
       SELECT
         id,
         customer_id as "customerId",
         background,
         rooms,
-        effects
+        effects,
+        design_type as "designType"
       FROM ${TABLE_NAME}
     `;
-    const params: unknown[] = [];
+      const params: unknown[] = [];
 
-    if (customerId !== undefined && customerId !== null) {
-      query += ` WHERE customer_id = $1`;
-      params.push(customerId);
-      query += ` ORDER BY id DESC LIMIT $2 OFFSET $3`;
-      params.push(limit, offset);
-    } else {
-      query += ` ORDER BY id DESC LIMIT $1 OFFSET $2`;
-      params.push(limit, offset);
-    }
+      if (customerId !== undefined && customerId !== null) {
+        query += ` WHERE customer_id = $1`;
+        params.push(customerId);
+        query += ` ORDER BY id DESC LIMIT $2 OFFSET $3`;
+        params.push(limit, offset);
+      } else {
+        query += ` ORDER BY id DESC LIMIT $1 OFFSET $2`;
+        params.push(limit, offset);
+      }
 
-    return await queryMany<DesignSpace>(query, params);
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'GET_DESIGN_SPACES_ERROR',
-        message: `Failed to fetch design spaces: ${error.message}`,
-        detail: error.detail,
-      });
+      return await queryMany<DesignSpace>(query, params);
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        throw new DatabaseError({
+          code: 'GET_DESIGN_SPACES_ERROR',
+          message: `Failed to fetch design spaces: ${error.message}`,
+          detail: error.detail,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
 }
 
 /**
  * Get design space by ID
  */
 export async function getDesignSpaceById(id: number): Promise<DesignSpace | null> {
-  try {
-    return await queryOne<DesignSpace>(
-      `
+  return withDesignTypeColumn(async () => {
+    try {
+      return await queryOne<DesignSpace>(
+        `
         SELECT
           id,
           customer_id as "customerId",
           background,
           rooms,
-          effects
+          effects,
+          design_type as "designType"
         FROM ${TABLE_NAME}
         WHERE id = $1
       `,
-      [id],
-    );
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'GET_DESIGN_SPACE_ERROR',
-        message: `Failed to fetch design space: ${error.message}`,
-        detail: error.detail,
-      });
+        [id],
+      );
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        throw new DatabaseError({
+          code: 'GET_DESIGN_SPACE_ERROR',
+          message: `Failed to fetch design space: ${error.message}`,
+          detail: error.detail,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
 }
 
 /**
@@ -151,42 +197,47 @@ export async function getDesignSpaceById(id: number): Promise<DesignSpace | null
  */
 export async function updateDesignSpace(
   id: number,
-  data: Partial<Pick<DesignSpace, 'background' | 'rooms' | 'effects'>>,
+  data: Partial<Pick<DesignSpace, 'background' | 'rooms' | 'effects' | 'designType'>>,
 ): Promise<DesignSpace | null> {
-  try {
-    const row = await queryOne<DesignSpace>(
-      `
+  return withDesignTypeColumn(async () => {
+    try {
+      const row = await queryOne<DesignSpace>(
+        `
         UPDATE ${TABLE_NAME}
         SET
           background = COALESCE($2, background),
           rooms = COALESCE($3, rooms),
-          effects = COALESCE($4, effects)
+          effects = COALESCE($4, effects),
+          design_type = COALESCE($5, design_type)
         WHERE id = $1
         RETURNING
           id,
           customer_id as "customerId",
           background,
           rooms,
-          effects
+          effects,
+          design_type as "designType"
       `,
-      [
-        id,
-        data.background ?? null,
-        data.rooms ?? null,
-        data.effects ?? null,
-      ],
-    );
-    return row;
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      throw new DatabaseError({
-        code: 'UPDATE_DESIGN_SPACE_ERROR',
-        message: `Failed to update design space: ${error.message}`,
-        detail: error.detail,
-      });
+        [
+          id,
+          data.background ?? null,
+          data.rooms ?? null,
+          data.effects ?? null,
+          data.designType != null ? normalizeDesignType(data.designType) : null,
+        ],
+      );
+      return row;
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        throw new DatabaseError({
+          code: 'UPDATE_DESIGN_SPACE_ERROR',
+          message: `Failed to update design space: ${error.message}`,
+          detail: error.detail,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
 }
 
 /**

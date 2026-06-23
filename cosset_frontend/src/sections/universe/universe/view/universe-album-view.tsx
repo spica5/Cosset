@@ -44,6 +44,8 @@ import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { CommentsSection } from 'src/components/universe/comment-section';
 
+import { UniverseDesignSpacePageShell } from './universe-design-space-page-shell';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -384,8 +386,10 @@ export function UniverseAlbumView({ albumId }: Props) {
     }
   }, [isOwnerAccessLoading, isVisitorHomeSpaceOnly, ownerCustomerId, router]);
 
+  let pageContent: React.ReactNode;
+
   if (loading) {
-    return (
+    pageContent = (
       <Container sx={{ py: 10 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
           <CircularProgress size={24} />
@@ -393,10 +397,8 @@ export function UniverseAlbumView({ albumId }: Props) {
         </Stack>
       </Container>
     );
-  }
-
-  if (!album) {
-    return (
+  } else if (!album) {
+    pageContent = (
       <Container sx={{ py: 10 }}>
         <Stack spacing={2} alignItems="center" textAlign="center">
           <Typography variant="h4">Album not found</Typography>
@@ -407,10 +409,8 @@ export function UniverseAlbumView({ albumId }: Props) {
         </Stack>
       </Container>
     );
-  }
-
-  if (isOwnerAccessLoading) {
-    return (
+  } else if (isOwnerAccessLoading) {
+    pageContent = (
       <Container sx={{ py: 10 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
           <CircularProgress size={24} />
@@ -418,10 +418,8 @@ export function UniverseAlbumView({ albumId }: Props) {
         </Stack>
       </Container>
     );
-  }
-
-  if (isVisitorHomeSpaceOnly && ownerCustomerId) {
-    return (
+  } else if (isVisitorHomeSpaceOnly && ownerCustomerId) {
+    pageContent = (
       <Container sx={{ py: 10 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
           <CircularProgress size={24} />
@@ -429,8 +427,7 @@ export function UniverseAlbumView({ albumId }: Props) {
         </Stack>
       </Container>
     );
-  }
-
+  } else {
   const totalReactionCount = REACTION_OPTIONS.reduce(
     (sum, option) => sum + (optimisticCounts[option.type] ?? 0),
     0,
@@ -453,7 +450,7 @@ export function UniverseAlbumView({ albumId }: Props) {
     visible: comment.visible,
   }));
 
-  return (
+  pageContent = (
     <Box component="section" sx={{ py: { xs: 6, md: 10 } }}>
       <Container>
         <Stack spacing={3} sx={{ maxWidth: 980, mx: 'auto' }}>
@@ -770,5 +767,12 @@ export function UniverseAlbumView({ albumId }: Props) {
 
       <Lightbox slides={slides} open={lightbox.open} close={lightbox.onClose} index={lightbox.selected} />
     </Box>
+  );
+  }
+
+  return (
+    <UniverseDesignSpacePageShell customerId={ownerCustomerId}>
+      {pageContent}
+    </UniverseDesignSpacePageShell>
   );
 }

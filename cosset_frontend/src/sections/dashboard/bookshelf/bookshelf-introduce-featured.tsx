@@ -23,6 +23,7 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import {
   SHELF_COUNT,
+  BOOKS_PER_SHELF,
   getBookAuthorLabel,
   getBookDescriptionLabel,
   splitBooksIntoShelves,
@@ -478,12 +479,17 @@ export function BookshelfIntroduceFeatured({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeBookId, setActiveBookId] = useState<number | null>(null);
 
+  const isSearching = searchQuery.trim().length > 0;
+
   const filteredBooks = useMemo(
     () => filterIntroduceBooks(books, searchQuery),
     [books, searchQuery],
   );
 
-  const shelves = useMemo(() => splitBooksIntoShelves(filteredBooks), [filteredBooks]);
+  const shelves = useMemo(
+    () => splitBooksIntoShelves(filteredBooks, SHELF_COUNT, BOOKS_PER_SHELF, isSearching),
+    [filteredBooks, isSearching],
+  );
 
   const numberedShelves = useMemo(() => {
     let index = 0;
@@ -516,6 +522,10 @@ export function BookshelfIntroduceFeatured({
 
   const handleSelect = useCallback((book: IBookshelfIntroduce) => {
     setActiveBookId(book.id);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
   }, []);
 
   return (
@@ -613,6 +623,7 @@ export function BookshelfIntroduceFeatured({
                 }}
               >
                 Browse recommended books with cover images.
+                {isSearching ? ` (${filteredBooks.length} result${filteredBooks.length === 1 ? '' : 's'})` : ''}
               </Typography>
             </Box>
           </Stack>
@@ -645,7 +656,8 @@ export function BookshelfIntroduceFeatured({
               <InputBase
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search books"
+                placeholder="Search by title, author, or description"
+                inputProps={{ 'aria-label': 'Search introduction books' }}
                 sx={{
                   flex: 1,
                   minWidth: 0,
@@ -657,6 +669,16 @@ export function BookshelfIntroduceFeatured({
                   },
                 }}
               />
+              {isSearching ? (
+                <IconButton
+                  size="small"
+                  aria-label="Clear search"
+                  onClick={handleClearSearch}
+                  sx={{ color: '#6b4a35', flexShrink: 0 }}
+                >
+                  <Iconify icon="mingcute:close-line" width={18} />
+                </IconButton>
+              ) : null}
             </Box>
 
             {canManage ? (
@@ -700,7 +722,7 @@ export function BookshelfIntroduceFeatured({
             <Stack
               direction={{ xs: 'column', lg: 'row' }}
               spacing={{ xs: 1.5, lg: 0 }}
-              sx={{ minHeight: 420 }}
+              sx={{ minHeight: isSearching ? 'auto' : 420 }}
             >
               <Box
                 sx={{
@@ -709,12 +731,15 @@ export function BookshelfIntroduceFeatured({
                   py: 1,
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'space-between',
+                  justifyContent: isSearching ? 'flex-start' : 'space-between',
                   gap: 1,
                 }}
               >
                 {numberedShelves.map((shelfBooks, shelfIndex) => (
-                  <Box key={`shelf-visual-${shelfIndex}`} sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Box
+                    key={`shelf-visual-${shelfIndex}`}
+                    sx={{ flex: isSearching ? '0 0 auto' : 1, display: 'flex', flexDirection: 'column' }}
+                  >
                     <Stack
                       direction="row"
                       alignItems="flex-end"

@@ -48,10 +48,38 @@ export function useGetCurrentUser() {
 }
 
 /**
- * Fetch users list for friend page
+ * Fetch users list for admin customers page
  */
 export function useGetUsers(limit: number = 100, offset: number = 0, enabled: boolean = true) {
   const usersEndpoint = enabled ? `${endpoints.user.list}?limit=${limit}&offset=${offset}` : null;
+
+  const { data, isLoading, error, isValidating } = useSWR<UsersData>(
+    usersEndpoint,
+    fetcher,
+    swrOptions
+  );
+
+  const memoizedValue = useMemo(
+    () => ({
+      users: data?.users || [],
+      usersLoading: isLoading,
+      usersError: error,
+      usersValidating: isValidating,
+      usersEmpty: !isLoading && !data?.users?.length,
+    }),
+    [data?.users, error, isLoading, isValidating]
+  );
+
+  return memoizedValue;
+}
+
+/**
+ * Fetch community user directory for friends/neighbors
+ */
+export function useGetCommunityUsers(limit: number = 100, offset: number = 0, enabled: boolean = true) {
+  const usersEndpoint = enabled
+    ? `${endpoints.user.directory}?limit=${limit}&offset=${offset}`
+    : null;
 
   const { data, isLoading, error, isValidating } = useSWR<UsersData>(
     usersEndpoint,

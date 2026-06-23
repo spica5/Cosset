@@ -11,17 +11,25 @@ export function splitBooksIntoShelves(
   books: IBookshelfIntroduce[],
   shelfCount = SHELF_COUNT,
   booksPerShelf = BOOKS_PER_SHELF,
+  expandForOverflow = false,
 ) {
-  const shelves: IBookshelfIntroduce[][] = Array.from({ length: shelfCount }, () => []);
+  const requiredShelfCount = expandForOverflow
+    ? Math.max(1, Math.ceil(books.length / booksPerShelf))
+    : shelfCount;
+
+  const shelves: IBookshelfIntroduce[][] = Array.from({ length: requiredShelfCount }, () => []);
 
   books.forEach((book, index) => {
-    const shelfIndex = Math.min(Math.floor(index / booksPerShelf), shelfCount - 1);
-    if (shelves[shelfIndex].length < booksPerShelf) {
+    const shelfIndex = expandForOverflow
+      ? Math.floor(index / booksPerShelf)
+      : Math.min(Math.floor(index / booksPerShelf), shelfCount - 1);
+
+    if (expandForOverflow || shelves[shelfIndex].length < booksPerShelf) {
       shelves[shelfIndex].push(book);
     }
   });
 
-  return shelves;
+  return expandForOverflow ? shelves.filter((shelf) => shelf.length > 0) : shelves;
 }
 
 export function filterIntroduceBooks(books: IBookshelfIntroduce[], query: string) {
@@ -31,12 +39,14 @@ export function filterIntroduceBooks(books: IBookshelfIntroduce[], query: string
     return books;
   }
 
-  return books.filter(
-    (book) =>
-      book.title.toLowerCase().includes(normalized) ||
-      (book.author || '').toLowerCase().includes(normalized) ||
-      (book.description || '').toLowerCase().includes(normalized),
-  );
+  return books.filter((book) => {
+    const searchable = [book.title, book.author, book.description, book.fileUrl]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchable.includes(normalized);
+  });
 }
 
 export function getBookAuthorLabel(book: IBookshelfIntroduce) {

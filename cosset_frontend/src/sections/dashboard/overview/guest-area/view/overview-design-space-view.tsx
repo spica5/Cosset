@@ -14,6 +14,8 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { normalizeDesignSpaceType } from 'src/utils/design-space-type';
+
 import { DesignSpaceForm } from '../design-space-form';
 
 // ----------------------------------------------------------------------
@@ -38,6 +40,7 @@ export function OverviewDesignSpaceView() {
             background: string | null;
             rooms: string | null;
             effects: string | null;
+            designType?: string | null;
           }>;
         };
 
@@ -51,6 +54,7 @@ export function OverviewDesignSpaceView() {
           background: first.background ?? '',
           rooms: first.rooms ?? '',
           effects: first.effects ?? '',
+          designType: normalizeDesignSpaceType(first.designType),
           createdAt: null,
         };
 

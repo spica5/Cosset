@@ -16,6 +16,7 @@ import {
   MySpaceSectionTitle,
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
 
@@ -34,8 +35,6 @@ type Props = BoxProps & {
   loading?: boolean;
   viewAllHref?: string;
 };
-
-const ACCENT_PINK = '#E8A0A8';
 
 const DRAWER_CARD_THEMES: Record<
   string,
@@ -96,6 +95,7 @@ type DrawerCategoryCardProps = {
 };
 
 function DrawerCategoryCard({ item }: DrawerCategoryCardProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const theme = getDrawerTheme(item);
   const viewedCount = item.viewedCount ?? 0;
   const unreadCount = item.unreadCount ?? Math.max(0, item.count - viewedCount);
@@ -154,12 +154,12 @@ function DrawerCategoryCard({ item }: DrawerCategoryCardProps) {
           fullWidth
           sx={{
             borderRadius: 99,
-            borderColor: ACCENT_PINK,
-            color: ACCENT_PINK,
+            borderColor: spaceTheme.accent,
+            color: spaceTheme.accent,
             fontWeight: 600,
             '&:hover': {
-              borderColor: '#d88e96',
-              bgcolor: 'rgba(232, 160, 168, 0.08)',
+              borderColor: spaceTheme.accentHover,
+              bgcolor: spaceTheme.accentSoft,
             },
           }}
         >
@@ -173,9 +173,11 @@ function DrawerCategoryCard({ item }: DrawerCategoryCardProps) {
     height: 1,
     borderRadius: 2,
     overflow: 'hidden',
-    bgcolor: 'common.white',
-    border: '1px solid rgba(139, 119, 101, 0.16)',
-    boxShadow: '0 2px 10px rgba(60, 45, 30, 0.05)',
+    bgcolor: spaceTheme.surfaceBg,
+    border: `1px solid ${spaceTheme.border}`,
+    boxShadow: spaceTheme.isDark
+      ? '0 2px 10px rgba(0, 0, 0, 0.22)'
+      : '0 2px 10px rgba(60, 45, 30, 0.05)',
     transition: (muiTheme: import('@mui/material/styles').Theme) =>
       muiTheme.transitions.create(['box-shadow', 'transform'], {
         duration: muiTheme.transitions.duration.shorter,
@@ -196,6 +198,7 @@ export function UniverseLandingDrawer({
   sx,
   ...other
 }: Props) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const totalItemCount = useMemo(
     () => items.reduce((sum, item) => sum + item.count, 0),
     [items],
@@ -235,7 +238,7 @@ export function UniverseLandingDrawer({
                 alignItems: 'center',
                 gap: 0.25,
                 whiteSpace: 'nowrap',
-                '&:hover': { color: ACCENT_PINK },
+                '&:hover': { color: spaceTheme.accent },
               }}
             >
               View all

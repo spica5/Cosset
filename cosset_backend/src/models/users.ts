@@ -369,6 +369,56 @@ export async function getAllUsers(
   }
 }
 
+export type CommunityDirectoryUser = Omit<User, 'password'>;
+
+/**
+ * Public community directory for friends/neighbors (no password field).
+ */
+export async function getCommunityDirectoryUsers(
+  limit: number = 100,
+  offset: number = 0,
+): Promise<CommunityDirectoryUser[]> {
+  try {
+    return await queryMany<CommunityDirectoryUser>(
+      `
+        SELECT
+          id,
+          email,
+          plan as "plan",
+          role as "role",
+          phone_number as "phoneNumber",
+          first_name as "firstName",
+          last_name as "lastName",
+          photo_url as "photoURL",
+          country,
+          address,
+          state,
+          city,
+          zip_code as "zipCode",
+          about,
+          is_public as "isPublic",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM ${TABLE_NAME}
+        WHERE COALESCE(LOWER(state), 'active') NOT IN ('blocked', 'deleted')
+        ORDER BY created_at DESC
+        LIMIT $1
+        OFFSET $2
+      `,
+      [limit, offset],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_COMMUNITY_DIRECTORY_USERS_ERROR',
+        message: `Failed to fetch community users: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
 /**
  * Check if user exists by email
  *

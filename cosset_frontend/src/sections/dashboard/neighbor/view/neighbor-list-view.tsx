@@ -13,7 +13,7 @@ import { paths } from 'src/routes/paths';
 
 import { CONFIG } from 'src/config-global';
 
-import { useGetUsers } from 'src/actions/user';
+import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestAreas } from 'src/actions/guestarea';
 import { useGetDesignSpaces } from 'src/actions/design-space';
@@ -36,7 +36,7 @@ export function NeighborListView() {
 
   const { user: currentUser } = useAuthContext();
   const currentUserId = String(currentUser?.id || '');
-  const { users, usersLoading } = useGetUsers(200, 0);
+  const { users, usersLoading } = useGetCommunityUsers(200, 0, Boolean(currentUserId));
   const { friends: acceptedRelations, friendsLoading } = useGetFriends(undefined, 'accepted', true);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const { designSpaces, designSpacesLoading } = useGetDesignSpaces();

@@ -2,7 +2,7 @@
 
 import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,7 +11,9 @@ import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -30,7 +32,7 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { FREE_EBOOK_SOURCES } from '../bookshelf-free-ebook-sources';
+import { FREE_EBOOK_SOURCES, filterFreeEbookSources } from '../bookshelf-free-ebook-sources';
 import { BookshelfIntroduceFeatured } from '../bookshelf-introduce-featured';
 import { BookshelfIntroduceFormDialog } from '../bookshelf-introduce-form-dialog';
 
@@ -44,6 +46,12 @@ export function BookshelfIntroduceView() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<IBookshelfIntroduce | null>(null);
+  const [sourceSearchQuery, setSourceSearchQuery] = useState('');
+
+  const filteredFreeEbookSources = useMemo(
+    () => filterFreeEbookSources(FREE_EBOOK_SOURCES, sourceSearchQuery),
+    [sourceSearchQuery],
+  );
 
   const handleOpenCreate = useCallback(() => {
     setEditingBook(null);
@@ -157,8 +165,28 @@ export function BookshelfIntroduceView() {
               description="These are well-known places to find free books online. Open any source below to start browsing."
             />
 
+            <TextField
+              size="small"
+              placeholder="Search free book sources..."
+              value={sourceSearchQuery}
+              onChange={(event) => setSourceSearchQuery(event.target.value)}
+              sx={{ maxWidth: 360 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Iconify icon="eva:search-fill" width={20} sx={{ color: 'text.disabled' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
             <Stack spacing={2} divider={<Divider flexItem />}>
-              {FREE_EBOOK_SOURCES.map((source) => (
+              {filteredFreeEbookSources.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No sources match your search.
+                </Typography>
+              ) : (
+                filteredFreeEbookSources.map((source) => (
                 <Stack
                   key={source.name}
                   direction={{ xs: 'column', sm: 'row' }}
@@ -180,7 +208,8 @@ export function BookshelfIntroduceView() {
                     Visit site
                   </Button>
                 </Stack>
-              ))}
+                ))
+              )}
             </Stack>
           </Stack>
         </Card>

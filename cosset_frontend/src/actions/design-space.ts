@@ -1,6 +1,8 @@
 import useSWR from 'swr';
 import { useMemo } from 'react';
 
+import type { DesignSpaceType } from 'src/utils/design-space-type';
+
 import { fetcher, endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
@@ -11,6 +13,7 @@ export type IDesignSpaceItem = {
   background: string | null;
   rooms: string | null;
   effects: string | null;
+  designType: DesignSpaceType | null;
 };
 
 type DesignSpaceApiResponse = {

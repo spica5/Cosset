@@ -30,6 +30,7 @@ import {
 
 import { MySpaceSectionTitle } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
 
@@ -49,10 +50,6 @@ type Props = BoxProps & {
 const PAGE_SIZE = 6;
 
 const SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
-
-const CARD_BG = '#FAF6F0';
-
-const ACCENT_PINK = '#E8A0A8';
 
 const formatBookDate = (value: unknown) => {
   if (!value) {
@@ -163,6 +160,7 @@ function BookshelfCover({ entry }: BookCardProps) {
 }
 
 function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const title = (entry.item.title || '').trim() || `Book #${entry.item.id}`;
   const fileTypeLabel =
     entry.kind === 'ebook'
@@ -228,7 +226,7 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
         </Typography>
 
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5 }}>
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: ACCENT_PINK, fontWeight: 700 }}>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: spaceTheme.accent, fontWeight: 700 }}>
             <Iconify
               icon={entry.kind === 'audiobook' ? 'solar:play-circle-bold' : 'solar:eye-bold'}
               width={18}
@@ -238,7 +236,7 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
             </Typography>
           </Stack>
 
-          <Iconify icon="solar:book-2-bold-duotone" width={22} sx={{ color: ACCENT_PINK, opacity: 0.75 }} />
+          <Iconify icon="solar:book-2-bold-duotone" width={22} sx={{ color: spaceTheme.accent, opacity: 0.75 }} />
         </Stack>
       </Stack>
     </>
@@ -252,9 +250,11 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
         flexDirection: 'column',
         borderRadius: 2.5,
         overflow: 'hidden',
-        bgcolor: CARD_BG,
-        boxShadow: '0 4px 18px rgba(60, 45, 30, 0.08)',
-        border: '1px solid rgba(139, 119, 101, 0.12)',
+        bgcolor: spaceTheme.cardBg,
+        boxShadow: spaceTheme.isDark
+          ? '0 4px 18px rgba(0, 0, 0, 0.28)'
+          : '0 4px 18px rgba(60, 45, 30, 0.08)',
+        border: `1px solid ${spaceTheme.border}`,
         transition: (theme) =>
           theme.transitions.create(['transform', 'box-shadow'], {
             duration: theme.transitions.duration.shorter,
@@ -285,6 +285,7 @@ export function UniverseLandingBookshelf({
   sx,
   ...other
 }: Props) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
 
@@ -398,9 +399,9 @@ export function UniverseLandingBookshelf({
                   borderRadius: 99,
                   px: 2.5,
                   whiteSpace: 'nowrap',
-                  bgcolor: ACCENT_PINK,
+                  bgcolor: spaceTheme.accent,
                   boxShadow: 'none',
-                  '&:hover': { bgcolor: '#d88e96', boxShadow: 'none' },
+                  '&:hover': { bgcolor: spaceTheme.accentHover, boxShadow: 'none' },
                 }}
               >
                 Manage Bookshelf
@@ -440,7 +441,7 @@ export function UniverseLandingBookshelf({
                       fontWeight: 600,
                     },
                     '& .Mui-selected': {
-                      bgcolor: `${ACCENT_PINK} !important`,
+                      bgcolor: `${spaceTheme.accent} !important`,
                       color: 'common.white',
                     },
                   }}

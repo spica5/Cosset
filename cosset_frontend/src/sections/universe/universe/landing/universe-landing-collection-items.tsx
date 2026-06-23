@@ -21,6 +21,7 @@ import {
   MySpaceSectionTitle,
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
 
@@ -29,8 +30,6 @@ type Props = BoxProps & {
   collections: ICollectionItem[];
   viewAllHref?: string;
 };
-
-const ACCENT_PINK = '#E8A0A8';
 
 const COLLECTION_CARD_THEMES = [
   { icon: 'solar:widget-4-bold', iconColor: '#8E33FF', iconBg: '#EFD6FF' },
@@ -68,6 +67,7 @@ function UniverseCollectionItemsCard({
   viewedItemIdSet,
   viewedItemIdsLoading,
 }: CollectionCardProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const { collectionItems, collectionItemsLoading } = useGetCollectionItems(collection.id, customerId);
   const collectionItemsHref = paths.universe.collectionItems(customerId, collection.id);
   const theme = getCollectionTheme(collection.id);
@@ -92,9 +92,11 @@ function UniverseCollectionItemsCard({
     flexDirection: 'column',
     borderRadius: 2,
     overflow: 'hidden',
-    bgcolor: 'common.white',
-    border: '1px solid rgba(139, 119, 101, 0.16)',
-    boxShadow: '0 2px 10px rgba(60, 45, 30, 0.05)',
+    bgcolor: spaceTheme.surfaceBg,
+    border: `1px solid ${spaceTheme.border}`,
+    boxShadow: spaceTheme.isDark
+      ? '0 2px 10px rgba(0, 0, 0, 0.22)'
+      : '0 2px 10px rgba(60, 45, 30, 0.05)',
     transition: (muiTheme: import('@mui/material/styles').Theme) =>
       muiTheme.transitions.create(['box-shadow', 'transform'], {
         duration: muiTheme.transitions.duration.shorter,
@@ -244,12 +246,12 @@ function UniverseCollectionItemsCard({
           sx={{
             mt: 'auto',
             borderRadius: 99,
-            borderColor: ACCENT_PINK,
-            color: ACCENT_PINK,
+            borderColor: spaceTheme.accent,
+            color: spaceTheme.accent,
             fontWeight: 600,
             '&:hover': {
-              borderColor: '#d88e96',
-              bgcolor: 'rgba(232, 160, 168, 0.08)',
+              borderColor: spaceTheme.accentHover,
+              bgcolor: spaceTheme.accentSoft,
             },
           }}
         >
@@ -267,6 +269,7 @@ export function UniverseLandingCollectionItems({
   sx,
   ...other
 }: Props) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const { viewedCollectionItemIds, viewedCollectionItemIdsLoading } = useGetViewedCollectionItemIds(customerId);
 
   const viewedItemIdSet = useMemo(
@@ -308,7 +311,7 @@ export function UniverseLandingCollectionItems({
                 alignItems: 'center',
                 gap: 0.25,
                 whiteSpace: 'nowrap',
-                '&:hover': { color: ACCENT_PINK },
+                '&:hover': { color: spaceTheme.accent },
               }}
             >
               View all

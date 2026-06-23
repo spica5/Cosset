@@ -29,6 +29,14 @@ import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 import { varAlpha } from 'src/theme/universe/styles';
 
+import {
+  type DesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
+  getDesignSpaceOverlaySx,
+  getDesignSpaceBackgroundFilter,
+  normalizeDesignSpaceType,
+} from 'src/utils/design-space-type';
+
 import { Iconify } from 'src/components/universe/iconify/iconify';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
@@ -50,6 +58,7 @@ type Props = BoxProps & {
     name: string;
     avatarUrl: string;
   }[];
+  designType?: DesignSpaceType;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
 };
@@ -62,6 +71,7 @@ export function UniverseLandingHero({
   canRequestFriend = false,
   onRequestFriend,
   visitors = [],
+  designType = DEFAULT_DESIGN_SPACE_TYPE,
   isFullScreen = false,
   onToggleFullScreen,
   sx,
@@ -167,6 +177,10 @@ export function UniverseLandingHero({
   const customerSpaceLabel = customer?.name
     ? `${customer.name}'s Space`
     : "Customer's Space";
+
+  const resolvedDesignType = normalizeDesignSpaceType(designType);
+  const designTypeBackgroundFilter = getDesignSpaceBackgroundFilter(resolvedDesignType);
+  const designTypeOverlaySx = getDesignSpaceOverlaySx(resolvedDesignType);
 
   if (!universe) {
     return null;
@@ -291,9 +305,25 @@ export function UniverseLandingHero({
                 zIndex: 7,
                 objectFit: 'cover',
                 position: 'absolute',
+                filter: designTypeBackgroundFilter,
               }}
             />
           ) : null}
+
+        {selectedBackground && designTypeOverlaySx ? (
+          <Box
+            sx={{
+              top: 0,
+              left: 0,
+              width: 1,
+              height: 1,
+              zIndex: 7,
+              position: 'absolute',
+              pointerEvents: 'none',
+              ...designTypeOverlaySx,
+            }}
+          />
+        ) : null}
 
         <Card
           sx={{

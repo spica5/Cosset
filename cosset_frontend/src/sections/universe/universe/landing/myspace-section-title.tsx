@@ -4,6 +4,8 @@ import Typography from '@mui/material/Typography';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { useDesignSpaceTheme } from './design-space-theme-context';
+
 // ----------------------------------------------------------------------
 
 export const MYSPACE_SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
@@ -16,6 +18,7 @@ type CountBadgeProps = {
 };
 
 export function MySpaceCountBadge({ count, size = 'md' }: CountBadgeProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const dimension = size === 'sm' ? 24 : 28;
   const fontSize = size === 'sm' ? 11 : count > 99 ? 10 : 12;
 
@@ -27,14 +30,14 @@ export function MySpaceCountBadge({ count, size = 'md' }: CountBadgeProps) {
         height: dimension,
         px: count > 99 ? 0.5 : 0,
         borderRadius: '50%',
-        bgcolor: MYSPACE_ACCENT_PINK,
+        bgcolor: spaceTheme.accent,
         color: 'common.white',
         display: 'inline-grid',
         placeItems: 'center',
         fontSize,
         fontWeight: 700,
         lineHeight: 1,
-        boxShadow: '0 2px 6px rgba(232, 160, 168, 0.45)',
+        boxShadow: `0 2px 6px ${spaceTheme.accentSoft}`,
         flexShrink: 0,
       }}
     >
@@ -50,6 +53,8 @@ type Props = {
 };
 
 export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+
   return (
     <Stack spacing={1}>
       <Stack direction="row" alignItems="center" spacing={1}>
@@ -63,16 +68,16 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
         >
           {title}
         </Typography>
-        <Iconify icon="solar:flower-bold-duotone" width={22} sx={{ color: MYSPACE_ACCENT_PINK }} />
+        <Iconify icon="solar:flower-bold-duotone" width={22} sx={{ color: spaceTheme.accent }} />
       </Stack>
 
       <Box sx={{ position: 'relative', display: 'inline-block', maxWidth: 1, pr: 4 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <Iconify icon="solar:heart-bold" width={14} sx={{ color: MYSPACE_ACCENT_PINK }} />
+          <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
             {subtitle}
           </Typography>
-          <Iconify icon="solar:heart-bold" width={14} sx={{ color: MYSPACE_ACCENT_PINK }} />
+          <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
         </Stack>
 
         <Box

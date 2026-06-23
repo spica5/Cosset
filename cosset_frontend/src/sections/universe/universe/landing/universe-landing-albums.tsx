@@ -26,6 +26,7 @@ import {
   MySpaceSectionTitle,
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
 
@@ -42,10 +43,6 @@ type Props = BoxProps & {
 const PAGE_SIZE = 6;
 
 const SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
-
-const CARD_BG = '#FAF6F0';
-
-const ACCENT_PINK = '#E8A0A8';
 
 const formatAlbumDate = (value: unknown) => {
   if (!value) {
@@ -87,6 +84,7 @@ type AlbumCardProps = {
 };
 
 function AlbumCardHeart({ albumId }: { albumId: number }) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const { reactionSummary } = useGetReactionSummary('album', albumId);
   const count = reactionSummary?.totalCount ?? 0;
 
@@ -100,10 +98,10 @@ function AlbumCardHeart({ albumId }: { albumId: number }) {
         position: 'relative',
         width: 32,
         height: 32,
-        bgcolor: ACCENT_PINK,
+        bgcolor: spaceTheme.accent,
         color: 'common.white',
-        boxShadow: '0 2px 8px rgba(232, 160, 168, 0.45)',
-        '&:hover': { bgcolor: '#d88e96' },
+        boxShadow: `0 2px 8px ${spaceTheme.accentSoft}`,
+        '&:hover': { bgcolor: spaceTheme.accentHover },
       }}
     >
       <Iconify icon="solar:heart-bold" width={16} />
@@ -118,8 +116,8 @@ function AlbumCardHeart({ albumId }: { albumId: number }) {
             height: 16,
             px: 0.5,
             borderRadius: 99,
-            bgcolor: 'common.white',
-            color: ACCENT_PINK,
+            bgcolor: 'background.paper',
+            color: spaceTheme.accent,
             fontSize: 10,
             fontWeight: 700,
             display: 'grid',
@@ -135,6 +133,7 @@ function AlbumCardHeart({ albumId }: { albumId: number }) {
 }
 
 function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const title = (album.title || '').trim() || `Album #${album.id}`;
   const coverUrl = album.signedCoverUrl || album.coverUrl || '';
 
@@ -215,7 +214,7 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
             alignItems="center"
             sx={{ flexShrink: 0, color: 'text.secondary' }}
           >
-            <Iconify icon="solar:gallery-bold" width={16} sx={{ color: ACCENT_PINK }} />
+            <Iconify icon="solar:gallery-bold" width={16} sx={{ color: spaceTheme.accent }} />
             <Typography variant="caption" fontWeight={700}>
               {getAlbumPhotoCount(album)} Photos
             </Typography>
@@ -248,7 +247,7 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
           <Iconify
             icon="solar:flower-bold-duotone"
             width={22}
-            sx={{ color: ACCENT_PINK, opacity: 0.75 }}
+            sx={{ color: spaceTheme.accent, opacity: 0.75 }}
           />
         </Stack>
       </Stack>
@@ -261,9 +260,11 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
     flexDirection: 'column',
     borderRadius: 2.5,
     overflow: 'hidden',
-    bgcolor: CARD_BG,
-    boxShadow: '0 4px 18px rgba(60, 45, 30, 0.08)',
-    border: '1px solid rgba(139, 119, 101, 0.12)',
+    bgcolor: spaceTheme.cardBg,
+    boxShadow: spaceTheme.isDark
+      ? '0 4px 18px rgba(0, 0, 0, 0.28)'
+      : '0 4px 18px rgba(60, 45, 30, 0.08)',
+    border: `1px solid ${spaceTheme.border}`,
     transition: (theme: import('@mui/material/styles').Theme) =>
       theme.transitions.create(['transform', 'box-shadow'], {
         duration: theme.transitions.duration.shorter,
@@ -302,6 +303,7 @@ export function UniverseLandingAlbums({
   sx,
   ...other
 }: Props) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
   const { viewedAlbumIds } = useGetViewedAlbumIds(ownerUserId);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -411,9 +413,9 @@ export function UniverseLandingAlbums({
                   borderRadius: 99,
                   px: 2.5,
                   whiteSpace: 'nowrap',
-                  bgcolor: ACCENT_PINK,
+                  bgcolor: spaceTheme.accent,
                   boxShadow: 'none',
-                  '&:hover': { bgcolor: '#d88e96', boxShadow: 'none' },
+                  '&:hover': { bgcolor: spaceTheme.accentHover, boxShadow: 'none' },
                 }}
               >
                 New Album
@@ -454,7 +456,7 @@ export function UniverseLandingAlbums({
                       fontWeight: 600,
                     },
                     '& .Mui-selected': {
-                      bgcolor: `${ACCENT_PINK} !important`,
+                      bgcolor: `${spaceTheme.accent} !important`,
                       color: 'common.white',
                     },
                   }}

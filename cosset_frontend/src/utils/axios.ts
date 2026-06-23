@@ -43,6 +43,7 @@ export const endpoints = {
   },
   user: {
     list: '/api/user/list',
+    directory: '/api/user/directory',
     details: (id: string | number) => `/api/user/${id}`,
   },
   friend: {

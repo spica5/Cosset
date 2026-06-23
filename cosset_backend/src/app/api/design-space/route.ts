@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { background, rooms, effects, customerId } = body;
+    const { background, rooms, effects, customerId, designType } = body;
 
     // If a design space already exists for this customer, update it instead of inserting a new row
     let designSpace;
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
           background: background != null ? String(background).trim() : null,
           rooms: rooms != null ? String(rooms).trim() : null,
           effects: effects != null ? String(effects).trim() : null,
+          designType: designType != null ? String(designType).trim() : null,
         });
       }
     }
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
         background: background != null ? String(background).trim() : null,
         rooms: rooms != null ? String(rooms).trim() : null,
         effects: effects != null ? String(effects).trim() : null,
+        designType: designType != null ? String(designType).trim() : 'normal',
       });
     }
 

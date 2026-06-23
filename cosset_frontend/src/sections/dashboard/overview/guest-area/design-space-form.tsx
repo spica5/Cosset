@@ -16,6 +16,8 @@ import Divider from '@mui/material/Divider';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
@@ -27,6 +29,17 @@ import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import {
+  type DesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
+  DESIGN_SPACE_TYPE_OPTIONS,
+  getDesignSpaceOverlaySx,
+  getDesignSpaceTypeDescription,
+  getDesignSpaceBackgroundFilter,
+  getDesignSpaceTheme,
+  normalizeDesignSpaceType,
+} from 'src/utils/design-space-type';
+
 import ImageGallery from './image-gallery';
 
 // ----------------------------------------------------------------------
@@ -36,6 +49,7 @@ export const DesignSpaceSchema = zod.object({
   images: schemaHelper.files({ message: { required_error: 'Images is required!' } }),
   rooms: zod.string().optional(),
   effects: zod.string().optional(),
+  designType: zod.enum(['normal', 'morning', 'evening', 'night']),
 });
 
 export type DesignSpaceSchemaType = zod.infer<typeof DesignSpaceSchema>;
@@ -72,6 +86,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
       images: [],
       rooms: currentArea?.rooms || '',
       effects: currentArea?.effects || '',
+      designType: currentArea?.designType || DEFAULT_DESIGN_SPACE_TYPE,
     }),
     [currentArea]
   );
@@ -162,6 +177,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
       images: [],
       rooms: currentArea?.rooms || '',
       effects: currentArea?.effects || '',
+      designType: currentArea?.designType || DEFAULT_DESIGN_SPACE_TYPE,
     });
   }, [currentArea, reset]);
 
@@ -255,6 +271,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
         background: backgroundData,
         rooms: data.rooms || null,
         effects: data.effects || null,
+        designType: data.designType,
         customerId: user?.id,
       });
 
@@ -389,6 +406,13 @@ export function DesignSpaceForm({ currentArea }: Props) {
     }
   }, [pendingFiles, user?.id, values.images, setValue]);
 
+  const selectedDesignType = normalizeDesignSpaceType(values.designType);
+  const designTypePreviewSrc =
+    previewSrc || (typeof values.images?.[0] === 'string' ? values.images[0] : null);
+  const designTypeBackgroundFilter = getDesignSpaceBackgroundFilter(selectedDesignType);
+  const designTypeOverlaySx = getDesignSpaceOverlaySx(selectedDesignType);
+  const designTypeTheme = getDesignSpaceTheme(selectedDesignType);
+
   return (
     <Form methods={methods} onSubmit={onSubmit}>
       <Stack spacing={5} sx={{ mx: 'auto', maxWidth: { xs: 720, xl: 880 } }}>
@@ -478,11 +502,104 @@ export function DesignSpaceForm({ currentArea }: Props) {
         
         <Card>
           <CardHeader
-            title="Design Space"
-            subheader="Add multiple images to your space..."
+            title="My Space"
+            subheader="Select the design type for shared items on your universe home page."
             sx={{ mb: 3 }}
           />
           <Divider />
+          <Stack spacing={2.5} sx={{ p: 3 }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle1">Design type</Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={selectedDesignType}
+                onChange={(_event, value: DesignSpaceType | null) => {
+                  if (value) {
+                    setValue('designType', value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                size="small"
+                sx={{
+                  width: { xs: 1, sm: 'fit-content' },
+                  flexWrap: 'wrap',
+                  '& .MuiToggleButton-root': {
+                    flex: { xs: 1, sm: 'none' },
+                    textTransform: 'none',
+                  },
+                }}
+              >
+                {DESIGN_SPACE_TYPE_OPTIONS.map((option) => (
+                  <ToggleButton key={option.value} value={option.value}>
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <Typography variant="caption" color="text.secondary">
+                {getDesignSpaceTypeDescription(selectedDesignType)}
+              </Typography>
+            </Stack>
+
+            <Box
+              sx={{
+                position: 'relative',
+                overflow: 'hidden',
+                width: '100%',
+                maxWidth: { xs: 1, sm: 420 },
+                height: { xs: 180, sm: 220 },
+                borderRadius: 1.5,
+                border: '1px solid',
+                borderColor: designTypeTheme.border,
+                bgcolor: designTypeTheme.pageBg,
+                color: designTypeTheme.textPrimary,
+              }}
+            >
+              {designTypePreviewSrc ? (
+                <>
+                  <Box
+                    component="img"
+                    alt="Design type preview"
+                    src={designTypePreviewSrc}
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: 1,
+                      height: 1,
+                      objectFit: 'cover',
+                      filter: designTypeBackgroundFilter,
+                    }}
+                  />
+                  {designTypeOverlaySx ? (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        pointerEvents: 'none',
+                        ...designTypeOverlaySx,
+                      }}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    px: 2,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: designTypeTheme.textSecondary }}>
+                    Add a background image above to preview the selected design type.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Stack>
         </Card>
 
         <Box display="flex" alignItems="center" flexWrap="wrap" justifyContent={{ xs: 'stretch', sm: 'flex-end' }}>

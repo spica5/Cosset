@@ -8,7 +8,7 @@ import { paths } from 'src/routes/paths';
 
 import { CONFIG } from 'src/config-global';
 
-import { useGetUsers } from 'src/actions/user';
+import { useGetCommunityUsers } from 'src/actions/user';
 import {
   useGetFriends,
   removeFriend,
@@ -46,7 +46,7 @@ export function FriendCardsView() {
     'pending',
     canLoadFriends
   );
-  const { users, usersLoading } = useGetUsers(200, 0);
+  const { users, usersLoading } = useGetCommunityUsers(200, 0, canLoadFriends);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
