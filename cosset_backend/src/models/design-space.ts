@@ -27,7 +27,7 @@ export interface DesignSpace {
 
 let ensureDesignTypeColumnPromise: Promise<void> | null = null;
 
-const normalizeDesignType = (value: unknown): DesignSpaceType => {
+export const normalizeDesignType = (value: unknown): DesignSpaceType => {
   const normalized = String(value || '').trim().toLowerCase();
 
   if (normalized === 'morning' || normalized === 'evening' || normalized === 'night') {

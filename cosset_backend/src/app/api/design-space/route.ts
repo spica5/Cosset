@@ -6,6 +6,7 @@ import {
   getDesignSpaces,
   createDesignSpace,
   updateDesignSpace,
+  normalizeDesignType,
 } from 'src/models/design-space';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
           background: background != null ? String(background).trim() : null,
           rooms: rooms != null ? String(rooms).trim() : null,
           effects: effects != null ? String(effects).trim() : null,
-          designType: designType != null ? String(designType).trim() : null,
+          designType: designType != null ? normalizeDesignType(designType) : null,
         });
       }
     }
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         background: background != null ? String(background).trim() : null,
         rooms: rooms != null ? String(rooms).trim() : null,
         effects: effects != null ? String(effects).trim() : null,
-        designType: designType != null ? String(designType).trim() : 'normal',
+        designType: normalizeDesignType(designType ?? 'normal'),
       });
     }
 
