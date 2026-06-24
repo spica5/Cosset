@@ -657,7 +657,7 @@ export function UniverseLandingView({
         key: 'gift',
         label: 'Gifts and Souvenirs',
         icon: 'solar:gift-bold',
-        enabled: drawerSettings.gift,
+        enabled: drawerSettings.gift || giftCountData.count > 0,
         count: giftCountData.count,
         viewedCount: viewedGiftData.viewedGiftIds.length,
         unreadCount: Math.max(0, giftCountData.count - viewedGiftData.viewedGiftIds.length),
@@ -667,7 +667,7 @@ export function UniverseLandingView({
         key: 'letter',
         label: 'Letters',
         icon: 'solar:file-text-bold',
-        enabled: drawerSettings.letter,
+        enabled: drawerSettings.letter || letterDrawerStats.count > 0,
         count: letterDrawerStats.count,
         viewedCount: letterDrawerStats.viewedCount,
         unreadCount: letterDrawerStats.unreadCount,
@@ -677,7 +677,7 @@ export function UniverseLandingView({
         key: 'goodMemo',
         label: 'Good Memories',
         icon: 'solar:sun-bold',
-        enabled: drawerSettings.goodMemo,
+        enabled: drawerSettings.goodMemo || goodMemoDrawerStats.count > 0,
         count: goodMemoDrawerStats.count,
         viewedCount: goodMemoDrawerStats.viewedCount,
         unreadCount: goodMemoDrawerStats.unreadCount,
@@ -687,7 +687,7 @@ export function UniverseLandingView({
         key: 'sadMemo',
         label: 'Sad Memories',
         icon: 'solar:cloud-bold',
-        enabled: drawerSettings.sadMemo,
+        enabled: drawerSettings.sadMemo || sadMemoDrawerStats.count > 0,
         count: sadMemoDrawerStats.count,
         viewedCount: sadMemoDrawerStats.viewedCount,
         unreadCount: sadMemoDrawerStats.unreadCount,
@@ -715,6 +715,15 @@ export function UniverseLandingView({
   );
 
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
+  const showDrawersSection =
+    drawerSettings.gift ||
+    drawerSettings.letter ||
+    drawerSettings.goodMemo ||
+    drawerSettings.sadMemo ||
+    giftCountData.count > 0 ||
+    letterDrawerStats.count > 0 ||
+    goodMemoDrawerStats.count > 0 ||
+    sadMemoDrawerStats.count > 0;
   const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
   const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
   const showBookshelfEbooks = drawerSettings.ebooks || publicEbooks.length > 0;
@@ -731,7 +740,11 @@ export function UniverseLandingView({
       ...(allowVisitorSections
         ? {
             'albums-section': sharedAlbums.length,
-            'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
+            ...(showDrawersSection
+              ? {
+                  'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
+                }
+              : {}),
             'collection-items-section': sharedCollections.length,
             ...(showBookshelfSection ? { 'bookshelf-section': sharedBookshelfCount } : {}),
           }
@@ -746,6 +759,7 @@ export function UniverseLandingView({
       sharedCollections.length,
       sharedDrawerItems,
       showBookshelfSection,
+      showDrawersSection,
     ],
   );
 
@@ -916,15 +930,19 @@ export function UniverseLandingView({
                     getAlbumHref={(album) => paths.universe.album(album.id)}
                   />
                 ),
-                'drawers-section': (
-                  <UniverseLandingDrawer
-                    items={sharedDrawerItems}
-                    loading={drawerLoading}
-                    viewAllHref={
-                      isCurrentCustomer ? paths.dashboard.drawer.root : undefined
+                ...(showDrawersSection
+                  ? {
+                      'drawers-section': (
+                        <UniverseLandingDrawer
+                          items={sharedDrawerItems}
+                          loading={drawerLoading}
+                          viewAllHref={
+                            isCurrentCustomer ? paths.dashboard.drawer.root : undefined
+                          }
+                        />
+                      ),
                     }
-                  />
-                ),
+                  : {}),
                 'collection-items-section': (
                   <UniverseLandingCollectionItems
                     customerId={customerId}

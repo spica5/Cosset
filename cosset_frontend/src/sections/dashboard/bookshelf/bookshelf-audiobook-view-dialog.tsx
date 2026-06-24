@@ -18,8 +18,10 @@ import { Iconify } from 'src/components/dashboard/iconify';
 
 import {
   resolveAudiobookAssetUrl,
+  resolveAudiobookContentUrl,
   getAudiobookFileTypeLabel,
 } from './bookshelf-audiobook-utils';
+import { getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -51,7 +53,7 @@ export function BookshelfAudiobookViewDialog({ open, audiobook, onClose }: Props
 
       try {
         const [resolvedAudioUrl, resolvedCoverUrl] = await Promise.all([
-          resolveAudiobookAssetUrl(audiobook.fileUrl),
+          resolveAudiobookContentUrl(audiobook),
           resolveAudiobookAssetUrl(audiobook.coverImage),
         ]);
 
@@ -103,6 +105,11 @@ export function BookshelfAudiobookViewDialog({ open, audiobook, onClose }: Props
           <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}>
             {getAudiobookFileTypeLabel(audiobook.fileType)}
           </Typography>
+          {getBookCategoryLabel(audiobook.category) ? (
+            <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.hover' }}>
+              {getBookCategoryLabel(audiobook.category)}
+            </Typography>
+          ) : null}
           {audiobook.author ? (
             <Typography variant="body2" color="text.secondary">
               by {audiobook.author}

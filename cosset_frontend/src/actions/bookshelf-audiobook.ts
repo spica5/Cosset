@@ -1,4 +1,5 @@
 import type { IBookshelfAudiobook } from 'src/types/bookshelf-audiobook';
+import type { BookshelfBookCategory } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -131,6 +132,13 @@ export async function updateBookshelfAudiobook(
     ]);
   }
   return res.data;
+}
+
+export async function setBookshelfAudiobookCategory(
+  id: string | number,
+  category: BookshelfBookCategory | null,
+) {
+  return updateBookshelfAudiobook(id, { category });
 }
 
 export async function deleteBookshelfAudiobook(

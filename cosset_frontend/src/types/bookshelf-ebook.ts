@@ -1,4 +1,5 @@
 export type BookshelfEbookFileType = 'pdf' | 'txt';
+export type BookshelfEbookCategory = 'favorite' | 'important';
 
 export type IBookshelfEbook = {
   id: number;
@@ -7,8 +8,10 @@ export type IBookshelfEbook = {
   author?: string | null;
   description?: string | null;
   coverImage?: string | null;
-  fileUrl: string;
+  fileUrl?: string | null;
+  refUrl?: string | null;
   fileType: BookshelfEbookFileType;
+  category?: BookshelfEbookCategory | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;

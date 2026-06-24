@@ -3,7 +3,7 @@
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
 import type { IBookshelfAudiobook } from 'src/types/bookshelf-audiobook';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,6 +12,8 @@ import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import TableRow from '@mui/material/TableRow';
 import TableHead from '@mui/material/TableHead';
 import TableCell from '@mui/material/TableCell';
@@ -33,6 +35,11 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import { resolveEbookAssetUrl } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
 import { resolveAudiobookAssetUrl } from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
+import {
+  BOOK_CATEGORY_OPTIONS,
+  normalizeBookCategory,
+  type BookshelfBookCategory,
+} from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 // ---------------------------------------------------------------
 
@@ -44,6 +51,7 @@ type DrawerSettings = {
 
 type Visibility = 0 | 1;
 type ItemIdKey = string;
+type CategoryValue = BookshelfBookCategory | '';
 
 const toItemIdKey = (id: string | number): ItemIdKey => String(id);
 
@@ -76,7 +84,7 @@ const parseDrawerSettings = (drawer?: string | null): DrawerSettings => {
   }
 };
 
-type BookshelfSectionProps<T extends { id: number; title: string; author?: string | null; coverImage?: string | null; isPublic?: number | null }> = {
+type BookshelfSectionProps<T extends { id: number; title: string; author?: string | null; coverImage?: string | null; isPublic?: number | null; category?: string | null }> = {
   title: string;
   manageHref: string;
   showSection: boolean;
@@ -84,13 +92,16 @@ type BookshelfSectionProps<T extends { id: number; title: string; author?: strin
   items: T[];
   itemsLoading: boolean;
   itemUpdates: Record<ItemIdKey, Visibility>;
+  categoryUpdates: Record<ItemIdKey, CategoryValue>;
   onBulkVisibility: (visibility: Visibility) => void;
+  onBulkCategory: (category: CategoryValue) => void;
   onVisibilityChange: (itemId: string | number, visibility: Visibility) => void;
+  onCategoryChange: (itemId: string | number, category: CategoryValue) => void;
   resolveCoverUrl: (coverImage?: string | null) => Promise<string>;
   isSaving: boolean;
 };
 
-function BookshelfSection<T extends { id: number; title: string; author?: string | null; coverImage?: string | null; isPublic?: number | null }>({
+function BookshelfSection<T extends { id: number; title: string; author?: string | null; coverImage?: string | null; isPublic?: number | null; category?: string | null }>({
   title,
   manageHref,
   showSection,
@@ -98,8 +109,11 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
   items,
   itemsLoading,
   itemUpdates,
+  categoryUpdates,
   onBulkVisibility,
+  onBulkCategory,
   onVisibilityChange,
+  onCategoryChange,
   resolveCoverUrl,
   isSaving,
 }: BookshelfSectionProps<T>) {
@@ -188,6 +202,32 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
           >
             Disable All
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            onClick={() => onBulkCategory('favorite')}
+            disabled={isSaving || !items.length}
+          >
+            All Favorite
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="info"
+            onClick={() => onBulkCategory('important')}
+            disabled={isSaving || !items.length}
+          >
+            All Important
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => onBulkCategory('')}
+            disabled={isSaving || !items.length}
+          >
+            Clear Category
+          </Button>
           <Button component={RouterLink} href={manageHref} size="small" variant="outlined">
             Manage {title}
           </Button>
@@ -202,11 +242,12 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
         <EmptyContent filled sx={{ py: 6 }} />
       ) : (
         <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 760 }}>
+          <Table sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                 <TableCell>ID</TableCell>
                 <TableCell>Public</TableCell>
+                <TableCell>Category</TableCell>
                 <TableCell>Cover</TableCell>
                 <TableCell>Title</TableCell>
                 <TableCell>Author</TableCell>
@@ -216,6 +257,10 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
             <TableBody>
               {items.map((item) => {
                 const itemIdKey = toItemIdKey(item.id);
+                const currentCategory =
+                  categoryUpdates[itemIdKey] !== undefined
+                    ? categoryUpdates[itemIdKey]
+                    : (item.category || '');
 
                 return (
                   <TableRow key={item.id} hover>
@@ -236,6 +281,26 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
                           onVisibilityChange(item.id, event.target.checked ? 1 : 0)
                         }
                       />
+                    </TableCell>
+
+                    <TableCell sx={{ minWidth: 160 }}>
+                      <TextField
+                        select
+                        size="small"
+                        value={currentCategory}
+                        onChange={(event) =>
+                          onCategoryChange(item.id, event.target.value as CategoryValue)
+                        }
+                        disabled={isSaving}
+                        fullWidth
+                      >
+                        <MenuItem value="">None</MenuItem>
+                        {BOOK_CATEGORY_OPTIONS.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </TableCell>
 
                     <TableCell>
@@ -284,6 +349,8 @@ export function BookshelfShareForm() {
   const [showAudiobooks, setShowAudiobooks] = useState(false);
   const [ebookUpdates, setEbookUpdates] = useState<Record<ItemIdKey, Visibility>>({});
   const [audiobookUpdates, setAudiobookUpdates] = useState<Record<ItemIdKey, Visibility>>({});
+  const [ebookCategoryUpdates, setEbookCategoryUpdates] = useState<Record<ItemIdKey, CategoryValue>>({});
+  const [audiobookCategoryUpdates, setAudiobookCategoryUpdates] = useState<Record<ItemIdKey, CategoryValue>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -298,7 +365,14 @@ export function BookshelfShareForm() {
     showAudiobooks !== !!currentDrawerSettings.audiobooks;
   const hasEbookChanges = Object.keys(ebookUpdates).length > 0;
   const hasAudiobookChanges = Object.keys(audiobookUpdates).length > 0;
-  const hasChanges = hasGuestAreaChanges || hasEbookChanges || hasAudiobookChanges;
+  const hasEbookCategoryChanges = Object.keys(ebookCategoryUpdates).length > 0;
+  const hasAudiobookCategoryChanges = Object.keys(audiobookCategoryUpdates).length > 0;
+  const hasChanges =
+    hasGuestAreaChanges ||
+    hasEbookChanges ||
+    hasAudiobookChanges ||
+    hasEbookCategoryChanges ||
+    hasAudiobookCategoryChanges;
 
   const handleEbookBulkVisibility = (visibility: Visibility) => {
     const next: Record<ItemIdKey, Visibility> = {};
@@ -347,6 +421,51 @@ export function BookshelfShareForm() {
       return { ...prev, [audiobookIdKey]: visibility };
     });
   };
+
+  const createCategoryChangeHandler =
+    <T extends { id: number; category?: string | null }>(
+      items: T[],
+      setUpdates: Dispatch<SetStateAction<Record<ItemIdKey, CategoryValue>>>,
+    ) =>
+    (itemId: string | number, category: CategoryValue) => {
+      const itemIdKey = toItemIdKey(itemId);
+      const original = items.find((item) => toItemIdKey(item.id) === itemIdKey);
+      const originalCategory = (original?.category || '') as CategoryValue;
+
+      setUpdates((prev) => {
+        if (category === originalCategory) {
+          const next = { ...prev };
+          delete next[itemIdKey];
+          return next;
+        }
+
+        return { ...prev, [itemIdKey]: category };
+      });
+    };
+
+  const createBulkCategoryHandler =
+    <T extends { id: number }>(
+      items: T[],
+      setUpdates: Dispatch<SetStateAction<Record<ItemIdKey, CategoryValue>>>,
+    ) =>
+    (category: CategoryValue) => {
+      const next: Record<ItemIdKey, CategoryValue> = {};
+      items.forEach((item) => {
+        next[toItemIdKey(item.id)] = category;
+      });
+      setUpdates(next);
+    };
+
+  const handleEbookCategoryChange = createCategoryChangeHandler(ebooks, setEbookCategoryUpdates);
+  const handleAudiobookCategoryChange = createCategoryChangeHandler(
+    audiobooks,
+    setAudiobookCategoryUpdates,
+  );
+  const handleEbookBulkCategory = createBulkCategoryHandler(ebooks, setEbookCategoryUpdates);
+  const handleAudiobookBulkCategory = createBulkCategoryHandler(
+    audiobooks,
+    setAudiobookCategoryUpdates,
+  );
 
   const handleSave = async () => {
     if (!hasChanges) {
@@ -414,6 +533,26 @@ export function BookshelfShareForm() {
         setAudiobookUpdates({});
       }
 
+      const ebookCategoryUpdatesList = Object.entries(ebookCategoryUpdates);
+      if (ebookCategoryUpdatesList.length > 0) {
+        await Promise.all(
+          ebookCategoryUpdatesList.map(([ebookId, category]) =>
+            updateBookshelfEbook(ebookId, { category: normalizeBookCategory(category) }),
+          ),
+        );
+        setEbookCategoryUpdates({});
+      }
+
+      const audiobookCategoryUpdatesList = Object.entries(audiobookCategoryUpdates);
+      if (audiobookCategoryUpdatesList.length > 0) {
+        await Promise.all(
+          audiobookCategoryUpdatesList.map(([audiobookId, category]) =>
+            updateBookshelfAudiobook(audiobookId, { category: normalizeBookCategory(category) }),
+          ),
+        );
+        setAudiobookCategoryUpdates({});
+      }
+
       toast.success('Bookshelf sharing settings updated successfully!');
     } catch (error) {
       console.error('Failed to save bookshelf sharing settings:', error);
@@ -440,8 +579,11 @@ export function BookshelfShareForm() {
           items={ebooks}
           itemsLoading={ebooksLoading}
           itemUpdates={ebookUpdates}
+          categoryUpdates={ebookCategoryUpdates}
           onBulkVisibility={handleEbookBulkVisibility}
+          onBulkCategory={handleEbookBulkCategory}
           onVisibilityChange={handleEbookVisibilityChange}
+          onCategoryChange={handleEbookCategoryChange}
           resolveCoverUrl={resolveEbookAssetUrl}
           isSaving={isSaving}
         />
@@ -456,8 +598,11 @@ export function BookshelfShareForm() {
           items={audiobooks}
           itemsLoading={audiobooksLoading}
           itemUpdates={audiobookUpdates}
+          categoryUpdates={audiobookCategoryUpdates}
           onBulkVisibility={handleAudiobookBulkVisibility}
+          onBulkCategory={handleAudiobookBulkCategory}
           onVisibilityChange={handleAudiobookVisibilityChange}
+          onCategoryChange={handleAudiobookCategoryChange}
           resolveCoverUrl={resolveAudiobookAssetUrl}
           isSaving={isSaving}
         />

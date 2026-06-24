@@ -1,32 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { IGiftItem } from 'src/types/gift';
+import type { ICollectionDrawerItem } from 'src/types/collection-item';
+
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Grid from '@mui/material/Grid';
-import Avatar from '@mui/material/Avatar';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
+import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
+import Divider from '@mui/material/Divider';
+import TableRow from '@mui/material/TableRow';
+import TableHead from '@mui/material/TableHead';
+import TableCell from '@mui/material/TableCell';
+import TableBody from '@mui/material/TableBody';
 import Typography from '@mui/material/Typography';
+import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
-import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import WbSunnyIcon from '@mui/icons-material/WbSunny';
-import UmbrellaIcon from '@mui/icons-material/Umbrella';
+
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
-import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
-import { useGetCollectionItems } from 'src/actions/collection-item';
-import { useGiftCount } from 'src/actions/gift';
-
 import { useAuthContext } from 'src/auth/hooks';
-
-import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
+import { useGetGifts, updateGift } from 'src/actions/gift';
+import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
+import { useGetCollectionItems, updateCollectionItem } from 'src/actions/collection-item';
 
 // ---------------------------------------------------------------
 
@@ -34,35 +38,285 @@ type DrawerShareFormProps = {
   onSaveSuccess?: () => void;
 };
 
-const CATEGORY_OPTIONS = [
-  { label: 'Gifts and Souvenirs', key: 'gift' },
-  { label: 'Letters', key: 'letter' },
-  { label: 'Good Memories', key: 'goodMemo' },
-  { label: 'Sad Memories', key: 'sadMemo' },
-] as const;
+type DrawerSettings = {
+  gift?: boolean;
+  letter?: boolean;
+  goodMemo?: boolean;
+  sadMemo?: boolean;
+  collectionItems?: Record<string, boolean>;
+  ebooks?: boolean;
+  audiobooks?: boolean;
+  [key: string]: unknown;
+};
 
-// derive type for keys
-type CategoryKey = typeof CATEGORY_OPTIONS[number]['key'];
+type CategoryKey = 'gift' | 'letter' | 'goodMemo' | 'sadMemo';
+type ItemIdKey = string;
+type Visibility = 0 | 1;
 
-const DRAWER_COLLECTION_MAP = {
+const DRAWER_COLLECTION_MAP: Record<Exclude<CategoryKey, 'gift'>, number> = {
   letter: 4,
   goodMemo: 1,
   sadMemo: 2,
-} as const;
-
-const DRAWER_VIEW_HREF_MAP: Record<CategoryKey, string> = {
-  gift: paths.dashboard.drawer.gift.root,
-  letter: paths.dashboard.drawer.letter.root,
-  goodMemo: paths.dashboard.drawer.goodMemo.root,
-  sadMemo: paths.dashboard.drawer.sadMemo.root,
 };
+
+const CATEGORY_CONFIG: Array<{
+  key: CategoryKey;
+  title: string;
+  manageHref: string;
+  universeHref: (customerId: string) => string;
+}> = [
+  {
+    key: 'gift',
+    title: 'Gifts and Souvenirs',
+    manageHref: paths.dashboard.drawer.gift.root,
+    universeHref: (customerId) => paths.universe.drawer.item(customerId, 'gift'),
+  },
+  {
+    key: 'letter',
+    title: 'Letters',
+    manageHref: paths.dashboard.drawer.letter.root,
+    universeHref: (customerId) => paths.universe.drawer.item(customerId, 'letter'),
+  },
+  {
+    key: 'goodMemo',
+    title: 'Good Memories',
+    manageHref: paths.dashboard.drawer.goodMemo.root,
+    universeHref: (customerId) => paths.universe.drawer.item(customerId, 'goodMemo'),
+  },
+  {
+    key: 'sadMemo',
+    title: 'Sad Memories',
+    manageHref: paths.dashboard.drawer.sadMemo.root,
+    universeHref: (customerId) => paths.universe.drawer.item(customerId, 'sadMemo'),
+  },
+];
+
+const toItemIdKey = (id: string | number): ItemIdKey => String(id);
+
+const parseDrawerSettings = (drawer?: string | null): DrawerSettings => {
+  if (!drawer) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(drawer) as DrawerSettings;
+  } catch {
+    return {};
+  }
+};
+
+const isPublicItem = (isPublic: unknown): boolean => {
+  if (typeof isPublic === 'number') {
+    return isPublic === 1;
+  }
+
+  if (typeof isPublic === 'string') {
+    const normalized = isPublic.trim().toLowerCase();
+    return normalized === '1' || normalized === 'public' || normalized === 'true';
+  }
+
+  if (typeof isPublic === 'boolean') {
+    return isPublic;
+  }
+
+  return false;
+};
+
+const isPublicGift = (openness: unknown): boolean => {
+  if (typeof openness === 'number') {
+    return openness === 1;
+  }
+
+  if (typeof openness === 'string') {
+    const normalized = openness.trim().toLowerCase();
+    return normalized === 'public' || normalized === '1' || normalized === 'true';
+  }
+
+  if (typeof openness === 'boolean') {
+    return openness;
+  }
+
+  return false;
+};
+
+const isGiftCategory = (gift: IGiftItem) => {
+  const value = String(gift.category || '').trim().toLowerCase();
+  return value === '' || value === 'gift' || value === 'gifts';
+};
+
+const getItemTitle = (title?: string | null, fallbackId?: number) => {
+  const trimmed = String(title || '').trim();
+  return trimmed || (fallbackId ? `Item #${fallbackId}` : 'Untitled');
+};
+
+type DrawerItemsSectionProps<T extends { id: number; title?: string | null }> = {
+  title: string;
+  manageHref: string;
+  universeHref?: string;
+  showSection: boolean;
+  onShowSectionChange: (checked: boolean) => void;
+  items: T[];
+  itemsLoading: boolean;
+  itemUpdates: Record<ItemIdKey, Visibility>;
+  getIsPublic: (item: T) => boolean;
+  onBulkVisibility: (visibility: Visibility) => void;
+  onVisibilityChange: (itemId: string | number, visibility: Visibility) => void;
+  isSaving: boolean;
+  getSubtitle?: (item: T) => string;
+};
+
+function DrawerItemsSection<T extends { id: number; title?: string | null }>({
+  title,
+  manageHref,
+  universeHref,
+  showSection,
+  onShowSectionChange,
+  items,
+  itemsLoading,
+  itemUpdates,
+  getIsPublic,
+  onBulkVisibility,
+  onVisibilityChange,
+  isSaving,
+  getSubtitle,
+}: DrawerItemsSectionProps<T>) {
+  const notFound = !items.length && !itemsLoading;
+
+  return (
+    <Box>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        justifyContent="space-between"
+        sx={{ mb: 2 }}
+      >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+          <Typography variant="h6">{title}</Typography>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Switch
+              checked={showSection}
+              onChange={(event) => onShowSectionChange(event.target.checked)}
+              disabled={isSaving}
+            />
+            <Typography variant="body2">Show on Home Space</Typography>
+          </Stack>
+        </Stack>
+
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button
+            size="small"
+            variant="outlined"
+            color="success"
+            onClick={() => onBulkVisibility(1)}
+            disabled={isSaving || !items.length}
+          >
+            Enable All
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => onBulkVisibility(0)}
+            disabled={isSaving || !items.length}
+          >
+            Disable All
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            href={manageHref}
+          >
+            Manage
+          </Button>
+        </Stack>
+      </Stack>
+
+      {itemsLoading ? (
+        <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+          <CircularProgress />
+        </Box>
+      ) : notFound ? (
+        <EmptyContent filled sx={{ py: 6 }} />
+      ) : (
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 720 }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                <TableCell>ID</TableCell>
+                <TableCell>Public</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell>Details</TableCell>
+                <TableCell>Action</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {items.map((item) => {
+                const itemIdKey = toItemIdKey(item.id);
+
+                return (
+                  <TableRow key={item.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {item.id}
+                      </Typography>
+                    </TableCell>
+
+                    <TableCell>
+                      <Switch
+                        checked={
+                          itemUpdates[itemIdKey] !== undefined
+                            ? itemUpdates[itemIdKey] === 1
+                            : getIsPublic(item)
+                        }
+                        onChange={(event) =>
+                          onVisibilityChange(item.id, event.target.checked ? 1 : 0)
+                        }
+                        disabled={isSaving}
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {getItemTitle(item.title, item.id)}
+                      </Typography>
+                    </TableCell>
+
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {getSubtitle?.(item) || '-'}
+                      </Typography>
+                    </TableCell>
+
+                    <TableCell>
+                      {universeHref ? (
+                        <Link href={universeHref} target="_blank" rel="noopener">
+                          <Typography variant="body2" sx={{ color: 'primary.main', cursor: 'pointer' }}>
+                            View
+                          </Typography>
+                        </Link>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}
 
 export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
   const { user } = useAuthContext();
-  const router = useRouter();
   const ownerCustomerId = user?.id ? String(user.id) : '';
 
-  const giftCountData = useGiftCount(user?.id, '1');
+  const { gifts, giftsLoading } = useGetGifts(user?.id);
   const {
     collectionItems: letterCollectionItems,
     collectionItemsLoading: letterCollectionItemsLoading,
@@ -87,64 +341,188 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
 
   const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
-  const [categorySwitches, setCategorySwitches] = useState<Record<CategoryKey, boolean>>({
-    gift: false,
-    letter: false,
-    goodMemo: false,
-    sadMemo: false,
-  });
+  const giftItems = gifts.filter(isGiftCategory);
+
+  const [showGift, setShowGift] = useState(false);
+  const [showLetter, setShowLetter] = useState(false);
+  const [showGoodMemo, setShowGoodMemo] = useState(false);
+  const [showSadMemo, setShowSadMemo] = useState(false);
+
+  const [giftUpdates, setGiftUpdates] = useState<Record<ItemIdKey, Visibility>>({});
+  const [letterUpdates, setLetterUpdates] = useState<Record<ItemIdKey, Visibility>>({});
+  const [goodMemoUpdates, setGoodMemoUpdates] = useState<Record<ItemIdKey, Visibility>>({});
+  const [sadMemoUpdates, setSadMemoUpdates] = useState<Record<ItemIdKey, Visibility>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Initialize switches based on guest area drawer settings
-    if (guestarea?.drawer) {
-      try {
-        const drawerSettings = JSON.parse(guestarea.drawer);
-        setCategorySwitches({
-          gift: drawerSettings.gift || false,
-          letter: drawerSettings.letter || false,
-          goodMemo: drawerSettings.goodMemo || false,
-          sadMemo: drawerSettings.sadMemo || false,
-        });
-      } catch (error) {
-        console.error('Failed to parse drawer settings:', error);
-      }
-    }
-  }, [guestarea]);
+    const drawerSettings = parseDrawerSettings(guestarea?.drawer);
+    setShowGift(!!drawerSettings.gift);
+    setShowLetter(!!drawerSettings.letter);
+    setShowGoodMemo(!!drawerSettings.goodMemo);
+    setShowSadMemo(!!drawerSettings.sadMemo);
+  }, [guestarea?.drawer]);
 
-  const handleCategoryChange = (category: CategoryKey, checked: boolean) => {
-    setCategorySwitches((prev) => ({ ...prev, [category]: checked }));
-  };
+  const currentDrawerSettings = parseDrawerSettings(guestarea?.drawer);
 
-  const handleBulkCategory = (enabled: boolean) => {
-    setCategorySwitches({ gift: enabled, letter: enabled, goodMemo: enabled, sadMemo: enabled });
-  };
+  const hasGuestAreaChanges =
+    showGift !== !!currentDrawerSettings.gift ||
+    showLetter !== !!currentDrawerSettings.letter ||
+    showGoodMemo !== !!currentDrawerSettings.goodMemo ||
+    showSadMemo !== !!currentDrawerSettings.sadMemo;
+
+  const hasGiftChanges = Object.keys(giftUpdates).length > 0;
+  const hasLetterChanges = Object.keys(letterUpdates).length > 0;
+  const hasGoodMemoChanges = Object.keys(goodMemoUpdates).length > 0;
+  const hasSadMemoChanges = Object.keys(sadMemoUpdates).length > 0;
+
+  const hasChanges =
+    hasGuestAreaChanges ||
+    hasGiftChanges ||
+    hasLetterChanges ||
+    hasGoodMemoChanges ||
+    hasSadMemoChanges;
+
+  const createBulkHandler =
+    <T extends { id: number }>(
+      items: T[],
+      setUpdates: Dispatch<SetStateAction<Record<ItemIdKey, Visibility>>>,
+    ) =>
+    (visibility: Visibility) => {
+      const next: Record<ItemIdKey, Visibility> = {};
+      items.forEach((item) => {
+        next[toItemIdKey(item.id)] = visibility;
+      });
+      setUpdates(next);
+    };
+
+  const createVisibilityHandler =
+    <T extends { id: number }>(
+      items: T[],
+      getIsPublic: (item: T) => boolean,
+      setUpdates: Dispatch<SetStateAction<Record<ItemIdKey, Visibility>>>,
+    ) =>
+    (itemId: string | number, visibility: Visibility) => {
+      const itemIdKey = toItemIdKey(itemId);
+      const original = items.find((item) => toItemIdKey(item.id) === itemIdKey);
+      const originalVisibility: Visibility = original && getIsPublic(original) ? 1 : 0;
+
+      setUpdates((prev) => {
+        if (visibility === originalVisibility) {
+          const next = { ...prev };
+          delete next[itemIdKey];
+          return next;
+        }
+
+        return { ...prev, [itemIdKey]: visibility };
+      });
+    };
+
+  const handleGiftBulkVisibility = createBulkHandler(giftItems, setGiftUpdates);
+  const handleLetterBulkVisibility = createBulkHandler(letterCollectionItems, setLetterUpdates);
+  const handleGoodMemoBulkVisibility = createBulkHandler(goodMemoCollectionItems, setGoodMemoUpdates);
+  const handleSadMemoBulkVisibility = createBulkHandler(sadMemoCollectionItems, setSadMemoUpdates);
+
+  const handleGiftVisibilityChange = createVisibilityHandler(giftItems, (gift) => isPublicGift(gift.openness), setGiftUpdates);
+  const handleLetterVisibilityChange = createVisibilityHandler(
+    letterCollectionItems,
+    (item) => isPublicItem(item.isPublic),
+    setLetterUpdates,
+  );
+  const handleGoodMemoVisibilityChange = createVisibilityHandler(
+    goodMemoCollectionItems,
+    (item) => isPublicItem(item.isPublic),
+    setGoodMemoUpdates,
+  );
+  const handleSadMemoVisibilityChange = createVisibilityHandler(
+    sadMemoCollectionItems,
+    (item) => isPublicItem(item.isPublic),
+    setSadMemoUpdates,
+  );
 
   const handleSave = async () => {
+    if (!hasChanges) {
+      toast.warning('No changes to save');
+      return;
+    }
+
     if (!guestarea) {
       toast.error('Guest area not found');
       return;
     }
+
     setIsSaving(true);
+
     try {
-      let existingDrawerSettings: Record<string, boolean> = {};
+      const enablingPublicGifts = Object.values(giftUpdates).some((value) => value === 1);
+      const enablingPublicLetters = Object.values(letterUpdates).some((value) => value === 1);
+      const enablingPublicGoodMemos = Object.values(goodMemoUpdates).some((value) => value === 1);
+      const enablingPublicSadMemos = Object.values(sadMemoUpdates).some((value) => value === 1);
 
-      if (guestarea.drawer) {
-        try {
-          existingDrawerSettings = JSON.parse(guestarea.drawer) as Record<string, boolean>;
-        } catch {
-          existingDrawerSettings = {};
-        }
-      }
+      const nextShowGift = showGift || enablingPublicGifts;
+      const nextShowLetter = showLetter || enablingPublicLetters;
+      const nextShowGoodMemo = showGoodMemo || enablingPublicGoodMemos;
+      const nextShowSadMemo = showSadMemo || enablingPublicSadMemos;
 
+      const existingDrawerSettings = parseDrawerSettings(guestarea.drawer);
       const { blog: _legacyBlog, ...drawerWithoutBlog } = existingDrawerSettings;
 
       const drawerSettings = JSON.stringify({
         ...drawerWithoutBlog,
-        ...categorySwitches,
+        gift: nextShowGift,
+        letter: nextShowLetter,
+        goodMemo: nextShowGoodMemo,
+        sadMemo: nextShowSadMemo,
       });
 
-      await updateGuestArea({ id: guestarea.id, drawer: drawerSettings });
+      await updateGuestArea({
+        id: guestarea.id,
+        customerId: guestarea.customerId ? String(guestarea.customerId) : ownerCustomerId || undefined,
+        drawer: drawerSettings,
+      });
+
+      setShowGift(nextShowGift);
+      setShowLetter(nextShowLetter);
+      setShowGoodMemo(nextShowGoodMemo);
+      setShowSadMemo(nextShowSadMemo);
+
+      const giftVisibilityUpdates = Object.entries(giftUpdates);
+      if (giftVisibilityUpdates.length > 0) {
+        await Promise.all(
+          giftVisibilityUpdates.map(([giftId, visibility]) => {
+            const gift = giftItems.find((item) => toItemIdKey(item.id) === giftId);
+            if (!gift) {
+              return Promise.resolve();
+            }
+
+            return updateGift(giftId, {
+              openness: visibility === 1 ? 'Public' : 'Private',
+              userId: gift.userId || user?.id || '',
+            });
+          }),
+        );
+        setGiftUpdates({});
+      }
+
+      const saveCollectionUpdates = async (
+        updates: Record<ItemIdKey, Visibility>,
+        items: ICollectionDrawerItem[],
+        setUpdates: Dispatch<SetStateAction<Record<ItemIdKey, Visibility>>>,
+      ) => {
+        const entries = Object.entries(updates);
+        if (!entries.length) {
+          return;
+        }
+
+        await Promise.all(
+          entries.map(([itemId, isPublic]) => updateCollectionItem(itemId, { isPublic })),
+        );
+        setUpdates({});
+      };
+
+      await saveCollectionUpdates(letterUpdates, letterCollectionItems, setLetterUpdates);
+      await saveCollectionUpdates(goodMemoUpdates, goodMemoCollectionItems, setGoodMemoUpdates);
+      await saveCollectionUpdates(sadMemoUpdates, sadMemoCollectionItems, setSadMemoUpdates);
+
       toast.success('Drawer sharing settings updated successfully!');
       onSaveSuccess?.();
     } catch (error) {
@@ -155,110 +533,122 @@ export function DrawerShareForm({ onSaveSuccess }: DrawerShareFormProps) {
     }
   };
 
-  const hasChanges = (() => {
-    if (!guestarea?.drawer) return true; // If no drawer settings, consider it changed
-    try {
-      const currentSettings = JSON.parse(guestarea.drawer);
-      return CATEGORY_OPTIONS.some(({ key }) => currentSettings[key] !== categorySwitches[key]);
-    } catch {
-      return true;
-    }
-  })();
-
-  const totalCount =
-    giftCountData.count +
-    letterCollectionItems.length +
-    goodMemoCollectionItems.length +
-    sadMemoCollectionItems.length;
-
-  const anyCountLoading =
-    giftCountData.loading ||
+  const showEmptyState = !guestAreaLoading && !guestarea;
+  const isPageLoading =
+    guestAreaLoading ||
+    giftsLoading ||
     letterCollectionItemsLoading ||
     goodMemoCollectionItemsLoading ||
     sadMemoCollectionItemsLoading;
 
-  const notFound = totalCount === 0 && !anyCountLoading && !guestarea && !guestAreaLoading;
-
   return (
     <Card>
       <Box sx={{ p: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
-          <Typography variant="h6">Drawers</Typography>
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" color="success" onClick={() => handleBulkCategory(true)} disabled={isSaving}>
-              Enable All
-            </Button>
-            <Button size="small" variant="outlined" onClick={() => handleBulkCategory(false)} disabled={isSaving}>
-              Disable All
-            </Button>
-          </Stack>
-        </Stack>
-        {notFound ? (
-          <EmptyContent filled />
+        <Typography variant="h6" sx={{ mb: 3 }}>
+          Drawers
+        </Typography>
+
+        {isPageLoading ? (
+          <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
+            <CircularProgress />
+          </Box>
+        ) : showEmptyState ? (
+          <EmptyContent filled title="Guest area not found" />
         ) : (
-          <Grid container spacing={2}>
-            {CATEGORY_OPTIONS.map(({ label, key }) => {
-              const countsMap: Record<CategoryKey, number> = {
-                gift: giftCountData.count,
-                letter: letterCollectionItems.length,
-                goodMemo: goodMemoCollectionItems.length,
-                sadMemo: sadMemoCollectionItems.length,
-              };
-              const count = countsMap[key];
-              return (
-                <Grid item xs={12} sm={6} md={3} key={key}>
-                  <Card sx={{ p: 2, height: '100%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ bgcolor: 'transparent', width: 32, height: 32, color: 'primary.main' }}>
-                          {key === 'gift' && <CardGiftcardIcon fontSize="medium" />}
-                          {key === 'letter' && <MailOutlineIcon fontSize="medium" />}
-                          {key === 'goodMemo' && <WbSunnyIcon fontSize="medium" />}
-                          {key === 'sadMemo' && < UmbrellaIcon fontSize="medium" />}
-                        </Avatar>
-                        <Typography variant="subtitle1">{label}</Typography>
-                      </Box>
-                      <Switch
-                        checked={categorySwitches[key]}
-                        onChange={(e) => handleCategoryChange(key as CategoryKey, e.target.checked)}
-                      />
-                    </Box>
-                    <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
-                      {count} item{count === 1 ? '' : 's'}
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      fullWidth
-                      onClick={() => router.push(DRAWER_VIEW_HREF_MAP[key])}
-                    >
-                      View
-                    </Button>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
+          <>
+            <DrawerItemsSection
+              title={CATEGORY_CONFIG[0].title}
+              manageHref={CATEGORY_CONFIG[0].manageHref}
+              universeHref={ownerCustomerId ? CATEGORY_CONFIG[0].universeHref(ownerCustomerId) : undefined}
+              showSection={showGift}
+              onShowSectionChange={setShowGift}
+              items={giftItems}
+              itemsLoading={giftsLoading}
+              itemUpdates={giftUpdates}
+              getIsPublic={(gift) => isPublicGift(gift.openness)}
+              onBulkVisibility={handleGiftBulkVisibility}
+              onVisibilityChange={handleGiftVisibilityChange}
+              isSaving={isSaving}
+              getSubtitle={(gift) => gift.receivedFrom || gift.description || '-'}
+            />
+
+            <Divider sx={{ my: 3 }} />
+
+            <DrawerItemsSection
+              title={CATEGORY_CONFIG[1].title}
+              manageHref={CATEGORY_CONFIG[1].manageHref}
+              universeHref={ownerCustomerId ? CATEGORY_CONFIG[1].universeHref(ownerCustomerId) : undefined}
+              showSection={showLetter}
+              onShowSectionChange={setShowLetter}
+              items={letterCollectionItems}
+              itemsLoading={letterCollectionItemsLoading}
+              itemUpdates={letterUpdates}
+              getIsPublic={(item) => isPublicItem(item.isPublic)}
+              onBulkVisibility={handleLetterBulkVisibility}
+              onVisibilityChange={handleLetterVisibilityChange}
+              isSaving={isSaving}
+              getSubtitle={(item) => item.description || '-'}
+            />
+
+            <Divider sx={{ my: 3 }} />
+
+            <DrawerItemsSection
+              title={CATEGORY_CONFIG[2].title}
+              manageHref={CATEGORY_CONFIG[2].manageHref}
+              universeHref={ownerCustomerId ? CATEGORY_CONFIG[2].universeHref(ownerCustomerId) : undefined}
+              showSection={showGoodMemo}
+              onShowSectionChange={setShowGoodMemo}
+              items={goodMemoCollectionItems}
+              itemsLoading={goodMemoCollectionItemsLoading}
+              itemUpdates={goodMemoUpdates}
+              getIsPublic={(item) => isPublicItem(item.isPublic)}
+              onBulkVisibility={handleGoodMemoBulkVisibility}
+              onVisibilityChange={handleGoodMemoVisibilityChange}
+              isSaving={isSaving}
+              getSubtitle={(item) => item.description || '-'}
+            />
+
+            <Divider sx={{ my: 3 }} />
+
+            <DrawerItemsSection
+              title={CATEGORY_CONFIG[3].title}
+              manageHref={CATEGORY_CONFIG[3].manageHref}
+              universeHref={ownerCustomerId ? CATEGORY_CONFIG[3].universeHref(ownerCustomerId) : undefined}
+              showSection={showSadMemo}
+              onShowSectionChange={setShowSadMemo}
+              items={sadMemoCollectionItems}
+              itemsLoading={sadMemoCollectionItemsLoading}
+              itemUpdates={sadMemoUpdates}
+              getIsPublic={(item) => isPublicItem(item.isPublic)}
+              onBulkVisibility={handleSadMemoBulkVisibility}
+              onVisibilityChange={handleSadMemoVisibilityChange}
+              isSaving={isSaving}
+              getSubtitle={(item) => item.description || '-'}
+            />
+          </>
         )}
       </Box>
-      <Box sx={{ p: 3, pt: 0 }}>
+
+      {!showEmptyState && !isPageLoading ? (
+        <Box sx={{ p: 3, pt: 0 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
             <Button
               variant="contained"
               onClick={handleSave}
               disabled={!hasChanges || isSaving}
-              startIcon={isSaving && <CircularProgress size={20} />}
+              startIcon={isSaving ? <CircularProgress size={20} /> : undefined}
               sx={{ width: { xs: 1, sm: 'auto' } }}
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
-            {hasChanges && (
+            {hasChanges ? (
               <Typography variant="body2" sx={{ color: 'warning.main', alignSelf: 'center' }}>
                 Settings modified
               </Typography>
-            )}
+            ) : null}
           </Stack>
-      </Box>
+        </Box>
+      ) : null}
     </Card>
   );
 }

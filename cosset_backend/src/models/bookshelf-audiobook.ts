@@ -7,6 +7,8 @@ const AUDIO_FILE_TYPES = new Set(['mp3', 'm4a', 'wav', 'ogg', 'aac', 'flac']);
 
 export type BookshelfAudiobookFileType = 'mp3' | 'm4a' | 'wav' | 'ogg' | 'aac' | 'flac';
 
+export type BookshelfAudiobookCategory = 'favorite' | 'important';
+
 export interface BookshelfAudiobook {
   id: number;
   customerId?: string | null;
@@ -14,8 +16,10 @@ export interface BookshelfAudiobook {
   author?: string | null;
   description?: string | null;
   coverImage?: string | null;
-  fileUrl: string;
+  fileUrl?: string | null;
+  refUrl?: string | null;
   fileType: BookshelfAudiobookFileType;
+  category?: BookshelfAudiobookCategory | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: Date | null;
@@ -29,7 +33,9 @@ const SELECT_COLUMNS = `
   description,
   cover_image as "coverImage",
   file_url as "fileUrl",
+  ref_url as "refUrl",
   file_type as "fileType",
+  category,
   "order",
   is_public as "isPublic",
   created_at as "createdAt"
@@ -38,6 +44,8 @@ const SELECT_COLUMNS = `
 let ensureTablePromise: Promise<void> | null = null;
 let ensureIsPublicColumnPromise: Promise<void> | null = null;
 let ensureCustomerIdColumnPromise: Promise<void> | null = null;
+let ensureRefUrlColumnPromise: Promise<void> | null = null;
+let ensureCategoryColumnPromise: Promise<void> | null = null;
 
 const parseInteger = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -63,6 +71,16 @@ const normalizeNullableInteger = (value: unknown): number | null => {
 const normalizeFileType = (value: unknown): BookshelfAudiobookFileType => {
   const normalized = String(value || '').trim().toLowerCase();
   return AUDIO_FILE_TYPES.has(normalized) ? (normalized as BookshelfAudiobookFileType) : 'mp3';
+};
+
+const normalizeCategory = (value: unknown): BookshelfAudiobookCategory | null => {
+  const normalized = String(value || '').trim().toLowerCase();
+
+  if (normalized === 'favorite' || normalized === 'important') {
+    return normalized;
+  }
+
+  return null;
 };
 
 const normalizeIsPublic = (value: unknown): 0 | 1 => {
@@ -112,6 +130,33 @@ const ensureCustomerIdColumn = async (): Promise<void> => {
   await ensureCustomerIdColumnPromise;
 };
 
+const ensureCategoryColumn = async (): Promise<void> => {
+  if (!ensureCategoryColumnPromise) {
+    ensureCategoryColumnPromise = (async () => {
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS category VARCHAR(32)`);
+    })().catch((error) => {
+      ensureCategoryColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureCategoryColumnPromise;
+};
+
+const ensureRefUrlColumn = async (): Promise<void> => {
+  if (!ensureRefUrlColumnPromise) {
+    ensureRefUrlColumnPromise = (async () => {
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS ref_url TEXT`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ALTER COLUMN file_url DROP NOT NULL`);
+    })().catch((error) => {
+      ensureRefUrlColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureRefUrlColumnPromise;
+};
+
 const ensureTable = async (): Promise<void> => {
   if (!ensureTablePromise) {
     ensureTablePromise = (async () => {
@@ -139,6 +184,8 @@ const ensureTable = async (): Promise<void> => {
   await ensureTablePromise;
   await ensureIsPublicColumn();
   await ensureCustomerIdColumn();
+  await ensureRefUrlColumn();
+  await ensureCategoryColumn();
 };
 
 export async function getAllBookshelfAudiobooks(
@@ -232,11 +279,13 @@ export async function createBookshelfAudiobook(
           description,
           cover_image,
           file_url,
+          ref_url,
           file_type,
+          category,
           "order",
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         RETURNING
           ${SELECT_COLUMNS}
       `,
@@ -246,8 +295,10 @@ export async function createBookshelfAudiobook(
         item.author ?? null,
         item.description ?? null,
         item.coverImage ?? null,
-        item.fileUrl,
+        item.fileUrl ?? null,
+        item.refUrl ?? null,
         normalizeFileType(item.fileType),
+        normalizeCategory(item.category),
         normalizeNullableInteger(item.order),
       ],
     );
@@ -319,13 +370,25 @@ export async function updateBookshelfAudiobook(
 
     if (updates.fileUrl !== undefined) {
       fields.push(`file_url = $${paramIndex}`);
-      values.push(updates.fileUrl);
+      values.push(updates.fileUrl ?? null);
+      paramIndex += 1;
+    }
+
+    if (updates.refUrl !== undefined) {
+      fields.push(`ref_url = $${paramIndex}`);
+      values.push(updates.refUrl ?? null);
       paramIndex += 1;
     }
 
     if (updates.fileType !== undefined) {
       fields.push(`file_type = $${paramIndex}`);
       values.push(normalizeFileType(updates.fileType));
+      paramIndex += 1;
+    }
+
+    if (updates.category !== undefined) {
+      fields.push(`category = $${paramIndex}`);
+      values.push(normalizeCategory(updates.category));
       paramIndex += 1;
     }
 

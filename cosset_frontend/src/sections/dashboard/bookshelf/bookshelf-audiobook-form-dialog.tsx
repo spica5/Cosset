@@ -14,6 +14,9 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import MenuItem from '@mui/material/MenuItem';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 
@@ -32,11 +35,16 @@ import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 import {
   AUDIOBOOK_FILE_ACCEPT,
   detectAudiobookFileType,
+  detectAudiobookFileTypeFromUrl,
   resolveAudiobookAssetUrl,
   getAudiobookFileTypeLabel,
 } from './bookshelf-audiobook-utils';
+import { isHttpUrl } from './bookshelf-ebook-utils';
+import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
+
+type BookSourceType = 'file' | 'url';
 
 type FormState = {
   title: string;
@@ -44,7 +52,9 @@ type FormState = {
   description: string;
   coverImage: string;
   fileUrl: string;
+  refUrl: string;
   fileType: IBookshelfAudiobook['fileType'];
+  category: string;
   order: string;
 };
 
@@ -54,7 +64,9 @@ const emptyForm: FormState = {
   description: '',
   coverImage: '',
   fileUrl: '',
+  refUrl: '',
   fileType: 'mp3',
+  category: '',
   order: '',
 };
 
@@ -86,6 +98,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
   const [selectedAudioFileName, setSelectedAudioFileName] = useState('');
+  const [sourceType, setSourceType] = useState<BookSourceType>('file');
 
   const resetForm = useCallback(() => {
     setForm(emptyForm);
@@ -93,6 +106,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
     setSelectedCoverFile(null);
     setSelectedAudioFile(null);
     setSelectedAudioFileName('');
+    setSourceType('file');
   }, []);
 
   useEffect(() => {
@@ -111,9 +125,12 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
       description: audiobook.description || '',
       coverImage: audiobook.coverImage || '',
       fileUrl: audiobook.fileUrl || '',
+      refUrl: audiobook.refUrl || '',
       fileType: audiobook.fileType || 'mp3',
+      category: audiobook.category || '',
       order: audiobook.order != null ? String(audiobook.order) : '',
     });
+    setSourceType((audiobook.refUrl || '').trim() ? 'url' : 'file');
     setSelectedCoverFile(null);
     setSelectedAudioFile(null);
     setSelectedAudioFileName('');
@@ -216,6 +233,35 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
     }
   }, [form.coverImage, selectedCoverFile]);
 
+  const handleSourceTypeChange = useCallback(
+    (_event: React.MouseEvent<HTMLElement>, nextValue: BookSourceType | null) => {
+      if (!nextValue) {
+        return;
+      }
+
+      setSourceType(nextValue);
+
+      if (nextValue === 'url') {
+        setSelectedAudioFile(null);
+        setSelectedAudioFileName('');
+      } else {
+        setForm((prev) => ({ ...prev, refUrl: '' }));
+      }
+    },
+    [],
+  );
+
+  const handleRefUrlChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const refUrl = event.target.value;
+    const detectedType = isHttpUrl(refUrl) ? detectAudiobookFileTypeFromUrl(refUrl) : null;
+
+    setForm((prev) => ({
+      ...prev,
+      refUrl,
+      fileType: detectedType || prev.fileType,
+    }));
+  }, []);
+
   const uploadAudioFileIfNeeded = useCallback(async () => {
     if (!selectedAudioFile) {
       return {
@@ -247,7 +293,19 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
       return;
     }
 
-    if (!isEditMode && !selectedAudioFile && !form.fileUrl.trim()) {
+    const refUrl = form.refUrl.trim();
+
+    if (sourceType === 'url') {
+      if (!refUrl) {
+        toast.error('Please enter an audio URL.');
+        return;
+      }
+
+      if (!isHttpUrl(refUrl)) {
+        toast.error('Please enter a valid http or https URL.');
+        return;
+      }
+    } else if (!isEditMode && !selectedAudioFile && !form.fileUrl.trim()) {
       toast.error('Please upload an audio file.');
       return;
     }
@@ -256,11 +314,24 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
       setSubmitting(true);
 
       const coverImage = await uploadCoverIfNeeded();
-      const uploadedFile = await uploadAudioFileIfNeeded();
 
-      if (!uploadedFile.fileUrl) {
-        toast.error('Audio file is required.');
-        return;
+      let fileUrl: string | null = null;
+      let savedRefUrl: string | null = null;
+      let fileType = form.fileType;
+
+      if (sourceType === 'url') {
+        savedRefUrl = refUrl;
+        fileType = detectAudiobookFileTypeFromUrl(refUrl) || form.fileType;
+      } else {
+        const uploadedFile = await uploadAudioFileIfNeeded();
+
+        if (!uploadedFile.fileUrl) {
+          toast.error('Audio file is required.');
+          return;
+        }
+
+        fileUrl = uploadedFile.fileUrl;
+        fileType = uploadedFile.fileType;
       }
 
       if (!isEditMode && !user?.id) {
@@ -274,8 +345,10 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
         author: form.author.trim() || null,
         description: form.description.trim() || null,
         coverImage,
-        fileUrl: uploadedFile.fileUrl,
-        fileType: uploadedFile.fileType,
+        fileUrl,
+        refUrl: savedRefUrl,
+        fileType,
+        category: normalizeBookCategory(form.category),
         order: parseNullableInteger(form.order),
       };
 
@@ -305,6 +378,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
     onSaved,
     resetForm,
     selectedAudioFile,
+    sourceType,
     uploadAudioFileIfNeeded,
     uploadCoverIfNeeded,
   ]);
@@ -319,8 +393,10 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
   }, [onClose, resetForm, submitting, uploadingCover, uploadingFile]);
 
   const currentFileLabel =
-    selectedAudioFileName ||
-    (form.fileUrl ? `${getAudiobookFileTypeLabel(form.fileType)} file attached` : '');
+    sourceType === 'url'
+      ? form.refUrl.trim() || ''
+      : selectedAudioFileName ||
+        (form.fileUrl ? `${getAudiobookFileTypeLabel(form.fileType)} file attached` : '');
 
   return (
     <>
@@ -360,33 +436,87 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
               placeholder="A short summary about this audio-book"
             />
 
+            <TextField
+              select
+              label="Category"
+              value={form.category}
+              onChange={handleFieldChange('category')}
+              fullWidth
+            >
+              <MenuItem value="">None</MenuItem>
+              {BOOK_CATEGORY_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Audio file (MP3, M4A, WAV, OGG, AAC, FLAC)
+                Audio source
               </Typography>
 
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                <Button
-                  component="label"
-                  variant="outlined"
-                  startIcon={<Iconify icon="solar:headphones-round-bold" />}
-                  disabled={uploadingFile || submitting}
-                >
-                  {isEditMode ? 'Replace audio' : 'Upload audio'}
-                  <input
-                    hidden
-                    type="file"
-                    accept={AUDIOBOOK_FILE_ACCEPT}
-                    onChange={handleSelectAudioFile}
-                  />
-                </Button>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={sourceType}
+                onChange={handleSourceTypeChange}
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value="file">Upload file</ToggleButton>
+                <ToggleButton value="url">External URL</ToggleButton>
+              </ToggleButtonGroup>
 
-                {currentFileLabel ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {currentFileLabel}
-                  </Typography>
-                ) : null}
-              </Stack>
+              {sourceType === 'url' ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Audio URL"
+                    value={form.refUrl}
+                    onChange={handleRefUrlChange}
+                    fullWidth
+                    placeholder="https://example.com/book.mp3"
+                    helperText="Link to an MP3, M4A, WAV, OGG, AAC, or FLAC file hosted online"
+                  />
+
+                  <TextField
+                    select
+                    label="File type"
+                    value={form.fileType}
+                    onChange={handleFieldChange('fileType')}
+                    fullWidth
+                  >
+                    <MenuItem value="mp3">MP3</MenuItem>
+                    <MenuItem value="m4a">M4A</MenuItem>
+                    <MenuItem value="wav">WAV</MenuItem>
+                    <MenuItem value="ogg">OGG</MenuItem>
+                    <MenuItem value="aac">AAC</MenuItem>
+                    <MenuItem value="flac">FLAC</MenuItem>
+                  </TextField>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    startIcon={<Iconify icon="solar:headphones-round-bold" />}
+                    disabled={uploadingFile || submitting}
+                  >
+                    {isEditMode ? 'Replace audio' : 'Upload audio'}
+                    <input
+                      hidden
+                      type="file"
+                      accept={AUDIOBOOK_FILE_ACCEPT}
+                      onChange={handleSelectAudioFile}
+                    />
+                  </Button>
+
+                  {currentFileLabel ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {currentFileLabel}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              )}
             </Box>
 
             <TextField

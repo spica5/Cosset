@@ -6,6 +6,7 @@ import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -17,10 +18,10 @@ import { paths } from 'src/routes/paths';
 import {
   useGetBookshelfAudiobooks,
   deleteBookshelfAudiobook,
+  setBookshelfAudiobookCategory,
 } from 'src/actions/bookshelf-audiobook';
 
 import { useAuthContext } from 'src/auth/hooks';
-import { isUserAdmin } from 'src/auth/utils/role';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -29,7 +30,8 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { filterAudiobooks } from '../bookshelf-audiobook-utils';
+import { filterAudiobooks, filterAudiobooksByCategory } from '../bookshelf-audiobook-utils';
+import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
 import { BookshelfAudiobookCard } from '../bookshelf-audiobook-card';
 import { BookshelfAudiobookViewDialog } from '../bookshelf-audiobook-view-dialog';
 import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog';
@@ -38,20 +40,22 @@ import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog
 
 export function BookshelfAudiobooksView() {
   const { user } = useAuthContext();
-  const canManage = isUserAdmin(user?.role);
+  const canManage = !!user?.id;
 
   const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(user?.id);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [editingAudiobook, setEditingAudiobook] = useState<IBookshelfAudiobook | null>(null);
   const [listeningAudiobook, setListeningAudiobook] = useState<IBookshelfAudiobook | null>(null);
+  const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
 
-  const filteredAudiobooks = useMemo(
-    () => filterAudiobooks(audiobooks, searchQuery),
-    [audiobooks, searchQuery],
-  );
+  const filteredAudiobooks = useMemo(() => {
+    const searched = filterAudiobooks(audiobooks, searchQuery);
+    return filterAudiobooksByCategory(searched, categoryFilter);
+  }, [audiobooks, categoryFilter, searchQuery]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingAudiobook(null);
@@ -91,7 +95,28 @@ export function BookshelfAudiobooksView() {
       console.error('Failed to delete audio-book:', error);
       toast.error('Failed to delete audio-book.');
     }
-  }, []);
+  }, [user?.id]);
+
+  const handleSetCategory = useCallback(
+    async (audiobook: IBookshelfAudiobook, category: string) => {
+      const nextCategory = normalizeBookCategory(category);
+      if ((audiobook.category || null) === nextCategory) {
+        return;
+      }
+
+      try {
+        setSavingCategoryId(audiobook.id);
+        await setBookshelfAudiobookCategory(audiobook.id, nextCategory);
+        toast.success('Category updated.');
+      } catch (error) {
+        console.error('Failed to update audio-book category:', error);
+        toast.error('Failed to update category.');
+      } finally {
+        setSavingCategoryId(null);
+      }
+    },
+    [],
+  );
 
   return (
     <DashboardContent>
@@ -136,7 +161,7 @@ export function BookshelfAudiobooksView() {
             <TextField
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by title, author, or format..."
+              placeholder="Search by title, author, format, or category..."
               size="small"
               sx={{ minWidth: { sm: 280 } }}
               InputProps={{
@@ -147,6 +172,26 @@ export function BookshelfAudiobooksView() {
                 ),
               }}
             />
+          </Stack>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+            <Chip
+              label="All"
+              clickable
+              color={!categoryFilter ? 'primary' : 'default'}
+              variant={!categoryFilter ? 'filled' : 'outlined'}
+              onClick={() => setCategoryFilter('')}
+            />
+            {BOOK_CATEGORY_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                clickable
+                color={categoryFilter === option.value ? 'primary' : 'default'}
+                variant={categoryFilter === option.value ? 'filled' : 'outlined'}
+                onClick={() => setCategoryFilter(option.value)}
+              />
+            ))}
           </Stack>
         </Card>
 
@@ -197,6 +242,8 @@ export function BookshelfAudiobooksView() {
                 onListen={handleOpenListen}
                 onEdit={handleOpenEdit}
                 onDelete={handleDelete}
+                onCategoryChange={handleSetCategory}
+                categorySaving={savingCategoryId === audiobook.id}
               />
             ))}
           </Box>

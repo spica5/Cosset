@@ -14,6 +14,9 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import MenuItem from '@mui/material/MenuItem';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 
@@ -27,12 +30,17 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
 import {
-  detectEbookFileType,
-  resolveEbookAssetUrl,
   getEbookFileTypeLabel,
+  resolveEbookAssetUrl,
+  detectEbookFileType,
+  detectEbookFileTypeFromUrl,
+  isHttpUrl,
 } from './bookshelf-ebook-utils';
+import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
+
+type BookSourceType = 'file' | 'url';
 
 type FormState = {
   title: string;
@@ -40,7 +48,9 @@ type FormState = {
   description: string;
   coverImage: string;
   fileUrl: string;
+  refUrl: string;
   fileType: IBookshelfEbook['fileType'];
+  category: string;
   order: string;
 };
 
@@ -50,7 +60,9 @@ const emptyForm: FormState = {
   description: '',
   coverImage: '',
   fileUrl: '',
+  refUrl: '',
   fileType: 'pdf',
+  category: '',
   order: '',
 };
 
@@ -84,6 +96,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [selectedEbookFile, setSelectedEbookFile] = useState<File | null>(null);
   const [selectedEbookFileName, setSelectedEbookFileName] = useState('');
+  const [sourceType, setSourceType] = useState<BookSourceType>('file');
 
   const resetForm = useCallback(() => {
     setForm(emptyForm);
@@ -91,6 +104,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
     setSelectedCoverFile(null);
     setSelectedEbookFile(null);
     setSelectedEbookFileName('');
+    setSourceType('file');
   }, []);
 
   useEffect(() => {
@@ -109,9 +123,12 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
       description: ebook.description || '',
       coverImage: ebook.coverImage || '',
       fileUrl: ebook.fileUrl || '',
+      refUrl: ebook.refUrl || '',
       fileType: ebook.fileType || 'pdf',
+      category: ebook.category || '',
       order: ebook.order != null ? String(ebook.order) : '',
     });
+    setSourceType((ebook.refUrl || '').trim() ? 'url' : 'file');
     setSelectedCoverFile(null);
     setSelectedEbookFile(null);
     setSelectedEbookFileName('');
@@ -214,6 +231,33 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
     }
   }, [form.coverImage, selectedCoverFile]);
 
+  const handleSourceTypeChange = useCallback(
+    (_event: React.MouseEvent<HTMLElement>, nextValue: BookSourceType | null) => {
+      if (!nextValue) {
+        return;
+      }
+
+      setSourceType(nextValue);
+
+      if (nextValue === 'url') {
+        setSelectedEbookFile(null);
+        setSelectedEbookFileName('');
+      } else {
+        setForm((prev) => ({ ...prev, refUrl: '' }));
+      }
+    },
+    [],
+  );
+
+  const handleRefUrlChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const refUrl = event.target.value;
+    setForm((prev) => ({
+      ...prev,
+      refUrl,
+      fileType: isHttpUrl(refUrl) ? detectEbookFileTypeFromUrl(refUrl) : prev.fileType,
+    }));
+  }, []);
+
   const uploadEbookFileIfNeeded = useCallback(async () => {
     if (!selectedEbookFile) {
       return {
@@ -245,7 +289,19 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
       return;
     }
 
-    if (!isEditMode && !selectedEbookFile && !form.fileUrl.trim()) {
+    const refUrl = form.refUrl.trim();
+
+    if (sourceType === 'url') {
+      if (!refUrl) {
+        toast.error('Please enter a book URL.');
+        return;
+      }
+
+      if (!isHttpUrl(refUrl)) {
+        toast.error('Please enter a valid http or https URL.');
+        return;
+      }
+    } else if (!isEditMode && !selectedEbookFile && !form.fileUrl.trim()) {
       toast.error('Please upload a PDF or TXT file.');
       return;
     }
@@ -254,11 +310,24 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
       setSubmitting(true);
 
       const coverImage = await uploadCoverIfNeeded();
-      const uploadedFile = await uploadEbookFileIfNeeded();
 
-      if (!uploadedFile.fileUrl) {
-        toast.error('E-book file is required.');
-        return;
+      let fileUrl: string | null = null;
+      let savedRefUrl: string | null = null;
+      let fileType = form.fileType;
+
+      if (sourceType === 'url') {
+        savedRefUrl = refUrl;
+        fileType = detectEbookFileTypeFromUrl(refUrl);
+      } else {
+        const uploadedFile = await uploadEbookFileIfNeeded();
+
+        if (!uploadedFile.fileUrl) {
+          toast.error('E-book file is required.');
+          return;
+        }
+
+        fileUrl = uploadedFile.fileUrl;
+        fileType = uploadedFile.fileType;
       }
 
       if (!isEditMode && !user?.id) {
@@ -272,8 +341,10 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
         author: form.author.trim() || null,
         description: form.description.trim() || null,
         coverImage,
-        fileUrl: uploadedFile.fileUrl,
-        fileType: uploadedFile.fileType,
+        fileUrl,
+        refUrl: savedRefUrl,
+        fileType,
+        category: normalizeBookCategory(form.category),
         order: parseNullableInteger(form.order),
       };
 
@@ -303,6 +374,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
     onSaved,
     resetForm,
     selectedEbookFile,
+    sourceType,
     uploadCoverIfNeeded,
     uploadEbookFileIfNeeded,
   ]);
@@ -317,8 +389,10 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
   }, [onClose, resetForm, submitting, uploadingCover, uploadingFile]);
 
   const currentFileLabel =
-    selectedEbookFileName ||
-    (form.fileUrl ? `${getEbookFileTypeLabel(form.fileType)} file attached` : '');
+    sourceType === 'url'
+      ? form.refUrl.trim() || ''
+      : selectedEbookFileName ||
+        (form.fileUrl ? `${getEbookFileTypeLabel(form.fileType)} file attached` : '');
 
   return (
     <>
@@ -358,28 +432,78 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
               placeholder="A short summary about this e-book"
             />
 
+            <TextField
+              select
+              label="Category"
+              value={form.category}
+              onChange={handleFieldChange('category')}
+              fullWidth
+            >
+              <MenuItem value="">None</MenuItem>
+              {BOOK_CATEGORY_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                E-book file (PDF or TXT)
+                E-book source
               </Typography>
 
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                <Button
-                  component="label"
-                  variant="outlined"
-                  startIcon={<Iconify icon="eva:attach-2-fill" />}
-                  disabled={uploadingFile || submitting}
-                >
-                  {isEditMode ? 'Replace file' : 'Upload file'}
-                  <input hidden type="file" accept={EBOOK_FILE_ACCEPT} onChange={handleSelectEbookFile} />
-                </Button>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={sourceType}
+                onChange={handleSourceTypeChange}
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value="file">Upload file</ToggleButton>
+                <ToggleButton value="url">External URL</ToggleButton>
+              </ToggleButtonGroup>
 
-                {currentFileLabel ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {currentFileLabel}
-                  </Typography>
-                ) : null}
-              </Stack>
+              {sourceType === 'url' ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Book URL"
+                    value={form.refUrl}
+                    onChange={handleRefUrlChange}
+                    fullWidth
+                    placeholder="https://example.com/book.pdf"
+                    helperText="Link to a PDF or TXT file hosted online"
+                  />
+
+                  <TextField
+                    select
+                    label="File type"
+                    value={form.fileType}
+                    onChange={handleFieldChange('fileType')}
+                    fullWidth
+                  >
+                    <MenuItem value="pdf">PDF</MenuItem>
+                    <MenuItem value="txt">TXT</MenuItem>
+                  </TextField>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    startIcon={<Iconify icon="eva:attach-2-fill" />}
+                    disabled={uploadingFile || submitting}
+                  >
+                    {isEditMode ? 'Replace file' : 'Upload file'}
+                    <input hidden type="file" accept={EBOOK_FILE_ACCEPT} onChange={handleSelectEbookFile} />
+                  </Button>
+
+                  {currentFileLabel ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {currentFileLabel}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              )}
             </Box>
 
             <TextField

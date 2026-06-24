@@ -17,12 +17,15 @@ export async function POST(req: NextRequest) {
       return response({ message: 'Title is required' }, STATUS.BAD_REQUEST);
     }
 
-    if (!ebook?.fileUrl?.trim()) {
-      return response({ message: 'File is required' }, STATUS.BAD_REQUEST);
-    }
-
     if (!ebook?.customerId || !String(ebook.customerId).trim()) {
       return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
+    }
+
+    const fileUrl = String(ebook.fileUrl || '').trim();
+    const refUrl = String(ebook.refUrl || '').trim();
+
+    if (!fileUrl && !refUrl) {
+      return response({ message: 'Either a file or a URL is required' }, STATUS.BAD_REQUEST);
     }
 
     const created = await createBookshelfEbook({
@@ -31,8 +34,10 @@ export async function POST(req: NextRequest) {
       author: ebook.author ?? null,
       description: ebook.description ?? null,
       coverImage: ebook.coverImage ?? null,
-      fileUrl: ebook.fileUrl.trim(),
+      fileUrl: fileUrl || null,
+      refUrl: refUrl || null,
       fileType: ebook.fileType ?? 'pdf',
+      category: ebook.category ?? null,
       order: ebook.order ?? null,
     });
 

@@ -1,4 +1,5 @@
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
+import type { BookshelfBookCategory } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -122,6 +123,13 @@ export async function updateBookshelfEbook(id: string | number, updates: Partial
     ]);
   }
   return res.data;
+}
+
+export async function setBookshelfEbookCategory(
+  id: string | number,
+  category: BookshelfBookCategory | null,
+) {
+  return updateBookshelfEbook(id, { category });
 }
 
 export async function deleteBookshelfEbook(

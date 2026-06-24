@@ -17,12 +17,15 @@ export async function POST(req: NextRequest) {
       return response({ message: 'Title is required' }, STATUS.BAD_REQUEST);
     }
 
-    if (!audiobook?.fileUrl?.trim()) {
-      return response({ message: 'Audio file is required' }, STATUS.BAD_REQUEST);
-    }
-
     if (!audiobook?.customerId || !String(audiobook.customerId).trim()) {
       return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
+    }
+
+    const fileUrl = String(audiobook.fileUrl || '').trim();
+    const refUrl = String(audiobook.refUrl || '').trim();
+
+    if (!fileUrl && !refUrl) {
+      return response({ message: 'Either a file or a URL is required' }, STATUS.BAD_REQUEST);
     }
 
     const created = await createBookshelfAudiobook({
@@ -31,8 +34,10 @@ export async function POST(req: NextRequest) {
       author: audiobook.author ?? null,
       description: audiobook.description ?? null,
       coverImage: audiobook.coverImage ?? null,
-      fileUrl: audiobook.fileUrl.trim(),
+      fileUrl: fileUrl || null,
+      refUrl: refUrl || null,
       fileType: audiobook.fileType ?? 'mp3',
+      category: audiobook.category ?? null,
       order: audiobook.order ?? null,
     });
 

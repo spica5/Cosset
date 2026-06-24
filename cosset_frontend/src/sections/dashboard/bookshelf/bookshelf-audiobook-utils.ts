@@ -5,6 +5,8 @@ import type {
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
+import { getBookCategoryLabel } from './bookshelf-book-categories';
+
 // ----------------------------------------------------------------------
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'm4a', 'wav', 'ogg', 'aac', 'flac', 'oga']);
@@ -70,7 +72,23 @@ export function filterAudiobooks(audiobooks: IBookshelfAudiobook[], query: strin
       audiobook.title.toLowerCase().includes(normalized) ||
       (audiobook.author || '').toLowerCase().includes(normalized) ||
       (audiobook.description || '').toLowerCase().includes(normalized) ||
-      getAudiobookFileTypeLabel(audiobook.fileType).toLowerCase().includes(normalized),
+      getAudiobookFileTypeLabel(audiobook.fileType).toLowerCase().includes(normalized) ||
+      getBookCategoryLabel(audiobook.category).toLowerCase().includes(normalized),
+  );
+}
+
+export function filterAudiobooksByCategory<T extends { category?: string | null }>(
+  audiobooks: T[],
+  category?: string | null,
+) {
+  const normalized = String(category || '').trim().toLowerCase();
+
+  if (!normalized) {
+    return audiobooks;
+  }
+
+  return audiobooks.filter(
+    (audiobook) => String(audiobook.category || '').toLowerCase() === normalized,
   );
 }
 
@@ -86,4 +104,28 @@ export async function resolveAudiobookAssetUrl(asset?: string | null) {
   }
 
   return (await getS3SignedUrl(normalized)) || normalized;
+}
+
+export function detectAudiobookFileTypeFromUrl(url: string): BookshelfAudiobookFileType | null {
+  try {
+    const ext = new URL(url).pathname.split('.').pop()?.toLowerCase() || '';
+    return detectAudiobookFileType(`file.${ext}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveAudiobookContentUrl(
+  audiobook: Pick<IBookshelfAudiobook, 'fileUrl' | 'refUrl'>,
+) {
+  const refUrl = (audiobook.refUrl || '').trim();
+  if (refUrl) {
+    return refUrl;
+  }
+
+  return resolveAudiobookAssetUrl(audiobook.fileUrl);
+}
+
+export function getAudiobookSourceType(audiobook: Pick<IBookshelfAudiobook, 'fileUrl' | 'refUrl'>) {
+  return (audiobook.refUrl || '').trim() ? 'url' : 'file';
 }

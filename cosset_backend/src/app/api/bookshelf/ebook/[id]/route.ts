@@ -59,8 +59,17 @@ export async function PUT(
       return response({ message: 'Title is required' }, STATUS.BAD_REQUEST);
     }
 
-    if (updates.fileUrl !== undefined && !String(updates.fileUrl).trim()) {
-      return response({ message: 'File is required' }, STATUS.BAD_REQUEST);
+    if (updates.fileUrl !== undefined && updates.refUrl !== undefined) {
+      const fileUrl = String(updates.fileUrl || '').trim();
+      const refUrl = String(updates.refUrl || '').trim();
+
+      if (!fileUrl && !refUrl) {
+        return response({ message: 'Either a file or a URL is required' }, STATUS.BAD_REQUEST);
+      }
+    } else if (updates.fileUrl !== undefined && !String(updates.fileUrl || '').trim() && updates.refUrl === undefined) {
+      return response({ message: 'Either a file or a URL is required' }, STATUS.BAD_REQUEST);
+    } else if (updates.refUrl !== undefined && !String(updates.refUrl || '').trim() && updates.fileUrl === undefined) {
+      return response({ message: 'Either a file or a URL is required' }, STATUS.BAD_REQUEST);
     }
 
     const ebook = await updateBookshelfEbook(ebookId, {
@@ -68,8 +77,10 @@ export async function PUT(
       author: updates.author,
       description: updates.description,
       coverImage: updates.coverImage,
-      fileUrl: updates.fileUrl,
+      fileUrl: updates.fileUrl !== undefined ? (String(updates.fileUrl || '').trim() || null) : undefined,
+      refUrl: updates.refUrl !== undefined ? (String(updates.refUrl || '').trim() || null) : undefined,
       fileType: updates.fileType,
+      category: updates.category,
       order: updates.order,
       isPublic: updates.isPublic,
     });

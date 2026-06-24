@@ -10,11 +10,14 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import { getEbookFileTypeLabel, resolveEbookAssetUrl } from './bookshelf-ebook-utils';
+import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -24,10 +27,21 @@ type Props = {
   onView?: (ebook: IBookshelfEbook) => void;
   onEdit?: (ebook: IBookshelfEbook) => void;
   onDelete?: (ebook: IBookshelfEbook) => void;
+  onCategoryChange?: (ebook: IBookshelfEbook, category: string) => void;
+  categorySaving?: boolean;
 };
 
-export function BookshelfEbookCard({ ebook, canManage, onView, onEdit, onDelete }: Props) {
+export function BookshelfEbookCard({
+  ebook,
+  canManage,
+  onView,
+  onEdit,
+  onDelete,
+  onCategoryChange,
+  categorySaving = false,
+}: Props) {
   const [coverUrl, setCoverUrl] = useState('');
+  const categoryLabel = getBookCategoryLabel(ebook.category);
 
   useEffect(() => {
     let mounted = true;
@@ -107,6 +121,20 @@ export function BookshelfEbookCard({ ebook, canManage, onView, onEdit, onDelete 
           }}
         />
 
+        {categoryLabel ? (
+          <Chip
+            label={categoryLabel}
+            size="small"
+            color={ebook.category === 'favorite' ? 'warning' : 'info'}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: 72,
+              fontWeight: 700,
+            }}
+          />
+        ) : null}
+
         {canManage ? (
           <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
             <IconButton
@@ -159,6 +187,34 @@ export function BookshelfEbookCard({ ebook, canManage, onView, onEdit, onDelete 
           >
             {ebook.description}
           </Typography>
+        ) : null}
+
+        {canManage && onCategoryChange ? (
+          <TextField
+            select
+            size="small"
+            label="Category"
+            value={ebook.category || ''}
+            onChange={(event) => onCategoryChange(ebook, event.target.value)}
+            disabled={categorySaving}
+            onClick={(event) => event.stopPropagation()}
+            sx={{ mt: 0.5 }}
+            fullWidth
+          >
+            <MenuItem value="">None</MenuItem>
+            {BOOK_CATEGORY_OPTIONS.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : categoryLabel ? (
+          <Chip
+            size="small"
+            label={categoryLabel}
+            color={ebook.category === 'favorite' ? 'warning' : 'info'}
+            sx={{ alignSelf: 'flex-start' }}
+          />
         ) : null}
 
         <Box sx={{ mt: 'auto', pt: 1 }}>

@@ -17,9 +17,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import {
-  resolveEbookAssetUrl,
+  resolveEbookContentUrl,
   getEbookFileTypeLabel,
 } from './bookshelf-ebook-utils';
+import { getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -50,7 +51,7 @@ export function BookshelfEbookViewDialog({ open, ebook, onClose }: Props) {
       setError('');
 
       try {
-        const resolvedUrl = await resolveEbookAssetUrl(ebook.fileUrl);
+        const resolvedUrl = await resolveEbookContentUrl(ebook);
 
         if (!mounted) {
           return;
@@ -108,6 +109,11 @@ export function BookshelfEbookViewDialog({ open, ebook, onClose }: Props) {
           <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}>
             {getEbookFileTypeLabel(ebook.fileType)}
           </Typography>
+          {getBookCategoryLabel(ebook.category) ? (
+            <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.hover' }}>
+              {getBookCategoryLabel(ebook.category)}
+            </Typography>
+          ) : null}
           {ebook.author ? (
             <Typography variant="body2" color="text.secondary">
               by {ebook.author}

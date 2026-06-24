@@ -6,6 +6,7 @@ import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -14,10 +15,9 @@ import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
 
-import { useGetBookshelfEbooks, deleteBookshelfEbook } from 'src/actions/bookshelf-ebook';
+import { useGetBookshelfEbooks, deleteBookshelfEbook, setBookshelfEbookCategory } from 'src/actions/bookshelf-ebook';
 
 import { useAuthContext } from 'src/auth/hooks';
-import { isUserAdmin } from 'src/auth/utils/role';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -26,7 +26,8 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { filterEbooks } from '../bookshelf-ebook-utils';
+import { filterEbooks, filterEbooksByCategory } from '../bookshelf-ebook-utils';
+import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
 import { BookshelfEbookCard } from '../bookshelf-ebook-card';
 import { BookshelfEbookViewDialog } from '../bookshelf-ebook-view-dialog';
 import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
@@ -35,17 +36,22 @@ import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
 
 export function BookshelfEbooksView() {
   const { user } = useAuthContext();
-  const canManage = isUserAdmin(user?.role);
+  const canManage = !!user?.id;
 
   const { ebooks, ebooksLoading } = useGetBookshelfEbooks(user?.id);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [editingEbook, setEditingEbook] = useState<IBookshelfEbook | null>(null);
   const [viewingEbook, setViewingEbook] = useState<IBookshelfEbook | null>(null);
+  const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
 
-  const filteredEbooks = useMemo(() => filterEbooks(ebooks, searchQuery), [ebooks, searchQuery]);
+  const filteredEbooks = useMemo(() => {
+    const searched = filterEbooks(ebooks, searchQuery);
+    return filterEbooksByCategory(searched, categoryFilter);
+  }, [categoryFilter, ebooks, searchQuery]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingEbook(null);
@@ -85,7 +91,28 @@ export function BookshelfEbooksView() {
       console.error('Failed to delete e-book:', error);
       toast.error('Failed to delete e-book.');
     }
-  }, []);
+  }, [user?.id]);
+
+  const handleSetCategory = useCallback(
+    async (ebook: IBookshelfEbook, category: string) => {
+      const nextCategory = normalizeBookCategory(category);
+      if ((ebook.category || null) === nextCategory) {
+        return;
+      }
+
+      try {
+        setSavingCategoryId(ebook.id);
+        await setBookshelfEbookCategory(ebook.id, nextCategory);
+        toast.success('Category updated.');
+      } catch (error) {
+        console.error('Failed to update e-book category:', error);
+        toast.error('Failed to update category.');
+      } finally {
+        setSavingCategoryId(null);
+      }
+    },
+    [],
+  );
 
   return (
     <DashboardContent>
@@ -130,7 +157,7 @@ export function BookshelfEbooksView() {
             <TextField
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by title, author, or type..."
+              placeholder="Search by title, author, type, or category..."
               size="small"
               sx={{ minWidth: { sm: 280 } }}
               InputProps={{
@@ -141,6 +168,26 @@ export function BookshelfEbooksView() {
                 ),
               }}
             />
+          </Stack>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+            <Chip
+              label="All"
+              clickable
+              color={!categoryFilter ? 'primary' : 'default'}
+              variant={!categoryFilter ? 'filled' : 'outlined'}
+              onClick={() => setCategoryFilter('')}
+            />
+            {BOOK_CATEGORY_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                clickable
+                color={categoryFilter === option.value ? 'primary' : 'default'}
+                variant={categoryFilter === option.value ? 'filled' : 'outlined'}
+                onClick={() => setCategoryFilter(option.value)}
+              />
+            ))}
           </Stack>
         </Card>
 
@@ -191,6 +238,8 @@ export function BookshelfEbooksView() {
                 onView={handleOpenView}
                 onEdit={handleOpenEdit}
                 onDelete={handleDelete}
+                onCategoryChange={handleSetCategory}
+                categorySaving={savingCategoryId === ebook.id}
               />
             ))}
           </Box>

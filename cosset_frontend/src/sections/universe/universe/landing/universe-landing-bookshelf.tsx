@@ -22,11 +22,18 @@ import { RouterLink } from 'src/routes/components';
 
 import { Iconify } from 'src/components/universe/iconify';
 
-import { getEbookFileTypeLabel, resolveEbookAssetUrl } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
+import {
+  getEbookFileTypeLabel,
+  resolveEbookAssetUrl,
+  resolveEbookContentUrl,
+} from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
 import {
   getAudiobookFileTypeLabel,
   resolveAudiobookAssetUrl,
+  resolveAudiobookContentUrl,
 } from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
+
+import { getBookCategoryLabel } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import { MySpaceSectionTitle } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
@@ -166,10 +173,11 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
     entry.kind === 'ebook'
       ? getEbookFileTypeLabel(entry.item.fileType)
       : getAudiobookFileTypeLabel(entry.item.fileType);
+  const categoryLabel = getBookCategoryLabel(entry.item.category);
 
   const handleOpen = async () => {
-    const resolver = entry.kind === 'ebook' ? resolveEbookAssetUrl : resolveAudiobookAssetUrl;
-    const url = await resolver(entry.item.fileUrl);
+    const resolver = entry.kind === 'ebook' ? resolveEbookContentUrl : resolveAudiobookContentUrl;
+    const url = await resolver(entry.item);
 
     if (url && typeof window !== 'undefined') {
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -208,6 +216,11 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
           <Typography variant="caption" color="text.secondary">
             · {fileTypeLabel}
           </Typography>
+          {categoryLabel ? (
+            <Typography variant="caption" color="text.secondary">
+              · {categoryLabel}
+            </Typography>
+          ) : null}
         </Stack>
 
         <Typography
