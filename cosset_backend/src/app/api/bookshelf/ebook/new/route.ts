@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       refUrl: refUrl || null,
       fileType: ebook.fileType ?? 'pdf',
       category: ebook.category ?? null,
+      isFavorite: ebook.isFavorite ?? 0,
       order: ebook.order ?? null,
     });
 

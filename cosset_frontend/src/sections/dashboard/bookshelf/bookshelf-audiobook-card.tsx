@@ -17,7 +17,7 @@ import IconButton from '@mui/material/IconButton';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import { getAudiobookFileTypeLabel, resolveAudiobookAssetUrl } from './bookshelf-audiobook-utils';
-import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel } from './bookshelf-book-categories';
+import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
 import { formatBorrowExpiryDate } from './bookshelf-borrow-config';
 
 // ----------------------------------------------------------------------
@@ -30,6 +30,8 @@ type Props = {
   onDelete?: (audiobook: IBookshelfAudiobook) => void;
   onCategoryChange?: (audiobook: IBookshelfAudiobook, category: string) => void;
   categorySaving?: boolean;
+  onFavoriteToggle?: (audiobook: IBookshelfAudiobook, isFavorite: boolean) => void;
+  favoriteSaving?: boolean;
   onReturnBorrow?: (audiobook: IBookshelfAudiobook) => void;
   returningBorrow?: boolean;
 };
@@ -42,11 +44,14 @@ export function BookshelfAudiobookCard({
   onDelete,
   onCategoryChange,
   categorySaving = false,
+  onFavoriteToggle,
+  favoriteSaving = false,
   onReturnBorrow,
   returningBorrow = false,
 }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const categoryLabel = getBookCategoryLabel(audiobook.category);
+  const isFavorite = isBookFavorite(audiobook.isFavorite);
   const isBorrowed = !!audiobook.isBorrowed;
   const canEdit = !!canManage && !isBorrowed;
 
@@ -129,12 +134,13 @@ export function BookshelfAudiobookCard({
           <Chip
             label={categoryLabel}
             size="small"
-            color={audiobook.category === 'favorite' ? 'warning' : 'info'}
+            color="default"
             sx={{
               position: 'absolute',
               top: 8,
               left: 72,
               fontWeight: 700,
+              maxWidth: 'calc(100% - 96px)',
             }}
           />
         ) : null}
@@ -147,7 +153,7 @@ export function BookshelfAudiobookCard({
             sx={{
               position: 'absolute',
               top: 8,
-              right: canEdit ? 72 : 8,
+              right: canEdit ? 112 : 8,
               fontWeight: 700,
             }}
           />
@@ -155,6 +161,23 @@ export function BookshelfAudiobookCard({
 
         {canEdit ? (
           <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
+            {onFavoriteToggle ? (
+              <IconButton
+                size="small"
+                disabled={favoriteSaving}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onFavoriteToggle(audiobook, !isFavorite);
+                }}
+                sx={{
+                  bgcolor: 'background.paper',
+                  color: isFavorite ? 'error.main' : 'text.secondary',
+                }}
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Iconify icon={isFavorite ? 'solar:heart-bold' : 'solar:heart-outline'} width={18} />
+              </IconButton>
+            ) : null}
             <IconButton
               size="small"
               onClick={(event) => {
@@ -242,7 +265,6 @@ export function BookshelfAudiobookCard({
           <Chip
             size="small"
             label={categoryLabel}
-            color={audiobook.category === 'favorite' ? 'warning' : 'info'}
             sx={{ alignSelf: 'flex-start' }}
           />
         ) : null}

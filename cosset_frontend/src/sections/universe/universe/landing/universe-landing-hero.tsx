@@ -12,7 +12,6 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import { Typography } from '@mui/material';
-import Collapse from '@mui/material/Collapse';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
@@ -22,23 +21,21 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
-import { varAlpha } from 'src/theme/universe/styles';
-
 import {
   type DesignSpaceType,
-  DEFAULT_DESIGN_SPACE_TYPE,
   getDesignSpaceOverlaySx,
-  getDesignSpaceBackgroundFilter,
   normalizeDesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
+  getDesignSpaceBackgroundFilter,
 } from 'src/utils/design-space-type';
+import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
+
+import { varAlpha } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify/iconify';
-import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
 // ----------------------------------------------------------------------
 

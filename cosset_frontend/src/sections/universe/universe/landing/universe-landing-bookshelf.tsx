@@ -89,15 +89,6 @@ const formatBookDate = (value: unknown) => {
   return `${day}/${month}/${year}`;
 };
 
-const getExcerpt = (description?: string | null) => {
-  const source = (description || '').trim();
-  if (!source) {
-    return 'No description yet.';
-  }
-
-  return source.length > 72 ? `${source.slice(0, 72)}...` : source;
-};
-
 type BookCardProps = {
   entry: BookshelfItem;
   borrowStatus?: IBookshelfBorrow | null;
@@ -330,22 +321,7 @@ function UniverseLandingBookshelfCard({
           ) : null}
         </Stack>
 
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            lineHeight: 1.5,
-            flex: 1,
-          }}
-        >
-          {getExcerpt(entry.item.description)}
-        </Typography>
-
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5, mt: 'auto' }}>
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: spaceTheme.accent, fontWeight: 700 }}>
             <Iconify
               icon={entry.kind === 'audiobook' ? 'solar:play-circle-bold' : 'solar:eye-bold'}

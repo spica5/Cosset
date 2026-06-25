@@ -1,8 +1,8 @@
 'use client';
 
 import type { IAlbumItem } from 'src/types/album';
-import type { ICollectionDrawerItem } from 'src/types/collection-item';
 import type { IUniverseProps } from 'src/types/universe';
+import type { ICollectionDrawerItem } from 'src/types/collection-item';
 
 import { useMemo, useState, useEffect } from 'react';
 import { mutate } from 'swr';
@@ -12,24 +12,23 @@ import { paths } from 'src/routes/paths';
 import { CONFIG } from 'src/config-global';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
+
 import {
   type DesignSpaceType,
-  DEFAULT_DESIGN_SPACE_TYPE,
-  getDesignSpaceOverlaySx,
-  getDesignSpaceBackgroundFilter,
   normalizeDesignSpaceType,
+  DEFAULT_DESIGN_SPACE_TYPE,
 } from 'src/utils/design-space-type';
 
 import { useGetBlogs } from 'src/actions/blog';
-import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
+import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
-import { useGetBookshelfEbooks, getBookshelfEbookListEndpoint } from 'src/actions/bookshelf-ebook';
-import { useGetBookshelfAudiobooks, getBookshelfAudiobookListEndpoint } from 'src/actions/bookshelf-audiobook';
 import { createNotification } from 'src/actions/notification';
 import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
 import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
+import { useGetBookshelfEbooks, getBookshelfEbookListEndpoint } from 'src/actions/bookshelf-ebook';
+import { useGetBookshelfAudiobooks, getBookshelfAudiobookListEndpoint } from 'src/actions/bookshelf-audiobook';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -38,8 +37,8 @@ import { UniverseLandingBlogs } from '../landing/universe-landing-blogs';
 import { UniverseLandingDrawer } from '../landing/universe-landing-drawer';
 import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
 import { UniverseLandingMySpace } from '../landing/universe-landing-myspace';
-import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
 import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
+import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
 // ----------------------------------------------------------------------

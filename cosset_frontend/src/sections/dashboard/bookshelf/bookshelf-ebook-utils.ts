@@ -2,7 +2,7 @@ import type { IBookshelfEbook, BookshelfEbookFileType } from 'src/types/bookshel
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
-import { getBookCategoryLabel } from './bookshelf-book-categories';
+import { getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -38,10 +38,9 @@ export function filterEbooks(ebooks: IBookshelfEbook[], query: string) {
   );
 }
 
-export function filterEbooksByCategory<T extends { category?: string | null; isBorrowed?: boolean }>(
-  ebooks: T[],
-  category?: string | null,
-) {
+export function filterEbooksByCategory<
+  T extends { category?: string | null; isBorrowed?: boolean; isFavorite?: boolean | number | null },
+>(ebooks: T[], category?: string | null) {
   const normalized = String(category || '').trim().toLowerCase();
 
   if (!normalized) {
@@ -50,6 +49,10 @@ export function filterEbooksByCategory<T extends { category?: string | null; isB
 
   if (normalized === 'borrowed') {
     return ebooks.filter((ebook) => ebook.isBorrowed);
+  }
+
+  if (normalized === 'favorite') {
+    return ebooks.filter((ebook) => !ebook.isBorrowed && isBookFavorite(ebook.isFavorite));
   }
 
   return ebooks.filter(

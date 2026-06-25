@@ -1,7 +1,9 @@
+import type { BookshelfBookGenre } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
+
 import type { IBookshelfBorrowMeta } from './bookshelf-borrow';
 
 export type BookshelfAudiobookFileType = 'mp3' | 'm4a' | 'wav' | 'ogg' | 'aac' | 'flac';
-export type BookshelfAudiobookCategory = 'favorite' | 'important';
+export type BookshelfAudiobookCategory = BookshelfBookGenre;
 
 export type IBookshelfAudiobook = {
   id: number;
@@ -14,6 +16,7 @@ export type IBookshelfAudiobook = {
   refUrl?: string | null;
   fileType: BookshelfAudiobookFileType;
   category?: BookshelfAudiobookCategory | null;
+  isFavorite?: boolean | number | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;

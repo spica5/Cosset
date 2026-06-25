@@ -1,7 +1,9 @@
+import type { BookshelfBookGenre } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
+
 import type { IBookshelfBorrowMeta } from './bookshelf-borrow';
 
 export type BookshelfEbookFileType = 'pdf' | 'txt';
-export type BookshelfEbookCategory = 'favorite' | 'important';
+export type BookshelfEbookCategory = BookshelfBookGenre;
 
 export type IBookshelfEbook = {
   id: number;
@@ -14,6 +16,7 @@ export type IBookshelfEbook = {
   refUrl?: string | null;
   fileType: BookshelfEbookFileType;
   category?: BookshelfEbookCategory | null;
+  isFavorite?: boolean | number | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;

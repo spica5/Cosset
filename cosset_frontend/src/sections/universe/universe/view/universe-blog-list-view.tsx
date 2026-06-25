@@ -23,24 +23,25 @@ import { RouterLink } from 'src/routes/components';
 
 import { useGetBlogs } from 'src/actions/blog';
 import { useGetReactionSummary } from 'src/actions/reaction';
-
-import { useAuthContext } from 'src/auth/hooks';
 import { recordActivityNotification } from 'src/actions/notification';
+
 import {
   BLOG_CATEGORY_OPTIONS,
   getBlogCategoryLabel,
 } from 'src/sections/dashboard/blog/blog-categories';
+
+import { useAuthContext } from 'src/auth/hooks';
+
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 import {
-  BLOG_CONTENT_FONT_COLOR,
-  getBlogContentAppearance,
-  getBlogContentBackgroundSx,
   getBlogContentFontSx,
-  isBlogContentBackgroundPreset,
+  BLOG_CONTENT_FONT_COLOR,
   isBlogContentFontPreset,
+  getBlogContentAppearance,
+  getBlogContentBackgroundSx,  
+  isBlogContentBackgroundPreset,  
 } from 'src/sections/dashboard/blog/blog-content-style';
 
-import { stylesMode } from 'src/theme/universe/styles';
 import { Iconify } from 'src/components/universe/iconify';
 
 // ----------------------------------------------------------------------
@@ -110,7 +111,6 @@ function BlogReactionStat({ blogId, totalViews }: BlogReactionStatProps) {
   const { reactionSummary } = useGetReactionSummary('blog', blogId);
   const safeViews = normalizeCounterValue(totalViews);
   const safeReactions = normalizeCounterValue(reactionSummary?.totalCount);
-  const totalReactionCount =  safeReactions + safeViews;
 
   return (
     <Stack direction="row" alignItems="center" spacing={0.5}>

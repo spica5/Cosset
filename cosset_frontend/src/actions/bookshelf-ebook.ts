@@ -1,5 +1,5 @@
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
-import type { BookshelfBookCategory } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
+import type { BookshelfBookGenre } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -127,9 +127,13 @@ export async function updateBookshelfEbook(id: string | number, updates: Partial
 
 export async function setBookshelfEbookCategory(
   id: string | number,
-  category: BookshelfBookCategory | null,
+  category: BookshelfBookGenre | null,
 ) {
   return updateBookshelfEbook(id, { category });
+}
+
+export async function setBookshelfEbookFavorite(id: string | number, isFavorite: boolean) {
+  return updateBookshelfEbook(id, { isFavorite: isFavorite ? 1 : 0 });
 }
 
 export async function deleteBookshelfEbook(

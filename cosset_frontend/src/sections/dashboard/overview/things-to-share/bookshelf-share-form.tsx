@@ -38,7 +38,7 @@ import { resolveAudiobookAssetUrl } from 'src/sections/dashboard/bookshelf/books
 import {
   BOOK_CATEGORY_OPTIONS,
   normalizeBookCategory,
-  type BookshelfBookCategory,
+  type BookshelfBookGenre,
 } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 // ---------------------------------------------------------------
@@ -51,7 +51,7 @@ type DrawerSettings = {
 
 type Visibility = 0 | 1;
 type ItemIdKey = string;
-type CategoryValue = BookshelfBookCategory | '';
+type CategoryValue = BookshelfBookGenre | '';
 
 const toItemIdKey = (id: string | number): ItemIdKey => String(id);
 
@@ -205,28 +205,10 @@ function BookshelfSection<T extends { id: number; title: string; author?: string
           <Button
             size="small"
             variant="outlined"
-            color="warning"
-            onClick={() => onBulkCategory('favorite')}
-            disabled={isSaving || !items.length}
-          >
-            All Favorite
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="info"
-            onClick={() => onBulkCategory('important')}
-            disabled={isSaving || !items.length}
-          >
-            All Important
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
             onClick={() => onBulkCategory('')}
             disabled={isSaving || !items.length}
           >
-            Clear Category
+            Clear category
           </Button>
           <Button component={RouterLink} href={manageHref} size="small" variant="outlined">
             Manage {title}

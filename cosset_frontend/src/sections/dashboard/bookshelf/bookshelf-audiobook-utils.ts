@@ -5,7 +5,7 @@ import type {
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
-import { getBookCategoryLabel } from './bookshelf-book-categories';
+import { getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ export function filterAudiobooks(audiobooks: IBookshelfAudiobook[], query: strin
 }
 
 export function filterAudiobooksByCategory<
-  T extends { category?: string | null; isBorrowed?: boolean },
+  T extends { category?: string | null; isBorrowed?: boolean; isFavorite?: boolean | number | null },
 >(audiobooks: T[], category?: string | null) {
   const normalized = String(category || '').trim().toLowerCase();
 
@@ -88,6 +88,12 @@ export function filterAudiobooksByCategory<
 
   if (normalized === 'borrowed') {
     return audiobooks.filter((audiobook) => audiobook.isBorrowed);
+  }
+
+  if (normalized === 'favorite') {
+    return audiobooks.filter(
+      (audiobook) => !audiobook.isBorrowed && isBookFavorite(audiobook.isFavorite),
+    );
   }
 
   return audiobooks.filter(

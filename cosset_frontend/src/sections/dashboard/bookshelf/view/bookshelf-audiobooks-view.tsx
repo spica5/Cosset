@@ -6,7 +6,6 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -20,6 +19,7 @@ import {
   useGetBookshelfAudiobooks,
   deleteBookshelfAudiobook,
   setBookshelfAudiobookCategory,
+  setBookshelfAudiobookFavorite,
 } from 'src/actions/bookshelf-audiobook';
 import {
   borrowToAudiobook,
@@ -36,8 +36,16 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { filterAudiobooks, filterAudiobooksByCategory } from '../bookshelf-audiobook-utils';
-import { BOOK_SHELF_FILTER_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
+import { filterAudiobooks } from '../bookshelf-audiobook-utils';
+import {
+  filterBookshelfByGenre,
+  filterBookshelfByShelfTab,
+  isBookFavorite,
+  normalizeBookCategory,
+  type BookshelfShelfTab,
+} from '../bookshelf-book-categories';
+import { BookshelfShelfFilters } from '../bookshelf-shelf-filters';
+import { sortBookshelfItems, type BookshelfSortValue } from '../bookshelf-sort';
 import { BookshelfAudiobookCard } from '../bookshelf-audiobook-card';
 import { BookshelfAudiobookViewDialog } from '../bookshelf-audiobook-view-dialog';
 import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog';
@@ -69,22 +77,35 @@ export function BookshelfAudiobooksView() {
   }, [approvedBorrowedAudiobooks, audiobooks]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [shelfTab, setShelfTab] = useState<BookshelfShelfTab>('all');
+  const [genreFilter, setGenreFilter] = useState('');
+  const [sortBy, setSortBy] = useState<BookshelfSortValue>('latest');
   const [formOpen, setFormOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [editingAudiobook, setEditingAudiobook] = useState<IBookshelfAudiobook | null>(null);
   const [listeningAudiobook, setListeningAudiobook] = useState<IBookshelfAudiobook | null>(null);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
+  const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
   const borrowedCount = useMemo(
     () => allAudiobooks.filter((audiobook) => audiobook.isBorrowed).length,
     [allAudiobooks],
   );
 
+  const favoriteCount = useMemo(
+    () =>
+      allAudiobooks.filter(
+        (audiobook) => !audiobook.isBorrowed && isBookFavorite(audiobook.isFavorite),
+      ).length,
+    [allAudiobooks],
+  );
+
   const filteredAudiobooks = useMemo(() => {
     const searched = filterAudiobooks(allAudiobooks, searchQuery);
-    return filterAudiobooksByCategory(searched, categoryFilter);
-  }, [allAudiobooks, categoryFilter, searchQuery]);
+    const byTab = filterBookshelfByShelfTab(searched, shelfTab);
+    const byGenre = filterBookshelfByGenre(byTab, genreFilter);
+    return sortBookshelfItems(byGenre, sortBy);
+  }, [allAudiobooks, genreFilter, searchQuery, shelfTab, sortBy]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingAudiobook(null);
@@ -175,6 +196,26 @@ export function BookshelfAudiobooksView() {
     [],
   );
 
+  const handleToggleFavorite = useCallback(
+    async (audiobook: IBookshelfAudiobook, isFavorite: boolean) => {
+      if (isBookFavorite(audiobook.isFavorite) === isFavorite) {
+        return;
+      }
+
+      try {
+        setSavingFavoriteId(audiobook.id);
+        await setBookshelfAudiobookFavorite(audiobook.id, isFavorite);
+        toast.success(isFavorite ? 'Added to favorites.' : 'Removed from favorites.');
+      } catch (error) {
+        console.error('Failed to update audio-book favorite:', error);
+        toast.error('Failed to update favorite.');
+      } finally {
+        setSavingFavoriteId(null);
+      }
+    },
+    [],
+  );
+
   const handleReturnBorrow = useCallback(
     async (audiobook: IBookshelfAudiobook) => {
       const borrowId = audiobook.borrow?.borrowId;
@@ -257,29 +298,16 @@ export function BookshelfAudiobooksView() {
             />
           </Stack>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-            <Chip
-              label="All"
-              clickable
-              color={!categoryFilter ? 'primary' : 'default'}
-              variant={!categoryFilter ? 'filled' : 'outlined'}
-              onClick={() => setCategoryFilter('')}
-            />
-            {BOOK_SHELF_FILTER_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={
-                  option.value === 'borrowed' && borrowedCount > 0
-                    ? `${option.label} (${borrowedCount})`
-                    : option.label
-                }
-                clickable
-                color={categoryFilter === option.value ? 'primary' : 'default'}
-                variant={categoryFilter === option.value ? 'filled' : 'outlined'}
-                onClick={() => setCategoryFilter(option.value)}
-              />
-            ))}
-          </Stack>
+          <BookshelfShelfFilters
+            tab={shelfTab}
+            genre={genreFilter}
+            sortBy={sortBy}
+            borrowedCount={borrowedCount}
+            favoriteCount={favoriteCount}
+            onTabChange={setShelfTab}
+            onGenreChange={setGenreFilter}
+            onSortChange={setSortBy}
+          />
         </Card>
 
         {audiobooksLoading ? (
@@ -296,14 +324,22 @@ export function BookshelfAudiobooksView() {
             title={
               searchQuery
                 ? 'No audio-books match your search'
-                : categoryFilter === 'borrowed'
-                  ? 'No borrowed audiobooks'
-                  : 'No audio-books yet'
+                : genreFilter
+                  ? 'No audio-books in this category'
+                  : shelfTab === 'borrowed'
+                    ? 'No borrowed audiobooks'
+                    : shelfTab === 'favorite'
+                      ? 'No favorite audio-books'
+                      : 'No audio-books yet'
             }
             description={
-              categoryFilter === 'borrowed'
-                ? 'Audiobooks you borrow from neighbors will appear here after the owner approves your request.'
-                : canManage
+              genreFilter
+                ? 'Try another category or clear the category filter.'
+                : shelfTab === 'borrowed'
+                  ? 'Audiobooks you borrow from neighbors will appear here after the owner approves your request.'
+                  : shelfTab === 'favorite'
+                    ? 'Tap the heart icon on a book to add it to your favorites.'
+                    : canManage
                   ? 'Upload an audio file to add your first audio-book.'
                   : 'Check back soon for audio-books in your bookshelf.'
             }
@@ -343,6 +379,8 @@ export function BookshelfAudiobooksView() {
                 onDelete={handleDelete}
                 onCategoryChange={handleSetCategory}
                 categorySaving={savingCategoryId === audiobook.id}
+                onFavoriteToggle={!audiobook.isBorrowed ? handleToggleFavorite : undefined}
+                favoriteSaving={savingFavoriteId === audiobook.id}
                 onReturnBorrow={audiobook.isBorrowed ? handleReturnBorrow : undefined}
                 returningBorrow={returningBorrowId === audiobook.borrow?.borrowId}
               />

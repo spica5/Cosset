@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       refUrl: refUrl || null,
       fileType: audiobook.fileType ?? 'mp3',
       category: audiobook.category ?? null,
+      isFavorite: audiobook.isFavorite ?? 0,
       order: audiobook.order ?? null,
     });
 

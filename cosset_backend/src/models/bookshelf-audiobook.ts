@@ -1,5 +1,6 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
+import { normalizeBookGenre, type BookshelfBookGenre } from '@/constants/bookshelf-book-categories';
 
 const TABLE_NAME = 'bookshelf_audiobook';
 
@@ -7,7 +8,7 @@ const AUDIO_FILE_TYPES = new Set(['mp3', 'm4a', 'wav', 'ogg', 'aac', 'flac']);
 
 export type BookshelfAudiobookFileType = 'mp3' | 'm4a' | 'wav' | 'ogg' | 'aac' | 'flac';
 
-export type BookshelfAudiobookCategory = 'favorite' | 'important';
+export type BookshelfAudiobookCategory = BookshelfBookGenre;
 
 export interface BookshelfAudiobook {
   id: number;
@@ -20,6 +21,7 @@ export interface BookshelfAudiobook {
   refUrl?: string | null;
   fileType: BookshelfAudiobookFileType;
   category?: BookshelfAudiobookCategory | null;
+  isFavorite?: number | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: Date | null;
@@ -36,6 +38,7 @@ const SELECT_COLUMNS = `
   ref_url as "refUrl",
   file_type as "fileType",
   category,
+  is_favorite as "isFavorite",
   "order",
   is_public as "isPublic",
   created_at as "createdAt"
@@ -46,6 +49,7 @@ let ensureIsPublicColumnPromise: Promise<void> | null = null;
 let ensureCustomerIdColumnPromise: Promise<void> | null = null;
 let ensureRefUrlColumnPromise: Promise<void> | null = null;
 let ensureCategoryColumnPromise: Promise<void> | null = null;
+let ensureIsFavoriteColumnPromise: Promise<void> | null = null;
 
 const parseInteger = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -73,14 +77,24 @@ const normalizeFileType = (value: unknown): BookshelfAudiobookFileType => {
   return AUDIO_FILE_TYPES.has(normalized) ? (normalized as BookshelfAudiobookFileType) : 'mp3';
 };
 
-const normalizeCategory = (value: unknown): BookshelfAudiobookCategory | null => {
-  const normalized = String(value || '').trim().toLowerCase();
+const normalizeCategory = (value: unknown): BookshelfAudiobookCategory | null =>
+  normalizeBookGenre(value);
 
-  if (normalized === 'favorite' || normalized === 'important') {
-    return normalized;
+const normalizeIsFavorite = (value: unknown): 0 | 1 => {
+  if (typeof value === 'number') {
+    return value === 1 ? 1 : 0;
   }
 
-  return null;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' ? 1 : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  return 0;
 };
 
 const normalizeIsPublic = (value: unknown): 0 | 1 => {
@@ -133,7 +147,7 @@ const ensureCustomerIdColumn = async (): Promise<void> => {
 const ensureCategoryColumn = async (): Promise<void> => {
   if (!ensureCategoryColumnPromise) {
     ensureCategoryColumnPromise = (async () => {
-      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS category VARCHAR(32)`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS category VARCHAR(64)`);
     })().catch((error) => {
       ensureCategoryColumnPromise = null;
       throw error;
@@ -141,6 +155,27 @@ const ensureCategoryColumn = async (): Promise<void> => {
   }
 
   await ensureCategoryColumnPromise;
+};
+
+const ensureIsFavoriteColumn = async (): Promise<void> => {
+  if (!ensureIsFavoriteColumnPromise) {
+    ensureIsFavoriteColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_favorite SMALLINT NOT NULL DEFAULT 0`,
+      );
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET is_favorite = 1 WHERE LOWER(TRIM(COALESCE(category, ''))) = 'favorite'`,
+      );
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET category = NULL WHERE LOWER(TRIM(COALESCE(category, ''))) IN ('favorite', 'important')`,
+      );
+    })().catch((error) => {
+      ensureIsFavoriteColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureIsFavoriteColumnPromise;
 };
 
 const ensureRefUrlColumn = async (): Promise<void> => {
@@ -186,6 +221,7 @@ const ensureTable = async (): Promise<void> => {
   await ensureCustomerIdColumn();
   await ensureRefUrlColumn();
   await ensureCategoryColumn();
+  await ensureIsFavoriteColumn();
 };
 
 export async function getAllBookshelfAudiobooks(
@@ -282,10 +318,11 @@ export async function createBookshelfAudiobook(
           ref_url,
           file_type,
           category,
+          is_favorite,
           "order",
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
         RETURNING
           ${SELECT_COLUMNS}
       `,
@@ -299,6 +336,7 @@ export async function createBookshelfAudiobook(
         item.refUrl ?? null,
         normalizeFileType(item.fileType),
         normalizeCategory(item.category),
+        normalizeIsFavorite(item.isFavorite),
         normalizeNullableInteger(item.order),
       ],
     );
@@ -389,6 +427,12 @@ export async function updateBookshelfAudiobook(
     if (updates.category !== undefined) {
       fields.push(`category = $${paramIndex}`);
       values.push(normalizeCategory(updates.category));
+      paramIndex += 1;
+    }
+
+    if (updates.isFavorite !== undefined) {
+      fields.push(`is_favorite = $${paramIndex}`);
+      values.push(normalizeIsFavorite(updates.isFavorite));
       paramIndex += 1;
     }
 

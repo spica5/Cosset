@@ -22,8 +22,9 @@ import { RouterLink } from 'src/routes/components';
 
 import { updatePostCommentVisibility } from 'src/actions/post';
 import { recordActivityNotification } from 'src/actions/notification';
-import { useGetBlog, useGetBlogComments, recordBlogView } from 'src/actions/blog';
+import { useGetBlog, recordBlogView, useGetBlogComments } from 'src/actions/blog';
 import { getBlogCategoryLabel } from 'src/sections/dashboard/blog/blog-categories';
+
 import {
   reactToBlogForLoggedInCustomer,
   unreactToBlogForLoggedInCustomer,
@@ -33,12 +34,12 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import {
+  getBlogContentFontSx,
+  isBlogContentFontPreset,
   BLOG_CONTENT_FONT_COLOR,
   getBlogContentAppearance,
-  getBlogContentBackgroundSx,
-  getBlogContentFontSx,
+  getBlogContentBackgroundSx,  
   isBlogContentBackgroundPreset,
-  isBlogContentFontPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 

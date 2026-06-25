@@ -81,6 +81,7 @@ export async function PUT(
       refUrl: updates.refUrl !== undefined ? (String(updates.refUrl || '').trim() || null) : undefined,
       fileType: updates.fileType,
       category: updates.category,
+      isFavorite: updates.isFavorite,
       order: updates.order,
       isPublic: updates.isPublic,
     });

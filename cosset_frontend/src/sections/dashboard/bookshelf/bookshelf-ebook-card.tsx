@@ -18,7 +18,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 
 import { formatBorrowExpiryDate } from './bookshelf-borrow-config';
 import { getEbookFileTypeLabel, resolveEbookAssetUrl } from './bookshelf-ebook-utils';
-import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel } from './bookshelf-book-categories';
+import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -30,6 +30,8 @@ type Props = {
   onDelete?: (ebook: IBookshelfEbook) => void;
   onCategoryChange?: (ebook: IBookshelfEbook, category: string) => void;
   categorySaving?: boolean;
+  onFavoriteToggle?: (ebook: IBookshelfEbook, isFavorite: boolean) => void;
+  favoriteSaving?: boolean;
   onReturnBorrow?: (ebook: IBookshelfEbook) => void;
   returningBorrow?: boolean;
 };
@@ -42,11 +44,14 @@ export function BookshelfEbookCard({
   onDelete,
   onCategoryChange,
   categorySaving = false,
+  onFavoriteToggle,
+  favoriteSaving = false,
   onReturnBorrow,
   returningBorrow = false,
 }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const categoryLabel = getBookCategoryLabel(ebook.category);
+  const isFavorite = isBookFavorite(ebook.isFavorite);
   const isBorrowed = !!ebook.isBorrowed;
   const canEdit = !!canManage && !isBorrowed;
 
@@ -132,12 +137,13 @@ export function BookshelfEbookCard({
           <Chip
             label={categoryLabel}
             size="small"
-            color={ebook.category === 'favorite' ? 'warning' : 'info'}
+            color="default"
             sx={{
               position: 'absolute',
               top: 8,
               left: 72,
               fontWeight: 700,
+              maxWidth: 'calc(100% - 96px)',
             }}
           />
         ) : null}
@@ -150,7 +156,7 @@ export function BookshelfEbookCard({
             sx={{
               position: 'absolute',
               top: 8,
-              right: canEdit ? 72 : 8,
+              right: canEdit ? 112 : 8,
               fontWeight: 700,
             }}
           />
@@ -158,6 +164,23 @@ export function BookshelfEbookCard({
 
         {canEdit ? (
           <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
+            {onFavoriteToggle ? (
+              <IconButton
+                size="small"
+                disabled={favoriteSaving}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onFavoriteToggle(ebook, !isFavorite);
+                }}
+                sx={{
+                  bgcolor: 'background.paper',
+                  color: isFavorite ? 'error.main' : 'text.secondary',
+                }}
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Iconify icon={isFavorite ? 'solar:heart-bold' : 'solar:heart-outline'} width={18} />
+              </IconButton>
+            ) : null}
             <IconButton
               size="small"
               onClick={(event) => {
@@ -245,7 +268,6 @@ export function BookshelfEbookCard({
           <Chip
             size="small"
             label={categoryLabel}
-            color={ebook.category === 'favorite' ? 'warning' : 'info'}
             sx={{ alignSelf: 'flex-start' }}
           />
         ) : null}

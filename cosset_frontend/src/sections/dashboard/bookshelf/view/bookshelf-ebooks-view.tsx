@@ -6,7 +6,6 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -16,7 +15,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { paths } from 'src/routes/paths';
 import { useSearchParams } from 'src/routes/hooks';
 
-import { useGetBookshelfEbooks, deleteBookshelfEbook, setBookshelfEbookCategory } from 'src/actions/bookshelf-ebook';
+import { useGetBookshelfEbooks, deleteBookshelfEbook, setBookshelfEbookCategory, setBookshelfEbookFavorite } from 'src/actions/bookshelf-ebook';
 import {
   borrowToEbook,
   respondBookshelfBorrow,
@@ -32,8 +31,16 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { filterEbooks, filterEbooksByCategory } from '../bookshelf-ebook-utils';
-import { BOOK_SHELF_FILTER_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
+import { filterEbooks } from '../bookshelf-ebook-utils';
+import {
+  filterBookshelfByGenre,
+  filterBookshelfByShelfTab,
+  isBookFavorite,
+  normalizeBookCategory,
+  type BookshelfShelfTab,
+} from '../bookshelf-book-categories';
+import { BookshelfShelfFilters } from '../bookshelf-shelf-filters';
+import { sortBookshelfItems, type BookshelfSortValue } from '../bookshelf-sort';
 import { BookshelfEbookCard } from '../bookshelf-ebook-card';
 import { BookshelfEbookViewDialog } from '../bookshelf-ebook-view-dialog';
 import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
@@ -61,22 +68,32 @@ export function BookshelfEbooksView() {
   }, [approvedBorrowedEbooks, ebooks]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [shelfTab, setShelfTab] = useState<BookshelfShelfTab>('all');
+  const [genreFilter, setGenreFilter] = useState('');
+  const [sortBy, setSortBy] = useState<BookshelfSortValue>('latest');
   const [formOpen, setFormOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [editingEbook, setEditingEbook] = useState<IBookshelfEbook | null>(null);
   const [viewingEbook, setViewingEbook] = useState<IBookshelfEbook | null>(null);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
+  const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
   const borrowedCount = useMemo(
     () => allEbooks.filter((ebook) => ebook.isBorrowed).length,
     [allEbooks],
   );
 
+  const favoriteCount = useMemo(
+    () => allEbooks.filter((ebook) => !ebook.isBorrowed && isBookFavorite(ebook.isFavorite)).length,
+    [allEbooks],
+  );
+
   const filteredEbooks = useMemo(() => {
     const searched = filterEbooks(allEbooks, searchQuery);
-    return filterEbooksByCategory(searched, categoryFilter);
-  }, [allEbooks, categoryFilter, searchQuery]);
+    const byTab = filterBookshelfByShelfTab(searched, shelfTab);
+    const byGenre = filterBookshelfByGenre(byTab, genreFilter);
+    return sortBookshelfItems(byGenre, sortBy);
+  }, [allEbooks, genreFilter, searchQuery, shelfTab, sortBy]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingEbook(null);
@@ -158,6 +175,26 @@ export function BookshelfEbooksView() {
         toast.error('Failed to update category.');
       } finally {
         setSavingCategoryId(null);
+      }
+    },
+    [],
+  );
+
+  const handleToggleFavorite = useCallback(
+    async (ebook: IBookshelfEbook, isFavorite: boolean) => {
+      if (isBookFavorite(ebook.isFavorite) === isFavorite) {
+        return;
+      }
+
+      try {
+        setSavingFavoriteId(ebook.id);
+        await setBookshelfEbookFavorite(ebook.id, isFavorite);
+        toast.success(isFavorite ? 'Added to favorites.' : 'Removed from favorites.');
+      } catch (error) {
+        console.error('Failed to update e-book favorite:', error);
+        toast.error('Failed to update favorite.');
+      } finally {
+        setSavingFavoriteId(null);
       }
     },
     [],
@@ -245,29 +282,16 @@ export function BookshelfEbooksView() {
             />
           </Stack>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-            <Chip
-              label="All"
-              clickable
-              color={!categoryFilter ? 'primary' : 'default'}
-              variant={!categoryFilter ? 'filled' : 'outlined'}
-              onClick={() => setCategoryFilter('')}
-            />
-            {BOOK_SHELF_FILTER_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={
-                  option.value === 'borrowed' && borrowedCount > 0
-                    ? `${option.label} (${borrowedCount})`
-                    : option.label
-                }
-                clickable
-                color={categoryFilter === option.value ? 'primary' : 'default'}
-                variant={categoryFilter === option.value ? 'filled' : 'outlined'}
-                onClick={() => setCategoryFilter(option.value)}
-              />
-            ))}
-          </Stack>
+          <BookshelfShelfFilters
+            tab={shelfTab}
+            genre={genreFilter}
+            sortBy={sortBy}
+            borrowedCount={borrowedCount}
+            favoriteCount={favoriteCount}
+            onTabChange={setShelfTab}
+            onGenreChange={setGenreFilter}
+            onSortChange={setSortBy}
+          />
         </Card>
 
         {ebooksLoading ? (
@@ -284,14 +308,22 @@ export function BookshelfEbooksView() {
             title={
               searchQuery
                 ? 'No e-books match your search'
-                : categoryFilter === 'borrowed'
-                  ? 'No borrowed e-books'
-                  : 'No e-books yet'
+                : genreFilter
+                  ? 'No e-books in this category'
+                  : shelfTab === 'borrowed'
+                    ? 'No borrowed e-books'
+                    : shelfTab === 'favorite'
+                      ? 'No favorite e-books'
+                      : 'No e-books yet'
             }
             description={
-              categoryFilter === 'borrowed'
-                ? 'Books you borrow from neighbors will appear here after the owner approves your request.'
-                : canManage
+              genreFilter
+                ? 'Try another category or clear the category filter.'
+                : shelfTab === 'borrowed'
+                  ? 'Books you borrow from neighbors will appear here after the owner approves your request.'
+                  : shelfTab === 'favorite'
+                    ? 'Tap the heart icon on a book to add it to your favorites.'
+                    : canManage
                   ? 'Upload a PDF or TXT file to add your first e-book.'
                   : 'Check back soon for e-books in your bookshelf.'
             }
@@ -327,6 +359,8 @@ export function BookshelfEbooksView() {
                 onDelete={handleDelete}
                 onCategoryChange={handleSetCategory}
                 categorySaving={savingCategoryId === ebook.id}
+                onFavoriteToggle={!ebook.isBorrowed ? handleToggleFavorite : undefined}
+                favoriteSaving={savingFavoriteId === ebook.id}
                 onReturnBorrow={ebook.isBorrowed ? handleReturnBorrow : undefined}
                 returningBorrow={returningBorrowId === ebook.borrow?.borrowId}
               />
