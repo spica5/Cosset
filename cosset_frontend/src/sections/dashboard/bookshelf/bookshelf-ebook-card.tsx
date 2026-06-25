@@ -9,13 +9,14 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import { formatBorrowExpiryDate } from './bookshelf-borrow-config';
 import { getEbookFileTypeLabel, resolveEbookAssetUrl } from './bookshelf-ebook-utils';
 import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel } from './bookshelf-book-categories';
 
@@ -29,6 +30,8 @@ type Props = {
   onDelete?: (ebook: IBookshelfEbook) => void;
   onCategoryChange?: (ebook: IBookshelfEbook, category: string) => void;
   categorySaving?: boolean;
+  onReturnBorrow?: (ebook: IBookshelfEbook) => void;
+  returningBorrow?: boolean;
 };
 
 export function BookshelfEbookCard({
@@ -39,9 +42,13 @@ export function BookshelfEbookCard({
   onDelete,
   onCategoryChange,
   categorySaving = false,
+  onReturnBorrow,
+  returningBorrow = false,
 }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const categoryLabel = getBookCategoryLabel(ebook.category);
+  const isBorrowed = !!ebook.isBorrowed;
+  const canEdit = !!canManage && !isBorrowed;
 
   useEffect(() => {
     let mounted = true;
@@ -135,7 +142,21 @@ export function BookshelfEbookCard({
           />
         ) : null}
 
-        {canManage ? (
+        {isBorrowed ? (
+          <Chip
+            label="Borrowed"
+            size="small"
+            color="success"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: canEdit ? 72 : 8,
+              fontWeight: 700,
+            }}
+          />
+        ) : null}
+
+        {canEdit ? (
           <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
             <IconButton
               size="small"
@@ -173,6 +194,18 @@ export function BookshelfEbookCard({
           </Typography>
         ) : null}
 
+        {isBorrowed ? (
+          <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
+            Borrowed{ebook.borrow?.ownerName ? ` from ${ebook.borrow.ownerName}` : ''}
+            {ebook.borrow?.borrowPeriodDays
+              ? ` · ${ebook.borrow.borrowPeriodDays}-day borrow`
+              : ''}
+            {ebook.borrow?.expiresAt
+              ? ` · Expires ${formatBorrowExpiryDate(ebook.borrow.expiresAt)}`
+              : ''}
+          </Typography>
+        ) : null}
+
         {ebook.description ? (
           <Typography
             variant="body2"
@@ -189,7 +222,7 @@ export function BookshelfEbookCard({
           </Typography>
         ) : null}
 
-        {canManage && onCategoryChange ? (
+        {canEdit && onCategoryChange ? (
           <TextField
             select
             size="small"
@@ -218,15 +251,31 @@ export function BookshelfEbookCard({
         ) : null}
 
         <Box sx={{ mt: 'auto', pt: 1 }}>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<Iconify icon="solar:eye-bold" />}
-            onClick={() => onView?.(ebook)}
-            fullWidth
-          >
-            View
-          </Button>
+          <Stack spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Iconify icon="solar:eye-bold" />}
+              onClick={() => onView?.(ebook)}
+              fullWidth
+            >
+              View
+            </Button>
+
+            {isBorrowed && onReturnBorrow ? (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                disabled={returningBorrow}
+                startIcon={<Iconify icon="solar:undo-left-round-bold" width={18} />}
+                onClick={() => onReturnBorrow(ebook)}
+                fullWidth
+              >
+                {returningBorrow ? 'Returning...' : 'Return book'}
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
       </Stack>
     </Card>

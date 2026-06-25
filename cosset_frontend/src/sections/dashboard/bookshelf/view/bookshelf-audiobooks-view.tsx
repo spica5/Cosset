@@ -2,7 +2,7 @@
 
 import type { IBookshelfAudiobook } from 'src/types/bookshelf-audiobook';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,12 +14,18 @@ import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
+import { useSearchParams } from 'src/routes/hooks';
 
 import {
   useGetBookshelfAudiobooks,
   deleteBookshelfAudiobook,
   setBookshelfAudiobookCategory,
 } from 'src/actions/bookshelf-audiobook';
+import {
+  borrowToAudiobook,
+  respondBookshelfBorrow,
+  useGetBookshelfBorrows,
+} from 'src/actions/bookshelf-borrow';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -31,7 +37,7 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 import { filterAudiobooks, filterAudiobooksByCategory } from '../bookshelf-audiobook-utils';
-import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
+import { BOOK_SHELF_FILTER_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
 import { BookshelfAudiobookCard } from '../bookshelf-audiobook-card';
 import { BookshelfAudiobookViewDialog } from '../bookshelf-audiobook-view-dialog';
 import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog';
@@ -40,9 +46,27 @@ import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog
 
 export function BookshelfAudiobooksView() {
   const { user } = useAuthContext();
+  const searchParams = useSearchParams();
   const canManage = !!user?.id;
 
   const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(user?.id);
+  const { borrows: approvedBorrowedAudiobooks } = useGetBookshelfBorrows(
+    user?.id,
+    'borrower',
+    'approved',
+  );
+
+  const [returningBorrowId, setReturningBorrowId] = useState<number | null>(null);
+
+  const allAudiobooks = useMemo(() => {
+    const ownedIds = new Set(audiobooks.map((item) => item.id));
+    const borrowed = approvedBorrowedAudiobooks
+      .filter((borrow) => borrow.bookKind === 'audiobook')
+      .map(borrowToAudiobook)
+      .filter((item) => !ownedIds.has(item.id));
+
+    return [...audiobooks, ...borrowed];
+  }, [approvedBorrowedAudiobooks, audiobooks]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -52,10 +76,15 @@ export function BookshelfAudiobooksView() {
   const [listeningAudiobook, setListeningAudiobook] = useState<IBookshelfAudiobook | null>(null);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
 
+  const borrowedCount = useMemo(
+    () => allAudiobooks.filter((audiobook) => audiobook.isBorrowed).length,
+    [allAudiobooks],
+  );
+
   const filteredAudiobooks = useMemo(() => {
-    const searched = filterAudiobooks(audiobooks, searchQuery);
+    const searched = filterAudiobooks(allAudiobooks, searchQuery);
     return filterAudiobooksByCategory(searched, categoryFilter);
-  }, [audiobooks, categoryFilter, searchQuery]);
+  }, [allAudiobooks, categoryFilter, searchQuery]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingAudiobook(null);
@@ -71,6 +100,34 @@ export function BookshelfAudiobooksView() {
     setListeningAudiobook(audiobook);
     setViewOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (audiobooksLoading || !allAudiobooks.length) {
+      return;
+    }
+
+    const borrowId = Number(searchParams.get('borrowId'));
+    const bookId = Number(searchParams.get('bookId'));
+
+    if (Number.isFinite(borrowId)) {
+      const borrowedBook = allAudiobooks.find(
+        (audiobook) => audiobook.borrow?.borrowId === borrowId,
+      );
+      if (borrowedBook) {
+        handleOpenListen(borrowedBook);
+      }
+      return;
+    }
+
+    if (Number.isFinite(bookId)) {
+      const ownedBook = allAudiobooks.find(
+        (audiobook) => audiobook.id === bookId && !audiobook.isBorrowed,
+      );
+      if (ownedBook) {
+        handleOpenListen(ownedBook);
+      }
+    }
+  }, [allAudiobooks, audiobooksLoading, handleOpenListen, searchParams]);
 
   const handleCloseForm = useCallback(() => {
     setFormOpen(false);
@@ -116,6 +173,32 @@ export function BookshelfAudiobooksView() {
       }
     },
     [],
+  );
+
+  const handleReturnBorrow = useCallback(
+    async (audiobook: IBookshelfAudiobook) => {
+      const borrowId = audiobook.borrow?.borrowId;
+      if (!borrowId || !user?.id) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Return "${audiobook.title}" to its owner?`);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setReturningBorrowId(borrowId);
+        await respondBookshelfBorrow(borrowId, user.id, 'returned');
+        toast.success('Audiobook returned.');
+      } catch (error) {
+        console.error('Failed to return borrowed audiobook:', error);
+        toast.error('Failed to return audiobook.');
+      } finally {
+        setReturningBorrowId(null);
+      }
+    },
+    [user?.id],
   );
 
   return (
@@ -182,10 +265,14 @@ export function BookshelfAudiobooksView() {
               variant={!categoryFilter ? 'filled' : 'outlined'}
               onClick={() => setCategoryFilter('')}
             />
-            {BOOK_CATEGORY_OPTIONS.map((option) => (
+            {BOOK_SHELF_FILTER_OPTIONS.map((option) => (
               <Chip
                 key={option.value}
-                label={option.label}
+                label={
+                  option.value === 'borrowed' && borrowedCount > 0
+                    ? `${option.label} (${borrowedCount})`
+                    : option.label
+                }
                 clickable
                 color={categoryFilter === option.value ? 'primary' : 'default'}
                 variant={categoryFilter === option.value ? 'filled' : 'outlined'}
@@ -206,11 +293,19 @@ export function BookshelfAudiobooksView() {
           </Card>
         ) : filteredAudiobooks.length === 0 ? (
           <EmptyContent
-            title={searchQuery ? 'No audio-books match your search' : 'No audio-books yet'}
+            title={
+              searchQuery
+                ? 'No audio-books match your search'
+                : categoryFilter === 'borrowed'
+                  ? 'No borrowed audiobooks'
+                  : 'No audio-books yet'
+            }
             description={
-              canManage
-                ? 'Upload an audio file to add your first audio-book.'
-                : 'Check back soon for audio-books in your bookshelf.'
+              categoryFilter === 'borrowed'
+                ? 'Audiobooks you borrow from neighbors will appear here after the owner approves your request.'
+                : canManage
+                  ? 'Upload an audio file to add your first audio-book.'
+                  : 'Check back soon for audio-books in your bookshelf.'
             }
             filled
             sx={{ py: 10 }}
@@ -236,7 +331,11 @@ export function BookshelfAudiobooksView() {
           >
             {filteredAudiobooks.map((audiobook) => (
               <BookshelfAudiobookCard
-                key={audiobook.id}
+                key={
+                  audiobook.isBorrowed
+                    ? `borrow-${audiobook.borrow?.borrowId}`
+                    : `owned-${audiobook.id}`
+                }
                 audiobook={audiobook}
                 canManage={canManage}
                 onListen={handleOpenListen}
@@ -244,6 +343,8 @@ export function BookshelfAudiobooksView() {
                 onDelete={handleDelete}
                 onCategoryChange={handleSetCategory}
                 categorySaving={savingCategoryId === audiobook.id}
+                onReturnBorrow={audiobook.isBorrowed ? handleReturnBorrow : undefined}
+                returningBorrow={returningBorrowId === audiobook.borrow?.borrowId}
               />
             ))}
           </Box>

@@ -962,6 +962,9 @@ export function UniverseLandingView({
                           showAudiobooks={showBookshelfAudiobooks}
                           loading={ebooksLoading || audiobooksLoading}
                           isOwner={isCurrentCustomer}
+                          ownerCustomerId={customerId}
+                          viewerCustomerId={viewerId}
+                          authenticated={authenticated}
                         />
                       ),
                     }

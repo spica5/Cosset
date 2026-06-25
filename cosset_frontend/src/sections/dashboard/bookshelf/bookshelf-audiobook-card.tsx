@@ -18,6 +18,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 
 import { getAudiobookFileTypeLabel, resolveAudiobookAssetUrl } from './bookshelf-audiobook-utils';
 import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel } from './bookshelf-book-categories';
+import { formatBorrowExpiryDate } from './bookshelf-borrow-config';
 
 // ----------------------------------------------------------------------
 
@@ -29,6 +30,8 @@ type Props = {
   onDelete?: (audiobook: IBookshelfAudiobook) => void;
   onCategoryChange?: (audiobook: IBookshelfAudiobook, category: string) => void;
   categorySaving?: boolean;
+  onReturnBorrow?: (audiobook: IBookshelfAudiobook) => void;
+  returningBorrow?: boolean;
 };
 
 export function BookshelfAudiobookCard({
@@ -39,9 +42,13 @@ export function BookshelfAudiobookCard({
   onDelete,
   onCategoryChange,
   categorySaving = false,
+  onReturnBorrow,
+  returningBorrow = false,
 }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const categoryLabel = getBookCategoryLabel(audiobook.category);
+  const isBorrowed = !!audiobook.isBorrowed;
+  const canEdit = !!canManage && !isBorrowed;
 
   useEffect(() => {
     let mounted = true;
@@ -132,7 +139,21 @@ export function BookshelfAudiobookCard({
           />
         ) : null}
 
-        {canManage ? (
+        {isBorrowed ? (
+          <Chip
+            label="Borrowed"
+            size="small"
+            color="success"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: canEdit ? 72 : 8,
+              fontWeight: 700,
+            }}
+          />
+        ) : null}
+
+        {canEdit ? (
           <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
             <IconButton
               size="small"
@@ -170,6 +191,18 @@ export function BookshelfAudiobookCard({
           </Typography>
         ) : null}
 
+        {isBorrowed ? (
+          <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
+            Borrowed{audiobook.borrow?.ownerName ? ` from ${audiobook.borrow.ownerName}` : ''}
+            {audiobook.borrow?.borrowPeriodDays
+              ? ` · ${audiobook.borrow.borrowPeriodDays}-day borrow`
+              : ''}
+            {audiobook.borrow?.expiresAt
+              ? ` · Expires ${formatBorrowExpiryDate(audiobook.borrow.expiresAt)}`
+              : ''}
+          </Typography>
+        ) : null}
+
         {audiobook.description ? (
           <Typography
             variant="body2"
@@ -186,7 +219,7 @@ export function BookshelfAudiobookCard({
           </Typography>
         ) : null}
 
-        {canManage && onCategoryChange ? (
+        {canEdit && onCategoryChange ? (
           <TextField
             select
             size="small"
@@ -215,15 +248,31 @@ export function BookshelfAudiobookCard({
         ) : null}
 
         <Box sx={{ mt: 'auto', pt: 1 }}>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<Iconify icon="solar:play-circle-bold" />}
-            onClick={() => onListen?.(audiobook)}
-            fullWidth
-          >
-            Listen
-          </Button>
+          <Stack spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Iconify icon="solar:play-circle-bold" />}
+              onClick={() => onListen?.(audiobook)}
+              fullWidth
+            >
+              Listen
+            </Button>
+
+            {isBorrowed && onReturnBorrow ? (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                disabled={returningBorrow}
+                startIcon={<Iconify icon="solar:undo-left-round-bold" width={18} />}
+                onClick={() => onReturnBorrow(audiobook)}
+                fullWidth
+              >
+                {returningBorrow ? 'Returning...' : 'Return audiobook'}
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
       </Stack>
     </Card>

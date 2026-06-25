@@ -168,6 +168,12 @@ export const endpoints = {
       update: (id: string | number) => `/api/bookshelf/audiobook/${id}`,
       delete: (id: string | number) => `/api/bookshelf/audiobook/${id}`,
     },
+    borrow: {
+      add: '/api/bookshelf/borrow/new',
+      list: '/api/bookshelf/borrow/list',
+      status: '/api/bookshelf/borrow/status',
+      update: (id: string | number) => `/api/bookshelf/borrow/${id}`,
+    },
   },
   post: {
     list: '/api/post/list',

@@ -3,13 +3,49 @@
 import type { Theme } from '@mui/material/styles';
 
 import Box from '@mui/material/Box';
-import { styled } from '@mui/material/styles';
+import { alpha, styled } from '@mui/material/styles';
 
 import { varAlpha, stylesMode } from 'src/theme/universe/styles';
 
 import type { LabelColor, LabelVariant } from './types';
 
 // ----------------------------------------------------------------------
+
+type PaletteColor = {
+  main: string;
+  light: string;
+  dark: string;
+  darker?: string;
+  lighter?: string;
+  contrastText: string;
+  mainChannel?: string;
+};
+
+const getPalette = (theme: Theme) => theme.vars?.palette ?? theme.palette;
+
+const getPaletteColor = (theme: Theme, color: Exclude<LabelColor, 'default'>): PaletteColor =>
+  getPalette(theme)[color] as PaletteColor;
+
+const getSoftBackground = (theme: Theme, color: Exclude<LabelColor, 'default'>) => {
+  const paletteColor = getPaletteColor(theme, color);
+
+  if (paletteColor.mainChannel) {
+    return varAlpha(paletteColor.mainChannel, 0.16);
+  }
+
+  return alpha(paletteColor.main, 0.16);
+};
+
+const getGreySoftBackground = (theme: Theme) => {
+  const palette = getPalette(theme);
+  const greyChannel = palette.grey['500Channel' as keyof typeof palette.grey];
+
+  if (typeof greyChannel === 'string') {
+    return varAlpha(greyChannel, 0.16);
+  }
+
+  return alpha(palette.grey[500], 0.16);
+};
 
 export const StyledLabel = styled(Box)(({
   theme,
@@ -21,72 +57,77 @@ export const StyledLabel = styled(Box)(({
     variant: LabelVariant;
   };
 }) => {
+  const palette = getPalette(theme);
+
   const defaultColor = {
     ...(color === 'default' && {
       /**
        * @variant filled
        */
       ...(variant === 'filled' && {
-        color: theme.vars.palette.common.white,
-        backgroundColor: theme.vars.palette.text.primary,
-        [stylesMode.dark]: { color: theme.vars.palette.grey[800] },
+        color: palette.common.white,
+        backgroundColor: palette.text.primary,
+        [stylesMode.dark]: { color: palette.grey[800] },
       }),
       /**
        * @variant outlined
        */
       ...(variant === 'outlined' && {
         backgroundColor: 'transparent',
-        color: theme.vars.palette.text.primary,
-        border: `2px solid ${theme.vars.palette.text.primary}`,
+        color: palette.text.primary,
+        border: `2px solid ${palette.text.primary}`,
       }),
       /**
        * @variant soft
        */
       ...(variant === 'soft' && {
-        color: theme.vars.palette.text.secondary,
-        backgroundColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+        color: palette.text.secondary,
+        backgroundColor: getGreySoftBackground(theme),
       }),
       /**
        * @variant inverted
        */
       ...(variant === 'inverted' && {
-        color: theme.vars.palette.grey[800],
-        backgroundColor: theme.vars.palette.grey[300],
+        color: palette.grey[800],
+        backgroundColor: palette.grey[300],
       }),
     }),
   };
 
+  const paletteColor = color !== 'default' ? getPaletteColor(theme, color) : null;
+  const toneColor = color !== 'default' ? color : null;
+
   const styleColors = {
-    ...(color !== 'default' && {
+    ...(paletteColor && toneColor && {
       /**
        * @variant filled
        */
       ...(variant === 'filled' && {
-        color: theme.vars.palette[color].contrastText,
-        backgroundColor: theme.vars.palette[color].main,
+        color: paletteColor.contrastText,
+        backgroundColor: paletteColor.main,
       }),
       /**
        * @variant outlined
        */
       ...(variant === 'outlined' && {
         backgroundColor: 'transparent',
-        color: theme.vars.palette[color].main,
-        border: `2px solid ${theme.vars.palette[color].main}`,
+        color: paletteColor.main,
+        border: `2px solid ${paletteColor.main}`,
       }),
       /**
        * @variant soft
        */
       ...(variant === 'soft' && {
-        color: theme.vars.palette[color].dark,
-        backgroundColor: varAlpha(theme.vars.palette[color].mainChannel, 0.16),
-        [stylesMode.dark]: { color: theme.vars.palette[color].light },
+        color: paletteColor.dark,
+        backgroundColor: getSoftBackground(theme, toneColor),
+        [stylesMode.dark]: { color: paletteColor.light },
       }),
       /**
        * @variant inverted
        */
       ...(variant === 'inverted' && {
-        color: theme.vars.palette[color].darker,
-        backgroundColor: theme.vars.palette[color].lighter,
+        color: paletteColor.darker ?? paletteColor.dark,
+        backgroundColor: paletteColor.lighter ?? paletteColor.light,
       }),
     }),
   };

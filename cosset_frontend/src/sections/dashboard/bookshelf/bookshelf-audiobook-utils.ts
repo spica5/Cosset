@@ -77,18 +77,22 @@ export function filterAudiobooks(audiobooks: IBookshelfAudiobook[], query: strin
   );
 }
 
-export function filterAudiobooksByCategory<T extends { category?: string | null }>(
-  audiobooks: T[],
-  category?: string | null,
-) {
+export function filterAudiobooksByCategory<
+  T extends { category?: string | null; isBorrowed?: boolean },
+>(audiobooks: T[], category?: string | null) {
   const normalized = String(category || '').trim().toLowerCase();
 
   if (!normalized) {
     return audiobooks;
   }
 
+  if (normalized === 'borrowed') {
+    return audiobooks.filter((audiobook) => audiobook.isBorrowed);
+  }
+
   return audiobooks.filter(
-    (audiobook) => String(audiobook.category || '').toLowerCase() === normalized,
+    (audiobook) =>
+      !audiobook.isBorrowed && String(audiobook.category || '').toLowerCase() === normalized,
   );
 }
 

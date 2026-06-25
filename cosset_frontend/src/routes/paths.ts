@@ -82,7 +82,16 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/bookshelf`,
       introduce: `${ROOTS.DASHBOARD}/bookshelf/introduce`,
       ebooks: `${ROOTS.DASHBOARD}/bookshelf/e-books`,
+      ebookBorrow: (borrowId: string | number) =>
+        `${ROOTS.DASHBOARD}/bookshelf/e-books?borrowId=${borrowId}`,
+      ebookWithId: (bookId: string | number) =>
+        `${ROOTS.DASHBOARD}/bookshelf/e-books?bookId=${bookId}`,
       audioBooks: `${ROOTS.DASHBOARD}/bookshelf/audio-books`,
+      audioBookBorrow: (borrowId: string | number) =>
+        `${ROOTS.DASHBOARD}/bookshelf/audio-books?borrowId=${borrowId}`,
+      audioBookWithId: (bookId: string | number) =>
+        `${ROOTS.DASHBOARD}/bookshelf/audio-books?bookId=${bookId}`,
+      borrowRequests: `${ROOTS.DASHBOARD}/bookshelf/borrow-requests`,
     },
     community: {
       root: `${ROOTS.DASHBOARD}/community`,

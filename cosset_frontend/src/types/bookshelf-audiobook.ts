@@ -1,3 +1,5 @@
+import type { IBookshelfBorrowMeta } from './bookshelf-borrow';
+
 export type BookshelfAudiobookFileType = 'mp3' | 'm4a' | 'wav' | 'ogg' | 'aac' | 'flac';
 export type BookshelfAudiobookCategory = 'favorite' | 'important';
 
@@ -15,4 +17,6 @@ export type IBookshelfAudiobook = {
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;
+  borrow?: IBookshelfBorrowMeta | null;
+  isBorrowed?: boolean;
 };

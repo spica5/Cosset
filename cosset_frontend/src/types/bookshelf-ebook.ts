@@ -1,3 +1,5 @@
+import type { IBookshelfBorrowMeta } from './bookshelf-borrow';
+
 export type BookshelfEbookFileType = 'pdf' | 'txt';
 export type BookshelfEbookCategory = 'favorite' | 'important';
 
@@ -15,4 +17,6 @@ export type IBookshelfEbook = {
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;
+  borrow?: IBookshelfBorrowMeta | null;
+  isBorrowed?: boolean;
 };

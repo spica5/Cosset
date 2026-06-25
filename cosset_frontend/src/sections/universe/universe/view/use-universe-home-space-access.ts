@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 
 import { useGetGuestArea } from 'src/actions/guestarea';
-import { useAuthContext } from 'src/auth/hooks';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 

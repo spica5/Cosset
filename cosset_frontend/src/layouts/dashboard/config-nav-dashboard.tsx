@@ -140,6 +140,7 @@ export const navData = [
           { title: 'Introduction', path: paths.dashboard.bookshelf.introduce },
           { title: 'E-books', path: paths.dashboard.bookshelf.ebooks },
           { title: 'Audio-books', path: paths.dashboard.bookshelf.audioBooks },
+          { title: 'Borrow requests', path: paths.dashboard.bookshelf.borrowRequests },
         ],
       },
       { 

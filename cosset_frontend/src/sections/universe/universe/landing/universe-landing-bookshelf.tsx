@@ -4,7 +4,9 @@ import type { BoxProps } from '@mui/material/Box';
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
 import type { IBookshelfAudiobook } from 'src/types/bookshelf-audiobook';
 
-import { useEffect, useMemo, useState } from 'react';
+import type { IBookshelfBorrow } from 'src/types/bookshelf-borrow';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -35,6 +37,15 @@ import {
 
 import { getBookCategoryLabel } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
+import {
+  requestBookshelfBorrow,
+  useGetBookshelfBorrowStatuses,
+} from 'src/actions/bookshelf-borrow';
+
+import { BookshelfBorrowRequestDialog } from 'src/sections/dashboard/bookshelf/bookshelf-borrow-request-dialog';
+
+import { toast } from 'src/components/dashboard/snackbar';
+
 import { MySpaceSectionTitle } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
@@ -52,6 +63,9 @@ type Props = BoxProps & {
   showAudiobooks?: boolean;
   loading?: boolean;
   isOwner?: boolean;
+  ownerCustomerId?: string;
+  viewerCustomerId?: string;
+  authenticated?: boolean;
 };
 
 const PAGE_SIZE = 6;
@@ -86,9 +100,27 @@ const getExcerpt = (description?: string | null) => {
 
 type BookCardProps = {
   entry: BookshelfItem;
+  borrowStatus?: IBookshelfBorrow | null;
+  canRequestBorrow?: boolean;
+  ownerCustomerId?: string;
+  viewerCustomerId?: string;
 };
 
-function BookshelfCover({ entry }: BookCardProps) {
+function getBorrowStatusForEntry(
+  entry: BookshelfItem,
+  borrowStatuses: IBookshelfBorrow[],
+): IBookshelfBorrow | null {
+  return (
+    borrowStatuses.find(
+      (borrow) =>
+        borrow.bookId === entry.item.id &&
+        borrow.bookKind === entry.kind &&
+        (borrow.status === 'pending' || borrow.status === 'approved'),
+    ) || null
+  );
+}
+
+function BookshelfCover({ entry }: { entry: BookshelfItem }) {
   const [coverUrl, setCoverUrl] = useState('');
 
   useEffect(() => {
@@ -166,8 +198,17 @@ function BookshelfCover({ entry }: BookCardProps) {
   );
 }
 
-function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
+function UniverseLandingBookshelfCard({
+  entry,
+  borrowStatus,
+  canRequestBorrow = false,
+  ownerCustomerId,
+  viewerCustomerId,
+}: BookCardProps) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
+  const [requesting, setRequesting] = useState(false);
+  const [borrowDialogOpen, setBorrowDialogOpen] = useState(false);
+  const [localPendingBorrow, setLocalPendingBorrow] = useState<IBookshelfBorrow | null>(null);
   const title = (entry.item.title || '').trim() || `Book #${entry.item.id}`;
   const fileTypeLabel =
     entry.kind === 'ebook'
@@ -183,6 +224,72 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
+
+  const handleRequestBorrow = useCallback(
+    async (borrowPeriodDays: number) => {
+      if (!canRequestBorrow || !ownerCustomerId || !viewerCustomerId || borrowStatus) {
+        return;
+      }
+
+      try {
+        setRequesting(true);
+        const result = await requestBookshelfBorrow({
+          borrowerCustomerId: viewerCustomerId,
+          ownerCustomerId,
+          bookKind: entry.kind,
+          bookId: entry.item.id,
+          borrowPeriodDays,
+        });
+        const createdBorrow = result?.borrow as IBookshelfBorrow | undefined;
+        setLocalPendingBorrow(
+          createdBorrow || {
+            id: 0,
+            borrowerCustomerId: viewerCustomerId,
+            ownerCustomerId,
+            bookKind: entry.kind,
+            bookId: entry.item.id,
+            status: 'pending',
+            borrowPeriodDays,
+          },
+        );
+        toast.success('Borrow request sent.');
+        setBorrowDialogOpen(false);
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message || error?.message || 'Failed to send borrow request.';
+        toast.error(message);
+      } finally {
+        setRequesting(false);
+      }
+    },
+    [
+      borrowStatus,
+      canRequestBorrow,
+      entry.item.id,
+      entry.kind,
+      ownerCustomerId,
+      viewerCustomerId,
+    ],
+  );
+
+  useEffect(() => {
+    if (borrowStatus?.status === 'pending' || borrowStatus?.status === 'approved') {
+      setLocalPendingBorrow(null);
+    }
+  }, [borrowStatus]);
+
+  const activeBorrowStatus =
+    borrowStatus?.status === 'pending' || borrowStatus?.status === 'approved'
+      ? borrowStatus
+      : localPendingBorrow;
+
+  const showBorrowAction = canRequestBorrow && !activeBorrowStatus;
+  const isRequested = activeBorrowStatus?.status === 'pending';
+  const borrowLabel =
+    activeBorrowStatus?.status === 'approved'
+      ? 'On your bookshelf'
+      : null;
+  const requestedPeriodDays = activeBorrowStatus?.borrowPeriodDays;
 
   const cardBody = (
     <>
@@ -280,10 +387,68 @@ function UniverseLandingBookshelfCard({ entry }: BookCardProps) {
     >
       <CardActionArea
         onClick={handleOpen}
-        sx={{ height: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
+        sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 1 }}
       >
         {cardBody}
       </CardActionArea>
+
+      {showBorrowAction || isRequested || borrowLabel ? (
+        <Box sx={{ px: 2, pb: 2, pt: 0 }}>
+          {showBorrowAction ? (
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              disabled={requesting}
+              onClick={() => setBorrowDialogOpen(true)}
+              startIcon={<Iconify icon="solar:hand-heart-bold" width={18} />}
+              sx={{
+                borderRadius: 99,
+                borderColor: spaceTheme.accent,
+                color: spaceTheme.accent,
+                '&:hover': {
+                  borderColor: spaceTheme.accentHover,
+                  bgcolor: `${spaceTheme.accent}14`,
+                },
+              }}
+            >
+              {requesting ? 'Sending...' : 'Request to borrow'}
+            </Button>
+          ) : isRequested ? (
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              disabled
+              startIcon={<Iconify icon="solar:check-circle-bold" width={18} />}
+              sx={{
+                borderRadius: 99,
+                borderColor: spaceTheme.border,
+                color: 'text.secondary',
+              }}
+            >
+              {requestedPeriodDays
+                ? `Requested · ${requestedPeriodDays} days`
+                : 'Requested'}
+            </Button>
+          ) : (
+            <Chip
+              label={borrowLabel}
+              size="small"
+              color="success"
+              sx={{ fontWeight: 700 }}
+            />
+          )}
+        </Box>
+      ) : null}
+
+      <BookshelfBorrowRequestDialog
+        open={borrowDialogOpen}
+        bookTitle={title}
+        submitting={requesting}
+        onClose={() => setBorrowDialogOpen(false)}
+        onSubmit={handleRequestBorrow}
+      />
     </Card>
   );
 }
@@ -295,12 +460,34 @@ export function UniverseLandingBookshelf({
   showAudiobooks = false,
   loading = false,
   isOwner = false,
+  ownerCustomerId,
+  viewerCustomerId,
+  authenticated = false,
   sx,
   ...other
 }: Props) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+
+  const bookIds = useMemo(() => {
+    const ids: number[] = [];
+    if (showEbooks) {
+      ebooks.forEach((item) => ids.push(item.id));
+    }
+    if (showAudiobooks) {
+      audiobooks.forEach((item) => ids.push(item.id));
+    }
+    return ids;
+  }, [audiobooks, ebooks, showAudiobooks, showEbooks]);
+
+  const canRequestBorrow = authenticated && !!viewerCustomerId && !isOwner && !!ownerCustomerId;
+
+  const { borrowStatuses, borrowStatusesLoading } = useGetBookshelfBorrowStatuses(
+      canRequestBorrow ? viewerCustomerId : undefined,
+      canRequestBorrow ? ownerCustomerId : undefined,
+      canRequestBorrow ? bookIds : undefined,
+    );
 
   const bookshelfItems = useMemo<BookshelfItem[]>(() => {
     const entries: BookshelfItem[] = [];
@@ -437,7 +624,13 @@ export function UniverseLandingBookshelf({
                   key={`${entry.kind}-${entry.item.id}`}
                   sx={myspaceItemCardSx}
                 >
-                  <UniverseLandingBookshelfCard entry={entry} />
+                  <UniverseLandingBookshelfCard
+                    entry={entry}
+                    borrowStatus={getBorrowStatusForEntry(entry, borrowStatuses)}
+                    canRequestBorrow={canRequestBorrow && !borrowStatusesLoading}
+                    ownerCustomerId={ownerCustomerId}
+                    viewerCustomerId={viewerCustomerId}
+                  />
                 </Box>
               ))}
             </Box>

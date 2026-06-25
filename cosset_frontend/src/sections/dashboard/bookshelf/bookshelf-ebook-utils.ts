@@ -38,7 +38,7 @@ export function filterEbooks(ebooks: IBookshelfEbook[], query: string) {
   );
 }
 
-export function filterEbooksByCategory<T extends { category?: string | null }>(
+export function filterEbooksByCategory<T extends { category?: string | null; isBorrowed?: boolean }>(
   ebooks: T[],
   category?: string | null,
 ) {
@@ -48,7 +48,13 @@ export function filterEbooksByCategory<T extends { category?: string | null }>(
     return ebooks;
   }
 
-  return ebooks.filter((ebook) => String(ebook.category || '').toLowerCase() === normalized);
+  if (normalized === 'borrowed') {
+    return ebooks.filter((ebook) => ebook.isBorrowed);
+  }
+
+  return ebooks.filter(
+    (ebook) => !ebook.isBorrowed && String(ebook.category || '').toLowerCase() === normalized,
+  );
 }
 
 export async function resolveEbookAssetUrl(asset?: string | null) {

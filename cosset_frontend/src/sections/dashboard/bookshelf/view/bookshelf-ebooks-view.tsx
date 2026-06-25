@@ -2,7 +2,7 @@
 
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,8 +14,14 @@ import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
+import { useSearchParams } from 'src/routes/hooks';
 
 import { useGetBookshelfEbooks, deleteBookshelfEbook, setBookshelfEbookCategory } from 'src/actions/bookshelf-ebook';
+import {
+  borrowToEbook,
+  respondBookshelfBorrow,
+  useGetBookshelfBorrows,
+} from 'src/actions/bookshelf-borrow';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -27,7 +33,7 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 import { filterEbooks, filterEbooksByCategory } from '../bookshelf-ebook-utils';
-import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
+import { BOOK_SHELF_FILTER_OPTIONS, normalizeBookCategory } from '../bookshelf-book-categories';
 import { BookshelfEbookCard } from '../bookshelf-ebook-card';
 import { BookshelfEbookViewDialog } from '../bookshelf-ebook-view-dialog';
 import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
@@ -36,9 +42,23 @@ import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
 
 export function BookshelfEbooksView() {
   const { user } = useAuthContext();
+  const searchParams = useSearchParams();
   const canManage = !!user?.id;
 
   const { ebooks, ebooksLoading } = useGetBookshelfEbooks(user?.id);
+  const { borrows: approvedBorrowedEbooks } = useGetBookshelfBorrows(user?.id, 'borrower', 'approved');
+
+  const [returningBorrowId, setReturningBorrowId] = useState<number | null>(null);
+
+  const allEbooks = useMemo(() => {
+    const ownedIds = new Set(ebooks.map((item) => item.id));
+    const borrowed = approvedBorrowedEbooks
+      .filter((borrow) => borrow.bookKind === 'ebook')
+      .map(borrowToEbook)
+      .filter((item) => !ownedIds.has(item.id));
+
+    return [...ebooks, ...borrowed];
+  }, [approvedBorrowedEbooks, ebooks]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -48,10 +68,15 @@ export function BookshelfEbooksView() {
   const [viewingEbook, setViewingEbook] = useState<IBookshelfEbook | null>(null);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
 
+  const borrowedCount = useMemo(
+    () => allEbooks.filter((ebook) => ebook.isBorrowed).length,
+    [allEbooks],
+  );
+
   const filteredEbooks = useMemo(() => {
-    const searched = filterEbooks(ebooks, searchQuery);
+    const searched = filterEbooks(allEbooks, searchQuery);
     return filterEbooksByCategory(searched, categoryFilter);
-  }, [categoryFilter, ebooks, searchQuery]);
+  }, [allEbooks, categoryFilter, searchQuery]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingEbook(null);
@@ -67,6 +92,30 @@ export function BookshelfEbooksView() {
     setViewingEbook(ebook);
     setViewOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (ebooksLoading || !allEbooks.length) {
+      return;
+    }
+
+    const borrowId = Number(searchParams.get('borrowId'));
+    const bookId = Number(searchParams.get('bookId'));
+
+    if (Number.isFinite(borrowId)) {
+      const borrowedBook = allEbooks.find((ebook) => ebook.borrow?.borrowId === borrowId);
+      if (borrowedBook) {
+        handleOpenView(borrowedBook);
+      }
+      return;
+    }
+
+    if (Number.isFinite(bookId)) {
+      const ownedBook = allEbooks.find((ebook) => ebook.id === bookId && !ebook.isBorrowed);
+      if (ownedBook) {
+        handleOpenView(ownedBook);
+      }
+    }
+  }, [allEbooks, ebooksLoading, handleOpenView, searchParams]);
 
   const handleCloseForm = useCallback(() => {
     setFormOpen(false);
@@ -112,6 +161,32 @@ export function BookshelfEbooksView() {
       }
     },
     [],
+  );
+
+  const handleReturnBorrow = useCallback(
+    async (ebook: IBookshelfEbook) => {
+      const borrowId = ebook.borrow?.borrowId;
+      if (!borrowId || !user?.id) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Return "${ebook.title}" to its owner?`);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setReturningBorrowId(borrowId);
+        await respondBookshelfBorrow(borrowId, user.id, 'returned');
+        toast.success('Book returned.');
+      } catch (error) {
+        console.error('Failed to return borrowed e-book:', error);
+        toast.error('Failed to return book.');
+      } finally {
+        setReturningBorrowId(null);
+      }
+    },
+    [user?.id],
   );
 
   return (
@@ -178,10 +253,14 @@ export function BookshelfEbooksView() {
               variant={!categoryFilter ? 'filled' : 'outlined'}
               onClick={() => setCategoryFilter('')}
             />
-            {BOOK_CATEGORY_OPTIONS.map((option) => (
+            {BOOK_SHELF_FILTER_OPTIONS.map((option) => (
               <Chip
                 key={option.value}
-                label={option.label}
+                label={
+                  option.value === 'borrowed' && borrowedCount > 0
+                    ? `${option.label} (${borrowedCount})`
+                    : option.label
+                }
                 clickable
                 color={categoryFilter === option.value ? 'primary' : 'default'}
                 variant={categoryFilter === option.value ? 'filled' : 'outlined'}
@@ -202,11 +281,19 @@ export function BookshelfEbooksView() {
           </Card>
         ) : filteredEbooks.length === 0 ? (
           <EmptyContent
-            title={searchQuery ? 'No e-books match your search' : 'No e-books yet'}
+            title={
+              searchQuery
+                ? 'No e-books match your search'
+                : categoryFilter === 'borrowed'
+                  ? 'No borrowed e-books'
+                  : 'No e-books yet'
+            }
             description={
-              canManage
-                ? 'Upload a PDF or TXT file to add your first e-book.'
-                : 'Check back soon for e-books in your bookshelf.'
+              categoryFilter === 'borrowed'
+                ? 'Books you borrow from neighbors will appear here after the owner approves your request.'
+                : canManage
+                  ? 'Upload a PDF or TXT file to add your first e-book.'
+                  : 'Check back soon for e-books in your bookshelf.'
             }
             filled
             sx={{ py: 10 }}
@@ -232,7 +319,7 @@ export function BookshelfEbooksView() {
           >
             {filteredEbooks.map((ebook) => (
               <BookshelfEbookCard
-                key={ebook.id}
+                key={ebook.isBorrowed ? `borrow-${ebook.borrow?.borrowId}` : `owned-${ebook.id}`}
                 ebook={ebook}
                 canManage={canManage}
                 onView={handleOpenView}
@@ -240,6 +327,8 @@ export function BookshelfEbooksView() {
                 onDelete={handleDelete}
                 onCategoryChange={handleSetCategory}
                 categorySaving={savingCategoryId === ebook.id}
+                onReturnBorrow={ebook.isBorrowed ? handleReturnBorrow : undefined}
+                returningBorrow={returningBorrowId === ebook.borrow?.borrowId}
               />
             ))}
           </Box>
