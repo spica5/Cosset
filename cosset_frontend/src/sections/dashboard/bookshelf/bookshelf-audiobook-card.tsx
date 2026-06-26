@@ -130,21 +130,6 @@ export function BookshelfAudiobookCard({
           }}
         />
 
-        {categoryLabel ? (
-          <Chip
-            label={categoryLabel}
-            size="small"
-            color="default"
-            sx={{
-              position: 'absolute',
-              top: 8,
-              left: 72,
-              fontWeight: 700,
-              maxWidth: 'calc(100% - 96px)',
-            }}
-          />
-        ) : null}
-
         {isBorrowed ? (
           <Chip
             label="Borrowed"
@@ -153,7 +138,7 @@ export function BookshelfAudiobookCard({
             sx={{
               position: 'absolute',
               top: 8,
-              right: canEdit ? 112 : 8,
+              right: canEdit ? 72 : 8,
               fontWeight: 700,
             }}
           />
@@ -211,6 +196,11 @@ export function BookshelfAudiobookCard({
         {audiobook.author ? (
           <Typography variant="body2" color="text.secondary" noWrap>
             by {audiobook.author}
+            {audiobook.publishYear ? ` · ${audiobook.publishYear}` : ''}
+          </Typography>
+        ) : audiobook.publishYear ? (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            Published {audiobook.publishYear}
           </Typography>
         ) : null}
 

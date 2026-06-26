@@ -534,7 +534,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             {menuForm}
           </Stack>
         ) : null
-      ) : (
+      ) : open ? (
         <>
           {loading && !selectedItem ? (
             <Paper
@@ -556,6 +556,30 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
           )}
           {menuForm}
         </>
+      ) : (
+        <IconButton
+          onClick={handleToggleMenu}
+          aria-label="Open menu"
+          aria-pressed={false}
+          sx={{
+            ...coffeeShopMobileFabSx,
+            p: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {loading ? (
+            <CircularProgress size={24} sx={{ color: 'common.white' }} />
+          ) : selectedItem?.resolvedImageUrl ? (
+            <Box
+              component="img"
+              src={selectedItem.resolvedImageUrl}
+              alt={selectedItem.name}
+              sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <Iconify icon="solar:cup-hot-bold" width={26} />
+          )}
+        </IconButton>
       )}
     </Box>
   );

@@ -35,18 +35,19 @@ import {
   resolveAudiobookContentUrl,
 } from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
 
-import { getBookCategoryLabel } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
-
 import {
   requestBookshelfBorrow,
   useGetBookshelfBorrowStatuses,
 } from 'src/actions/bookshelf-borrow';
 
 import { BookshelfBorrowRequestDialog } from 'src/sections/dashboard/bookshelf/bookshelf-borrow-request-dialog';
-
 import { toast } from 'src/components/dashboard/snackbar';
 
-import { MySpaceSectionTitle } from './myspace-section-title';
+import { UniverseLandingBookshelfBookDialog } from './universe-landing-bookshelf-book-dialog';
+
+
+
+import { MySpaceSectionTitle, MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
 
@@ -69,8 +70,6 @@ type Props = BoxProps & {
 };
 
 const PAGE_SIZE = 6;
-
-const SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
 
 const formatBookDate = (value: unknown) => {
   if (!value) {
@@ -199,21 +198,25 @@ function UniverseLandingBookshelfCard({
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const [requesting, setRequesting] = useState(false);
   const [borrowDialogOpen, setBorrowDialogOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
   const [localPendingBorrow, setLocalPendingBorrow] = useState<IBookshelfBorrow | null>(null);
   const title = (entry.item.title || '').trim() || `Book #${entry.item.id}`;
   const fileTypeLabel =
     entry.kind === 'ebook'
       ? getEbookFileTypeLabel(entry.item.fileType)
       : getAudiobookFileTypeLabel(entry.item.fileType);
-  const categoryLabel = getBookCategoryLabel(entry.item.category);
 
-  const handleOpen = async () => {
+  const handleOpenContent = async () => {
     const resolver = entry.kind === 'ebook' ? resolveEbookContentUrl : resolveAudiobookContentUrl;
     const url = await resolver(entry.item);
 
     if (url && typeof window !== 'undefined') {
       window.open(url, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  const handleOpenDetails = () => {
+    setViewOpen(true);
   };
 
   const handleRequestBorrow = useCallback(
@@ -290,7 +293,7 @@ function UniverseLandingBookshelfCard({
         <Typography
           variant="subtitle1"
           sx={{
-            fontFamily: SECTION_SERIF,
+            fontFamily: MYSPACE_ITEM_TITLE_FONT,
             fontWeight: 700,
             fontSize: '1.05rem',
             lineHeight: 1.35,
@@ -303,6 +306,11 @@ function UniverseLandingBookshelfCard({
         {entry.item.author ? (
           <Typography variant="body2" color="text.secondary" noWrap>
             by {entry.item.author}
+            {entry.item.publishYear ? ` · ${entry.item.publishYear}` : ''}
+          </Typography>
+        ) : entry.item.publishYear ? (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            Published {entry.item.publishYear}
           </Typography>
         ) : null}
 
@@ -314,15 +322,19 @@ function UniverseLandingBookshelfCard({
           <Typography variant="caption" color="text.secondary">
             · {fileTypeLabel}
           </Typography>
-          {categoryLabel ? (
-            <Typography variant="caption" color="text.secondary">
-              · {categoryLabel}
-            </Typography>
-          ) : null}
         </Stack>
 
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5, mt: 'auto' }}>
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: spaceTheme.accent, fontWeight: 700 }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleOpenContent();
+            }}
+            sx={{ color: spaceTheme.accent, fontWeight: 700, cursor: 'pointer' }}
+          >
             <Iconify
               icon={entry.kind === 'audiobook' ? 'solar:play-circle-bold' : 'solar:eye-bold'}
               width={18}
@@ -362,7 +374,7 @@ function UniverseLandingBookshelfCard({
       }}
     >
       <CardActionArea
-        onClick={handleOpen}
+        onClick={handleOpenDetails}
         sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 1 }}
       >
         {cardBody}
@@ -424,6 +436,12 @@ function UniverseLandingBookshelfCard({
         submitting={requesting}
         onClose={() => setBorrowDialogOpen(false)}
         onSubmit={handleRequestBorrow}
+      />
+
+      <UniverseLandingBookshelfBookDialog
+        open={viewOpen}
+        entry={entry}
+        onClose={() => setViewOpen(false)}
       />
     </Card>
   );
@@ -489,6 +507,7 @@ export function UniverseLandingBookshelf({
       const searchable = [
         item.title,
         item.author,
+        item.publishYear != null ? String(item.publishYear) : '',
         item.description,
         kind === 'ebook' ? 'e-book' : 'audio-book',
       ]

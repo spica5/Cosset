@@ -10,6 +10,10 @@ import { useDesignSpaceTheme } from './design-space-theme-context';
 
 export const MYSPACE_SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
 
+/** Item titles with Vietnamese text — avoid Georgia, which breaks composed diacritics at bold weights. */
+export const MYSPACE_ITEM_TITLE_FONT =
+  '"Public Sans Variable", "Segoe UI", "Noto Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+
 export const MYSPACE_ACCENT_PINK = '#E8A0A8';
 
 type CountBadgeProps = {

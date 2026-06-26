@@ -49,6 +49,7 @@ type BookSourceType = 'file' | 'url';
 type FormState = {
   title: string;
   author: string;
+  publishYear: string;
   description: string;
   coverImage: string;
   fileUrl: string;
@@ -61,6 +62,7 @@ type FormState = {
 const emptyForm: FormState = {
   title: '',
   author: '',
+  publishYear: '',
   description: '',
   coverImage: '',
   fileUrl: '',
@@ -122,6 +124,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
     setForm({
       title: audiobook.title || '',
       author: audiobook.author || '',
+      publishYear: audiobook.publishYear != null ? String(audiobook.publishYear) : '',
       description: audiobook.description || '',
       coverImage: audiobook.coverImage || '',
       fileUrl: audiobook.fileUrl || '',
@@ -343,6 +346,7 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
         customerId: user?.id ? String(user.id) : audiobook?.customerId ?? null,
         title: form.title.trim(),
         author: form.author.trim() || null,
+        publishYear: parseNullableInteger(form.publishYear),
         description: form.description.trim() || null,
         coverImage,
         fileUrl,
@@ -424,6 +428,15 @@ export function BookshelfAudiobookFormDialog({ open, audiobook, onClose, onSaved
               onChange={handleFieldChange('author')}
               fullWidth
               placeholder="e.g. Jane Austen"
+            />
+
+            <TextField
+              label="Publish year"
+              value={form.publishYear}
+              onChange={handleFieldChange('publishYear')}
+              fullWidth
+              placeholder="e.g. 1813"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 4 }}
             />
 
             <TextField

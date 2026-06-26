@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       title: ebook.title.trim(),
       author: ebook.author ?? null,
       description: ebook.description ?? null,
+      publishYear: ebook.publishYear ?? null,
       coverImage: ebook.coverImage ?? null,
       fileUrl: fileUrl || null,
       refUrl: refUrl || null,

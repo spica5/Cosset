@@ -20,7 +20,6 @@ import {
   resolveEbookContentUrl,
   getEbookFileTypeLabel,
 } from './bookshelf-ebook-utils';
-import { getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -109,14 +108,14 @@ export function BookshelfEbookViewDialog({ open, ebook, onClose }: Props) {
           <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}>
             {getEbookFileTypeLabel(ebook.fileType)}
           </Typography>
-          {getBookCategoryLabel(ebook.category) ? (
-            <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.hover' }}>
-              {getBookCategoryLabel(ebook.category)}
-            </Typography>
-          ) : null}
           {ebook.author ? (
             <Typography variant="body2" color="text.secondary">
               by {ebook.author}
+              {ebook.publishYear ? ` · ${ebook.publishYear}` : ''}
+            </Typography>
+          ) : ebook.publishYear ? (
+            <Typography variant="body2" color="text.secondary">
+              Published {ebook.publishYear}
             </Typography>
           ) : null}
         </Stack>

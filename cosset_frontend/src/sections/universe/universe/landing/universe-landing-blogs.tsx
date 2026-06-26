@@ -32,6 +32,7 @@ import { Iconify } from 'src/components/universe/iconify';
 
 import {
   MySpaceSectionTitle,
+  MYSPACE_ITEM_TITLE_FONT,
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
@@ -47,8 +48,6 @@ type Props = BoxProps & {
 };
 
 const PAGE_SIZE = 6;
-
-const SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Linotype", serif';
 
 const formatBlogDate = (value: unknown) => {
   if (!value) {
@@ -214,7 +213,7 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
         <Typography
           variant="subtitle1"
           sx={{
-            fontFamily: SECTION_SERIF,
+            fontFamily: MYSPACE_ITEM_TITLE_FONT,
             fontWeight: 700,
             fontSize: '1.05rem',
             lineHeight: 1.35,

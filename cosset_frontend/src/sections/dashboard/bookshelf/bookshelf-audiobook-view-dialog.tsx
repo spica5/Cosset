@@ -21,7 +21,6 @@ import {
   resolveAudiobookContentUrl,
   getAudiobookFileTypeLabel,
 } from './bookshelf-audiobook-utils';
-import { getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -105,14 +104,14 @@ export function BookshelfAudiobookViewDialog({ open, audiobook, onClose }: Props
           <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}>
             {getAudiobookFileTypeLabel(audiobook.fileType)}
           </Typography>
-          {getBookCategoryLabel(audiobook.category) ? (
-            <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.hover' }}>
-              {getBookCategoryLabel(audiobook.category)}
-            </Typography>
-          ) : null}
           {audiobook.author ? (
             <Typography variant="body2" color="text.secondary">
               by {audiobook.author}
+              {audiobook.publishYear ? ` · ${audiobook.publishYear}` : ''}
+            </Typography>
+          ) : audiobook.publishYear ? (
+            <Typography variant="body2" color="text.secondary">
+              Published {audiobook.publishYear}
             </Typography>
           ) : null}
         </Stack>

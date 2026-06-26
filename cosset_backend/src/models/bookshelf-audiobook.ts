@@ -16,6 +16,7 @@ export interface BookshelfAudiobook {
   title: string;
   author?: string | null;
   description?: string | null;
+  publishYear?: number | null;
   coverImage?: string | null;
   fileUrl?: string | null;
   refUrl?: string | null;
@@ -33,6 +34,7 @@ const SELECT_COLUMNS = `
   title,
   author,
   description,
+  publish_year as "publishYear",
   cover_image as "coverImage",
   file_url as "fileUrl",
   ref_url as "refUrl",
@@ -50,6 +52,7 @@ let ensureCustomerIdColumnPromise: Promise<void> | null = null;
 let ensureRefUrlColumnPromise: Promise<void> | null = null;
 let ensureCategoryColumnPromise: Promise<void> | null = null;
 let ensureIsFavoriteColumnPromise: Promise<void> | null = null;
+let ensurePublishYearColumnPromise: Promise<void> | null = null;
 
 const parseInteger = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -178,6 +181,31 @@ const ensureIsFavoriteColumn = async (): Promise<void> => {
   await ensureIsFavoriteColumnPromise;
 };
 
+const normalizePublishYear = (value: unknown): number | null => {
+  const parsed = normalizeNullableInteger(value);
+
+  if (parsed == null || parsed < 1 || parsed > 9999) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const ensurePublishYearColumn = async (): Promise<void> => {
+  if (!ensurePublishYearColumnPromise) {
+    ensurePublishYearColumnPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS publish_year INTEGER`,
+      );
+    })().catch((error) => {
+      ensurePublishYearColumnPromise = null;
+      throw error;
+    });
+  }
+
+  await ensurePublishYearColumnPromise;
+};
+
 const ensureRefUrlColumn = async (): Promise<void> => {
   if (!ensureRefUrlColumnPromise) {
     ensureRefUrlColumnPromise = (async () => {
@@ -222,6 +250,7 @@ const ensureTable = async (): Promise<void> => {
   await ensureRefUrlColumn();
   await ensureCategoryColumn();
   await ensureIsFavoriteColumn();
+  await ensurePublishYearColumn();
 };
 
 export async function getAllBookshelfAudiobooks(
@@ -313,6 +342,7 @@ export async function createBookshelfAudiobook(
           title,
           author,
           description,
+          publish_year,
           cover_image,
           file_url,
           ref_url,
@@ -322,7 +352,7 @@ export async function createBookshelfAudiobook(
           "order",
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         RETURNING
           ${SELECT_COLUMNS}
       `,
@@ -331,6 +361,7 @@ export async function createBookshelfAudiobook(
         item.title,
         item.author ?? null,
         item.description ?? null,
+        normalizePublishYear(item.publishYear),
         item.coverImage ?? null,
         item.fileUrl ?? null,
         item.refUrl ?? null,
@@ -397,6 +428,12 @@ export async function updateBookshelfAudiobook(
     if (updates.description !== undefined) {
       fields.push(`description = $${paramIndex}`);
       values.push(updates.description ?? null);
+      paramIndex += 1;
+    }
+
+    if (updates.publishYear !== undefined) {
+      fields.push(`publish_year = $${paramIndex}`);
+      values.push(normalizePublishYear(updates.publishYear));
       paramIndex += 1;
     }
 

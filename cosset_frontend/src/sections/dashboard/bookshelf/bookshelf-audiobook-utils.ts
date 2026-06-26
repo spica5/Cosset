@@ -71,6 +71,7 @@ export function filterAudiobooks(audiobooks: IBookshelfAudiobook[], query: strin
     (audiobook) =>
       audiobook.title.toLowerCase().includes(normalized) ||
       (audiobook.author || '').toLowerCase().includes(normalized) ||
+      (audiobook.publishYear != null ? String(audiobook.publishYear) : '').includes(normalized) ||
       (audiobook.description || '').toLowerCase().includes(normalized) ||
       getAudiobookFileTypeLabel(audiobook.fileType).toLowerCase().includes(normalized) ||
       getBookCategoryLabel(audiobook.category).toLowerCase().includes(normalized),

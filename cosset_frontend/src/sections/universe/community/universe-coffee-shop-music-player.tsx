@@ -22,6 +22,8 @@ import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { coffeeShopMobileFabSx } from './coffee-shop-mobile-panels';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -62,6 +64,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -301,18 +304,21 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
   }
 
   const hasTracks = sourceTracks.length > 0;
+
+  if (!hasTracks) {
+    return null;
+  }
+
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const displayTitle =
     (currentTrack && 'title' in currentTrack ? currentTrack.title : null) || 'Music';
   const controlsDisabled = !hasTracks || resolving || resolveError || !tracks.length || !isPresent;
 
-  const statusText = !hasTracks
-    ? 'No music'
-    : resolveError
-      ? 'Could not load audio'
-      : resolving
-        ? 'Loading…'
-        : `${formatTime(currentTime)} / ${formatTime(duration)}`;
+  const statusText = resolveError
+    ? 'Could not load audio'
+    : resolving
+      ? 'Loading…'
+      : `${formatTime(currentTime)} / ${formatTime(duration)}`;
 
   const panel = (
     <Box
@@ -323,10 +329,26 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
         right: { xs: 80, sm: 120 },
         zIndex: theme.zIndex.snackbar,
         pointerEvents: 'auto',
-        width: { xs: 'auto', sm: 300 },
-        maxWidth: { xs: 'calc(100vw - 96px)', sm: 300 },
+        width: { xs: 'auto', sm: panelOpen ? 300 : 'auto' },
+        maxWidth: { xs: 'calc(100vw - 96px)', sm: panelOpen ? 300 : 'none' },
       }}
     >
+      {!panelOpen ? (
+        <IconButton
+          onClick={() => setPanelOpen(true)}
+          aria-label="Open music player"
+          sx={coffeeShopMobileFabSx}
+        >
+          {resolving && hasTracks ? (
+            <CircularProgress size={24} sx={{ color: 'common.white' }} />
+          ) : (
+            <Iconify
+              icon={isPlaying ? 'solar:music-note-3-bold' : 'solar:music-note-2-bold'}
+              width={26}
+            />
+          )}
+        </IconButton>
+      ) : (
       <Stack
         spacing={0.75}
         sx={{
@@ -470,6 +492,15 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
               />
             </IconButton>
           ) : null}
+
+          <IconButton
+            size="small"
+            onClick={() => setPanelOpen(false)}
+            sx={{ color: 'common.white' }}
+            aria-label="Minimize music player"
+          >
+            <Iconify icon="eva:arrow-down-fill" width={20} />
+          </IconButton>
         </Stack>
 
         {hasTracks && !resolveError && !resolving ? (
@@ -501,6 +532,7 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
           </Box>
         ) : null}
       </Stack>
+      )}
 
       {hasTracks ? (
         <audio

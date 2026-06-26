@@ -32,6 +32,7 @@ export function filterEbooks(ebooks: IBookshelfEbook[], query: string) {
     (ebook) =>
       ebook.title.toLowerCase().includes(normalized) ||
       (ebook.author || '').toLowerCase().includes(normalized) ||
+      (ebook.publishYear != null ? String(ebook.publishYear) : '').includes(normalized) ||
       (ebook.description || '').toLowerCase().includes(normalized) ||
       getEbookFileTypeLabel(ebook.fileType).toLowerCase().includes(normalized) ||
       getBookCategoryLabel(ebook.category).toLowerCase().includes(normalized),

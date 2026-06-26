@@ -76,6 +76,7 @@ export async function PUT(
       title: updates.title,
       author: updates.author,
       description: updates.description,
+      publishYear: updates.publishYear,
       coverImage: updates.coverImage,
       fileUrl: updates.fileUrl !== undefined ? (String(updates.fileUrl || '').trim() || null) : undefined,
       refUrl: updates.refUrl !== undefined ? (String(updates.refUrl || '').trim() || null) : undefined,

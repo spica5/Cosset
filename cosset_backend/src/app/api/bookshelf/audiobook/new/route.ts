@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       title: audiobook.title.trim(),
       author: audiobook.author ?? null,
       description: audiobook.description ?? null,
+      publishYear: audiobook.publishYear ?? null,
       coverImage: audiobook.coverImage ?? null,
       fileUrl: fileUrl || null,
       refUrl: refUrl || null,

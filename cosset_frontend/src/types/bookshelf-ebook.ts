@@ -11,6 +11,7 @@ export type IBookshelfEbook = {
   title: string;
   author?: string | null;
   description?: string | null;
+  publishYear?: number | null;
   coverImage?: string | null;
   fileUrl?: string | null;
   refUrl?: string | null;

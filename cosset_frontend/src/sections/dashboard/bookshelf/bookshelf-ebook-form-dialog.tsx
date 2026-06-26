@@ -45,6 +45,7 @@ type BookSourceType = 'file' | 'url';
 type FormState = {
   title: string;
   author: string;
+  publishYear: string;
   description: string;
   coverImage: string;
   fileUrl: string;
@@ -57,6 +58,7 @@ type FormState = {
 const emptyForm: FormState = {
   title: '',
   author: '',
+  publishYear: '',
   description: '',
   coverImage: '',
   fileUrl: '',
@@ -120,6 +122,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
     setForm({
       title: ebook.title || '',
       author: ebook.author || '',
+      publishYear: ebook.publishYear != null ? String(ebook.publishYear) : '',
       description: ebook.description || '',
       coverImage: ebook.coverImage || '',
       fileUrl: ebook.fileUrl || '',
@@ -339,6 +342,7 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
         customerId: user?.id ? String(user.id) : ebook?.customerId ?? null,
         title: form.title.trim(),
         author: form.author.trim() || null,
+        publishYear: parseNullableInteger(form.publishYear),
         description: form.description.trim() || null,
         coverImage,
         fileUrl,
@@ -420,6 +424,15 @@ export function BookshelfEbookFormDialog({ open, ebook, onClose, onSaved }: Prop
               onChange={handleFieldChange('author')}
               fullWidth
               placeholder="e.g. Jane Austen"
+            />
+
+            <TextField
+              label="Publish year"
+              value={form.publishYear}
+              onChange={handleFieldChange('publishYear')}
+              fullWidth
+              placeholder="e.g. 1813"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 4 }}
             />
 
             <TextField

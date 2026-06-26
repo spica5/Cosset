@@ -30,6 +30,7 @@ export type IBookshelfBorrow = {
   bookFileUrl?: string | null;
   bookRefUrl?: string | null;
   bookDescription?: string | null;
+  bookPublishYear?: number | null;
   bookCreatedAt?: string | Date | null;
   counterpartyName?: string | null;
 };

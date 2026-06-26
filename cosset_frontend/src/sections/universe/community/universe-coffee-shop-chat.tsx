@@ -60,6 +60,7 @@ import {
   COFFEE_SHOP_MOBILE_PANEL_EVENT,
   closeCoffeeShopMobilePanel,
   coffeeShopMobileChatFormBoxSx,
+  coffeeShopMobileFabSx,
   type CoffeeShopMobilePanel,
 } from './coffee-shop-mobile-panels';
 
@@ -1066,6 +1067,25 @@ export function UniverseCoffeeShopChat({
 
   if (isMobile && !open) {
     return null;
+  }
+
+  if (!isMobile && !open) {
+    return createPortal(
+      <Box
+        sx={{
+          position: 'fixed',
+          right: 24,
+          bottom: 24,
+          zIndex: (tm) => tm.zIndex.snackbar,
+          pointerEvents: 'auto',
+        }}
+      >
+        <IconButton onClick={() => setOpen(true)} aria-label="Open chat" sx={coffeeShopMobileFabSx}>
+          <Iconify icon="solar:chat-round-dots-bold" width={26} />
+        </IconButton>
+      </Box>,
+      portalTarget,
+    );
   }
 
   const panel = (

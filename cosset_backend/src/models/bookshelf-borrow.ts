@@ -44,6 +44,7 @@ export interface BookshelfBorrowWithBook extends BookshelfBorrow {
   bookFileUrl?: string | null;
   bookRefUrl?: string | null;
   bookDescription?: string | null;
+  bookPublishYear?: number | null;
   bookCreatedAt?: Date | null;
   counterpartyName?: string | null;
 }
@@ -404,6 +405,7 @@ export async function listBookshelfBorrows(input: {
         COALESCE(e.file_url, a.file_url) as "bookFileUrl",
         COALESCE(e.ref_url, a.ref_url) as "bookRefUrl",
         COALESCE(e.description, a.description) as "bookDescription",
+        COALESCE(e.publish_year, a.publish_year) as "bookPublishYear",
         COALESCE(e.created_at, a.created_at) as "bookCreatedAt",
         CASE
           WHEN b.borrower_customer_id = $1 THEN TRIM(CONCAT(owner_user.first_name, ' ', owner_user.last_name))
