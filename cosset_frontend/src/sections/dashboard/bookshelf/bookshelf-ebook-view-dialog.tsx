@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Popover from '@mui/material/Popover';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -43,6 +44,7 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
   const [iframePage, setIframePage] = useState(1);
   const [pdfFrameKey, setPdfFrameKey] = useState(0);
   const [readerToolsOpen, setReaderToolsOpen] = useState(true);
+  const [summaryAnchor, setSummaryAnchor] = useState<HTMLElement | null>(null);
   const txtScrollRef = useRef<HTMLDivElement | null>(null);
   const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
   const skipPollUntilRef = useRef(0);
@@ -116,6 +118,12 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
       mounted = false;
     };
   }, [ebook, open]);
+
+  useEffect(() => {
+    if (!open) {
+      setSummaryAnchor(null);
+    }
+  }, [open]);
 
   const pdfBaseUrl = useMemo(() => {
     if (!fileUrl || ebook?.fileType !== 'pdf') {
@@ -199,13 +207,50 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
     return null;
   }
 
+  const description = (ebook.description || '').trim();
+  const summaryOpen = Boolean(summaryAnchor);
+
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xl" fullScreen={ebook.fileType === 'pdf'}>
       <DialogTitle sx={{ pr: 6 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography variant="h6" sx={{ flex: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+          <Typography variant="h6" sx={{ minWidth: 0 }} noWrap>
             {ebook.title}
           </Typography>
+
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}
+            >
+              {getEbookFileTypeLabel(ebook.fileType)}
+            </Typography>
+            {ebook.author ? (
+              <Typography variant="body2" color="text.secondary" noWrap>
+                by {ebook.author}
+                {ebook.publishYear ? ` · ${ebook.publishYear}` : ''}
+              </Typography>
+            ) : ebook.publishYear ? (
+              <Typography variant="body2" color="text.secondary" noWrap>
+                Published {ebook.publishYear}
+              </Typography>
+            ) : null}
+          </Stack>
+
+          <Box sx={{ flex: 1, minWidth: 8 }} />
+
+          {description ? (
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              startIcon={<Iconify icon="solar:document-text-bold" width={16} />}
+              onClick={(event) => setSummaryAnchor(event.currentTarget)}
+              sx={{ flexShrink: 0, mr: canUseReaderTools ? 0 : 5 }}
+            >
+              Summary
+            </Button>
+          ) : null}
 
           {canUseReaderTools ? (
             <Button
@@ -213,7 +258,7 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
               variant={readerToolsOpen ? 'contained' : 'outlined'}
               startIcon={<Iconify icon="solar:bookmark-bold" />}
               onClick={() => setReaderToolsOpen((value) => !value)}
-              sx={{ mr: 5 }}
+              sx={{ mr: 5, flexShrink: 0 }}
             >
               {readerToolsOpen ? 'Hide tools' : 'Bookmarks & comments'}
             </Button>
@@ -224,21 +269,30 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
           </IconButton>
         </Stack>
 
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'action.selected' }}>
-            {getEbookFileTypeLabel(ebook.fileType)}
+        <Popover
+          open={summaryOpen}
+          anchorEl={summaryAnchor}
+          onClose={() => setSummaryAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                p: 2,
+                maxWidth: 420,
+                maxHeight: 320,
+                overflow: 'auto',
+              },
+            },
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Summary
           </Typography>
-          {ebook.author ? (
-            <Typography variant="body2" color="text.secondary">
-              by {ebook.author}
-              {ebook.publishYear ? ` · ${ebook.publishYear}` : ''}
-            </Typography>
-          ) : ebook.publishYear ? (
-            <Typography variant="body2" color="text.secondary">
-              Published {ebook.publishYear}
-            </Typography>
-          ) : null}
-        </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+            {description}
+          </Typography>
+        </Popover>
       </DialogTitle>
 
       <DialogContent
@@ -255,17 +309,12 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
             flex: 1,
             minWidth: 0,
             p: { xs: 2, md: 3 },
+            pt: { xs: 0, md: 0 },
             overflow: 'auto',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          {ebook.description ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-              {ebook.description}
-            </Typography>
-          ) : null}
-
           {loading ? (
             <Stack alignItems="center" justifyContent="center" sx={{ py: 8, flex: 1 }}>
               <CircularProgress size={28} />
