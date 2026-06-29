@@ -379,21 +379,6 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
               </Typography>
             </Box>
           ) : null}
-
-          {fileUrl ? (
-            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-              <Button
-                component="a"
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                startIcon={<Iconify icon="mingcute:download-line" />}
-              >
-                Download
-              </Button>
-            </Stack>
-          ) : null}
         </Box>
 
         {canUseReaderTools && readerToolsOpen ? (
