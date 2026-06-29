@@ -3,7 +3,7 @@
 import type { RefObject } from 'react';
 import type { BookshelfEbookFileType } from 'src/types/bookshelf-ebook';
 
-import { useCallback, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -75,6 +75,28 @@ export function BookshelfEbookReaderPanel({
   const [savingComment, setSavingComment] = useState(false);
   const [deletingBookmarkId, setDeletingBookmarkId] = useState<number | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
+  const [pageInput, setPageInput] = useState(String(currentPage));
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const commitPageInput = useCallback(() => {
+    const next = Math.max(1, Number.parseInt(pageInput, 10) || 1);
+    setPageInput(String(next));
+    onCurrentPageChange(next);
+    onJumpToPage?.(next);
+  }, [onCurrentPageChange, onJumpToPage, pageInput]);
+
+  const handleStepPage = useCallback(
+    (delta: number) => {
+      const next = Math.max(1, currentPage + delta);
+      setPageInput(String(next));
+      onCurrentPageChange(next);
+      onJumpToPage?.(next);
+    },
+    [currentPage, onCurrentPageChange, onJumpToPage],
+  );
 
   const { bookmarks, bookmarksLoading, refreshBookmarks } = useGetBookshelfEbookBookmarks(
     bookId,
@@ -168,6 +190,7 @@ export function BookshelfEbookReaderPanel({
 
   const handleJumpToBookmark = (pageNumber?: number | null, scrollPosition?: number | null) => {
     if (fileType === 'pdf' && pageNumber) {
+      setPageInput(String(pageNumber));
       onCurrentPageChange(pageNumber);
       onJumpToPage?.(pageNumber);
       return;
@@ -194,19 +217,39 @@ export function BookshelfEbookReaderPanel({
       <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
           {fileType === 'pdf' ? (
-            <TextField
-              size="small"
-              type="number"
-              label="Page"
-              value={currentPage}
-              onChange={(event) => {
-                const next = Math.max(1, Number.parseInt(event.target.value, 10) || 1);
-                onCurrentPageChange(next);
-              }}
-              onBlur={() => onJumpToPage?.(currentPage)}
-              inputProps={{ min: 1 }}
-              sx={{ width: 100 }}
-            />
+            <>
+              <IconButton
+                size="small"
+                aria-label="Previous page"
+                onClick={() => handleStepPage(-1)}
+                disabled={currentPage <= 1}
+              >
+                <Iconify icon="eva:arrow-ios-back-fill" width={18} />
+              </IconButton>
+              <TextField
+                size="small"
+                type="number"
+                label="Page"
+                value={pageInput}
+                onChange={(event) => setPageInput(event.target.value)}
+                onBlur={commitPageInput}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitPageInput();
+                  }
+                }}
+                inputProps={{ min: 1 }}
+                sx={{ width: 100 }}
+              />
+              <IconButton
+                size="small"
+                aria-label="Next page"
+                onClick={() => handleStepPage(1)}
+              >
+                <Iconify icon="eva:arrow-ios-forward-fill" width={18} />
+              </IconButton>
+            </>
           ) : (
             <Typography variant="caption" color="text.secondary">
               Scroll position is saved automatically for bookmarks and comments.

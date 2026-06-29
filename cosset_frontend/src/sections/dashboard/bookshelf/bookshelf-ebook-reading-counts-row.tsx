@@ -27,23 +27,34 @@ export function BookshelfEbookReadingCountsRow({
 }: Props) {
   const Iconify = variant === 'universe' ? UniverseIconify : DashboardIconify;
 
-  const iconSx =
+  const bookmarkIconSx =
     variant === 'universe'
       ? { color: accentColor || 'text.disabled' }
-      : { color: 'text.disabled' };
+      : { color: 'warning.main' };
+
+  const commentIconSx =
+    variant === 'universe'
+      ? { color: accentColor || 'text.disabled' }
+      : { color: 'info.main' };
 
   return (
     <Stack direction="row" spacing={1.25} alignItems="center" sx={sx}>
       <Stack direction="row" spacing={0.35} alignItems="center">
-        <Iconify icon="solar:bookmark-bold" width={iconSize} sx={iconSx} />
-        <Typography variant="caption" color="text.secondary">
+        <Iconify icon="solar:bookmark-bold" width={iconSize} sx={bookmarkIconSx} />
+        <Typography
+          variant="caption"
+          sx={{ color: variant === 'dashboard' ? 'warning.dark' : 'text.secondary' }}
+        >
           {bookmarkCount}
         </Typography>
       </Stack>
 
       <Stack direction="row" spacing={0.35} alignItems="center">
-        <Iconify icon="solar:chat-round-dots-bold" width={iconSize} sx={iconSx} />
-        <Typography variant="caption" color="text.secondary">
+        <Iconify icon="solar:chat-round-dots-bold" width={iconSize} sx={commentIconSx} />
+        <Typography
+          variant="caption"
+          sx={{ color: variant === 'dashboard' ? 'info.dark' : 'text.secondary' }}
+        >
           {commentCount}
         </Typography>
       </Stack>

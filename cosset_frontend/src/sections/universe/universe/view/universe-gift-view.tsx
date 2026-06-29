@@ -4,7 +4,7 @@ import type { IGiftItem } from 'src/types/gift';
 import type { Slide } from 'yet-another-react-lightbox';
 import type { ReactionType } from 'src/actions/reaction';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -26,9 +26,9 @@ import { fDate } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
+import { updatePostCommentVisibility } from 'src/actions/post';
 import { recordGiftView, useGetDrawerComments } from 'src/actions/gift';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
-import { updatePostCommentVisibility } from 'src/actions/post';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
@@ -105,7 +105,7 @@ export function UniverseGiftView({ customerId, giftId }: Props) {
   const viewerId = authenticated && user?.id ? String(user.id) : undefined;
   const isOwner = viewerId === customerId;
 
-  const { reactionSummary, reactionSummaryLoading, reactionSummaryValidating } = useGetReactionSummary(
+  const { reactionSummary } = useGetReactionSummary(
     'drawer',
     gift?.id ?? '',
     viewerId,

@@ -9,22 +9,20 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import ListItemText from '@mui/material/ListItemText';
 
-import { CONFIG } from 'src/config-global';
-
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+
+import { CONFIG } from 'src/config-global';
 
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 
-import { fDateTime } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { _moodIcons } from 'src/_mock/assets';
 
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
-import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
 
 // ----------------------------------------------------------------------
 
@@ -45,7 +43,6 @@ const getMoodAvatar = (mood?: string) => _moodIcons[mood || ''] || '😊';
 // ----------------------------------------------------------------------
 
 export function NeighborItem({ neighbor, onView }: Props) {
-  const popover = usePopover();
   const universeHref = paths.universe.view(neighbor.id);
 
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;

@@ -22,6 +22,7 @@ import {
   resolveEbookContentUrl,
   getEbookFileTypeLabel,
 } from './bookshelf-ebook-utils';
+import { readPdfPageFromIframe } from './bookshelf-ebook-pdf-page';
 import { BookshelfEbookReaderPanel } from './bookshelf-ebook-reader-panel';
 
 // ----------------------------------------------------------------------
@@ -41,6 +42,7 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
   const [currentPage, setCurrentPage] = useState(1);
   const [readerToolsOpen, setReaderToolsOpen] = useState(true);
   const txtScrollRef = useRef<HTMLDivElement | null>(null);
+  const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const normalizedCustomerId = customerId != null ? String(customerId).trim() : '';
   const canUseReaderTools = Boolean(normalizedCustomerId && ebook);
@@ -108,18 +110,73 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
     };
   }, [ebook, open]);
 
-  const pdfSrc = useMemo(() => {
+  const pdfBaseUrl = useMemo(() => {
     if (!fileUrl || ebook?.fileType !== 'pdf') {
       return '';
     }
 
-    const base = fileUrl.split('#')[0];
-    return `${base}#page=${currentPage}`;
-  }, [currentPage, ebook?.fileType, fileUrl]);
+    return fileUrl.split('#')[0];
+  }, [ebook?.fileType, fileUrl]);
 
-  const handleJumpToPage = useCallback((page: number) => {
-    setCurrentPage(Math.max(1, page));
-  }, []);
+  const applyPdfPage = useCallback(
+    (page: number, updateIframe = true) => {
+      const nextPage = Math.max(1, page);
+      setCurrentPage(nextPage);
+
+      if (!updateIframe) {
+        return;
+      }
+
+      const iframe = pdfIframeRef.current;
+      if (!iframe || !pdfBaseUrl) {
+        return;
+      }
+
+      const nextSrc = `${pdfBaseUrl}#page=${nextPage}`;
+      if (iframe.src !== nextSrc) {
+        iframe.src = nextSrc;
+      }
+    },
+    [pdfBaseUrl],
+  );
+
+  useEffect(() => {
+    if (!open || !pdfBaseUrl || ebook?.fileType !== 'pdf') {
+      return;
+    }
+
+    applyPdfPage(1);
+  }, [applyPdfPage, ebook?.fileType, open, pdfBaseUrl]);
+
+  useEffect(() => {
+    if (!open || ebook?.fileType !== 'pdf' || !pdfBaseUrl) {
+      return undefined;
+    }
+
+    const syncPdfPageFromViewer = () => {
+      const detectedPage = readPdfPageFromIframe(pdfIframeRef.current);
+      if (!detectedPage) {
+        return;
+      }
+
+      setCurrentPage((previousPage) => (previousPage === detectedPage ? previousPage : detectedPage));
+    };
+
+    const intervalId = window.setInterval(syncPdfPageFromViewer, 400);
+    window.addEventListener('focus', syncPdfPageFromViewer);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', syncPdfPageFromViewer);
+    };
+  }, [ebook?.fileType, open, pdfBaseUrl]);
+
+  const handleJumpToPage = useCallback(
+    (page: number) => {
+      applyPdfPage(page);
+    },
+    [applyPdfPage],
+  );
 
   const handleJumpToScrollPosition = useCallback((position: number) => {
     const container = txtScrollRef.current;
@@ -222,11 +279,11 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
                 </Button>
               ) : null}
             </Stack>
-          ) : ebook.fileType === 'pdf' && pdfSrc ? (
+          ) : ebook.fileType === 'pdf' && pdfBaseUrl ? (
             <Box
               component="iframe"
-              key={pdfSrc}
-              src={pdfSrc}
+              ref={pdfIframeRef}
+              src={`${pdfBaseUrl}#page=1`}
               title={ebook.title}
               sx={{
                 width: 1,
