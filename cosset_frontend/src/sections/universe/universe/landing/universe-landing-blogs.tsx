@@ -1,7 +1,7 @@
-import type { BoxProps } from '@mui/material/Box';
 import type { IBlogItem } from 'src/types/blog';
+import type { BoxProps } from '@mui/material/Box';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import { useGetViewedBlogIds } from 'src/actions/blog';
 import { useGetReactionSummary } from 'src/actions/reaction';
@@ -34,8 +34,9 @@ import {
   MySpaceSectionTitle,
   MYSPACE_ITEM_TITLE_FONT,
 } from './myspace-section-title';
-import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 

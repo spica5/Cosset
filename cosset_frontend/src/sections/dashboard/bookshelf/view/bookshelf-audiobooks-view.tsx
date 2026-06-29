@@ -36,7 +36,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { filterAudiobooks } from '../bookshelf-audiobook-utils';
+import { filterAudiobooks, openBookshelfAudiobookContent } from '../bookshelf-audiobook-utils';
 import {
   filterBookshelfByGenre,
   filterBookshelfByShelfTab,
@@ -47,7 +47,6 @@ import {
 import { BookshelfShelfFilters } from '../bookshelf-shelf-filters';
 import { sortBookshelfItems, type BookshelfSortValue } from '../bookshelf-sort';
 import { BookshelfAudiobookCard } from '../bookshelf-audiobook-card';
-import { BookshelfAudiobookViewDialog } from '../bookshelf-audiobook-view-dialog';
 import { BookshelfAudiobookFormDialog } from '../bookshelf-audiobook-form-dialog';
 
 // ----------------------------------------------------------------------
@@ -81,9 +80,7 @@ export function BookshelfAudiobooksView() {
   const [genreFilter, setGenreFilter] = useState('');
   const [sortBy, setSortBy] = useState<BookshelfSortValue>('latest');
   const [formOpen, setFormOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
   const [editingAudiobook, setEditingAudiobook] = useState<IBookshelfAudiobook | null>(null);
-  const [listeningAudiobook, setListeningAudiobook] = useState<IBookshelfAudiobook | null>(null);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
@@ -117,9 +114,16 @@ export function BookshelfAudiobooksView() {
     setFormOpen(true);
   }, []);
 
-  const handleOpenListen = useCallback((audiobook: IBookshelfAudiobook) => {
-    setListeningAudiobook(audiobook);
-    setViewOpen(true);
+  const handleOpenListen = useCallback(async (audiobook: IBookshelfAudiobook) => {
+    try {
+      const url = await openBookshelfAudiobookContent(audiobook);
+      if (!url) {
+        toast.error('Could not open this audio-book.');
+      }
+    } catch (error) {
+      console.error('Failed to open audio-book:', error);
+      toast.error('Could not open this audio-book.');
+    }
   }, []);
 
   useEffect(() => {
@@ -153,11 +157,6 @@ export function BookshelfAudiobooksView() {
   const handleCloseForm = useCallback(() => {
     setFormOpen(false);
     setEditingAudiobook(null);
-  }, []);
-
-  const handleCloseView = useCallback(() => {
-    setViewOpen(false);
-    setListeningAudiobook(null);
   }, []);
 
   const handleDelete = useCallback(async (audiobook: IBookshelfAudiobook) => {
@@ -393,12 +392,6 @@ export function BookshelfAudiobooksView() {
         open={formOpen}
         audiobook={editingAudiobook}
         onClose={handleCloseForm}
-      />
-
-      <BookshelfAudiobookViewDialog
-        open={viewOpen}
-        audiobook={listeningAudiobook}
-        onClose={handleCloseView}
       />
     </DashboardContent>
   );

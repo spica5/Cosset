@@ -20,7 +20,6 @@ import { Iconify } from 'src/components/universe/iconify';
 import {
   getEbookFileTypeLabel,
   resolveEbookAssetUrl,
-  resolveEbookContentUrl,
 } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
 import {
   getAudiobookFileTypeLabel,
@@ -28,6 +27,7 @@ import {
   resolveAudiobookContentUrl,
 } from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
 import { getBookCategoryLabel } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
+import { BookshelfEbookViewDialog } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-view-dialog';
 import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
@@ -39,6 +39,7 @@ type BookshelfEntry =
 type Props = {
   open: boolean;
   entry: BookshelfEntry | null;
+  viewerCustomerId?: string | number | null;
   onClose: () => void;
 };
 
@@ -59,9 +60,15 @@ const formatBookDate = (value?: string | Date | null) => {
   return `${day}/${month}/${year}`;
 };
 
-export function UniverseLandingBookshelfBookDialog({ open, entry, onClose }: Props) {
+export function UniverseLandingBookshelfBookDialog({
+  open,
+  entry,
+  viewerCustomerId,
+  onClose,
+}: Props) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const [coverUrl, setCoverUrl] = useState('');
+  const [readerOpen, setReaderOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -88,6 +95,12 @@ export function UniverseLandingBookshelfBookDialog({ open, entry, onClose }: Pro
     };
   }, [entry, open]);
 
+  useEffect(() => {
+    if (!open) {
+      setReaderOpen(false);
+    }
+  }, [open]);
+
   if (!entry) {
     return null;
   }
@@ -103,8 +116,12 @@ export function UniverseLandingBookshelfBookDialog({ open, entry, onClose }: Pro
   const isAudiobook = entry.kind === 'audiobook';
 
   const handleOpenContent = async () => {
-    const resolver = isAudiobook ? resolveAudiobookContentUrl : resolveEbookContentUrl;
-    const url = await resolver(entry.item);
+    if (!isAudiobook) {
+      setReaderOpen(true);
+      return;
+    }
+
+    const url = await resolveAudiobookContentUrl(entry.item);
 
     if (url && typeof window !== 'undefined') {
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -273,6 +290,15 @@ export function UniverseLandingBookshelfBookDialog({ open, entry, onClose }: Pro
           {isAudiobook ? 'Listen' : 'Read'}
         </Button>
       </DialogActions>
+
+      {entry.kind === 'ebook' ? (
+        <BookshelfEbookViewDialog
+          open={readerOpen}
+          ebook={entry.item}
+          customerId={viewerCustomerId}
+          onClose={() => setReaderOpen(false)}
+        />
+      ) : null}
     </Dialog>
   );
 }

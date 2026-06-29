@@ -2,11 +2,10 @@
 
 import type { BoxProps } from '@mui/material/Box';
 import type { IBookshelfEbook } from 'src/types/bookshelf-ebook';
+import type { IBookshelfBorrow } from 'src/types/bookshelf-borrow';
 import type { IBookshelfAudiobook } from 'src/types/bookshelf-audiobook';
 
-import type { IBookshelfBorrow } from 'src/types/bookshelf-borrow';
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -25,14 +24,13 @@ import { RouterLink } from 'src/routes/components';
 import { Iconify } from 'src/components/universe/iconify';
 
 import {
-  getEbookFileTypeLabel,
   resolveEbookAssetUrl,
-  resolveEbookContentUrl,
+  getEbookFileTypeLabel,  
 } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
+
 import {
-  getAudiobookFileTypeLabel,
   resolveAudiobookAssetUrl,
-  resolveAudiobookContentUrl,
+  getAudiobookFileTypeLabel,  
 } from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
 
 import {
@@ -41,15 +39,19 @@ import {
 } from 'src/actions/bookshelf-borrow';
 
 import { BookshelfBorrowRequestDialog } from 'src/sections/dashboard/bookshelf/bookshelf-borrow-request-dialog';
+import { BookshelfEbookReadingCountsRow } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-reading-counts-row';
+
+import {
+  normalizeReadingCountBookId,
+  useGetBookshelfEbookReadingCounts,
+} from 'src/actions/bookshelf-ebook-reading';
+
 import { toast } from 'src/components/dashboard/snackbar';
 
-import { UniverseLandingBookshelfBookDialog } from './universe-landing-bookshelf-book-dialog';
-
-
-
-import { MySpaceSectionTitle, MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
-import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { MySpaceSectionTitle, MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
+import { UniverseLandingBookshelfBookDialog } from './universe-landing-bookshelf-book-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -94,6 +96,8 @@ type BookCardProps = {
   canRequestBorrow?: boolean;
   ownerCustomerId?: string;
   viewerCustomerId?: string;
+  bookmarkCount?: number;
+  commentCount?: number;
 };
 
 function getBorrowStatusForEntry(
@@ -112,14 +116,15 @@ function getBorrowStatusForEntry(
 
 function BookshelfCover({ entry }: { entry: BookshelfItem }) {
   const [coverUrl, setCoverUrl] = useState('');
+  const { item, kind } = entry;
+  const { coverImage, title } = item;
 
   useEffect(() => {
     let mounted = true;
-    const coverImage = entry.item.coverImage;
     const resolveCover =
-      entry.kind === 'audiobook' ? resolveAudiobookAssetUrl : resolveEbookAssetUrl;
+      kind === 'audiobook' ? resolveAudiobookAssetUrl : resolveEbookAssetUrl;
 
-    resolveCover(coverImage).then((url) => {
+    resolveCover(coverImage).then((url: string) => {
       if (mounted) {
         setCoverUrl(url);
       }
@@ -128,13 +133,12 @@ function BookshelfCover({ entry }: { entry: BookshelfItem }) {
     return () => {
       mounted = false;
     };
-  }, [entry]);
+  }, [coverImage, kind]);
 
-  const title = entry.item.title;
   const fallbackIcon =
-    entry.kind === 'audiobook'
+    kind === 'audiobook'
       ? 'solar:headphones-round-bold'
-      : entry.item.fileType === 'txt'
+      : item.fileType === 'txt'
         ? 'solar:document-text-bold'
         : 'solar:book-2-bold';
 
@@ -194,6 +198,8 @@ function UniverseLandingBookshelfCard({
   canRequestBorrow = false,
   ownerCustomerId,
   viewerCustomerId,
+  bookmarkCount,
+  commentCount,
 }: BookCardProps) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const [requesting, setRequesting] = useState(false);
@@ -205,15 +211,6 @@ function UniverseLandingBookshelfCard({
     entry.kind === 'ebook'
       ? getEbookFileTypeLabel(entry.item.fileType)
       : getAudiobookFileTypeLabel(entry.item.fileType);
-
-  const handleOpenContent = async () => {
-    const resolver = entry.kind === 'ebook' ? resolveEbookContentUrl : resolveAudiobookContentUrl;
-    const url = await resolver(entry.item);
-
-    if (url && typeof window !== 'undefined') {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  };
 
   const handleOpenDetails = () => {
     setViewOpen(true);
@@ -324,27 +321,17 @@ function UniverseLandingBookshelfCard({
           </Typography>
         </Stack>
 
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5, mt: 'auto' }}>
-          <Stack
-            direction="row"
-            spacing={0.5}
-            alignItems="center"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleOpenContent();
-            }}
-            sx={{ color: spaceTheme.accent, fontWeight: 700, cursor: 'pointer' }}
-          >
-            <Iconify
-              icon={entry.kind === 'audiobook' ? 'solar:play-circle-bold' : 'solar:eye-bold'}
-              width={18}
+        <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ pt: 0.5, mt: 'auto' }}>
+          {entry.kind === 'ebook' ? (
+            <BookshelfEbookReadingCountsRow
+              bookmarkCount={bookmarkCount ?? 0}
+              commentCount={commentCount ?? 0}
+              variant="universe"
+              accentColor={spaceTheme.accent}
             />
-            <Typography variant="body2" fontWeight={700}>
-              {entry.kind === 'audiobook' ? 'Listen' : 'Read'}
-            </Typography>
-          </Stack>
-
-          <Iconify icon="solar:book-2-bold-duotone" width={22} sx={{ color: spaceTheme.accent, opacity: 0.75 }} />
+          ) : (
+            <Iconify icon="solar:book-2-bold-duotone" width={22} sx={{ color: spaceTheme.accent, opacity: 0.75 }} />
+          )}
         </Stack>
       </Stack>
     </>
@@ -441,6 +428,7 @@ function UniverseLandingBookshelfCard({
       <UniverseLandingBookshelfBookDialog
         open={viewOpen}
         entry={entry}
+        viewerCustomerId={viewerCustomerId}
         onClose={() => setViewOpen(false)}
       />
     </Card>
@@ -474,6 +462,13 @@ export function UniverseLandingBookshelf({
     }
     return ids;
   }, [audiobooks, ebooks, showAudiobooks, showEbooks]);
+
+  const ebookIds = useMemo(
+    () => (showEbooks ? ebooks.map((item) => item.id) : []),
+    [ebooks, showEbooks],
+  );
+
+  const { countsByBookId } = useGetBookshelfEbookReadingCounts(ebookIds, viewerCustomerId);
 
   const canRequestBorrow = authenticated && !!viewerCustomerId && !isOwner && !!ownerCustomerId;
 
@@ -614,7 +609,14 @@ export function UniverseLandingBookshelf({
         ) : (
           <>
             <Box sx={myspaceItemGridSx}>
-              {paginatedItems.map((entry) => (
+              {paginatedItems.map((entry) => {
+                const bookId = normalizeReadingCountBookId(entry.item.id);
+                const readingCounts =
+                  entry.kind === 'ebook' && bookId !== null
+                    ? countsByBookId.get(bookId)
+                    : undefined;
+
+                return (
                 <Box
                   key={`${entry.kind}-${entry.item.id}`}
                   sx={myspaceItemCardSx}
@@ -625,9 +627,12 @@ export function UniverseLandingBookshelf({
                     canRequestBorrow={canRequestBorrow && !borrowStatusesLoading}
                     ownerCustomerId={ownerCustomerId}
                     viewerCustomerId={viewerCustomerId}
+                    bookmarkCount={readingCounts?.bookmarkCount ?? 0}
+                    commentCount={readingCounts?.commentCount ?? 0}
                   />
                 </Box>
-              ))}
+              );
+              })}
             </Box>
 
             {pageCount > 1 ? (

@@ -30,8 +30,8 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
+import { useGetBookshelfEbookReadingCounts, normalizeReadingCountBookId } from 'src/actions/bookshelf-ebook-reading';
 
-import { filterEbooks } from '../bookshelf-ebook-utils';
 import {
   filterBookshelfByGenre,
   filterBookshelfByShelfTab,
@@ -39,11 +39,13 @@ import {
   normalizeBookCategory,
   type BookshelfShelfTab,
 } from '../bookshelf-book-categories';
-import { BookshelfShelfFilters } from '../bookshelf-shelf-filters';
-import { sortBookshelfItems, type BookshelfSortValue } from '../bookshelf-sort';
+import { filterEbooks } from '../bookshelf-ebook-utils';
 import { BookshelfEbookCard } from '../bookshelf-ebook-card';
+import { BookshelfShelfFilters } from '../bookshelf-shelf-filters';
 import { BookshelfEbookViewDialog } from '../bookshelf-ebook-view-dialog';
 import { BookshelfEbookFormDialog } from '../bookshelf-ebook-form-dialog';
+import { sortBookshelfItems, type BookshelfSortValue } from '../bookshelf-sort';
+
 
 // ----------------------------------------------------------------------
 
@@ -94,6 +96,9 @@ export function BookshelfEbooksView() {
     const byGenre = filterBookshelfByGenre(byTab, genreFilter);
     return sortBookshelfItems(byGenre, sortBy);
   }, [allEbooks, genreFilter, searchQuery, shelfTab, sortBy]);
+
+  const ebookIds = useMemo(() => filteredEbooks.map((ebook) => ebook.id), [filteredEbooks]);
+  const { countsByBookId } = useGetBookshelfEbookReadingCounts(ebookIds, user?.id);
 
   const handleOpenCreate = useCallback(() => {
     setEditingEbook(null);
@@ -349,7 +354,11 @@ export function BookshelfEbooksView() {
               },
             }}
           >
-            {filteredEbooks.map((ebook) => (
+            {filteredEbooks.map((ebook) => {
+              const bookId = normalizeReadingCountBookId(ebook.id);
+              const readingCounts = bookId !== null ? countsByBookId.get(bookId) : undefined;
+
+              return (
               <BookshelfEbookCard
                 key={ebook.isBorrowed ? `borrow-${ebook.borrow?.borrowId}` : `owned-${ebook.id}`}
                 ebook={ebook}
@@ -363,15 +372,23 @@ export function BookshelfEbooksView() {
                 favoriteSaving={savingFavoriteId === ebook.id}
                 onReturnBorrow={ebook.isBorrowed ? handleReturnBorrow : undefined}
                 returningBorrow={returningBorrowId === ebook.borrow?.borrowId}
+                bookmarkCount={readingCounts?.bookmarkCount ?? 0}
+                commentCount={readingCounts?.commentCount ?? 0}
               />
-            ))}
+            );
+            })}
           </Box>
         )}
       </Stack>
 
       <BookshelfEbookFormDialog open={formOpen} ebook={editingEbook} onClose={handleCloseForm} />
 
-      <BookshelfEbookViewDialog open={viewOpen} ebook={viewingEbook} onClose={handleCloseView} />
+      <BookshelfEbookViewDialog
+        open={viewOpen}
+        ebook={viewingEbook}
+        customerId={user?.id}
+        onClose={handleCloseView}
+      />
     </DashboardContent>
   );
 }

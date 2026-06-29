@@ -160,6 +160,11 @@ export const endpoints = {
       details: (id: string | number) => `/api/bookshelf/ebook/${id}`,
       update: (id: string | number) => `/api/bookshelf/ebook/${id}`,
       delete: (id: string | number) => `/api/bookshelf/ebook/${id}`,
+      readingBookmarks: '/api/bookshelf/ebook/reading/bookmarks',
+      readingBookmarkDelete: (id: string | number) => `/api/bookshelf/ebook/reading/bookmarks/${id}`,
+      readingComments: '/api/bookshelf/ebook/reading/comments',
+      readingCommentDelete: (id: string | number) => `/api/bookshelf/ebook/reading/comments/${id}`,
+      readingCounts: '/api/bookshelf/ebook/reading/counts',
     },
     audiobook: {
       list: '/api/bookshelf/audiobook/list',

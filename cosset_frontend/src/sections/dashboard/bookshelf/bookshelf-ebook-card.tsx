@@ -19,6 +19,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { formatBorrowExpiryDate } from './bookshelf-borrow-config';
 import { getEbookFileTypeLabel, resolveEbookAssetUrl } from './bookshelf-ebook-utils';
 import { BOOK_CATEGORY_OPTIONS, getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
+import { BookshelfEbookReadingCountsRow } from './bookshelf-ebook-reading-counts-row';
 
 // ----------------------------------------------------------------------
 
@@ -34,6 +35,8 @@ type Props = {
   favoriteSaving?: boolean;
   onReturnBorrow?: (ebook: IBookshelfEbook) => void;
   returningBorrow?: boolean;
+  bookmarkCount?: number;
+  commentCount?: number;
 };
 
 export function BookshelfEbookCard({
@@ -48,6 +51,8 @@ export function BookshelfEbookCard({
   favoriteSaving = false,
   onReturnBorrow,
   returningBorrow = false,
+  bookmarkCount,
+  commentCount,
 }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const categoryLabel = getBookCategoryLabel(ebook.category);
@@ -218,6 +223,11 @@ export function BookshelfEbookCard({
               : ''}
           </Typography>
         ) : null}
+
+        <BookshelfEbookReadingCountsRow
+          bookmarkCount={bookmarkCount ?? 0}
+          commentCount={commentCount ?? 0}
+        />
 
         {ebook.description ? (
           <Typography

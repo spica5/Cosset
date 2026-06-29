@@ -137,6 +137,18 @@ export async function resolveAudiobookContentUrl(
   return resolveAudiobookAssetUrl(audiobook.fileUrl);
 }
 
+export async function openBookshelfAudiobookContent(
+  audiobook: Pick<IBookshelfAudiobook, 'fileUrl' | 'refUrl'>,
+) {
+  const url = await resolveAudiobookContentUrl(audiobook);
+
+  if (url && typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  return url;
+}
+
 export function getAudiobookSourceType(audiobook: Pick<IBookshelfAudiobook, 'fileUrl' | 'refUrl'>) {
   return (audiobook.refUrl || '').trim() ? 'url' : 'file';
 }

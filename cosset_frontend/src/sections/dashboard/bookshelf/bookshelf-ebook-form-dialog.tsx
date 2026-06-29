@@ -8,35 +8,36 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
+import ToggleButton from '@mui/material/ToggleButton';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import MenuItem from '@mui/material/MenuItem';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 
 import { uploadFileToS3 } from 'src/actions/upload';
 import { createBookshelfEbook, updateBookshelfEbook } from 'src/actions/bookshelf-ebook';
 
-import { useAuthContext } from 'src/auth/hooks';
-
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
-import {
-  getEbookFileTypeLabel,
-  resolveEbookAssetUrl,
-  detectEbookFileType,
-  detectEbookFileTypeFromUrl,
-  isHttpUrl,
-} from './bookshelf-ebook-utils';
+import { useAuthContext } from 'src/auth/hooks';
+
 import { BOOK_CATEGORY_OPTIONS, normalizeBookCategory } from './bookshelf-book-categories';
+
+import {
+  isHttpUrl,  
+  detectEbookFileType,
+  resolveEbookAssetUrl,
+  getEbookFileTypeLabel,
+  detectEbookFileTypeFromUrl,
+} from './bookshelf-ebook-utils';
 
 // ----------------------------------------------------------------------
 

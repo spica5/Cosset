@@ -104,6 +104,18 @@ export async function resolveEbookContentUrl(
   return resolveEbookAssetUrl(ebook.fileUrl);
 }
 
+export async function openBookshelfEbookContent(
+  ebook: Pick<IBookshelfEbook, 'fileUrl' | 'refUrl'>,
+) {
+  const url = await resolveEbookContentUrl(ebook);
+
+  if (url && typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  return url;
+}
+
 export function getEbookSourceType(ebook: Pick<IBookshelfEbook, 'fileUrl' | 'refUrl'>) {
   return (ebook.refUrl || '').trim() ? 'url' : 'file';
 }
