@@ -3,7 +3,7 @@
 import type { RefObject } from 'react';
 import type { BookshelfEbookFileType } from 'src/types/bookshelf-ebook';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -29,6 +29,8 @@ import {
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CommentInput } from 'src/components/universe/comment-section';
 
+import { normalizePageNumber } from './bookshelf-ebook-pdf-page';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -36,7 +38,8 @@ type Props = {
   customerId: string;
   fileType: BookshelfEbookFileType;
   currentPage: number;
-  onCurrentPageChange: (page: number) => void;
+  getCurrentPdfPage?: () => number;
+  onCurrentPageChange?: (page: number) => void;
   onJumpToPage?: (page: number) => void;
   onJumpToScrollPosition?: (position: number) => void;
   txtScrollRef?: RefObject<HTMLDivElement | null>;
@@ -63,6 +66,7 @@ export function BookshelfEbookReaderPanel({
   customerId,
   fileType,
   currentPage,
+  getCurrentPdfPage,
   onCurrentPageChange,
   onJumpToPage,
   onJumpToScrollPosition,
@@ -78,29 +82,47 @@ export function BookshelfEbookReaderPanel({
   const [pageInput, setPageInput] = useState(String(currentPage));
 
   useEffect(() => {
-    setPageInput(String(currentPage));
+    setPageInput(String(normalizePageNumber(currentPage)));
   }, [currentPage]);
 
+  const goToPage = useCallback(
+    (page: unknown) => {
+      const next = normalizePageNumber(page);
+      setPageInput(String(next));
+      if (onJumpToPage) {
+        onJumpToPage(next);
+        return;
+      }
+      onCurrentPageChange?.(next);
+    },
+    [onCurrentPageChange, onJumpToPage],
+  );
+
   const commitPageInput = useCallback(() => {
-    const next = Math.max(1, Number.parseInt(pageInput, 10) || 1);
-    setPageInput(String(next));
-    onCurrentPageChange(next);
-    onJumpToPage?.(next);
-  }, [onCurrentPageChange, onJumpToPage, pageInput]);
+    goToPage(pageInput);
+  }, [goToPage, pageInput]);
 
   const handleStepPage = useCallback(
     (delta: number) => {
-      const next = Math.max(1, currentPage + delta);
-      setPageInput(String(next));
-      onCurrentPageChange(next);
-      onJumpToPage?.(next);
+      goToPage(currentPage + delta);
     },
-    [currentPage, onCurrentPageChange, onJumpToPage],
+    [currentPage, goToPage],
   );
 
   const { bookmarks, bookmarksLoading, refreshBookmarks } = useGetBookshelfEbookBookmarks(
     bookId,
     customerId,
+  );
+  const normalizedBookmarks = useMemo(
+    () =>
+      bookmarks.map((bookmark) => ({
+        ...bookmark,
+        pageNumber:
+          bookmark.pageNumber != null ? normalizePageNumber(bookmark.pageNumber) : null,
+        scrollPosition:
+          bookmark.scrollPosition != null ? Number(bookmark.scrollPosition) : null,
+      })),
+    [bookmarks],
   );
   const { comments, commentsLoading, refreshComments } = useGetBookshelfEbookReadingComments(
     bookId,
@@ -121,13 +143,23 @@ export function BookshelfEbookReaderPanel({
     return Math.round((container.scrollTop / maxScroll) * 100);
   }, [fileType, txtScrollRef]);
 
+  const resolvePdfPageForSave = useCallback(() => {
+    const fromViewer = getCurrentPdfPage?.();
+    if (fromViewer && fromViewer >= 1) {
+      return normalizePageNumber(fromViewer);
+    }
+
+    return normalizePageNumber(pageInput);
+  }, [getCurrentPdfPage, pageInput]);
+
   const handleAddBookmark = async () => {
     try {
       setSavingBookmark(true);
+      const pageToSave = fileType === 'pdf' ? resolvePdfPageForSave() : null;
       await addBookshelfEbookBookmark({
         bookId,
         customerId,
-        pageNumber: fileType === 'pdf' ? currentPage : null,
+        pageNumber: pageToSave,
         scrollPosition: fileType === 'txt' ? getCurrentScrollPosition() : null,
         label: bookmarkLabel.trim() || null,
       });
@@ -164,7 +196,7 @@ export function BookshelfEbookReaderPanel({
         bookId,
         customerId,
         comment: normalized,
-        pageNumber: fileType === 'pdf' ? currentPage : null,
+        pageNumber: fileType === 'pdf' ? normalizePageNumber(currentPage) : null,
         scrollPosition: fileType === 'txt' ? getCurrentScrollPosition() : null,
       });
       setCommentInput('');
@@ -189,10 +221,8 @@ export function BookshelfEbookReaderPanel({
   };
 
   const handleJumpToBookmark = (pageNumber?: number | null, scrollPosition?: number | null) => {
-    if (fileType === 'pdf' && pageNumber) {
-      setPageInput(String(pageNumber));
-      onCurrentPageChange(pageNumber);
-      onJumpToPage?.(pageNumber);
+    if (fileType === 'pdf' && pageNumber != null) {
+      goToPage(pageNumber);
       return;
     }
 
@@ -286,7 +316,7 @@ export function BookshelfEbookReaderPanel({
         variant="fullWidth"
         sx={{ minHeight: 40, borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab value="bookmarks" label={`Bookmarks (${bookmarks.length})`} sx={{ minHeight: 40 }} />
+        <Tab value="bookmarks" label={`Bookmarks (${normalizedBookmarks.length})`} sx={{ minHeight: 40 }} />
         <Tab value="comments" label={`Comments (${comments.length})`} sx={{ minHeight: 40 }} />
       </Tabs>
 
@@ -296,13 +326,13 @@ export function BookshelfEbookReaderPanel({
             <Typography variant="body2" color="text.secondary">
               Loading bookmarks…
             </Typography>
-          ) : bookmarks.length === 0 ? (
+          ) : normalizedBookmarks.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No bookmarks yet. Set your page and tap Bookmark while reading.
             </Typography>
           ) : (
             <Stack spacing={1.25} divider={<Divider flexItem />}>
-              {bookmarks.map((bookmark) => (
+              {normalizedBookmarks.map((bookmark) => (
                 <Stack key={bookmark.id} direction="row" spacing={1} alignItems="flex-start">
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Button

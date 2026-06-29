@@ -22,7 +22,7 @@ import {
   resolveEbookContentUrl,
   getEbookFileTypeLabel,
 } from './bookshelf-ebook-utils';
-import { readPdfPageFromIframe } from './bookshelf-ebook-pdf-page';
+import { buildPdfViewerSrc, normalizePageNumber, readPdfPageFromIframe, setPdfIframePage } from './bookshelf-ebook-pdf-page';
 import { BookshelfEbookReaderPanel } from './bookshelf-ebook-reader-panel';
 
 // ----------------------------------------------------------------------
@@ -40,9 +40,12 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [iframePage, setIframePage] = useState(1);
+  const [pdfFrameKey, setPdfFrameKey] = useState(0);
   const [readerToolsOpen, setReaderToolsOpen] = useState(true);
   const txtScrollRef = useRef<HTMLDivElement | null>(null);
   const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const skipPollUntilRef = useRef(0);
 
   const normalizedCustomerId = customerId != null ? String(customerId).trim() : '';
   const canUseReaderTools = Boolean(normalizedCustomerId && ebook);
@@ -63,6 +66,8 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
         setTxtContent('');
         setError('');
         setCurrentPage(1);
+        setIframePage(1);
+        setPdfFrameKey(0);
         return;
       }
 
@@ -78,6 +83,8 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
 
         setFileUrl(resolvedUrl);
         setCurrentPage(1);
+        setIframePage(1);
+        setPdfFrameKey((key) => key + 1);
 
         if (ebook.fileType === 'txt' && resolvedUrl) {
           const response = await fetch(resolvedUrl);
@@ -118,27 +125,23 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
     return fileUrl.split('#')[0];
   }, [ebook?.fileType, fileUrl]);
 
-  const applyPdfPage = useCallback(
-    (page: number, updateIframe = true) => {
-      const nextPage = Math.max(1, page);
-      setCurrentPage(nextPage);
+  const applyPdfPage = useCallback((page: number) => {
+    const nextPage = normalizePageNumber(page);
+    setCurrentPage(nextPage);
+    setIframePage(nextPage);
+    setPdfFrameKey((key) => key + 1);
+    skipPollUntilRef.current = Date.now() + 3000;
+  }, []);
 
-      if (!updateIframe) {
-        return;
-      }
+  const getCurrentPdfPage = useCallback(() => {
+    const detectedPage = readPdfPageFromIframe(pdfIframeRef.current);
+    return detectedPage ?? currentPage;
+  }, [currentPage]);
 
-      const iframe = pdfIframeRef.current;
-      if (!iframe || !pdfBaseUrl) {
-        return;
-      }
-
-      const nextSrc = `${pdfBaseUrl}#page=${nextPage}`;
-      if (iframe.src !== nextSrc) {
-        iframe.src = nextSrc;
-      }
-    },
-    [pdfBaseUrl],
-  );
+  const handlePdfIframeLoad = useCallback(() => {
+    setPdfIframePage(pdfIframeRef.current, iframePage);
+    skipPollUntilRef.current = Date.now() + 1500;
+  }, [iframePage]);
 
   useEffect(() => {
     if (!open || !pdfBaseUrl || ebook?.fileType !== 'pdf') {
@@ -154,6 +157,10 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
     }
 
     const syncPdfPageFromViewer = () => {
+      if (Date.now() < skipPollUntilRef.current) {
+        return;
+      }
+
       const detectedPage = readPdfPageFromIframe(pdfIframeRef.current);
       if (!detectedPage) {
         return;
@@ -282,9 +289,11 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
           ) : ebook.fileType === 'pdf' && pdfBaseUrl ? (
             <Box
               component="iframe"
+              key={`pdf-frame-${pdfFrameKey}`}
               ref={pdfIframeRef}
-              src={`${pdfBaseUrl}#page=1`}
+              src={buildPdfViewerSrc(pdfBaseUrl, iframePage)}
               title={ebook.title}
+              onLoad={handlePdfIframeLoad}
               sx={{
                 width: 1,
                 flex: 1,
@@ -344,7 +353,7 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
             customerId={normalizedCustomerId}
             fileType={ebook.fileType}
             currentPage={currentPage}
-            onCurrentPageChange={setCurrentPage}
+            getCurrentPdfPage={getCurrentPdfPage}
             onJumpToPage={handleJumpToPage}
             onJumpToScrollPosition={handleJumpToScrollPosition}
             txtScrollRef={txtScrollRef}
