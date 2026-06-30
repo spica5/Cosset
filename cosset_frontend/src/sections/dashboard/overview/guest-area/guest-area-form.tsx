@@ -3,7 +3,7 @@ import type { IGuestAreaItem } from 'src/types/guestarea';
 import { z as zod } from 'zod';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useEffect, useCallback } from 'react';
+import { useMemo, useEffect, useCallback, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -20,7 +20,13 @@ import { useRouter } from 'src/routes/hooks';
 
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { _moods, _moodIcons } from 'src/_mock/assets';
+import {
+  getMoodOptions,
+  saveCustomMood,
+  loadCustomMoods,
+  isMoodTemplate,
+  getMoodDisplayIcon,
+} from 'src/utils/mood-templates';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
@@ -64,6 +70,13 @@ type Props = {
 export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
+  const [customMoods, setCustomMoods] = useState<string[]>([]);
+
+  const moodOptions = useMemo(() => getMoodOptions(customMoods), [customMoods]);
+
+  useEffect(() => {
+    setCustomMoods(loadCustomMoods(user?.id));
+  }, [user?.id]);
 
   const defaultValues = useMemo(
     () => ({
@@ -138,6 +151,11 @@ export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Prop
         // designSpace: can be derived from images later if needed
         designSpace: null,
       });
+
+      if (user?.id && data.mood && !isMoodTemplate(String(data.mood))) {
+        saveCustomMood(user.id, String(data.mood));
+        setCustomMoods(loadCustomMoods(user.id));
+      }
 
       // Basic validation of the save response
       const savedGuestArea = saveRes?.data?.guestArea;
@@ -242,23 +260,79 @@ export function GuestAreaForm({ currentArea, coverViewUrl, onSaveSuccess }: Prop
           }}
         />
 
-          <Field.Autocomplete
-            label="Mood"
-            name="mood"
-            autoHighlight
-            options={_moods.map((option) => option)}
-            getOptionLabel={(option) => `${_moodIcons[option]} ${(option ?? '').toString()}`}
-            renderOption={(props, option) => (
-              <li {...props} key={option}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography sx={{ mr: 1, fontSize: 20 }}>
-                    {_moodIcons[option] || '😊'}
-                  </Typography>
-                  <Typography variant="body2">{option}</Typography>
-                </Box>
-              </li>
-            )}
-          />
+        <Controller
+          name="mood"
+          control={methods.control}
+          render={({ field, fieldState: { error } }) => {
+            const moodValue = (field.value ?? '').toString();
+            const selectedMoodIcon = moodValue ? getMoodDisplayIcon(moodValue) : null;
+
+            return (
+              <Autocomplete
+                freeSolo
+                autoHighlight
+                options={moodOptions}
+                value={moodValue}
+                onChange={(_, newValue) => field.onChange((newValue ?? '').toString())}
+                onInputChange={(_, newInputValue) => field.onChange(newInputValue)}
+                getOptionLabel={(option) => (option ?? '').toString()}
+                isOptionEqualToValue={(option, value) => option === value}
+                filterOptions={(options, state) => {
+                  const query = state.inputValue.trim().toLowerCase();
+                  if (!query) {
+                    return options;
+                  }
+
+                  return options.filter((option) => option.toLowerCase().includes(query));
+                }}
+                ListboxProps={{ sx: { maxHeight: 320 } }}
+                renderOption={(props, option) => {
+                  const moodOption = (option ?? '').toString();
+
+                  return (
+                    <li {...props} key={moodOption}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', py: 0.5 }}>
+                        <Typography sx={{ mr: 1, fontSize: 20, lineHeight: 1.4, flexShrink: 0 }}>
+                          {getMoodDisplayIcon(moodOption)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'normal', lineHeight: 1.45 }}>
+                          {moodOption}
+                        </Typography>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Mood"
+                    placeholder="Choose a template or write your own feeling..."
+                    error={!!error}
+                    helperText={
+                      error?.message ||
+                      'Pick one of 100 mood templates, or type a custom sentence for today.'
+                    }
+                    onBlur={field.onBlur}
+                    inputProps={{ ...params.inputProps, autoComplete: 'new-password' }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          {selectedMoodIcon ? (
+                            <Typography sx={{ mr: 1, fontSize: 20, lineHeight: 1 }}>
+                              {selectedMoodIcon}
+                            </Typography>
+                          ) : null}
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            );
+          }}
+        />
       </Stack>
     </Card>
   );

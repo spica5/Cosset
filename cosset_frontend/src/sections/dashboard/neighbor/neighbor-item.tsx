@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { _moodIcons } from 'src/_mock/assets';
+import { getMoodDisplayIcon } from 'src/utils/mood-templates';
 
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -38,7 +39,7 @@ const _motifAvatars: Record<string, string> = {
 };
 
 const getMotifAvatar = (motif?: string) => _motifAvatars[motif || ''] || '✨';
-const getMoodAvatar = (mood?: string) => _moodIcons[mood || ''] || '😊';
+const getMoodAvatar = (mood?: string) => _moodIcons[mood || ''] || getMoodDisplayIcon(mood);
 
 // ----------------------------------------------------------------------
 

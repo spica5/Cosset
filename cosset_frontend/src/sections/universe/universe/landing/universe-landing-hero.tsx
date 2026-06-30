@@ -1,7 +1,7 @@
 import type { BoxProps } from '@mui/material/Box';
 import type { IUniverseProps } from 'src/types/universe';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -20,24 +20,24 @@ import DialogTitle from '@mui/material/DialogTitle';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 import {
   type DesignSpaceType,
-  getDesignSpaceOverlaySx,
-  normalizeDesignSpaceType,
   DEFAULT_DESIGN_SPACE_TYPE,
-  getDesignSpaceBackgroundFilter,
 } from 'src/utils/design-space-type';
-import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
+import { getGuestAreaMotifIcon, isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
 import { varAlpha, getThemeCommonVars } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify/iconify';
 
+import { UniverseLandingMoodMarquee } from './universe-landing-mood-marquee';
+
 // ----------------------------------------------------------------------
+
+const BACKGROUND_ROTATE_MS = 5 * 60 * 1000;
+const BACKGROUND_FADE_MS = 900;
 
 type Props = BoxProps & {
   universe: IUniverseProps;
@@ -77,78 +77,90 @@ export function UniverseLandingHero({
   const theme = useTheme();
   const commonVars = useMemo(() => getThemeCommonVars(theme), [theme]);
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [showRoomInfo, setShowRoomInfo] = useState(true);
   const [showTopMenu, setShowTopMenu] = useState(true);
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
-  const [showControlsPanel, setShowControlsPanel] = useState(false);
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+  const [showMood, setShowMood] = useState(true);
+  const [fadeLayers, setFadeLayers] = useState({
+    a: '',
+    b: '',
+    active: 'a' as 'a' | 'b',
+  });
 
   const galleryImages = useMemo(() => {
     const gallery = (universe?.gallery || []).filter(Boolean);
     return Array.from(new Set(gallery));
   }, [universe?.gallery]);
 
-  useEffect(() => {
-    if (!galleryImages.length) {
-      // setSelectedBackground(universe?.heroUrl || '');
-      return;
+  const backgroundImages = useMemo(() => {
+    const images = [...galleryImages];
+    const heroUrl = universe?.heroUrl?.trim();
+
+    if (heroUrl && !images.includes(heroUrl)) {
+      images.unshift(heroUrl);
     }
 
+    return images;
+  }, [galleryImages, universe?.heroUrl]);
+
+  useEffect(() => {
     setSelectedBackground((prev) => {
-      if (prev && galleryImages.includes(prev)) {
+      if (!backgroundImages.length) {
+        return '';
+      }
+
+      if (prev && backgroundImages.includes(prev)) {
         return prev;
       }
 
-      // if (universe?.heroUrl && galleryImages.includes(universe.heroUrl)) {
-      //   return universe.heroUrl;
-      // }
-
-      return galleryImages[0];
+      return backgroundImages[0];
     });
-  }, [galleryImages]);
+  }, [backgroundImages]);
 
   useEffect(() => {
-    const handleShowRoomInfo = () => {
-      setShowRoomInfo(true);
+    if (!selectedBackground) {
+      return;
+    }
 
-      window.requestAnimationFrame(() => {
-        const roomInfo = document.getElementById('room_info');
-        roomInfo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setFadeLayers((prev) => {
+      const activeUrl = prev.active === 'a' ? prev.a : prev.b;
+
+      if (!activeUrl) {
+        return { a: selectedBackground, b: selectedBackground, active: 'a' };
+      }
+
+      if (activeUrl === selectedBackground) {
+        return prev;
+      }
+
+      if (prev.active === 'a') {
+        return { a: prev.a, b: selectedBackground, active: 'b' };
+      }
+
+      return { a: selectedBackground, b: prev.b, active: 'a' };
+    });
+  }, [selectedBackground]);
+
+  useEffect(() => {
+    if (backgroundImages.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setSelectedBackground((prev) => {
+        const currentIndex = backgroundImages.indexOf(prev);
+        const nextIndex =
+          currentIndex >= 0 ? (currentIndex + 1) % backgroundImages.length : 0;
+
+        return backgroundImages[nextIndex];
       });
-    };
-
-    const handleToggleRoomInfo = () => {
-      setShowRoomInfo((prev) => {
-        const next = !prev;
-
-        if (next) {
-          window.requestAnimationFrame(() => {
-            const roomInfo = document.getElementById('room_info');
-            roomInfo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          });
-        }
-
-        return next;
-      });
-    };
-
-    window.addEventListener('show-room-info', handleShowRoomInfo);
-    window.addEventListener('toggle-room-info', handleToggleRoomInfo);
+    }, BACKGROUND_ROTATE_MS);
 
     return () => {
-      window.removeEventListener('show-room-info', handleShowRoomInfo);
-      window.removeEventListener('toggle-room-info', handleToggleRoomInfo);
+      window.clearInterval(intervalId);
     };
-  }, []);
-
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent('room-info-state', {
-        detail: { visible: showRoomInfo },
-      })
-    );
-  }, [showRoomInfo]);
+  }, [backgroundImages]);
 
   useEffect(() => {
     const handleTopMenuState = (event: Event) => {
@@ -176,9 +188,48 @@ export function UniverseLandingHero({
     ? `${customer.name}'s Space`
     : "Customer's Space";
 
-  const resolvedDesignType = normalizeDesignSpaceType(designType);
-  const designTypeBackgroundFilter = getDesignSpaceBackgroundFilter(resolvedDesignType);
-  const designTypeOverlaySx = getDesignSpaceOverlaySx(resolvedDesignType);
+  const handleBackgroundStep = useCallback(
+    (direction: -1 | 1) => {
+      if (backgroundImages.length <= 1) {
+        return;
+      }
+
+      setSelectedBackground((prev) => {
+        const currentIndex = backgroundImages.indexOf(prev);
+        const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+        const nextIndex =
+          (baseIndex + direction + backgroundImages.length) % backgroundImages.length;
+
+        return backgroundImages[nextIndex];
+      });
+    },
+    [backgroundImages],
+  );
+
+  const backgroundSliderButtonSx = {
+    flexShrink: 0,
+    width: 36,
+    height: 36,
+    p: 0.75,
+    color: 'common.white',
+    bgcolor: varAlpha(commonVars.blackChannel, 0.52),
+    border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.28)}`,
+    backdropFilter: 'blur(4px)',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.22)',
+    transition: theme.transitions.create(['background-color', 'border-color', 'color', 'box-shadow'], {
+      duration: 200,
+    }),
+    '&:hover': {
+      bgcolor: varAlpha(commonVars.blackChannel, 0.72),
+      borderColor: varAlpha(commonVars.whiteChannel, 0.45),
+      color: 'common.white',
+      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
+    },
+  };
+
+  const showMoodBar = Boolean(showMood && universe.mood?.trim());
+  const showBackgroundControls = backgroundImages.length > 1;
+  const showBottomMoodRow = showMoodBar || showBackgroundControls;
 
   if (!universe) {
     return null;
@@ -209,9 +260,11 @@ export function UniverseLandingHero({
             zIndex: 8,
             content: "''",
             position: 'absolute',
-            backgroundImage: `linear-gradient(to bottom, ${varAlpha(commonVars.blackChannel, 0)} 0%, ${
-              commonVars.black
-            } 125%)`,
+            pointerEvents: 'none',
+            backgroundImage: `linear-gradient(to bottom, ${varAlpha(commonVars.blackChannel, 0)} 0%, ${varAlpha(
+              commonVars.blackChannel,
+              0
+            )} 72%, ${varAlpha(commonVars.blackChannel, 0.28)} 100%)`,
           },
           minHeight: { xs: 520, sm: 620 },
           [theme.breakpoints.up('md')]: {
@@ -223,92 +276,7 @@ export function UniverseLandingHero({
         }}
         {...other}
       >
-        <Box
-          id="room_info"
-          gap={5}
-          display={showRoomInfo ? 'flex' : 'none'}
-          alignItems="center"
-          flexDirection="column"
-          sx={{
-            px: { xs: 2, md: 4 },
-            py: { xs: 10, md: 12 },
-            zIndex: 9,
-            textAlign: 'center',
-            position: 'relative',
-            color: 'common.white',
-            borderRadius: 2,
-            border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.24)}`,
-            bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-            backdropFilter: 'blur(4px)',
-            maxWidth: { xs: '92%', md: 960 },
-            mt: { xs: 4, md: 6 },
-          }}
-        >
-          <IconButton
-            aria-label="close room info"
-            onClick={() => setShowRoomInfo(false)}
-            sx={{
-              top: 8,
-              right: 8,
-              position: 'absolute',
-              color: 'common.white',
-              bgcolor: varAlpha(commonVars.blackChannel, 0.45),
-              '&:hover': {
-                bgcolor: varAlpha(commonVars.blackChannel, 0.65),
-              },
-            }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-          <Typography variant="h1" sx={{ color: 'info.main', fontSize: { xs: '1.6rem', sm: '2rem', md: '2.5rem' } }}>
-            {universe.name}
-          </Typography>
-
-          <Typography variant="h2" component="h1" sx={{ maxWidth: { xs: '100%', md: 800 }, fontSize: { xs: '1.15rem', sm: '1.5rem', md: '1.875rem' }, wordBreak: 'break-word', color: isGuestAreaHomeSpaceOnlyMotif(universe.motif) ? 'error.main' : 'inherit' }}>
-            {universe.motif}
-          </Typography>
-
-          <Typography variant="h3" component="h1" sx={{ maxWidth: { xs: '100%', md: 480 }, fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' }, wordBreak: 'break-word' }}>
-            {universe.mood}
-          </Typography>
-
-          <Box
-            display="flex"
-            flexWrap="wrap"
-            alignItems="center"
-            justifyContent="center"
-            gap={{ xs: 2.5, md: 5 }}
-          >
-            <Box gap={1} display="flex" alignItems="center" sx={{ typography: 'subtitle2' }}>
-              <Iconify width={24} icon="eva:star-fill" sx={{ color: 'primary.main' }} />
-              {`${universe.ratingNumber} reviews`}
-            </Box>
-            <Box gap={1} display="flex" alignItems="center" sx={{ typography: 'subtitle2' }}>
-              <Iconify width={24} icon="carbon:friendship" sx={{ color: 'primary.main' }} />
-              {`${universe.connections} friends`}
-            </Box>
-          </Box>
-        </Box>
-              
-        {selectedBackground ? (
-            <Box
-              component="img"
-              alt={universe.name}
-              src={selectedBackground}
-              sx={{
-                top: 0,
-                left: 0,
-                width: 1,
-                height: 1,
-                zIndex: 7,
-                objectFit: 'cover',
-                position: 'absolute',
-                filter: designTypeBackgroundFilter,
-              }}
-            />
-          ) : null}
-
-        {selectedBackground && designTypeOverlaySx ? (
+        {fadeLayers.a || fadeLayers.b ? (
           <Box
             sx={{
               top: 0,
@@ -317,10 +285,38 @@ export function UniverseLandingHero({
               height: 1,
               zIndex: 7,
               position: 'absolute',
-              pointerEvents: 'none',
-              ...designTypeOverlaySx,
+              bgcolor: 'common.black',
             }}
-          />
+          >
+            {(['a', 'b'] as const).map((layer) => {
+              const src = layer === 'a' ? fadeLayers.a : fadeLayers.b;
+
+              if (!src) {
+                return null;
+              }
+
+              const isActive = fadeLayers.active === layer;
+
+              return (
+                <Box
+                  key={layer}
+                  component="img"
+                  alt={universe.name}
+                  src={src}
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    width: 1,
+                    height: 1,
+                    objectFit: 'cover',
+                    position: 'absolute',
+                    opacity: isActive ? 1 : 0,
+                    transition: `opacity ${BACKGROUND_FADE_MS}ms ease-in-out`,
+                  }}
+                />
+              );
+            })}
+          </Box>
         ) : null}
 
         <Card
@@ -342,136 +338,17 @@ export function UniverseLandingHero({
             backdropFilter: 'blur(4px)',
           }}
         >
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{
-              mb: 1.25,
-              pb: 1.25,
-              borderBottom: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
-            }}
-          >
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
-              <Avatar
-                src={customer?.avatarUrl || undefined}
-                alt={customer?.name || 'Customer'}
-                onClick={() => { if (customer?.avatarUrl) setOpenAvatarPreview(true); }}
-                sx={{
-                  width: 100,
-                  height: 120,
-                  bgcolor: 'grey.700',
-                  cursor: customer?.avatarUrl ? 'pointer' : 'default',
-                  transition: 'opacity 0.2s',
-                  '&:hover': customer?.avatarUrl ? { opacity: 0.8 } : {},
-                  borderRadius: 2,
-                }}
-              />
-              <Stack spacing={0.35} sx={{ minWidth: 0 }}>
-                {friendshipState === 'friend' ? (
-                  <Iconify
-                    icon="solar:heart-bold"
-                    width={18}
-                    sx={{ color: '#FF8A8A', flexShrink: 0 }}
-                  />
-                ) : null}
-                <Typography variant="body1" noWrap>
-                  {customer?.name || 'Customer'}
-                </Typography>
-              </Stack>
-            </Stack>
-
-            {onToggleFullScreen ? (
-              <IconButton
-                size="small"
-                aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
-                onClick={onToggleFullScreen}
-                sx={{
-                  border: 1,
-                  borderColor: 'text.secondary',
-                  color: 'info.main',
-                  bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                  '&:hover': {
-                    borderColor: 'text.secondary',
-                    bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                    color: 'info.lighter',
-                  },
-                }}
-              >
-                {isFullScreen ? (
-                  <FullscreenExitIcon fontSize="small" />
-                ) : (
-                  <FullscreenIcon fontSize="small" />
-                )}
-              </IconButton>
-            ) : null}
-          </Stack>
-
-
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2">Friend</Typography>
-
-            {friendshipState === 'you' ? (
-              <Chip size="small" label="You" color="primary" />
-            ) : friendshipState === 'friend' ? (
-              <Chip size="small" label="Friend" color="success" />
-            ) : friendshipState === 'requested' ? (
-              <Chip size="small" label="Requested" color="warning" />
-            ) : (
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={!canRequestFriend || requestingFriend}
-                onClick={() => onRequestFriend?.()}
-                sx={{
-                  borderColor: 'text.secondary',
-                  color: 'info.main',
-                  bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                  '&:hover': {
-                    borderColor: 'text.secondary',
-                    bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                    color: 'info.lighter',
-                  },
-                }}
-              >
-                {requestingFriend ? 'Requesting...' : 'Request'}
-              </Button>
-            )}
-          </Stack>
-
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle2">Room Info</Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  onClick={() => {
-                    window.dispatchEvent(new Event('toggle-room-info'));
-                  }}
-                  sx={{
-                    borderColor: 'text.secondary',
-                    color: 'info.main',
-                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                    '&:hover': {
-                      borderColor: 'text.secondary',
-                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                      color: 'info.lighter',
-                    },
-                  }}
-                >
-                  {showRoomInfo ? 'Hide' : 'View'}
-                </Button>
-              </Stack>
-
-          {/* <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2">Controls</Typography>
-            <Button
+          {onToggleFullScreen ? (
+            <IconButton
               size="small"
-              variant="outlined"
-              startIcon={showControlsPanel ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              onClick={() => setShowControlsPanel((prev) => !prev)}
+              aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
+              onClick={onToggleFullScreen}
               sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 1,
+                border: 1,
                 borderColor: 'text.secondary',
                 color: 'info.main',
                 bgcolor: varAlpha(commonVars.blackChannel, 0.35),
@@ -482,62 +359,211 @@ export function UniverseLandingHero({
                 },
               }}
             >
-              {showControlsPanel ? 'Collapse' : 'Expand'}
-            </Button>
-          </Stack>
+              {isFullScreen ? (
+                <FullscreenExitIcon fontSize="small" />
+              ) : (
+                <FullscreenIcon fontSize="small" />
+              )}
+            </IconButton>
+          ) : null}
 
-          <Collapse in={showControlsPanel} timeout="auto" unmountOnExit>
-            <Stack spacing={1} sx={{ mb: 1 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle2">Room Info</Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={showRoomInfo ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  onClick={() => {
-                    window.dispatchEvent(new Event('toggle-room-info'));
-                  }}
-                  sx={{
-                    borderColor: 'text.secondary',
-                    color: 'info.main',
-                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                    '&:hover': {
-                      borderColor: 'text.secondary',
-                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                      color: 'info.lighter',
-                    },
-                  }}
-                >
-                  {showRoomInfo ? 'Hide' : 'View'}
-                </Button>
+          <Stack spacing={1.25}>
+            {universe.name ? (
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: 'info.main',
+                  lineHeight: 1.45,
+                  textAlign: 'center',
+                  wordBreak: 'break-word',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  px: onToggleFullScreen ? 3.5 : 0,
+                  pt: 0.25,
+                }}
+              >
+                {universe.name}
+              </Typography>
+            ) : null}
+
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                  <Avatar
+                    src={customer?.avatarUrl || undefined}
+                    alt={customer?.name || 'Customer'}
+                    onClick={() => { if (customer?.avatarUrl) setOpenAvatarPreview(true); }}
+                    sx={{
+                      width: 100,
+                      height: 120,
+                      bgcolor: 'grey.700',
+                      cursor: customer?.avatarUrl ? 'pointer' : 'default',
+                      transition: 'opacity 0.2s',
+                      '&:hover': customer?.avatarUrl ? { opacity: 0.8 } : {},
+                      borderRadius: 2,
+                    }}
+                  />
+                  {friendshipState === 'friend' ? (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 6,
+                        left: 6,
+                        width: 26,
+                        height: 26,
+                        borderRadius: '50%',
+                        display: 'grid',
+                        placeItems: 'center',
+                        bgcolor: varAlpha(commonVars.blackChannel, 0.55),
+                        border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.22)}`,
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.28)',
+                      }}
+                    >
+                      <Iconify icon="solar:heart-bold" width={14} sx={{ color: '#FF8A8A' }} />
+                    </Box>
+                  ) : null}
+                </Box>
+                <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1, pt: 0.25 }}>
+                  <Typography variant="body1" noWrap>
+                    {customer?.name || 'Customer'}
+                  </Typography>
+
+                  {universe.motif ? (
+                    <Stack direction="row" spacing={0.75} alignItems="flex-start" sx={{ minWidth: 0 }}>
+                      <Typography component="span" sx={{ fontSize: 14, lineHeight: 1.45, flexShrink: 0 }}>
+                        {getGuestAreaMotifIcon(universe.motif)}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: isGuestAreaHomeSpaceOnlyMotif(universe.motif)
+                            ? 'error.main'
+                            : 'text.secondary',
+                          lineHeight: 1.45,
+                          wordBreak: 'break-word',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {universe.motif}
+                      </Typography>
+                    </Stack>
+                  ) : null}
+
+                  {universe.mood ? (
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ alignSelf: 'flex-start' }}>
+                      <IconButton
+                        size="small"
+                        aria-label={showMood ? 'Hide mood' : 'Show mood'}
+                        onClick={() => setShowMood((prev) => !prev)}
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          border: 1,
+                          borderColor: 'text.secondary',
+                          color: showMood ? 'info.main' : 'text.secondary',
+                          bgcolor: varAlpha(commonVars.blackChannel, 0.35),
+                          '&:hover': {
+                            borderColor: 'text.secondary',
+                            bgcolor: varAlpha(commonVars.blackChannel, 0.55),
+                            color: showMood ? 'info.lighter' : 'common.white',
+                          },
+                        }}
+                      >
+                        <Iconify
+                          icon={showMood ? 'eva:eye-fill' : 'eva:eye-off-fill'}
+                          width={16}
+                        />
+                      </IconButton>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: showMood ? 'info.main' : 'text.secondary',
+                          lineHeight: 1,
+                          userSelect: 'none',
+                        }}
+                      >
+                        Mood
+                      </Typography>
+                    </Stack>
+                  ) : null}
+
+                  {friendshipState === 'you' ? (
+                    <Chip size="small" label="You" color="primary" sx={{ alignSelf: 'flex-start' }} />
+                  ) : friendshipState === 'requested' ? (
+                    <Chip size="small" label="Requested" color="warning" sx={{ alignSelf: 'flex-start' }} />
+                  ) : friendshipState !== 'friend' ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={!canRequestFriend || requestingFriend}
+                      onClick={() => onRequestFriend?.()}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        borderColor: 'text.secondary',
+                        color: 'info.main',
+                        bgcolor: varAlpha(commonVars.blackChannel, 0.35),
+                        '&:hover': {
+                          borderColor: 'text.secondary',
+                          bgcolor: varAlpha(commonVars.blackChannel, 0.55),
+                          color: 'info.lighter',
+                        },
+                      }}
+                    >
+                      {requestingFriend ? 'Requesting...' : 'Request friend'}
+                    </Button>
+                  ) : null}
+                </Stack>
               </Stack>
-
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle2">Top Menu</Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={showTopMenu ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  onClick={() => {
-                    window.dispatchEvent(new Event('toggle-top-menu'));
-                  }}
-                  sx={{
-                    borderColor: 'text.secondary',
-                    color: 'info.main',
-                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                    '&:hover': {
-                      borderColor: 'text.secondary',
-                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                      color: 'info.lighter',
-                    },
-                  }}
-                >
-                  {showTopMenu ? 'Hide' : 'View'}
-                </Button>
-              </Stack> 
             </Stack>
-          </Collapse> */}
+          </Stack>
         </Card>
+
+        {showBottomMoodRow ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              bottom: { xs: 76, md: 92 },
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 0.25, sm: 0.75 },
+              width: 'min(92vw, 720px)',
+            }}
+          >
+            {showBackgroundControls ? (
+              <IconButton
+                aria-label="Previous background image"
+                onClick={() => handleBackgroundStep(-1)}
+                sx={backgroundSliderButtonSx}
+              >
+                <Iconify icon="eva:arrow-ios-back-fill" width={22} />
+              </IconButton>
+            ) : null}
+
+            {showMoodBar ? (
+              <UniverseLandingMoodMarquee mood={universe.mood} embedded />
+            ) : (
+              <Box sx={{ flex: 1, minWidth: 0 }} />
+            )}
+
+            {showBackgroundControls ? (
+              <IconButton
+                aria-label="Next background image"
+                onClick={() => handleBackgroundStep(1)}
+                sx={backgroundSliderButtonSx}
+              >
+                <Iconify icon="eva:arrow-ios-forward-fill" width={22} />
+              </IconButton>
+            ) : null}
+          </Box>
+        ) : null}
 
         <Button
           variant="outlined"

@@ -27,6 +27,7 @@ import { fShortenNumber } from 'src/utils/format-number';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { _moodIcons } from 'src/_mock/assets';
+import { getMoodDisplayIcon } from 'src/utils/mood-templates';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
 import { AvatarShape } from 'src/assets/dashboard/illustrations';
@@ -49,7 +50,7 @@ const getMotifAvatar = (motif?: string) => {
 
 const getMoodAvatar = (mood?: string) => {
   if (!mood) return '😊';
-  return _moodIcons[mood] || '😊';
+  return _moodIcons[mood] || getMoodDisplayIcon(mood);
 };
 
 // ----------------------------------------------------------------------
