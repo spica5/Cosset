@@ -36,11 +36,12 @@ import { useAuthContext } from 'src/auth/hooks';
 import {
   getBlogContentFontSx,
   isBlogContentFontPreset,
-  BLOG_CONTENT_FONT_COLOR,
+  getBlogContentFontColor,
   getBlogContentAppearance,
-  getBlogContentBackgroundSx,  
+  getBlogContentBackgroundSx,
   isBlogContentBackgroundPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
+import { useDesignSpaceTheme, getDesignSpaceCardSx } from 'src/sections/universe/universe/landing/design-space-theme-context';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -101,6 +102,11 @@ const formatDateTime = (value: unknown) => {
 
 export function UniverseBlogItemView({ customerId, blogId }: Props) {
   const router = useRouter();
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const blogContentStyleOptions = useMemo(
+    () => ({ designTheme: spaceTheme }),
+    [spaceTheme],
+  );
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { blog, blogLoading } = useGetBlog(blogId);
   const { user, authenticated } = useAuthContext();
@@ -349,7 +355,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
             </Stack>
           </Stack>
 
-          <Card sx={{ p: { xs: 2, md: 2.5 } }}>
+          <Card sx={{ p: { xs: 2, md: 2.5 }, ...getDesignSpaceCardSx(spaceTheme) }}>
             <Stack spacing={2}>
               <Stack
                 direction="row"
@@ -435,7 +441,10 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
             sx={{
               p: { xs: 2, md: 3 },
               border: '1px solid',
-              ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset),
+              ...getBlogContentBackgroundSx(
+                contentAppearance.backgroundPreset,
+                blogContentStyleOptions,
+              ),
             }}
           >
             <Stack spacing={2}>
@@ -450,7 +459,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
               <Typography
                 variant="body1"
                 sx={{
-                  color: BLOG_CONTENT_FONT_COLOR,
+                  color: getBlogContentFontColor(blogContentStyleOptions),
                   whiteSpace: 'pre-wrap',
                   ...getBlogContentFontSx(contentAppearance.fontPreset),
                 }}
@@ -463,6 +472,7 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
           <CommentsSection
             targetType="blog"
             targetId={blogId}
+            cardSx={getDesignSpaceCardSx(spaceTheme)}
             comments={transformedComments}
             commentsLoading={commentsLoading}
             commentsValidating={commentsValidating}

@@ -1,5 +1,7 @@
 // ----------------------------------------------------------------------
 
+import type { Theme } from '@mui/material/styles';
+
 export const stylesMode = {
   light: '[data-mui-color-scheme="light"] &',
   dark: '[data-mui-color-scheme="dark"] &',
@@ -73,9 +75,18 @@ export function createPaletteChannel(hexPalette: Record<string, string>) {
   return { ...hexPalette, ...channelPalette };
 }
 
-/**
- * Color with alpha channel
- */
+/** Safe access to common palette CSS vars when a nested theme omits `theme.vars`. */
+export function getThemeCommonVars(theme: Theme) {
+  const common = theme.vars?.palette?.common;
+
+  return {
+    blackChannel: common?.blackChannel ?? '0 0 0',
+    whiteChannel: common?.whiteChannel ?? '255 255 255',
+    black: common?.black ?? '#000000',
+    white: common?.white ?? '#ffffff',
+  };
+}
+
 export function varAlpha(color: string, opacity = 1) {
   const unsupported =
     color.startsWith('#') ||

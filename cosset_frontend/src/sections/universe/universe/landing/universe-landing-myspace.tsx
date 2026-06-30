@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Drawer from '@mui/material/Drawer';
@@ -15,20 +16,23 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
 
-import { CONFIG } from 'src/config-global';
-
 import { Logo } from 'src/components/universe/logo';
 import { Iconify } from 'src/components/universe/iconify';
-
-import COLORS from 'src/theme/universe/core/colors.json';
 
 import {
   type DesignSpaceType,
   DEFAULT_DESIGN_SPACE_TYPE,
+  hasDistinctSidebar,
+  getDesignSpaceTypeLabel,
 } from 'src/utils/design-space-type';
 
 import { MySpaceCountBadge } from './myspace-section-title';
 import { DesignSpaceThemeProvider, useDesignSpaceTheme } from './design-space-theme-context';
+import {
+  getMyspaceSectionImageFallbackUrl,
+  getMyspaceSectionImageUrl,
+  type MyspaceSectionImageKey,
+} from './myspace-section-images';
 
 // ----------------------------------------------------------------------
 
@@ -36,55 +40,73 @@ const SIDEBAR_WIDTH = 320;
 
 const CARD_RADIUS = 10;
 
-const MYSPACE_ASSETS = `${CONFIG.universe.assetsDir}/assets/images/myspace`;
-
-export const MYSPACE_SECTION_IDS = [
-  'blogs-section',
-  'albums-section',
-  'drawers-section',
-  'collection-items-section',
-  'bookshelf-section',
-] as const;
-
-export type MySpaceSectionId = (typeof MYSPACE_SECTION_IDS)[number];
-
 const NAV_SECTIONS = [
   {
     id: 'blogs-section' as const,
     title: 'BLOGS',
     description: 'Thoughts, stories and ideas.',
     icon: 'solar:document-text-bold',
-    image: `${MYSPACE_ASSETS}/Blogs.png`,
   },
   {
     id: 'albums-section' as const,
     title: 'ALBUMS',
     description: 'Photos, memories and moments.',
     icon: 'solar:album-bold',
-    image: `${MYSPACE_ASSETS}/Albums.png`,
   },
   {
     id: 'drawers-section' as const,
     title: 'DRAWERS',
     description: 'Private notes and daily bits.',
     icon: 'solar:box-bold',
-    image: `${MYSPACE_ASSETS}/Drawers.png`,
   },
   {
     id: 'collection-items-section' as const,
     title: 'COLLECTIONS',
     description: 'Saved favorites and inspiration.',
     icon: 'solar:widget-4-bold',
-    image: `${MYSPACE_ASSETS}/Collections.png`,
   },
   {
     id: 'bookshelf-section' as const,
     title: 'BOOKSHELF',
     description: 'E-books, audiobooks, and reading favorites.',
     icon: 'solar:book-2-bold',
-    image: `${MYSPACE_ASSETS}/bookshelf.png`,
   },
 ] as const;
+
+export const MYSPACE_SECTION_IDS = NAV_SECTIONS.map((section) => section.id);
+
+export type MySpaceSectionId = (typeof NAV_SECTIONS)[number]['id'];
+
+function MySpaceSectionCardImage({ sectionId }: { sectionId: MyspaceSectionImageKey }) {
+  const { designType } = useDesignSpaceTheme();
+  const primarySrc = getMyspaceSectionImageUrl(designType, sectionId);
+  const fallbackSrc = getMyspaceSectionImageFallbackUrl(sectionId);
+  const [imageSrc, setImageSrc] = useState(primarySrc);
+
+  useEffect(() => {
+    setImageSrc(primarySrc);
+  }, [primarySrc]);
+
+  return (
+    <Box
+      component="img"
+      src={imageSrc}
+      alt=""
+      onError={() => {
+        if (imageSrc !== fallbackSrc) {
+          setImageSrc(fallbackSrc);
+        }
+      }}
+      sx={{
+        position: 'absolute',
+        inset: 0,
+        width: 1,
+        height: 1,
+        objectFit: 'cover',
+      }}
+    />
+  );
+}
 
 // ----------------------------------------------------------------------
 
@@ -106,39 +128,78 @@ function MySpaceCustomerTitle({
   customerAvatarUrl?: string;
   variant?: 'sidebar' | 'mobile';
 }) {
-  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const { designType, theme: spaceTheme } = useDesignSpaceTheme();
   const isSidebar = variant === 'sidebar';
+  const useSidebarPalette = isSidebar && hasDistinctSidebar(spaceTheme);
 
   return (
-    <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
-      <Avatar
-        src={customerAvatarUrl || undefined}
-        alt={customerName}
-        sx={{
-          width: isSidebar ? 50 : 36,
-          height: isSidebar ? 50 : 36,
-          border: '2px solid',
-          borderColor: spaceTheme.surfaceBg,
-          boxShadow: spaceTheme.isDark
-            ? '0 2px 8px rgba(0, 0, 0, 0.35)'
-            : '0 2px 8px rgba(60, 45, 30, 0.12)',
-          flexShrink: 0,
-        }}
-      >
-        {customerName.charAt(0)}
-      </Avatar>
+    <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+      <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
+        <Avatar
+          src={customerAvatarUrl || undefined}
+          alt={customerName}
+          sx={{
+            width: isSidebar ? 50 : 36,
+            height: isSidebar ? 50 : 36,
+            border: '2px solid',
+            borderColor: useSidebarPalette
+              ? 'rgba(255, 248, 240, 0.35)'
+              : spaceTheme.surfaceBg,
+            boxShadow: spaceTheme.isDark
+              ? '0 2px 8px rgba(0, 0, 0, 0.35)'
+              : '0 2px 8px rgba(60, 45, 30, 0.12)',
+            flexShrink: 0,
+            ...(spaceTheme.isDark || useSidebarPalette
+              ? {
+                  bgcolor: useSidebarPalette
+                    ? 'rgba(255, 248, 240, 0.14)'
+                    : spaceTheme.surfaceBg,
+                  color: useSidebarPalette
+                    ? spaceTheme.sidebarTextPrimary
+                    : spaceTheme.textPrimary,
+                }
+              : {}),
+          }}
+        >
+          {customerName.charAt(0)}
+        </Avatar>
 
-      <Typography
-        variant={isSidebar ? 'h5' : 'h6'}
-        noWrap
+        <Typography
+          variant={isSidebar ? 'h5' : 'h6'}
+          noWrap
+          sx={{
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            fontWeight: 500,
+            minWidth: 0,
+            color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : 'inherit',
+          }}
+        >
+          {`${customerName || 'My'}'s Space`}
+        </Typography>
+      </Stack>
+
+      <Chip
+        label={getDesignSpaceTypeLabel(designType)}
+        size="small"
         sx={{
-          fontFamily: '"Georgia", "Times New Roman", serif',
-          fontWeight: 500,
-          minWidth: 0,
+          alignSelf: 'flex-start',
+          ml: isSidebar ? 7.5 : 5.5,
+          height: 24,
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          ...(useSidebarPalette
+            ? {
+                bgcolor: 'rgba(255, 248, 240, 0.14)',
+                color: spaceTheme.sidebarTextPrimary,
+                border: '1px solid rgba(255, 255, 255, 0.22)',
+              }
+            : {
+                bgcolor: spaceTheme.accentSoft,
+                color: spaceTheme.accent,
+                border: `1px solid ${spaceTheme.border}`,
+              }),
         }}
-      >
-         {`${customerName || 'My'}'s Space`}
-      </Typography>
+      />
     </Stack>
   );
 }
@@ -161,6 +222,7 @@ function MySpaceSidebar({
   onNavigate?: () => void;
 }) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
+  const navTextShadow = '0 1px 4px rgba(0, 0, 0, 0.45)';
 
   return (
     <Stack
@@ -235,18 +297,7 @@ function MySpaceSidebar({
                 },
               }}
             >
-              <Box
-                component="img"
-                src={section.image}
-                alt=""
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: 1,
-                  height: 1,
-                  objectFit: 'cover',
-                }}
-              />
+              <MySpaceSectionCardImage sectionId={section.id} />
 
               <Stack
                 sx={{
@@ -254,7 +305,7 @@ function MySpaceSidebar({
                   height: 1,
                   minHeight: 160,
                   p: 2,
-                  color: 'common.black',
+                  color: spaceTheme.categoryTitleColor,
                   justifyContent: 'flex-end',
                 }}
               >
@@ -279,9 +330,13 @@ function MySpaceSidebar({
                     borderRadius: '50%',
                     display: 'grid',
                     placeItems: 'center',
-                    bgcolor: COLORS.primary.lighter,
+                    bgcolor: hasDistinctSidebar(spaceTheme)
+                      ? 'rgba(255, 248, 240, 0.2)'
+                      : spaceTheme.accentSoft,
                     backdropFilter: 'blur(4px)',
-                    color: COLORS.primary.main,
+                    color: hasDistinctSidebar(spaceTheme)
+                      ? spaceTheme.categoryTitleColor
+                      : spaceTheme.accent,
                   }}
                 >
                   <Iconify icon={section.icon} width={20} />
@@ -293,7 +348,8 @@ function MySpaceSidebar({
                     fontWeight: 600,
                     letterSpacing: '0.08em',
                     fontSize: '1.25rem',
-                    color: 'text.primary',
+                    color: spaceTheme.categoryTitleColor,
+                    textShadow: navTextShadow,
                   }}
                 >
                   {section.title}
@@ -302,7 +358,12 @@ function MySpaceSidebar({
                 <Box sx={{ position: 'relative', display: 'inline-block', pr: 3.5, mt: 0.25 }}>
                   <Typography
                     variant="caption"
-                    sx={{ opacity: 0.92, lineHeight: 1.4, color: 'text.secondary', display: 'block' }}
+                    sx={{
+                      lineHeight: 1.4,
+                      color: spaceTheme.categorySubtitleColor,
+                      textShadow: navTextShadow,
+                      display: 'block',
+                    }}
                   >
                     {section.description}
                   </Typography>
@@ -311,7 +372,14 @@ function MySpaceSidebar({
                 <Iconify
                   icon="eva:arrow-ios-forward-fill"
                   width={18}
-                  sx={{ position: 'absolute', bottom: 16, right: 14, opacity: 0.9 }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 16,
+                    right: 14,
+                    color: spaceTheme.categoryTitleColor,
+                    opacity: 0.9,
+                    filter: 'drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45))',
+                  }}
                 />
               </Stack>
             </Box>
@@ -327,7 +395,7 @@ function MySpaceSidebar({
           mt: 2,
           pt: 2,
           borderTop: '1px solid',
-          borderColor: spaceTheme.divider,
+          borderColor: spaceTheme.sidebarDivider,
         }}
       >
         <Logo
@@ -468,8 +536,11 @@ function UniverseLandingMySpaceContent({
               flexDirection: 'column',
               padding: 1,
               mr: 2.5,
+              bgcolor: spaceTheme.sidebarBg,
+              color: spaceTheme.sidebarTextPrimary,
               borderRight: '1px solid',
               borderColor: spaceTheme.sidebarBorder,
+              borderRadius: { lg: 2 },
             }}
           >
             {sidebar}
@@ -485,7 +556,8 @@ function UniverseLandingMySpaceContent({
             minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            bgcolor: spaceTheme.pageBg,
+            bgcolor: spaceTheme.contentBg,
+            borderRadius: 2,
             color: spaceTheme.textPrimary,
             px: { xs: 2, sm: 3, lg: 0 },
             pl: { lg: 0.5 },
@@ -525,8 +597,8 @@ function UniverseLandingMySpaceContent({
         PaperProps={{
           sx: {
             width: SIDEBAR_WIDTH + 32,
-            bgcolor: spaceTheme.pageBg,
-            color: spaceTheme.textPrimary,
+            bgcolor: spaceTheme.sidebarBg,
+            color: spaceTheme.sidebarTextPrimary,
             p: 2,
             height: '100%',
             overflow: 'hidden',

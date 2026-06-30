@@ -49,7 +49,12 @@ export const DesignSpaceSchema = zod.object({
   images: schemaHelper.files({ message: { required_error: 'Images is required!' } }),
   rooms: zod.string().optional(),
   effects: zod.string().optional(),
-  designType: zod.enum(['normal', 'morning', 'evening', 'night']),
+  designType: zod.enum([
+    'gentle-feminine-romantic',
+    'serene-elegant',
+    'warm-nostalgic',
+    'strong-modern',
+  ]),
 });
 
 export type DesignSpaceSchemaType = zod.infer<typeof DesignSpaceSchema>;
@@ -503,13 +508,13 @@ export function DesignSpaceForm({ currentArea }: Props) {
         <Card>
           <CardHeader
             title="My Space"
-            subheader="Select the design type for shared items on your universe home page."
+            subheader="Choose a mood for your universe home page — blogs, albums, bookshelf, and more."
             sx={{ mb: 3 }}
           />
           <Divider />
           <Stack spacing={2.5} sx={{ p: 3 }}>
             <Stack spacing={1}>
-              <Typography variant="subtitle1">Design type</Typography>
+              <Typography variant="subtitle1">Design category</Typography>
               <ToggleButtonGroup
                 exclusive
                 value={selectedDesignType}
@@ -523,11 +528,21 @@ export function DesignSpaceForm({ currentArea }: Props) {
                 }}
                 size="small"
                 sx={{
-                  width: { xs: 1, sm: 'fit-content' },
-                  flexWrap: 'wrap',
+                  width: 1,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  gap: 1,
+                  '& .MuiToggleButtonGroup-grouped': {
+                    m: 0,
+                    border: '1px solid !important',
+                    borderRadius: '8px !important',
+                  },
                   '& .MuiToggleButton-root': {
-                    flex: { xs: 1, sm: 'none' },
                     textTransform: 'none',
+                    whiteSpace: 'normal',
+                    lineHeight: 1.35,
+                    py: 1,
+                    px: 1.25,
                   },
                 }}
               >

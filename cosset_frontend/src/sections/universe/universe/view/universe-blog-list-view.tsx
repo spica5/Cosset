@@ -33,13 +33,14 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
+import { useDesignSpaceTheme, getDesignSpaceCardSx } from 'src/sections/universe/universe/landing/design-space-theme-context';
 import {
   getBlogContentFontSx,
-  BLOG_CONTENT_FONT_COLOR,
+  getBlogContentFontColor,
   isBlogContentFontPreset,
   getBlogContentAppearance,
-  getBlogContentBackgroundSx,  
-  isBlogContentBackgroundPreset,  
+  getBlogContentBackgroundSx,
+  isBlogContentBackgroundPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -172,6 +173,11 @@ const hasCollapsedOverflow = (node: HTMLParagraphElement, content: string) => {
 export function UniverseBlogListView({ customerId }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const blogContentStyleOptions = useMemo(
+    () => ({ designTheme: spaceTheme }),
+    [spaceTheme],
+  );
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const [query, setQuery] = useState('');
@@ -366,7 +372,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                 const isExpanded = !!expandedById[String(blog.id)];
 
                 return (
-                  <Card key={blog.id} sx={{ p: 2.5 }}>
+                  <Card key={blog.id} sx={{ p: 2.5, ...getDesignSpaceCardSx(spaceTheme) }}>
                     <Stack spacing={1.5}>
                       <Stack
                         direction="row"
@@ -424,7 +430,10 @@ export function UniverseBlogListView({ customerId }: Props) {
                           p: { xs: 1.5, md: 2 },
                           borderRadius: 1.5,
                           border: '1px solid',
-                          ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset),
+                          ...getBlogContentBackgroundSx(
+                            contentAppearance.backgroundPreset,
+                            blogContentStyleOptions,
+                          ),
                         }}
                       >
                         <Typography
@@ -453,7 +462,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                           }}
                           variant="body2"
                           sx={{
-                            color: BLOG_CONTENT_FONT_COLOR,
+                            color: getBlogContentFontColor(blogContentStyleOptions),
                             ...getBlogContentFontSx(contentAppearance.fontPreset),
                             textIndent: '0.25em',
                             whiteSpace: isExpanded ? 'pre-wrap' : 'pre-line',

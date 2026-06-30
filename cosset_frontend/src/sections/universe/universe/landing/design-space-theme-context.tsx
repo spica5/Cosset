@@ -5,7 +5,8 @@ import type { DesignSpaceType, DesignSpaceTheme } from 'src/utils/design-space-t
 
 import { createContext, useContext, useMemo } from 'react';
 
-import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 
 import {
   DEFAULT_DESIGN_SPACE_TYPE,
@@ -29,6 +30,49 @@ export function useDesignSpaceTheme() {
   return useContext(DesignSpaceThemeContext);
 }
 
+export function getDesignSpaceCardSx(theme: DesignSpaceTheme) {
+  if (!theme.isDark) {
+    return {};
+  }
+
+  return {
+    bgcolor: theme.cardBg,
+    color: theme.textPrimary,
+    border: `1px solid ${theme.border}`,
+  };
+}
+
+type DesignSpaceMuiThemeLayerProps = {
+  spaceTheme: DesignSpaceTheme;
+  children: ReactNode;
+};
+
+function DesignSpaceMuiThemeLayer({ spaceTheme, children }: DesignSpaceMuiThemeLayerProps) {
+  return (
+    <ThemeProvider
+      theme={(outerTheme: Theme) => ({
+        ...outerTheme,
+        palette: {
+          ...outerTheme.palette,
+          background: {
+            ...outerTheme.palette?.background,
+            default: spaceTheme.contentBg,
+            paper: spaceTheme.surfaceBg,
+          },
+          text: {
+            ...outerTheme.palette?.text,
+            primary: spaceTheme.textPrimary,
+            secondary: spaceTheme.textSecondary,
+          },
+          divider: spaceTheme.divider,
+        },
+      })}
+    >
+      {children}
+    </ThemeProvider>
+  );
+}
+
 type ProviderProps = {
   designType?: DesignSpaceType;
   /** Enable nested MUI palette overrides for My Space sections only. */
@@ -47,25 +91,6 @@ export function DesignSpaceThemeProvider({
     [resolvedDesignType],
   );
 
-  const muiTheme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: spaceTheme.isDark ? 'dark' : 'light',
-          background: {
-            default: spaceTheme.pageBg,
-            paper: spaceTheme.surfaceBg,
-          },
-          text: {
-            primary: spaceTheme.textPrimary,
-            secondary: spaceTheme.textSecondary,
-          },
-          divider: spaceTheme.divider,
-        },
-      }),
-    [spaceTheme],
-  );
-
   const contextValue = useMemo(
     () => ({
       designType: resolvedDesignType,
@@ -76,7 +101,11 @@ export function DesignSpaceThemeProvider({
 
   return (
     <DesignSpaceThemeContext.Provider value={contextValue}>
-      {withMuiTheme ? <ThemeProvider theme={muiTheme}>{children}</ThemeProvider> : children}
+      {withMuiTheme ? (
+        <DesignSpaceMuiThemeLayer spaceTheme={spaceTheme}>{children}</DesignSpaceMuiThemeLayer>
+      ) : (
+        children
+      )}
     </DesignSpaceThemeContext.Provider>
   );
 }

@@ -12,7 +12,11 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'design_space';
 
-export type DesignSpaceType = 'normal' | 'morning' | 'evening' | 'night';
+export type DesignSpaceType =
+  | 'gentle-feminine-romantic'
+  | 'serene-elegant'
+  | 'warm-nostalgic'
+  | 'strong-modern';
 
 export interface DesignSpace {
   id: number;
@@ -27,14 +31,32 @@ export interface DesignSpace {
 
 let ensureDesignTypeColumnPromise: Promise<void> | null = null;
 
+const DESIGN_SPACE_TYPES = new Set<DesignSpaceType>([
+  'gentle-feminine-romantic',
+  'serene-elegant',
+  'warm-nostalgic',
+  'strong-modern',
+]);
+
+const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
+  normal: 'gentle-feminine-romantic',
+  morning: 'warm-nostalgic',
+  evening: 'serene-elegant',
+  night: 'strong-modern',
+};
+
 export const normalizeDesignType = (value: unknown): DesignSpaceType => {
   const normalized = String(value || '').trim().toLowerCase();
 
-  if (normalized === 'morning' || normalized === 'evening' || normalized === 'night') {
-    return normalized;
+  if (LEGACY_DESIGN_TYPE_MAP[normalized]) {
+    return LEGACY_DESIGN_TYPE_MAP[normalized];
   }
 
-  return 'normal';
+  if (DESIGN_SPACE_TYPES.has(normalized as DesignSpaceType)) {
+    return normalized as DesignSpaceType;
+  }
+
+  return 'gentle-feminine-romantic';
 };
 
 const ensureDesignTypeColumn = async (): Promise<void> => {

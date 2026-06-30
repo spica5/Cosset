@@ -33,7 +33,7 @@ import {
 } from 'src/utils/design-space-type';
 import { isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
-import { varAlpha } from 'src/theme/universe/styles';
+import { varAlpha, getThemeCommonVars } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify/iconify';
 
@@ -75,6 +75,7 @@ export function UniverseLandingHero({
   ...other
 }: Props) {
   const theme = useTheme();
+  const commonVars = useMemo(() => getThemeCommonVars(theme), [theme]);
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [showRoomInfo, setShowRoomInfo] = useState(true);
   const [showTopMenu, setShowTopMenu] = useState(true);
@@ -208,8 +209,8 @@ export function UniverseLandingHero({
             zIndex: 8,
             content: "''",
             position: 'absolute',
-            backgroundImage: `linear-gradient(to bottom, ${varAlpha(theme.vars.palette.common.blackChannel, 0)} 0%, ${
-              theme.vars.palette.common.black
+            backgroundImage: `linear-gradient(to bottom, ${varAlpha(commonVars.blackChannel, 0)} 0%, ${
+              commonVars.black
             } 125%)`,
           },
           minHeight: { xs: 520, sm: 620 },
@@ -236,8 +237,8 @@ export function UniverseLandingHero({
             position: 'relative',
             color: 'common.white',
             borderRadius: 2,
-            border: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.24)}`,
-            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+            border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.24)}`,
+            bgcolor: varAlpha(commonVars.blackChannel, 0.55),
             backdropFilter: 'blur(4px)',
             maxWidth: { xs: '92%', md: 960 },
             mt: { xs: 4, md: 6 },
@@ -251,9 +252,9 @@ export function UniverseLandingHero({
               right: 8,
               position: 'absolute',
               color: 'common.white',
-              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.45),
+              bgcolor: varAlpha(commonVars.blackChannel, 0.45),
               '&:hover': {
-                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.65),
+                bgcolor: varAlpha(commonVars.blackChannel, 0.65),
               },
             }}
           >
@@ -335,8 +336,8 @@ export function UniverseLandingHero({
             minWidth: { xs: 180, sm: 220 },
             maxWidth: { xs: 'calc(100vw - 24px)', sm: 260 },
             position: 'absolute',
-            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
-            border: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
+            bgcolor: varAlpha(commonVars.blackChannel, 0.5),
+            border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
             color: 'common.white',
             backdropFilter: 'blur(4px)',
           }}
@@ -349,7 +350,7 @@ export function UniverseLandingHero({
             sx={{
               mb: 1.25,
               pb: 1.25,
-              borderBottom: `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
+              borderBottom: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
@@ -367,11 +368,18 @@ export function UniverseLandingHero({
                   borderRadius: 2,
                 }}
               />
-              <Box sx={{ minWidth: 0 }}>
+              <Stack spacing={0.35} sx={{ minWidth: 0 }}>
+                {friendshipState === 'friend' ? (
+                  <Iconify
+                    icon="solar:heart-bold"
+                    width={18}
+                    sx={{ color: '#FF8A8A', flexShrink: 0 }}
+                  />
+                ) : null}
                 <Typography variant="body1" noWrap>
                   {customer?.name || 'Customer'}
                 </Typography>
-              </Box>
+              </Stack>
             </Stack>
 
             {onToggleFullScreen ? (
@@ -383,10 +391,10 @@ export function UniverseLandingHero({
                   border: 1,
                   borderColor: 'text.secondary',
                   color: 'info.main',
-                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                  bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                   '&:hover': {
                     borderColor: 'text.secondary',
-                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                    bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                     color: 'info.lighter',
                   },
                 }}
@@ -419,10 +427,10 @@ export function UniverseLandingHero({
                 sx={{
                   borderColor: 'text.secondary',
                   color: 'info.main',
-                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                  bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                   '&:hover': {
                     borderColor: 'text.secondary',
-                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                    bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                     color: 'info.lighter',
                   },
                 }}
@@ -444,10 +452,10 @@ export function UniverseLandingHero({
                   sx={{
                     borderColor: 'text.secondary',
                     color: 'info.main',
-                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                     '&:hover': {
                       borderColor: 'text.secondary',
-                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                       color: 'info.lighter',
                     },
                   }}
@@ -466,10 +474,10 @@ export function UniverseLandingHero({
               sx={{
                 borderColor: 'text.secondary',
                 color: 'info.main',
-                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                 '&:hover': {
                   borderColor: 'text.secondary',
-                  bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                  bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                   color: 'info.lighter',
                 },
               }}
@@ -492,10 +500,10 @@ export function UniverseLandingHero({
                   sx={{
                     borderColor: 'text.secondary',
                     color: 'info.main',
-                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                     '&:hover': {
                       borderColor: 'text.secondary',
-                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                       color: 'info.lighter',
                     },
                   }}
@@ -516,10 +524,10 @@ export function UniverseLandingHero({
                   sx={{
                     borderColor: 'text.secondary',
                     color: 'info.main',
-                    bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.35),
+                    bgcolor: varAlpha(commonVars.blackChannel, 0.35),
                     '&:hover': {
                       borderColor: 'text.secondary',
-                      bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+                      bgcolor: varAlpha(commonVars.blackChannel, 0.55),
                       color: 'info.lighter',
                     },
                   }}
@@ -545,13 +553,13 @@ export function UniverseLandingHero({
             py: 1,
             borderRadius: 99,
             whiteSpace: 'nowrap',
-            borderColor: varAlpha(theme.vars.palette.common.whiteChannel, 0.4),
+            borderColor: varAlpha(commonVars.whiteChannel, 0.4),
             color: 'common.white',
-            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
+            bgcolor: varAlpha(commonVars.blackChannel, 0.5),
             backdropFilter: 'blur(4px)',
             '&:hover': {
               borderColor: 'common.white',
-              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.7),
+              bgcolor: varAlpha(commonVars.blackChannel, 0.7),
             },
           }}
         >
@@ -567,9 +575,9 @@ export function UniverseLandingHero({
             zIndex: 10,
             position: 'absolute',
             color: 'common.white',
-            bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.5),
+            bgcolor: varAlpha(commonVars.blackChannel, 0.5),
             '&:hover': {
-              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.7),
+              bgcolor: varAlpha(commonVars.blackChannel, 0.7),
             },
           }}
         >
@@ -657,9 +665,9 @@ export function UniverseLandingHero({
               right: -16,
               zIndex: 1,
               color: 'common.white',
-              bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.55),
+              bgcolor: varAlpha(commonVars.blackChannel, 0.55),
               '&:hover': {
-                bgcolor: varAlpha(theme.vars.palette.common.blackChannel, 0.75),
+                bgcolor: varAlpha(commonVars.blackChannel, 0.75),
               },
             }}
           >

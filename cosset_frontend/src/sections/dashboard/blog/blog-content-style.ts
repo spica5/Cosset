@@ -1,9 +1,23 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
+import type { DesignSpaceTheme } from 'src/utils/design-space-type';
+
 // ----------------------------------------------------------------------
 
 /** Shared blog content text color — used across dashboard and universe. */
 export const BLOG_CONTENT_FONT_COLOR = '#1C252E';
+
+export type BlogContentStyleOptions = {
+  designTheme?: Pick<DesignSpaceTheme, 'isDark' | 'surfaceBg' | 'border' | 'textPrimary'>;
+};
+
+export function getBlogContentFontColor(options?: BlogContentStyleOptions): string {
+  if (options?.designTheme?.isDark) {
+    return options.designTheme.textPrimary;
+  }
+
+  return BLOG_CONTENT_FONT_COLOR;
+}
 
 export type BlogContentFontPreset =
   | 'clean-sans'
@@ -253,8 +267,20 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
 }
 
 export function getBlogContentBackgroundSx(
-  backgroundPreset: BlogContentBackgroundPreset
+  backgroundPreset: BlogContentBackgroundPreset,
+  options?: BlogContentStyleOptions
 ): SxProps<Theme> {
+  if (options?.designTheme?.isDark) {
+    const { designTheme } = options;
+
+    return {
+      borderColor: designTheme.border,
+      bgcolor: designTheme.surfaceBg,
+      backgroundImage: 'none',
+      boxShadow: `inset 0 0 0 1px ${designTheme.border}, 0 6px 14px rgba(0, 0, 0, 0.22)`,
+    };
+  }
+
   switch (backgroundPreset) {
     case 'cream-paper':
       return {

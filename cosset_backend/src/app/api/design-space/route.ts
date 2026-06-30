@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         background: background != null ? String(background).trim() : null,
         rooms: rooms != null ? String(rooms).trim() : null,
         effects: effects != null ? String(effects).trim() : null,
-        designType: normalizeDesignType(designType ?? 'normal'),
+        designType: normalizeDesignType(designType ?? 'gentle-feminine-romantic'),
       });
     }
 

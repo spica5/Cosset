@@ -1,11 +1,17 @@
 // ----------------------------------------------------------------------
 
-export type DesignSpaceType = 'normal' | 'morning' | 'evening' | 'night';
+export type DesignSpaceType =
+  | 'gentle-feminine-romantic'
+  | 'serene-elegant'
+  | 'warm-nostalgic'
+  | 'strong-modern';
 
-export const DEFAULT_DESIGN_SPACE_TYPE: DesignSpaceType = 'normal';
+export const DEFAULT_DESIGN_SPACE_TYPE: DesignSpaceType = 'gentle-feminine-romantic';
 
 export type DesignSpaceTheme = {
   pageBg: string;
+  sidebarBg: string;
+  contentBg: string;
   cardBg: string;
   surfaceBg: string;
   accent: string;
@@ -13,67 +19,104 @@ export type DesignSpaceTheme = {
   accentSoft: string;
   border: string;
   sidebarBorder: string;
+  sidebarDivider: string;
   divider: string;
   textPrimary: string;
   textSecondary: string;
+  sidebarTextPrimary: string;
+  sidebarTextSecondary: string;
+  categoryTitleColor: string;
+  categorySubtitleColor: string;
   isDark: boolean;
 };
 
+export function hasDistinctSidebar(theme: DesignSpaceTheme): boolean {
+  return theme.sidebarBg !== theme.contentBg;
+}
+
 const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
-  normal: {
-    pageBg: '#F9F7F2',
-    cardBg: '#FAF6F0',
+  'gentle-feminine-romantic': {
+    pageBg: '#FBF6F6',
+    sidebarBg: '#FBF6F6',
+    contentBg: '#FBF6F6',
+    cardBg: '#FFF8F8',
     surfaceBg: '#FFFFFF',
-    accent: '#E8A0A8',
-    accentHover: '#d88e96',
-    accentSoft: 'rgba(232, 160, 168, 0.08)',
-    border: 'rgba(139, 119, 101, 0.16)',
-    sidebarBorder: 'rgba(139, 119, 101, 0.22)',
-    divider: 'rgba(139, 119, 101, 0.22)',
-    textPrimary: '#3C2D1E',
-    textSecondary: 'rgba(60, 45, 30, 0.72)',
+    accent: '#D4849A',
+    accentHover: '#c07388',
+    accentSoft: 'rgba(212, 132, 154, 0.12)',
+    border: 'rgba(180, 130, 140, 0.18)',
+    sidebarBorder: 'rgba(180, 130, 140, 0.24)',
+    sidebarDivider: 'rgba(180, 130, 140, 0.22)',
+    divider: 'rgba(180, 130, 140, 0.22)',
+    textPrimary: '#4A2F38',
+    textSecondary: 'rgba(74, 47, 56, 0.72)',
+    sidebarTextPrimary: '#4A2F38',
+    sidebarTextSecondary: 'rgba(74, 47, 56, 0.72)',
+    categoryTitleColor: '#FFF5F7',
+    categorySubtitleColor: 'rgba(255, 245, 247, 0.92)',
     isDark: false,
   },
-  morning: {
-    pageBg: '#FFF6E8',
-    cardBg: '#FFFBF3',
+  'serene-elegant': {
+    pageBg: '#F4F6F8',
+    sidebarBg: '#F4F6F8',
+    contentBg: '#F4F6F8',
+    cardBg: '#F8FAFB',
     surfaceBg: '#FFFFFF',
-    accent: '#E8A878',
-    accentHover: '#d49362',
-    accentSoft: 'rgba(232, 168, 120, 0.1)',
-    border: 'rgba(180, 140, 90, 0.18)',
-    sidebarBorder: 'rgba(180, 140, 90, 0.24)',
-    divider: 'rgba(180, 140, 90, 0.24)',
-    textPrimary: '#4A3828',
-    textSecondary: 'rgba(74, 56, 40, 0.72)',
+    accent: '#7B96A8',
+    accentHover: '#6a8494',
+    accentSoft: 'rgba(123, 150, 168, 0.12)',
+    border: 'rgba(100, 120, 135, 0.18)',
+    sidebarBorder: 'rgba(100, 120, 135, 0.24)',
+    sidebarDivider: 'rgba(100, 120, 135, 0.22)',
+    divider: 'rgba(100, 120, 135, 0.22)',
+    textPrimary: '#2E3A42',
+    textSecondary: 'rgba(46, 58, 66, 0.72)',
+    sidebarTextPrimary: '#2E3A42',
+    sidebarTextSecondary: 'rgba(46, 58, 66, 0.72)',
+    categoryTitleColor: 'rgb(50, 57, 61)', 
+    categorySubtitleColor: 'rgba(102, 148, 180, 0.8)',
     isDark: false,
   },
-  evening: {
-    pageBg: '#F0E4D4',
-    cardBg: '#F7EDE2',
-    surfaceBg: '#FFFAF4',
-    accent: '#D4847A',
-    accentHover: '#c07369',
-    accentSoft: 'rgba(212, 132, 122, 0.1)',
-    border: 'rgba(120, 90, 70, 0.2)',
-    sidebarBorder: 'rgba(120, 90, 70, 0.28)',
-    divider: 'rgba(120, 90, 70, 0.28)',
-    textPrimary: '#3D3028',
-    textSecondary: 'rgba(61, 48, 40, 0.75)',
-    isDark: false,
-  },
-  night: {
-    pageBg: '#151B26',
-    cardBg: '#1E2635',
-    surfaceBg: '#252E40',
-    accent: '#C9A0A8',
-    accentHover: '#b88e96',
-    accentSoft: 'rgba(201, 160, 168, 0.12)',
-    border: 'rgba(255, 255, 255, 0.1)',
+  'warm-nostalgic': {
+    pageBg: 'rgba(212, 195, 183, 1)', 
+    sidebarBg: '#8C7A6B',
+    contentBg: 'rgba(248, 237, 228, 1)',
+    cardBg: '#FFFAF7',
+    surfaceBg: '#FFFAF7',
+    accent: '#A65D3F',
+    accentHover: '#8F4F34',
+    accentSoft: 'rgba(166, 93, 63, 0.14)',
+    border: 'rgba(140, 100, 72, 0.16)',
     sidebarBorder: 'rgba(255, 255, 255, 0.12)',
-    divider: 'rgba(255, 255, 255, 0.12)',
-    textPrimary: '#F0EBE3',
-    textSecondary: 'rgba(240, 235, 227, 0.72)',
+    sidebarDivider: 'rgba(255, 255, 255, 0.16)',
+    divider: 'rgba(166, 93, 63, 0.14)',
+    textPrimary: '#3D2E24',
+    textSecondary: 'rgba(93, 72, 55, 0.72)',
+    sidebarTextPrimary: '#FFF8F0',
+    sidebarTextSecondary: 'rgba(255, 248, 240, 0.84)',
+    categoryTitleColor: '#FFFFFF',
+    categorySubtitleColor: 'rgba(255, 248, 240, 0.9)',
+    isDark: false,
+  },
+  'strong-modern': {
+    pageBg: '#181B21',
+    sidebarBg: '#181B21',
+    contentBg: '#0B0D11',
+    cardBg: '#15181E',
+    surfaceBg: '#1C2028',
+    accent: '#6B9FFF',
+    accentHover: '#5A8EEF',
+    accentSoft: 'rgba(107, 159, 255, 0.16)',
+    border: 'rgba(255, 255, 255, 0.12)',
+    sidebarBorder: 'rgba(255, 255, 255, 0.14)',
+    sidebarDivider: 'rgba(255, 255, 255, 0.14)',
+    divider: 'rgba(255, 255, 255, 0.14)',
+    textPrimary: '#F8FAFC',
+    textSecondary: 'rgba(248, 250, 252, 0.82)',
+    sidebarTextPrimary: '#F8FAFC',
+    sidebarTextSecondary: 'rgba(248, 250, 252, 0.82)',
+    categoryTitleColor: '#F8FAFC',
+    categorySubtitleColor: 'rgba(248, 250, 252, 0.88)',
     isDark: true,
   },
 };
@@ -84,31 +127,42 @@ export const DESIGN_SPACE_TYPE_OPTIONS: {
   description: string;
 }[] = [
   {
-    value: 'normal',
-    label: 'Normal',
-    description: 'Original colors with no atmosphere overlay',
+    value: 'gentle-feminine-romantic',
+    label: 'Gentle, Feminine, Romantic',
+    description: 'Soft blush tones with a warm, romantic atmosphere',
   },
   {
-    value: 'morning',
-    label: 'Morning',
-    description: 'Bright, warm daylight tones',
+    value: 'serene-elegant',
+    label: 'Serene, Elegant',
+    description: 'Calm blue-gray palette with refined, peaceful elegance',
   },
   {
-    value: 'evening',
-    label: 'Evening',
-    description: 'Soft golden-hour mood',
+    value: 'warm-nostalgic',
+    label: 'Warm, Nostalgic',
+    description: 'Cream and amber hues with a cozy, memory-filled mood',
   },
   {
-    value: 'night',
-    label: 'Night',
-    description: 'Dark, calm nighttime atmosphere',
+    value: 'strong-modern',
+    label: 'Strong Modern',
+    description: 'Bold contrast with crisp lines and a contemporary feel',
   },
 ];
 
 const DESIGN_SPACE_TYPE_SET = new Set<string>(DESIGN_SPACE_TYPE_OPTIONS.map((option) => option.value));
 
+const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
+  normal: 'gentle-feminine-romantic',
+  morning: 'warm-nostalgic',
+  evening: 'serene-elegant',
+  night: 'strong-modern',
+};
+
 export function normalizeDesignSpaceType(value: unknown): DesignSpaceType {
   const normalized = String(value || '').trim().toLowerCase();
+
+  if (LEGACY_DESIGN_TYPE_MAP[normalized]) {
+    return LEGACY_DESIGN_TYPE_MAP[normalized];
+  }
 
   if (DESIGN_SPACE_TYPE_SET.has(normalized)) {
     return normalized as DesignSpaceType;
@@ -121,6 +175,13 @@ export function getDesignSpaceTheme(designType: DesignSpaceType): DesignSpaceThe
   return DESIGN_SPACE_THEMES[normalizeDesignSpaceType(designType)];
 }
 
+export function getDesignSpaceTypeLabel(designType: DesignSpaceType): string {
+  return (
+    DESIGN_SPACE_TYPE_OPTIONS.find((option) => option.value === designType)?.label ||
+    DESIGN_SPACE_TYPE_OPTIONS[0].label
+  );
+}
+
 export function getDesignSpaceTypeDescription(designType: DesignSpaceType): string {
   return (
     DESIGN_SPACE_TYPE_OPTIONS.find((option) => option.value === designType)?.description ||
@@ -129,34 +190,41 @@ export function getDesignSpaceTypeDescription(designType: DesignSpaceType): stri
 }
 
 export function getDesignSpaceBackgroundFilter(designType: DesignSpaceType): string | undefined {
-  switch (designType) {
-    case 'morning':
-      return 'brightness(1.08) saturate(1.12) contrast(1.02) sepia(0.08)';
-    case 'evening':
-      return 'brightness(0.58) saturate(0.82) contrast(1.04) sepia(0.18)';
-    case 'night':
-      return 'brightness(0.35) saturate(0.6) contrast(1.2)';
+  switch (normalizeDesignSpaceType(designType)) {
+    case 'gentle-feminine-romantic':
+      return 'brightness(1.04) saturate(1.08) contrast(1.02)';
+    case 'serene-elegant':
+      return 'brightness(1.02) saturate(0.92) contrast(1.03) hue-rotate(-8deg)';
+    case 'warm-nostalgic':
+      return 'brightness(1.04) saturate(1.08) contrast(1.03) sepia(0.1)';
+    case 'strong-modern':
+      return 'brightness(0.42) saturate(0.75) contrast(1.15)';
     default:
       return undefined;
   }
 }
 
 export function getDesignSpaceOverlaySx(designType: DesignSpaceType) {
-  switch (designType) {
-    case 'morning':
+  switch (normalizeDesignSpaceType(designType)) {
+    case 'gentle-feminine-romantic':
       return {
         background:
-          'linear-gradient(180deg, rgba(255, 236, 179, 0.18) 0%, rgba(255, 255, 255, 0.04) 100%)',
+          'linear-gradient(180deg, rgba(255, 220, 228, 0.2) 0%, rgba(255, 255, 255, 0.04) 100%)',
       };
-    case 'evening':
+    case 'serene-elegant':
       return {
         background:
-          'linear-gradient(180deg, rgba(255, 153, 51, 0.16) 0%, rgba(20, 12, 8, 0.28) 100%)',
+          'linear-gradient(180deg, rgba(200, 215, 228, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%)',
       };
-    case 'night':
+    case 'warm-nostalgic':
       return {
         background:
-          'linear-gradient(180deg, rgba(8, 16, 36, 0.2) 0%, rgba(0, 0, 0, 0.42) 100%)',
+          'linear-gradient(180deg, rgba(140, 122, 107, 0.12) 0%, rgba(249, 244, 240, 0.06) 100%)',
+      };
+    case 'strong-modern':
+      return {
+        background:
+          'linear-gradient(180deg, rgba(12, 16, 24, 0.28) 0%, rgba(0, 0, 0, 0.45) 100%)',
       };
     default:
       return undefined;

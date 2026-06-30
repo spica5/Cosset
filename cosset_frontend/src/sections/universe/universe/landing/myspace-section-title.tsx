@@ -68,6 +68,7 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
             fontFamily: MYSPACE_SECTION_SERIF,
             fontWeight: 700,
             letterSpacing: '0.06em',
+            color: spaceTheme.textPrimary,
           }}
         >
           {title}
@@ -78,7 +79,10 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
       <Box sx={{ position: 'relative', display: 'inline-block', maxWidth: 1, pr: 4 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
-          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+          <Typography
+            variant="body2"
+            sx={{ fontStyle: 'italic', color: spaceTheme.textSecondary }}
+          >
             {subtitle}
           </Typography>
           <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />

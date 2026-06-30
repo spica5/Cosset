@@ -1,3 +1,5 @@
+import type { SxProps, Theme } from '@mui/material/styles';
+
 import { useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
@@ -239,6 +241,7 @@ type CommentsSectionProps = {
   onCommentVisibilityToggle?: (commentId: string | number, visible: boolean) => void;
   commentsHidden?: boolean;
   togglingCommentVisibility?: boolean;
+  cardSx?: SxProps<Theme>;
 };
 
 export function CommentsSection({
@@ -257,6 +260,7 @@ export function CommentsSection({
   onCommentVisibilityToggle,
   commentsHidden = false,
   togglingCommentVisibility = false,
+  cardSx,
 }: CommentsSectionProps) {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [commentInput, setCommentInput] = useState('');
@@ -354,7 +358,7 @@ export function CommentsSection({
   return (
     <>
       {!commentsHidden ? (
-        <Card sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Card sx={{ p: { xs: 2, md: 2.5 }, ...cardSx }}>
           <Stack spacing={1.25}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
               <Stack direction="row" spacing={0.6} alignItems="center">

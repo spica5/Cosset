@@ -20,8 +20,8 @@ import CardActionArea from '@mui/material/CardActionArea';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 import {
-  BLOG_CONTENT_FONT_COLOR,
   getBlogContentFontSx,
+  getBlogContentFontColor,
   isBlogContentFontPreset,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
@@ -166,8 +166,10 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
             minHeight: 120,
             borderRadius: 2,
             overflow: 'hidden',
-            ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset),
-            border: '1px solid rgba(139, 119, 101, 0.14)',
+            ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset, {
+              designTheme: spaceTheme,
+            }),
+            border: `1px solid ${spaceTheme.isDark ? spaceTheme.border : 'rgba(139, 119, 101, 0.14)'}`,
           }}
         >
           <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
@@ -195,7 +197,7 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
               p: 1.5,
               pr: 5,
               pt: 4,
-              color: BLOG_CONTENT_FONT_COLOR,
+              color: getBlogContentFontColor({ designTheme: spaceTheme }),
               ...getBlogContentFontSx(contentAppearance.fontPreset),
               display: '-webkit-box',
               WebkitLineClamp: 4,
