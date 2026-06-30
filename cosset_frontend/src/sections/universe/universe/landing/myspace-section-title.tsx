@@ -54,14 +54,24 @@ type Props = {
   title: string;
   subtitle: string;
   itemCount: number;
+  centered?: boolean;
 };
 
-export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
+export function MySpaceSectionTitle({ title, subtitle, itemCount, centered = false }: Props) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
 
   return (
-    <Stack spacing={1}>
-      <Stack direction="row" alignItems="center" spacing={1}>
+    <Stack
+      spacing={1}
+      alignItems={centered ? 'center' : 'flex-start'}
+      sx={{ width: centered ? 1 : undefined, textAlign: centered ? 'center' : 'left' }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        justifyContent={centered ? 'center' : 'flex-start'}
+      >
         <Typography
           variant="h3"
           sx={{
@@ -74,10 +84,23 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
           {title}
         </Typography>
         <Iconify icon="solar:flower-bold-duotone" width={22} sx={{ color: spaceTheme.accent }} />
+        {!centered ? null : <MySpaceCountBadge count={itemCount} />}
       </Stack>
 
-      <Box sx={{ position: 'relative', display: 'inline-block', maxWidth: 1, pr: 4 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+      <Box
+        sx={{
+          position: 'relative',
+          display: 'inline-block',
+          maxWidth: 1,
+          pr: centered ? 0 : 4,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          justifyContent={centered ? 'center' : 'flex-start'}
+        >
           <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
           <Typography
             variant="body2"
@@ -88,15 +111,17 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount }: Props) {
           <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
         </Stack>
 
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -6,
-            right: 0,
-          }}
-        >
-          <MySpaceCountBadge count={itemCount} />
-        </Box>
+        {centered ? null : (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -6,
+              right: 0,
+            }}
+          >
+            <MySpaceCountBadge count={itemCount} />
+          </Box>
+        )}
       </Box>
     </Stack>
   );

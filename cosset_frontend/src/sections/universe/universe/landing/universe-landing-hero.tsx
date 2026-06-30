@@ -81,7 +81,6 @@ export function UniverseLandingHero({
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
-  const [showMood, setShowMood] = useState(true);
   const [fadeLayers, setFadeLayers] = useState({
     a: '',
     b: '',
@@ -227,7 +226,7 @@ export function UniverseLandingHero({
     },
   };
 
-  const showMoodBar = Boolean(showMood && universe.mood?.trim());
+  const showMoodBar = Boolean(universe.mood?.trim());
   const showBackgroundControls = backgroundImages.length > 1;
   const showBottomMoodRow = showMoodBar || showBackgroundControls;
 
@@ -450,44 +449,6 @@ export function UniverseLandingHero({
                         }}
                       >
                         {universe.motif}
-                      </Typography>
-                    </Stack>
-                  ) : null}
-
-                  {universe.mood ? (
-                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ alignSelf: 'flex-start' }}>
-                      <IconButton
-                        size="small"
-                        aria-label={showMood ? 'Hide mood' : 'Show mood'}
-                        onClick={() => setShowMood((prev) => !prev)}
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          border: 1,
-                          borderColor: 'text.secondary',
-                          color: showMood ? 'info.main' : 'text.secondary',
-                          bgcolor: varAlpha(commonVars.blackChannel, 0.35),
-                          '&:hover': {
-                            borderColor: 'text.secondary',
-                            bgcolor: varAlpha(commonVars.blackChannel, 0.55),
-                            color: showMood ? 'info.lighter' : 'common.white',
-                          },
-                        }}
-                      >
-                        <Iconify
-                          icon={showMood ? 'eva:eye-fill' : 'eva:eye-off-fill'}
-                          width={16}
-                        />
-                      </IconButton>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: showMood ? 'info.main' : 'text.secondary',
-                          lineHeight: 1,
-                          userSelect: 'none',
-                        }}
-                      >
-                        Mood
                       </Typography>
                     </Stack>
                   ) : null}

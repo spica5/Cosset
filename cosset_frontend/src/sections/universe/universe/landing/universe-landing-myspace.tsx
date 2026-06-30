@@ -65,12 +65,6 @@ const NAV_SECTIONS = [
     description: 'Saved favorites and inspiration.',
     icon: 'solar:widget-4-bold',
   },
-  {
-    id: 'bookshelf-section' as const,
-    title: 'BOOKSHELF',
-    description: 'E-books, audiobooks, and reading favorites.',
-    icon: 'solar:book-2-bold',
-  },
 ] as const;
 
 export const MYSPACE_SECTION_IDS = NAV_SECTIONS.map((section) => section.id);

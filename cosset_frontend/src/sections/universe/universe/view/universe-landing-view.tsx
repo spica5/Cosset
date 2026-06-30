@@ -39,6 +39,7 @@ import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
 import { UniverseLandingMySpace } from '../landing/universe-landing-myspace';
 import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
 import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
+import { UniverseLandingBookshelfPage } from '../landing/universe-landing-bookshelf-page';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
 // ----------------------------------------------------------------------
@@ -729,9 +730,6 @@ export function UniverseLandingView({
   const showBookshelfAudiobooks = drawerSettings.audiobooks || publicAudiobooks.length > 0;
   const showBookshelfSection =
     allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
-  const sharedBookshelfCount =
-    (showBookshelfEbooks ? publicEbooks.length : 0) +
-    (showBookshelfAudiobooks ? publicAudiobooks.length : 0);
 
   const mySpaceSectionCounts = useMemo(
     () => ({
@@ -745,7 +743,6 @@ export function UniverseLandingView({
                 }
               : {}),
             'collection-items-section': sharedCollections.length,
-            ...(showBookshelfSection ? { 'bookshelf-section': sharedBookshelfCount } : {}),
           }
         : {}),
     }),
@@ -754,10 +751,8 @@ export function UniverseLandingView({
       guestarea?.blog,
       sharedAlbums.length,
       sharedBlogViewItems.length,
-      sharedBookshelfCount,
       sharedCollections.length,
       sharedDrawerItems,
-      showBookshelfSection,
       showDrawersSection,
     ],
   );
@@ -951,27 +946,26 @@ export function UniverseLandingView({
                     }
                   />
                 ),
-                ...(showBookshelfSection
-                  ? {
-                      'bookshelf-section': (
-                        <UniverseLandingBookshelf
-                          ebooks={showBookshelfEbooks ? publicEbooks : []}
-                          audiobooks={showBookshelfAudiobooks ? publicAudiobooks : []}
-                          showEbooks={showBookshelfEbooks}
-                          showAudiobooks={showBookshelfAudiobooks}
-                          loading={ebooksLoading || audiobooksLoading}
-                          isOwner={isCurrentCustomer}
-                          ownerCustomerId={customerId}
-                          viewerCustomerId={viewerId}
-                          authenticated={authenticated}
-                        />
-                      ),
-                    }
-                  : {}),
               }
             : {}),
         }}
       />
+
+      {showBookshelfSection ? (
+        <UniverseLandingBookshelfPage designType={designSpaceType}>
+          <UniverseLandingBookshelf
+            ebooks={showBookshelfEbooks ? publicEbooks : []}
+            audiobooks={showBookshelfAudiobooks ? publicAudiobooks : []}
+            showEbooks={showBookshelfEbooks}
+            showAudiobooks={showBookshelfAudiobooks}
+            loading={ebooksLoading || audiobooksLoading}
+            isOwner={isCurrentCustomer}
+            ownerCustomerId={customerId}
+            viewerCustomerId={viewerId}
+            authenticated={authenticated}
+          />
+        </UniverseLandingBookshelfPage>
+      ) : null}
     </>
   );
 }

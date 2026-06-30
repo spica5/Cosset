@@ -11,8 +11,7 @@ export type MyspaceSectionImageKey =
   | 'blogs-section'
   | 'albums-section'
   | 'drawers-section'
-  | 'collection-items-section'
-  | 'bookshelf-section';
+  | 'collection-items-section';
 
 const MYSPACE_ASSETS_BASE = `${CONFIG.universe.assetsDir}/assets/images/myspace`;
 
@@ -28,7 +27,6 @@ const SECTION_IMAGE_FILE: Record<MyspaceSectionImageKey, string> = {
   'albums-section': 'Albums.png',
   'drawers-section': 'Drawers.png',
   'collection-items-section': 'Collections.png',
-  'bookshelf-section': 'Bookshelf.png',
 };
 
 const DEFAULT_SECTION_IMAGE_FILE: Record<MyspaceSectionImageKey, string> = {
@@ -36,7 +34,6 @@ const DEFAULT_SECTION_IMAGE_FILE: Record<MyspaceSectionImageKey, string> = {
   'albums-section': 'Albums.png',
   'drawers-section': 'Drawers.png',
   'collection-items-section': 'Collections.png',
-  'bookshelf-section': 'bookshelf.png',
 };
 
 export function getDesignTypeAssetFolder(designType: DesignSpaceType): string {
