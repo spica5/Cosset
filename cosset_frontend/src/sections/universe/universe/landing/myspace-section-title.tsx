@@ -14,7 +14,7 @@ export const MYSPACE_SECTION_SERIF = '"Georgia", "Times New Roman", "Palatino Li
 export const MYSPACE_ITEM_TITLE_FONT =
   '"Public Sans Variable", "Segoe UI", "Noto Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
-export const MYSPACE_ACCENT_PINK = '#E8A0A8';
+export const MYSPACE_ACCENT_PINK = '#F8BBD0';
 
 type CountBadgeProps = {
   count: number;

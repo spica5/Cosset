@@ -14,12 +14,15 @@ export type MyspaceSectionImageKey =
   | 'collection-items-section';
 
 const MYSPACE_ASSETS_BASE = `${CONFIG.universe.assetsDir}/assets/images/myspace`;
+const BOOKSHELF_ASSETS_BASE = `${CONFIG.universe.assetsDir}/assets/images/bookshelf`;
+const DESIGN_CATEGORY_ASSETS_BASE = `${MYSPACE_ASSETS_BASE}/design_category`;
 
 const DESIGN_TYPE_ASSET_FOLDER: Record<DesignSpaceType, string> = {
   'gentle-feminine-romantic': 'gentle_feminine_romantic',
   'serene-elegant': 'serene_elegant',
   'warm-nostalgic': 'warm_nostalgic',
   'strong-modern': 'strong_modern',
+  'young-dynamic': 'young_dynamic',
 };
 
 const SECTION_IMAGE_FILE: Record<MyspaceSectionImageKey, string> = {
@@ -52,4 +55,20 @@ export function getMyspaceSectionImageUrl(
 
 export function getMyspaceSectionImageFallbackUrl(sectionId: MyspaceSectionImageKey): string {
   return `${MYSPACE_ASSETS_BASE}/${DEFAULT_SECTION_IMAGE_FILE[sectionId]}`;
+}
+
+export function getDesignCategoryImageUrl(designType: DesignSpaceType): string {
+  const folder = getDesignTypeAssetFolder(designType);
+
+  return `${DESIGN_CATEGORY_ASSETS_BASE}/${folder}.png`;
+}
+
+export function getMyspaceBookshelfDecorImageUrl(designType: DesignSpaceType): string {
+  const folder = getDesignTypeAssetFolder(designType);
+
+  return `${BOOKSHELF_ASSETS_BASE}/${folder}.png`;
+}
+
+export function getMyspaceBookshelfDecorImageFallbackUrl(): string {
+  return `${BOOKSHELF_ASSETS_BASE}/serene_elegant.png`;
 }

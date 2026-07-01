@@ -4,7 +4,8 @@ export type DesignSpaceType =
   | 'gentle-feminine-romantic'
   | 'serene-elegant'
   | 'warm-nostalgic'
-  | 'strong-modern';
+  | 'strong-modern'
+  | 'young-dynamic';
 
 export const DEFAULT_DESIGN_SPACE_TYPE: DesignSpaceType = 'gentle-feminine-romantic';
 
@@ -36,24 +37,24 @@ export function hasDistinctSidebar(theme: DesignSpaceTheme): boolean {
 
 const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
   'gentle-feminine-romantic': {
-    pageBg: '#FBF6F6',
-    sidebarBg: '#FBF6F6',
-    contentBg: '#FBF6F6',
-    cardBg: '#FFF8F8',
+    pageBg: '#FDF9F2',
+    sidebarBg: '#FDF9F2',
+    contentBg: '#FDF9F2',
+    cardBg: '#FFFFFF',
     surfaceBg: '#FFFFFF',
-    accent: '#D4849A',
-    accentHover: '#c07388',
-    accentSoft: 'rgba(212, 132, 154, 0.12)',
-    border: 'rgba(180, 130, 140, 0.18)',
-    sidebarBorder: 'rgba(180, 130, 140, 0.24)',
-    sidebarDivider: 'rgba(180, 130, 140, 0.22)',
-    divider: 'rgba(180, 130, 140, 0.22)',
-    textPrimary: '#4A2F38',
-    textSecondary: 'rgba(74, 47, 56, 0.72)',
-    sidebarTextPrimary: '#4A2F38',
-    sidebarTextSecondary: 'rgba(74, 47, 56, 0.72)',
-    categoryTitleColor: '#FFF5F7',
-    categorySubtitleColor: 'rgba(255, 245, 247, 0.92)',
+    accent: '#F8BBD0',
+    accentHover: '#F48FB1',
+    accentSoft: 'rgba(248, 187, 208, 0.22)',
+    border: 'rgba(78, 52, 46, 0.12)',
+    sidebarBorder: 'rgba(78, 52, 46, 0.14)',
+    sidebarDivider: 'rgba(78, 52, 46, 0.12)',
+    divider: 'rgba(78, 52, 46, 0.12)',
+    textPrimary: '#4E342E',
+    textSecondary: 'rgba(78, 52, 46, 0.68)',
+    sidebarTextPrimary: '#4E342E',
+    sidebarTextSecondary: 'rgba(78, 52, 46, 0.68)',
+    categoryTitleColor: '#FFFFFF',
+    categorySubtitleColor: 'rgba(255, 255, 255, 0.92)',
     isDark: false,
   },
   'serene-elegant': {
@@ -119,6 +120,27 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     categorySubtitleColor: 'rgba(248, 250, 252, 0.88)',
     isDark: true,
   },
+  'young-dynamic': {
+    pageBg: '#FFFFFF',
+    sidebarBg: '#FFFFFF',
+    contentBg: '#FFFFFF',
+    cardBg: '#FFFFFF',
+    surfaceBg: '#F8FAFC',
+    accent: '#8B5CF6',
+    accentHover: '#7C3AED',
+    accentSoft: 'rgba(139, 92, 246, 0.12)',
+    border: 'rgba(100, 116, 139, 0.14)',
+    sidebarBorder: 'rgba(100, 116, 139, 0.16)',
+    sidebarDivider: 'rgba(100, 116, 139, 0.14)',
+    divider: 'rgba(100, 116, 139, 0.14)',
+    textPrimary: '#1E293B',
+    textSecondary: 'rgba(30, 41, 59, 0.68)',
+    sidebarTextPrimary: '#1E293B',
+    sidebarTextSecondary: 'rgba(30, 41, 59, 0.68)',
+    categoryTitleColor: '#FFFFFF',
+    categorySubtitleColor: 'rgba(255, 255, 255, 0.92)',
+    isDark: false,
+  },
 };
 
 export const DESIGN_SPACE_TYPE_OPTIONS: {
@@ -129,7 +151,7 @@ export const DESIGN_SPACE_TYPE_OPTIONS: {
   {
     value: 'gentle-feminine-romantic',
     label: 'Gentle, Feminine, Romantic',
-    description: 'Soft blush tones with a warm, romantic atmosphere',
+    description: 'Cream and blush tones with soft pink accents and a warm, romantic mood',
   },
   {
     value: 'serene-elegant',
@@ -146,6 +168,11 @@ export const DESIGN_SPACE_TYPE_OPTIONS: {
     label: 'Strong Modern',
     description: 'Bold contrast with crisp lines and a contemporary feel',
   },
+  {
+    value: 'young-dynamic',
+    label: 'Young Dynamic',
+    description: 'Bright, playful pastels with rounded cards and energetic purple accents',
+  },
 ];
 
 const DESIGN_SPACE_TYPE_SET = new Set<string>(DESIGN_SPACE_TYPE_OPTIONS.map((option) => option.value));
@@ -155,6 +182,7 @@ const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
   morning: 'warm-nostalgic',
   evening: 'serene-elegant',
   night: 'strong-modern',
+  young_dynamic: 'young-dynamic',
 };
 
 export function normalizeDesignSpaceType(value: unknown): DesignSpaceType {
@@ -192,13 +220,15 @@ export function getDesignSpaceTypeDescription(designType: DesignSpaceType): stri
 export function getDesignSpaceBackgroundFilter(designType: DesignSpaceType): string | undefined {
   switch (normalizeDesignSpaceType(designType)) {
     case 'gentle-feminine-romantic':
-      return 'brightness(1.04) saturate(1.08) contrast(1.02)';
+      return 'brightness(1.03) saturate(1.05) contrast(1.01) sepia(0.04)';
     case 'serene-elegant':
       return 'brightness(1.02) saturate(0.92) contrast(1.03) hue-rotate(-8deg)';
     case 'warm-nostalgic':
       return 'brightness(1.04) saturate(1.08) contrast(1.03) sepia(0.1)';
     case 'strong-modern':
       return 'brightness(0.42) saturate(0.75) contrast(1.15)';
+    case 'young-dynamic':
+      return 'brightness(1.06) saturate(1.12) contrast(1.02)';
     default:
       return undefined;
   }
@@ -209,7 +239,7 @@ export function getDesignSpaceOverlaySx(designType: DesignSpaceType) {
     case 'gentle-feminine-romantic':
       return {
         background:
-          'linear-gradient(180deg, rgba(255, 220, 228, 0.2) 0%, rgba(255, 255, 255, 0.04) 100%)',
+          'linear-gradient(180deg, rgba(255, 204, 188, 0.16) 0%, rgba(253, 249, 242, 0.08) 100%)',
       };
     case 'serene-elegant':
       return {
@@ -225,6 +255,11 @@ export function getDesignSpaceOverlaySx(designType: DesignSpaceType) {
       return {
         background:
           'linear-gradient(180deg, rgba(12, 16, 24, 0.28) 0%, rgba(0, 0, 0, 0.45) 100%)',
+      };
+    case 'young-dynamic':
+      return {
+        background:
+          'linear-gradient(180deg, rgba(196, 181, 253, 0.18) 0%, rgba(255, 255, 255, 0.04) 100%)',
       };
     default:
       return undefined;

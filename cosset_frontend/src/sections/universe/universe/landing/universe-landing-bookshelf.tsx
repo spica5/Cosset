@@ -9,27 +9,22 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import Drawer from '@mui/material/Drawer';
 import InputBase from '@mui/material/InputBase';
 import Pagination from '@mui/material/Pagination';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { hasDistinctSidebar } from 'src/utils/design-space-type';
+
 import { Iconify } from 'src/components/universe/iconify';
-
-import {
-  resolveEbookAssetUrl,
-} from 'src/sections/dashboard/bookshelf/bookshelf-ebook-utils';
-import {
-  resolveAudiobookAssetUrl,
-  resolveAudiobookContentUrl,
-} from 'src/sections/dashboard/bookshelf/bookshelf-audiobook-utils';
-import { BookshelfEbookViewDialog } from 'src/sections/dashboard/bookshelf/bookshelf-ebook-view-dialog';
-import { BookshelfBorrowRequestDialog } from 'src/sections/dashboard/bookshelf/bookshelf-borrow-request-dialog';
-
 import { toast } from 'src/components/dashboard/snackbar';
 
 import {
@@ -37,13 +32,36 @@ import {
   useGetBookshelfBorrowStatuses,
 } from 'src/actions/bookshelf-borrow';
 
+import { MYSPACE_SECTION_SERIF } from './myspace-section-title';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import {
+  getMyspaceBookshelfDecorImageUrl,
+  getMyspaceBookshelfDecorImageFallbackUrl,
+} from './myspace-section-images';
+import {
+  type BookshelfNavCategory,
+  type BookshelfLayoutTheme,
+  BOOKSHELF_NAV_ITEMS,
+  BOOKSHELF_PAGE_SIZE,
+  BOOKSHELF_TITLE,
+  BOOKSHELF_SUBTITLE,
+  BOOKSHELF_FOOTER_QUOTE,
+  BOOKSHELF_SIDEBAR_QUOTE,
+  getBookshelfLayoutTheme,
+  filterBookshelfByNavCategory,
+  buildBookshelfShelfRows,
+  getBookshelfNavCounts,
+} from './universe-landing-bookshelf-theme';
+import {
+  type BookshelfItem,
+  getEntryKey,
+  PARCHMENT_SX,
+  filterBookshelfItems,
+  BookshelfBookCover,
+  BookshelfBookDetailPanel,
+} from './universe-landing-bookshelf-parts';
 
 // ----------------------------------------------------------------------
-
-type BookshelfItem =
-  | { kind: 'ebook'; item: IBookshelfEbook }
-  | { kind: 'audiobook'; item: IBookshelfAudiobook };
 
 type Props = BoxProps & {
   ebooks: IBookshelfEbook[];
@@ -55,449 +73,219 @@ type Props = BoxProps & {
   ownerCustomerId?: string;
   viewerCustomerId?: string;
   authenticated?: boolean;
+  customerName?: string;
+  customerAvatarUrl?: string;
 };
 
-const SHELF_COUNT = 3;
-const BOOKS_PER_SHELF = 6;
-const PAGE_SIZE = SHELF_COUNT * BOOKS_PER_SHELF;
-
-const WOOD_FRAME_SX = {
-  borderRadius: 1,
-  border: '10px solid #4a2f23',
-  background: 'linear-gradient(180deg, #6b442f 0%, #4a2f23 48%, #3b2419 100%)',
-  boxShadow: '0 24px 48px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)',
+type BookshelfTitleAvatarProps = {
+  customerName?: string;
+  customerAvatarUrl?: string;
+  size?: 'sidebar' | 'mobile';
 };
 
-const SHELF_BOARD_SX = {
-  height: 14,
-  borderRadius: '2px',
-  background: 'linear-gradient(180deg, #8b5e3c 0%, #5c3b28 100%)',
-  boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.12), 0 4px 8px rgba(0,0,0,0.25)',
-};
-
-const PARCHMENT_SX = {
-  bgcolor: '#f3e4c8',
-  backgroundImage:
-    'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%), radial-gradient(circle at top right, rgba(255,255,255,0.45), transparent 55%)',
-};
-
-function getEntryKey(entry: BookshelfItem) {
-  return `${entry.kind}-${entry.item.id}`;
-}
-
-function getEntryTitle(entry: BookshelfItem) {
-  return (entry.item.title || '').trim() || `Book #${entry.item.id}`;
-}
-
-function filterBookshelfItems(items: BookshelfItem[], query: string) {
-  const normalized = query.trim().toLowerCase();
-
-  if (!normalized) {
-    return items;
-  }
-
-  return items.filter(({ item, kind }) => {
-    const searchable = [
-      item.title,
-      item.author,
-      item.publishYear != null ? String(item.publishYear) : '',
-      item.description,
-      kind === 'ebook' ? 'e-book' : 'audio-book',
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
-    return searchable.includes(normalized);
-  });
-}
-
-function splitEntriesIntoShelves(items: BookshelfItem[]) {
-  const shelves: BookshelfItem[][] = Array.from({ length: SHELF_COUNT }, () => []);
-
-  items.forEach((entry, index) => {
-    const shelfIndex = Math.min(Math.floor(index / BOOKS_PER_SHELF), SHELF_COUNT - 1);
-
-    if (shelves[shelfIndex].length < BOOKS_PER_SHELF) {
-      shelves[shelfIndex].push(entry);
-    }
-  });
-
-  return shelves;
-}
-
-async function resolveCoverUrl(entry: BookshelfItem) {
-  const coverImage = entry.item.coverImage;
-
-  if (!coverImage) {
-    return '';
-  }
-
-  const resolveCover =
-    entry.kind === 'audiobook' ? resolveAudiobookAssetUrl : resolveEbookAssetUrl;
-
-  return resolveCover(coverImage);
-}
-
-// ----------------------------------------------------------------------
-
-type BookCoverProps = {
-  entry: BookshelfItem;
-  active?: boolean;
-  onSelect: (entry: BookshelfItem) => void;
-};
-
-function BookshelfBookCover({ entry, active, onSelect }: BookCoverProps) {
-  const [coverUrl, setCoverUrl] = useState('');
-  const title = getEntryTitle(entry);
-
-  useEffect(() => {
-    let mounted = true;
-
-    resolveCoverUrl(entry).then((url) => {
-      if (mounted) {
-        setCoverUrl(url);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [entry]);
-
-  const fallbackIcon =
-    entry.kind === 'audiobook'
-      ? 'solar:headphones-round-bold'
-      : 'solar:book-2-bold';
+function BookshelfTitleAvatar({
+  customerName,
+  customerAvatarUrl,
+  size = 'sidebar',
+}: BookshelfTitleAvatarProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const useSidebarPalette = hasDistinctSidebar(spaceTheme);
+  const isSidebar = size === 'sidebar';
+  const displayName = customerName || 'Customer';
+  const dimension = isSidebar ? 40 : 36;
 
   return (
-    <Box
-      onClick={() => onSelect(entry)}
+    <Avatar
+      src={customerAvatarUrl || undefined}
+      alt={displayName}
       sx={{
-        position: 'relative',
-        width: { xs: 56, sm: 68, md: 112 },
+        width: dimension,
+        height: dimension,
+        border: '2px solid',
+        borderColor: useSidebarPalette ? 'rgba(255, 248, 240, 0.35)' : spaceTheme.surfaceBg,
+        boxShadow: spaceTheme.isDark
+          ? '0 2px 8px rgba(0, 0, 0, 0.35)'
+          : '0 2px 8px rgba(60, 45, 30, 0.12)',
         flexShrink: 0,
-        cursor: 'pointer',
-        transform: active ? 'translateY(-6px) scale(1.04)' : 'none',
-        transition: 'transform 0.2s ease',
+        ...(spaceTheme.isDark || useSidebarPalette
+          ? {
+              bgcolor: useSidebarPalette ? 'rgba(255, 248, 240, 0.14)' : spaceTheme.surfaceBg,
+              color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary,
+            }
+          : {}),
       }}
     >
-      <Box
-        sx={{
-          pt: '140%',
-          borderRadius: 0.5,
-          position: 'relative',
-          overflow: 'hidden',
-          border: active ? '2px solid #f6d58d' : '1px solid rgba(0,0,0,0.25)',
-          boxShadow: active ? '0 10px 18px rgba(0,0,0,0.35)' : '0 6px 12px rgba(0,0,0,0.28)',
-          bgcolor: '#d7c4a4',
-        }}
-      >
-        {coverUrl ? (
-          <Box
-            component="img"
-            src={coverUrl}
-            alt={title}
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              width: 1,
-              height: 1,
-              objectFit: 'cover',
-            }}
-          />
-        ) : (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              color: 'rgba(74,47,35,0.55)',
-            }}
-          >
-            <Iconify icon={fallbackIcon} width={28} />
-          </Stack>
-        )}
-      </Box>
-
-      <Box sx={{ mt: 0.5, minHeight: { xs: 22, sm: 24, md: 28 } }}>
-        <Typography
-          variant="caption"
-          title={title}
-          sx={{
-            px: 0.25,
-            textAlign: 'center',
-            color: active ? '#f6d58d' : '#f3e4c8',
-            fontWeight: active ? 600 : 400,
-            fontSize: { xs: 9, sm: 10, md: 11 },
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            display: '-webkit-box',
-          }}
-        >
-          {title}
-        </Typography>
-      </Box>
-    </Box>
+      {displayName.charAt(0)}
+    </Avatar>
   );
 }
 
-type BookDetailPanelProps = {
-  entry: BookshelfItem | null;
-  borrowStatus?: IBookshelfBorrow | null;
-  canRequestBorrow?: boolean;
-  viewerCustomerId?: string;
-  onRequestBorrow?: (borrowPeriodDays: number) => Promise<void>;
-  requestingBorrow?: boolean;
+type BookshelfSidebarProps = {
+  activeCategory: BookshelfNavCategory;
+  counts: Record<BookshelfNavCategory, number>;
+  layoutTheme: BookshelfLayoutTheme;
+  decorImageSrc: string;
+  customerName?: string;
+  customerAvatarUrl?: string;
+  onDecorImageError: () => void;
+  onSelectCategory: (category: BookshelfNavCategory) => void;
+  onNavigate?: () => void;
 };
 
-function BookshelfBookDetailPanel({
-  entry,
-  borrowStatus,
-  canRequestBorrow = false,
-  viewerCustomerId,
-  onRequestBorrow,
-  requestingBorrow = false,
-}: BookDetailPanelProps) {
-  const [coverUrl, setCoverUrl] = useState('');
-  const [readerOpen, setReaderOpen] = useState(false);
-  const [borrowDialogOpen, setBorrowDialogOpen] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (!entry) {
-      setCoverUrl('');
-      return () => {
-        mounted = false;
-      };
-    }
-
-    resolveCoverUrl(entry).then((url) => {
-      if (mounted) {
-        setCoverUrl(url);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [entry]);
-
-  if (!entry) {
-    return (
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        spacing={1.5}
-        sx={{ flex: 1, minHeight: 280, px: 2, py: 4, textAlign: 'center' }}
-      >
-        <Iconify icon="solar:book-2-bold" width={48} sx={{ color: 'rgba(74,47,35,0.35)' }} />
-        <Typography variant="subtitle1" sx={{ color: '#4a2f23', fontWeight: 700 }}>
-          Select a book
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(74,47,35,0.7)', maxWidth: 220 }}>
-          Click a cover on the shelf to view its details here.
-        </Typography>
-      </Stack>
-    );
-  }
-
-  const title = getEntryTitle(entry);
-  const author = (entry.item.author || '').trim();
-  const description = (entry.item.description || '').trim();
-  const isAudiobook = entry.kind === 'audiobook';
-  const isRequested = borrowStatus?.status === 'pending';
-  const isApproved = borrowStatus?.status === 'approved';
-
-  const handleRead = async () => {
-    if (!isAudiobook) {
-      setReaderOpen(true);
-      return;
-    }
-
-    const url = await resolveAudiobookContentUrl(entry.item);
-
-    if (url && typeof window !== 'undefined') {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  };
+function BookshelfSidebar({
+  activeCategory,
+  counts,
+  layoutTheme,
+  decorImageSrc,
+  customerName,
+  customerAvatarUrl,
+  onDecorImageError,
+  onSelectCategory,
+  onNavigate,
+}: BookshelfSidebarProps) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const useSidebarPalette = hasDistinctSidebar(spaceTheme);
+  const titleColor = useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary;
+  const subtitleColor = useSidebarPalette ? spaceTheme.sidebarTextSecondary : spaceTheme.textSecondary;
+  const dividerColor = useSidebarPalette ? spaceTheme.sidebarDivider : spaceTheme.divider;
 
   return (
-    <Stack
-      spacing={2}
-      sx={{
-        flex: 1,
-        minHeight: 200,
-        px: { xs: 2, md: 2.5 },
-        py: { xs: 2, md: 2.5 },
-        overflow: 'auto',
-      }}
-    >
-      <Stack
-        direction="row"
-        spacing={2}
-        alignItems="flex-start"
-        justifyContent="center"
-        sx={{ width: 1 }}
-      >
-        <Box
-          sx={{
-            width: '45%',
-            maxWidth: '45%',
-            flexShrink: 0,
-            alignSelf: 'flex-start',
-            aspectRatio: '5 / 7',
-            position: 'relative',
-            borderRadius: 1,
-            overflow: 'hidden',
-            border: '2px solid rgba(74,47,35,0.18)',
-            boxShadow: '0 10px 22px rgba(74,47,35,0.2)',
-            bgcolor: '#d7c4a4',
-          }}
-        >
-          {coverUrl ? (
-            <Box
-              component="img"
-              src={coverUrl}
-              alt={title}
-              sx={{
-                width: 1,
-                height: 1,
-                objectFit: 'cover',
-                display: 'block',
-              }}
-            />
-          ) : (
-            <Stack
-              alignItems="center"
-              justifyContent="center"
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                color: 'rgba(74,47,35,0.55)',
-              }}
-            >
-              <Iconify icon="solar:book-2-bold" width={40} />
-            </Stack>
-          )}
-        </Box>
+    <Stack sx={{ width: 1, height: 1, minHeight: 0 }}>
+      <Stack spacing={0.75} sx={{ pb: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1.25}>
+          <BookshelfTitleAvatar
+            customerName={customerName}
+            customerAvatarUrl={customerAvatarUrl}
+            size="sidebar"
+          />
 
-        <Stack spacing={1} sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handleRead}
-            startIcon={
-              <Iconify icon={isAudiobook ? 'solar:play-circle-bold' : 'solar:book-2-bold'} width={18} />
-            }
+          <Typography
+            variant="h5"
             sx={{
-              px: 1.5,
-              py: 0.85,
-              borderRadius: 10,
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: { xs: '0.8rem', sm: '0.875rem' },
-              bgcolor: '#2d1a12',
-              color: 'common.white',
-              boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
-              '&:hover': {
-                bgcolor: '#1f120d',
-              },
+              fontFamily: MYSPACE_SECTION_SERIF,
+              fontWeight: 600,
+              color: titleColor,
+              lineHeight: 1.2,
             }}
           >
-            {isAudiobook ? 'Listen to book' : 'Read book'}
-          </Button>
-
-          {canRequestBorrow && !borrowStatus ? (
-            <Button
-              fullWidth
-              size="small"
-              variant="outlined"
-              disabled={requestingBorrow}
-              onClick={() => setBorrowDialogOpen(true)}
-              startIcon={<Iconify icon="solar:hand-heart-bold" width={18} />}
-              sx={{
-                borderRadius: 10,
-                borderColor: 'rgba(74,47,35,0.35)',
-                color: '#4a2f23',
-                fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-              }}
-            >
-              {requestingBorrow ? 'Sending...' : 'Request to borrow'}
-            </Button>
-          ) : null}
-
-          {isRequested ? (
-            <Typography variant="caption" sx={{ color: '#5c4030', fontWeight: 600, textAlign: 'center' }}>
-              Borrow request pending
-            </Typography>
-          ) : null}
-
-          {isApproved ? (
-            <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 700, textAlign: 'center' }}>
-              On your bookshelf
-            </Typography>
-          ) : null}
-        </Stack>
-      </Stack>
-
-      <Stack spacing={1} sx={{ textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ color: '#2d1a12', fontWeight: 800, lineHeight: 1.35 }}>
-          {title}
-        </Typography>
-
-        {author ? (
-          <Typography variant="body2" sx={{ color: '#5c4030', fontWeight: 600 }}>
-            by {author}
-            {entry.item.publishYear ? ` · ${entry.item.publishYear}` : ''}
+            {BOOKSHELF_TITLE}
           </Typography>
-        ) : null}
+        </Stack>
 
         <Typography
-          variant="body2"
+          variant="caption"
           sx={{
-            color: 'rgba(45,26,18,0.78)',
-            lineHeight: 1.7,
-            textAlign: 'left',
-            whiteSpace: 'pre-wrap',
-            minHeight: 96,
-            overflow: 'auto',
-            maxHeight: 160,
+            pl: 6.75,
+            color: subtitleColor,
+            lineHeight: 1.45,
           }}
         >
-          {description ? `Description: ${description}` : 'No description available'}
+          {BOOKSHELF_SUBTITLE}
         </Typography>
       </Stack>
 
-      <BookshelfBorrowRequestDialog
-        open={borrowDialogOpen}
-        bookTitle={title}
-        submitting={requestingBorrow}
-        onClose={() => setBorrowDialogOpen(false)}
-        onSubmit={async (borrowPeriodDays) => {
-          await onRequestBorrow?.(borrowPeriodDays);
-          setBorrowDialogOpen(false);
-        }}
-      />
+      <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}>
+        {BOOKSHELF_NAV_ITEMS.map((item) => {
+          const isActive = activeCategory === item.id;
 
-      {entry.kind === 'ebook' ? (
-        <BookshelfEbookViewDialog
-          open={readerOpen}
-          ebook={entry.item}
-          customerId={viewerCustomerId}
-          onClose={() => setReaderOpen(false)}
-        />
-      ) : null}
+          return (
+            <Box
+              key={item.id}
+              component="button"
+              type="button"
+              onClick={() => {
+                onSelectCategory(item.id);
+                onNavigate?.();
+              }}
+              sx={{
+                width: 1,
+                p: 1.25,
+                border: '1px solid',
+                borderColor: isActive ? layoutTheme.activeNavBorder : 'transparent',
+                borderRadius: 2.5,
+                bgcolor: isActive ? layoutTheme.activeNavBg : 'transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease',
+                '&:hover': {
+                  bgcolor: isActive ? layoutTheme.activeNavHoverBg : spaceTheme.accentSoft,
+                },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.25}>
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    bgcolor: isActive ? layoutTheme.activeNavIconBg : spaceTheme.surfaceBg,
+                    color: isActive ? layoutTheme.activeNavIconColor : spaceTheme.accent,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Iconify icon={item.icon} width={18} />
+                </Box>
+
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 700, color: titleColor, lineHeight: 1.3 }}
+                  >
+                    {item.label}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: subtitleColor }}>
+                    {item.sublabel}
+                    {counts[item.id] > 0 ? ` · ${counts[item.id]}` : ''}
+                  </Typography>
+                </Box>
+
+                <Iconify
+                  icon="eva:arrow-ios-forward-fill"
+                  width={16}
+                  sx={{ color: subtitleColor, flexShrink: 0 }}
+                />
+              </Stack>
+            </Box>
+          );
+        })}
+      </Stack>
+
+      <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${dividerColor}` }}>
+        <Box
+          sx={{
+            borderRadius: 2,
+            overflow: 'hidden',
+            border: `1px solid ${spaceTheme.border}`,
+            bgcolor: spaceTheme.surfaceBg,
+          }}
+        >
+          <Box
+            component="img"
+            src={decorImageSrc}
+            alt=""
+            onError={onDecorImageError}
+            sx={{ width: 1, height: 'auto', display: 'block' }}
+          />
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              px: 1.5,
+              py: 1.25,
+              fontStyle: 'italic',
+              color: subtitleColor,
+              lineHeight: 1.5,
+            }}
+          >
+            {BOOKSHELF_SIDEBAR_QUOTE}
+          </Typography>
+        </Box>
+      </Box>
     </Stack>
   );
 }
-
-// ----------------------------------------------------------------------
 
 export function UniverseLandingBookshelf({
   ebooks,
@@ -509,15 +297,32 @@ export function UniverseLandingBookshelf({
   ownerCustomerId,
   viewerCustomerId,
   authenticated = false,
-  sx,
-  ...other
+  customerName,
+  customerAvatarUrl,
 }: Props) {
-  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const muiTheme = useTheme();
+  const isDesktop = useMediaQuery(muiTheme.breakpoints.up('lg'));
+  const { designType, theme: spaceTheme } = useDesignSpaceTheme();
+  const layoutTheme = useMemo(
+    () => getBookshelfLayoutTheme(designType, spaceTheme),
+    [designType, spaceTheme],
+  );
+  const useSidebarPalette = hasDistinctSidebar(spaceTheme);
+
   const [localBorrowStatuses, setLocalBorrowStatuses] = useState<IBookshelfBorrow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [activeEntryKey, setActiveEntryKey] = useState<string | null>(null);
   const [requestingBorrow, setRequestingBorrow] = useState(false);
+  const [navCategory, setNavCategory] = useState<BookshelfNavCategory>('all');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [decorImageSrc, setDecorImageSrc] = useState(() =>
+    getMyspaceBookshelfDecorImageUrl(designType),
+  );
+
+  useEffect(() => {
+    setDecorImageSrc(getMyspaceBookshelfDecorImageUrl(designType));
+  }, [designType]);
 
   const bookIds = useMemo(() => {
     const ids: number[] = [];
@@ -565,20 +370,33 @@ export function UniverseLandingBookshelf({
 
   const isSearching = searchQuery.trim().length > 0;
 
-  const filteredItems = useMemo(
-    () => filterBookshelfItems(bookshelfItems, searchQuery),
-    [bookshelfItems, searchQuery],
+  const navCounts = useMemo(
+    () => getBookshelfNavCounts(bookshelfItems, mergedBorrowStatuses),
+    [bookshelfItems, mergedBorrowStatuses],
   );
 
-  const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const categoryItems = useMemo(
+    () => filterBookshelfByNavCategory(bookshelfItems, navCategory, mergedBorrowStatuses),
+    [bookshelfItems, mergedBorrowStatuses, navCategory],
+  );
+
+  const filteredItems = useMemo(
+    () => filterBookshelfItems(categoryItems, searchQuery),
+    [categoryItems, searchQuery],
+  );
+
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / BOOKSHELF_PAGE_SIZE));
 
   const paginatedItems = useMemo(() => {
     const safePage = Math.min(page, pageCount);
-    const start = (safePage - 1) * PAGE_SIZE;
-    return filteredItems.slice(start, start + PAGE_SIZE);
+    const start = (safePage - 1) * BOOKSHELF_PAGE_SIZE;
+    return filteredItems.slice(start, start + BOOKSHELF_PAGE_SIZE);
   }, [filteredItems, page, pageCount]);
 
-  const shelves = useMemo(() => splitEntriesIntoShelves(paginatedItems), [paginatedItems]);
+  const shelfRows = useMemo(
+    () => buildBookshelfShelfRows(paginatedItems, navCategory, navCategory === 'all' && pageCount === 1),
+    [navCategory, pageCount, paginatedItems],
+  );
 
   const selectedEntry = useMemo(
     () => paginatedItems.find((entry) => getEntryKey(entry) === activeEntryKey) ?? null,
@@ -601,12 +419,6 @@ export function UniverseLandingBookshelf({
   }, [mergedBorrowStatuses, selectedEntry]);
 
   useEffect(() => {
-    if (page > pageCount) {
-      setPage(pageCount);
-    }
-  }, [page, pageCount]);
-
-  useEffect(() => {
     if (paginatedItems.length === 0) {
       setActiveEntryKey(null);
       return;
@@ -619,6 +431,16 @@ export function UniverseLandingBookshelf({
       setActiveEntryKey(getEntryKey(paginatedItems[0]));
     }
   }, [activeEntryKey, paginatedItems]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [navCategory, searchQuery]);
 
   const handleSelect = useCallback((entry: BookshelfItem) => {
     setActiveEntryKey(getEntryKey(entry));
@@ -670,158 +492,147 @@ export function UniverseLandingBookshelf({
     [canRequestBorrow, ownerCustomerId, selectedEntry, viewerCustomerId],
   );
 
+  const greetingName = (customerName || 'friend').split(' ')[0];
+  const activeNavItem = BOOKSHELF_NAV_ITEMS.find((item) => item.id === navCategory);
+
+  const sidebar = (
+    <BookshelfSidebar
+      activeCategory={navCategory}
+      counts={navCounts}
+      layoutTheme={layoutTheme}
+      decorImageSrc={decorImageSrc}
+      customerName={customerName}
+      customerAvatarUrl={customerAvatarUrl}
+      onDecorImageError={() => {
+        setDecorImageSrc(getMyspaceBookshelfDecorImageFallbackUrl());
+      }}
+      onSelectCategory={setNavCategory}
+      onNavigate={() => {
+        if (!isDesktop) {
+          setMobileNavOpen(false);
+        }
+      }}
+    />
+  );
+
   return (
     <Box
-      component="section"
       sx={{
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: 3,
         flex: 1,
         minHeight: 0,
         height: { xs: 'auto', lg: 1 },
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: { xs: 'column', lg: 'row' },
         bgcolor: spaceTheme.contentBg,
         color: spaceTheme.textPrimary,
-        px: { xs: 1, sm: 2, md: 4 },
-        py: { xs: 1.5, sm: 2, md: 3 },
-        ...sx,
+        overflow: 'hidden',
       }}
-      {...other}
     >
-      <Stack spacing={2.5} sx={{ flex: 1, minHeight: 0 }}>
-        <Box sx={{ flexShrink: 0, width: 1 }}>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr auto 1fr' },
-              alignItems: 'center',
-              gap: { xs: 1.5, md: 2 },
-              width: 1,
-            }}
-          >
-            <Box sx={{ display: { xs: 'none', md: 'block' } }} />
+      {isDesktop ? (
+        <Box
+          component="aside"
+          sx={{
+            width: 350,
+            flexShrink: 0,
+            px: 2,
+            py: 2.5,
+            mr: 2,
+            borderRight: `1px solid ${useSidebarPalette ? spaceTheme.sidebarBorder : spaceTheme.divider}`,
+            bgcolor: useSidebarPalette ? spaceTheme.sidebarBg : spaceTheme.pageBg,
+            color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary,
+          }}
+        >
+          {sidebar}
+        </Box>
+      ) : null}
 
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={{ xs: 1.25, sm: 2 }}
-              sx={{
-                justifyContent: 'center',
-                minWidth: 0,
-                mx: 'auto',
-              }}
-            >
-              <Box
-                sx={{
-                  width: { xs: 48, sm: 56 },
-                  height: { xs: 48, sm: 56 },
-                  borderRadius: '20%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: spaceTheme.surfaceBg,
-                  border: `1px solid ${spaceTheme.border}`,
-                  boxShadow: spaceTheme.isDark
-                    ? '0 8px 24px rgba(0,0,0,0.2)'
-                    : '0 8px 24px rgba(60, 45, 30, 0.08)',
-                  flexShrink: 0,
-                }}
-              >
-                <Box
-                  sx={{
-                    position: 'relative',
-                    width: 32,
-                    height: 32,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Iconify icon="solar:book-2-bold" width={28} sx={{ color: spaceTheme.accent }} />
-                  <Iconify
-                    icon="solar:star-bold"
-                    width={15}
-                    sx={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -4,
-                      color: 'warning.main',
-                    }}
-                  />
-                </Box>
-              </Box>
-
-              <Box sx={{ textAlign: 'center', minWidth: 0 }}>
-                <Typography
-                  variant="h3"
-                  sx={{
-                    color: spaceTheme.textPrimary,
-                    fontWeight: 800,
-                    letterSpacing: { xs: 1, md: 1.5 },
-                    fontSize: { xs: '1.35rem', sm: '1.5rem', md: '2rem' },
-                  }}
-                >
-                  Bookshelf
-                </Typography>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    color: spaceTheme.textSecondary,
-                    fontSize: { xs: '0.85rem', sm: '0.95rem', md: '1rem' },
-                    display: { xs: 'none', sm: 'block' },
-                  }}
-                >
-                  E-books and audiobooks shared from the bookshelf.
-                  {isSearching
-                    ? ` (${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'})`
-                    : ''}
-                </Typography>
-              </Box>
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          px: { xs: 2, md: 3 },
+          py: { xs: 2, md: 2.5 },
+          overflow: { xs: 'visible', lg: 'hidden' },
+        }}
+      >
+        {!isDesktop ? (
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ pb: 1.5 }}>
+            <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open bookshelf navigation">
+              <Iconify icon="solar:hamburger-menu-linear" />
+            </IconButton>
+            <BookshelfTitleAvatar
+              customerName={customerName}
+              customerAvatarUrl={customerAvatarUrl}
+              size="mobile"
+            />
+            <Stack spacing={0} sx={{ minWidth: 0 }}>
+              <Typography variant="h6" sx={{ fontFamily: MYSPACE_SECTION_SERIF, fontWeight: 600, lineHeight: 1.2 }}>
+                {BOOKSHELF_TITLE}
+              </Typography>
+              <Typography variant="caption" sx={{ color: spaceTheme.textSecondary, lineHeight: 1.3 }}>
+                {BOOKSHELF_SUBTITLE}
+              </Typography>
             </Stack>
+          </Stack>
+        ) : null}
 
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              alignItems="center"
-              spacing={1.5}
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ pb: 2, flexShrink: 0 }}
+        >
+          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+            <Typography
+              variant="h4"
               sx={{
-                width: { xs: 1, md: 'auto' },
-                minWidth: { md: 280 },
-                maxWidth: { md: 520 },
-                justifySelf: { xs: 'stretch', md: 'end' },
+                fontFamily: MYSPACE_SECTION_SERIF,
+                fontWeight: 600,
+                color: spaceTheme.textPrimary,
+                fontSize: { xs: '1.35rem', md: '1.6rem' },
               }}
             >
+              {activeNavItem?.label ?? 'All Books'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: spaceTheme.textSecondary }}>
+              Hello, {greetingName}!
+              {activeNavItem?.sublabel ? ` · ${activeNavItem.sublabel}` : ''}
+              {isSearching ? ` · ${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'}` : ''}
+            </Typography>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ minWidth: { md: 360 } }}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                px: 1.25,
-                py: 0.75,
+                px: 1.5,
+                py: 0.85,
                 flex: 1,
                 minWidth: 0,
-                borderRadius: 1,
-                bgcolor: '#e8d2a8',
-                border: '1px solid rgba(74,47,35,0.18)',
+                borderRadius: 999,
+                bgcolor: spaceTheme.surfaceBg,
+                border: `1px solid ${spaceTheme.border}`,
               }}
             >
-              <Iconify icon="eva:search-fill" width={18} sx={{ color: '#6b4a35', flexShrink: 0 }} />
+              <Iconify icon="eva:search-fill" width={18} sx={{ color: spaceTheme.accent, flexShrink: 0 }} />
               <InputBase
                 value={searchQuery}
-                onChange={(event) => {
-                  setSearchQuery(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search by title, author, or..."
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search books..."
                 inputProps={{ 'aria-label': 'Search bookshelf' }}
                 sx={{
                   flex: 1,
                   minWidth: 0,
                   fontSize: 14,
-                  color: '#4a2f23',
+                  color: spaceTheme.textPrimary,
                   '& input::placeholder': {
-                    color: 'rgba(74,47,35,0.55)',
+                    color: spaceTheme.textSecondary,
                     opacity: 1,
                   },
                 }}
@@ -830,11 +641,8 @@ export function UniverseLandingBookshelf({
                 <IconButton
                   size="small"
                   aria-label="Clear search"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setPage(1);
-                  }}
-                  sx={{ color: '#6b4a35', flexShrink: 0 }}
+                  onClick={() => setSearchQuery('')}
+                  sx={{ color: spaceTheme.textSecondary }}
                 >
                   <Iconify icon="mingcute:close-line" width={18} />
                 </IconButton>
@@ -848,48 +656,51 @@ export function UniverseLandingBookshelf({
                 variant="contained"
                 startIcon={<Iconify icon="mingcute:add-line" />}
                 sx={{
-                  width: { xs: 1, sm: 'auto' },
-                  flexShrink: 0,
+                  borderRadius: 999,
+                  px: 2.25,
                   whiteSpace: 'nowrap',
-                  px: 2,
                   bgcolor: spaceTheme.accent,
                   boxShadow: 'none',
                   '&:hover': { bgcolor: spaceTheme.accentHover, boxShadow: 'none' },
                 }}
               >
-                Add book
+                Add Book
               </Button>
             ) : null}
-            </Stack>
-          </Box>
-        </Box>
+          </Stack>
+        </Stack>
 
         <Box
           sx={{
-            ...WOOD_FRAME_SX,
-            p: { xs: 1.25, md: 2 },
+            ...layoutTheme.woodFrameSx,
             flex: 1,
-            minHeight: 0,
+            minHeight: { xs: 420, lg: 0 },
+            p: { xs: 1.25, md: 2 },
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
           }}
         >
           {loading ? (
             <Stack alignItems="center" justifyContent="center" sx={{ py: 10, flex: 1 }}>
-              <Iconify icon="solar:refresh-outline" width={24} sx={{ color: '#f3e4c8', mb: 1 }} />
-              <Typography variant="body2" sx={{ color: 'rgba(243,228,200,0.85)' }}>
+              <Iconify
+                icon="solar:refresh-outline"
+                width={24}
+                sx={{ color: layoutTheme.loadingIconColor, mb: 1 }}
+              />
+              <Typography variant="body2" sx={{ color: layoutTheme.loadingTextColor }}>
                 Loading bookshelf...
               </Typography>
             </Stack>
           ) : filteredItems.length === 0 ? (
             <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ py: 10, flex: 1 }}>
-              <Iconify icon="solar:book-2-bold" width={40} sx={{ color: 'rgba(243,228,200,0.65)' }} />
-              <Typography variant="subtitle1" sx={{ color: '#f3e4c8', fontWeight: 700 }}>
-                {isSearching ? 'No books match your search' : 'No bookshelf items yet'}
+              <Iconify icon="solar:book-2-bold" width={40} sx={{ color: layoutTheme.emptyIconColor }} />
+              <Typography variant="subtitle1" sx={{ color: layoutTheme.emptyTitleColor, fontWeight: 700 }}>
+                {isSearching ? 'No books match your search' : 'No books in this shelf yet'}
               </Typography>
               <Typography
                 variant="body2"
-                sx={{ color: 'rgba(243,228,200,0.75)', maxWidth: 320, textAlign: 'center' }}
+                sx={{ color: layoutTheme.emptyBodyColor, maxWidth: 320, textAlign: 'center' }}
               >
                 {isOwner
                   ? 'Add a book with a cover image from your bookshelf dashboard.'
@@ -900,55 +711,76 @@ export function UniverseLandingBookshelf({
             <Stack
               direction={{ xs: 'column', lg: 'row' }}
               spacing={{ xs: 1.5, lg: 0 }}
-              sx={{ flex: { lg: 1 }, minHeight: 0 }}
+              sx={{ flex: 1, minHeight: 0 }}
             >
               <Box
                 sx={{
                   flex: { lg: '0 0 65%' },
-                  px: { xs: 0.25, md: 1 },
-                  py: 1,
+                  px: { xs: 0.25, md: 0.75 },
+                  py: 0.5,
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: { xs: 'flex-start', lg: 'space-between' },
-                  gap: { xs: 1.5, md: 2 },
+                  justifyContent: { lg: 'space-between' },
+                  gap: { xs: 1.5, lg: 1 },
                   minHeight: 0,
                   overflowX: { xs: 'auto', lg: 'visible' },
-                  overflowY: { xs: 'visible', lg: 'hidden' },
-                  scrollbarWidth: 'thin',
                 }}
               >
-                {shelves.map((shelfEntries, shelfIndex) => (
+                {shelfRows.map((shelf, shelfIndex) => (
                   <Box
-                    key={`shelf-visual-${shelfIndex}`}
+                    key={`bookshelf-shelf-${shelf.label ?? shelfIndex}`}
                     sx={{
                       flex: { xs: '0 0 auto', lg: 1 },
                       display: 'flex',
                       flexDirection: 'column',
-                      minHeight: { xs: 92, sm: 100, md: 112 },
-                      minWidth: { xs: 320, lg: 'auto' },
+                      minHeight: { xs: 108, lg: 0 },
+                      minWidth: { xs: 300, lg: 'auto' },
                     }}
                   >
+                    {shelf.label ? (
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ px: 0.5, pb: 0.75 }}
+                      >
+                        <Stack direction="row" alignItems="center" spacing={0.75}>
+                          <Iconify
+                            icon="solar:star-bold"
+                            width={14}
+                            sx={{ color: layoutTheme.shelfIconColor }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 800,
+                              letterSpacing: '0.14em',
+                              color: layoutTheme.shelfLabelColor,
+                            }}
+                          >
+                            {shelf.label}
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    ) : null}
+
                     <Stack
                       direction="row"
                       alignItems="flex-end"
-                      spacing={{ xs: 1.25, sm: 1.75, md: 2.25 }}
-                      sx={{
-                        flex: 1,
-                        px: { xs: 0.75, md: 1 },
-                        pb: 0.5,
-                        minHeight: { xs: 92, sm: 100, md: 116 },
-                      }}
+                      spacing={{ xs: 1.25, sm: 1.75, md: 2 }}
+                      sx={{ flex: 1, px: 0.5, pb: 0.5, minHeight: { xs: 88, lg: 0 } }}
                     >
-                      {shelfEntries.map((entry) => (
+                      {shelf.entries.map((entry) => (
                         <BookshelfBookCover
                           key={getEntryKey(entry)}
                           entry={entry}
+                          variant="themed"
                           active={activeEntryKey === getEntryKey(entry)}
                           onSelect={handleSelect}
                         />
                       ))}
                     </Stack>
-                    <Box sx={SHELF_BOARD_SX} />
+                    <Box sx={layoutTheme.shelfBoardSx} />
                   </Box>
                 ))}
               </Box>
@@ -957,12 +789,13 @@ export function UniverseLandingBookshelf({
                 sx={{
                   flex: 1,
                   ...PARCHMENT_SX,
-                  borderRadius: 1,
-                  border: '1px solid rgba(74,47,35,0.12)',
+                  borderRadius: 1.5,
+                  border: '1px solid rgba(74,47,35,0.1)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  minHeight: { xs: 280, sm: 320, lg: 0 },
+                  minHeight: { xs: 280, lg: 0 },
+                  mx: { lg: 0.5 },
                 }}
               >
                 <BookshelfBookDetailPanel
@@ -978,7 +811,7 @@ export function UniverseLandingBookshelf({
           )}
 
           {filteredItems.length > 0 ? (
-            <Stack alignItems="center" sx={{ pt: 2, flexShrink: 0, px: 1 }}>
+            <Stack alignItems="center" sx={{ pt: 2, flexShrink: 0 }}>
               <Pagination
                 count={pageCount}
                 page={Math.min(page, pageCount)}
@@ -989,22 +822,48 @@ export function UniverseLandingBookshelf({
                 boundaryCount={1}
                 sx={{
                   '& .MuiPaginationItem-root': {
-                    color: '#f3e4c8',
+                    color: layoutTheme.paginationColor,
                     fontWeight: 600,
-                    minWidth: { xs: 28, sm: 32 },
-                    height: { xs: 28, sm: 32 },
-                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   },
                   '& .Mui-selected': {
-                    bgcolor: 'rgba(246, 213, 141, 0.92) !important',
-                    color: '#3b2419 !important',
+                    bgcolor: `${layoutTheme.paginationSelectedBg} !important`,
+                    color: `${layoutTheme.paginationSelectedColor} !important`,
                   },
                 }}
               />
             </Stack>
           ) : null}
         </Box>
-      </Stack>
+
+        <Typography
+          variant="caption"
+          sx={{
+            pt: 2,
+            textAlign: 'center',
+            color: spaceTheme.textSecondary,
+            fontStyle: 'italic',
+            flexShrink: 0,
+          }}
+        >
+          {BOOKSHELF_FOOTER_QUOTE}
+        </Typography>
+      </Box>
+
+      <Drawer
+        anchor="left"
+        open={!isDesktop && mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        PaperProps={{
+          sx: {
+            width: 300,
+            p: 2,
+            bgcolor: useSidebarPalette ? spaceTheme.sidebarBg : spaceTheme.pageBg,
+            color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary,
+          },
+        }}
+      >
+        {sidebar}
+      </Drawer>
     </Box>
   );
 }

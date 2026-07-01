@@ -33,12 +33,12 @@ import {
   type DesignSpaceType,
   DEFAULT_DESIGN_SPACE_TYPE,
   DESIGN_SPACE_TYPE_OPTIONS,
-  getDesignSpaceOverlaySx,
   getDesignSpaceTypeDescription,
-  getDesignSpaceBackgroundFilter,
   getDesignSpaceTheme,
   normalizeDesignSpaceType,
 } from 'src/utils/design-space-type';
+
+import { getDesignCategoryImageUrl } from 'src/sections/universe/universe/landing/myspace-section-images';
 
 import ImageGallery from './image-gallery';
 
@@ -54,6 +54,7 @@ export const DesignSpaceSchema = zod.object({
     'serene-elegant',
     'warm-nostalgic',
     'strong-modern',
+    'young-dynamic',
   ]),
 });
 
@@ -412,10 +413,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
   }, [pendingFiles, user?.id, values.images, setValue]);
 
   const selectedDesignType = normalizeDesignSpaceType(values.designType);
-  const designTypePreviewSrc =
-    previewSrc || (typeof values.images?.[0] === 'string' ? values.images[0] : null);
-  const designTypeBackgroundFilter = getDesignSpaceBackgroundFilter(selectedDesignType);
-  const designTypeOverlaySx = getDesignSpaceOverlaySx(selectedDesignType);
+  const designCategoryPreviewSrc = getDesignCategoryImageUrl(selectedDesignType);
   const designTypeTheme = getDesignSpaceTheme(selectedDesignType);
 
   return (
@@ -542,15 +540,59 @@ export function DesignSpaceForm({ currentArea }: Props) {
                     whiteSpace: 'normal',
                     lineHeight: 1.35,
                     py: 1,
-                    px: 1.25,
+                    px: 1,
+                    alignItems: 'stretch',
+                    '&.Mui-selected': {
+                      bgcolor: 'action.selected',
+                      border: (theme) => `3px solid ${theme.palette.error.main} !important`,
+                      zIndex: 1,
+                    },
                   },
                 }}
               >
-                {DESIGN_SPACE_TYPE_OPTIONS.map((option) => (
-                  <ToggleButton key={option.value} value={option.value}>
-                    {option.label}
+                {DESIGN_SPACE_TYPE_OPTIONS.map((option) => {
+                  const isSelected = option.value === selectedDesignType;
+
+                  return (
+                  <ToggleButton
+                    key={option.value}
+                    value={option.value}
+                    sx={{
+                      ...(isSelected
+                        ? {
+                            border: (theme) => `2px solid ${theme.palette.error.main} !important`,
+                            zIndex: 1,
+                          }
+                        : {}),
+                    }}
+                  >
+                    <Stack spacing={0.75} sx={{ width: 1, textAlign: 'left' }}>
+                      <Box
+                        component="img"
+                        src={getDesignCategoryImageUrl(option.value)}
+                        alt=""
+                        sx={{
+                          width: 1,
+                          height: 72,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          display: 'block',
+                        }}
+                      />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: '0.9rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {option.label}
+                      </Typography>
+                    </Stack>
                   </ToggleButton>
-                ))}
+                  );
+                })}
               </ToggleButtonGroup>
               <Typography variant="caption" color="text.secondary">
                 {getDesignSpaceTypeDescription(selectedDesignType)}
@@ -562,8 +604,7 @@ export function DesignSpaceForm({ currentArea }: Props) {
                 position: 'relative',
                 overflow: 'hidden',
                 width: '100%',
-                maxWidth: { xs: 1, sm: 420 },
-                height: { xs: 180, sm: 220 },
+                maxWidth: { xs: 1, sm: 520 },
                 borderRadius: 1.5,
                 border: '1px solid',
                 borderColor: designTypeTheme.border,
@@ -571,48 +612,16 @@ export function DesignSpaceForm({ currentArea }: Props) {
                 color: designTypeTheme.textPrimary,
               }}
             >
-              {designTypePreviewSrc ? (
-                <>
-                  <Box
-                    component="img"
-                    alt="Design type preview"
-                    src={designTypePreviewSrc}
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: 1,
-                      height: 1,
-                      objectFit: 'cover',
-                      filter: designTypeBackgroundFilter,
-                    }}
-                  />
-                  {designTypeOverlaySx ? (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        pointerEvents: 'none',
-                        ...designTypeOverlaySx,
-                      }}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'grid',
-                    placeItems: 'center',
-                    px: 2,
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography variant="caption" sx={{ color: designTypeTheme.textSecondary }}>
-                    Add a background image above to preview the selected design type.
-                  </Typography>
-                </Box>
-              )}
+              <Box
+                component="img"
+                alt={`${getDesignSpaceTypeDescription(selectedDesignType)} preview`}
+                src={designCategoryPreviewSrc}
+                sx={{
+                  width: 1,
+                  height: 'auto',
+                  display: 'block',
+                }}
+              />
             </Box>
           </Stack>
         </Card>

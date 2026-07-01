@@ -33,7 +33,7 @@ import {
 
 // ----------------------------------------------------------------------
 
-const SIDEBAR_WIDTH = 320;
+const SIDEBAR_WIDTH = 350;
 
 const CARD_RADIUS = 10;
 
@@ -268,7 +268,7 @@ function MySpaceSidebar({
                 p: 0,
                 border: '2px solid',
                 borderColor: isActive
-                  ? 'primary.main'
+                  ? spaceTheme.accent
                   : hasDistinctSidebar(spaceTheme)
                     ? 'rgba(255, 248, 240, 0.28)'
                     : spaceTheme.border,
@@ -508,6 +508,7 @@ function UniverseLandingMySpaceContent({
               display: 'flex',
               flexDirection: 'column',
               padding: 1,
+              pr:2,
               mr: 2.5,
               bgcolor: spaceTheme.sidebarBg,
               color: spaceTheme.sidebarTextPrimary,
