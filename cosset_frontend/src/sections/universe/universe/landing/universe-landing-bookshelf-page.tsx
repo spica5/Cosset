@@ -35,7 +35,8 @@ function UniverseLandingBookshelfPageContent({ children }: { children: ReactNode
         scrollMarginTop: 0,
         scrollSnapAlign: 'start',
         scrollSnapStop: 'always',
-        px: { xs: 2, md: 2.5 },
+        px: { xs: 0, lg: 3 },
+        py: { xs: 0, lg: 2 },
       }}
     >
       <Box
@@ -49,6 +50,7 @@ function UniverseLandingBookshelfPageContent({ children }: { children: ReactNode
           overflow: { xs: 'visible', lg: 'hidden' },
           bgcolor: spaceTheme.contentBg,
           color: spaceTheme.textPrimary,
+          borderRadius: 2,
         }}
       >
         {children}

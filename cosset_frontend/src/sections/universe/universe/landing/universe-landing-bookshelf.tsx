@@ -18,8 +18,6 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { CONFIG } from 'src/config-global';
-
 import { Iconify } from 'src/components/universe/iconify';
 
 import {
@@ -684,31 +682,15 @@ export function UniverseLandingBookshelf({
         height: { xs: 'auto', lg: 1 },
         display: 'flex',
         flexDirection: 'column',
+        bgcolor: spaceTheme.contentBg,
+        color: spaceTheme.textPrimary,
         px: { xs: 1, sm: 2, md: 4 },
         py: { xs: 1.5, sm: 2, md: 3 },
         ...sx,
       }}
       {...other}
     >
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: `url(${CONFIG.universe.assetsDir}/assets/images/design-space/universe-large-1.webp)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(circle at 15% 20%, rgba(255, 183, 77, 0.35), transparent 35%), radial-gradient(circle at 85% 25%, rgba(77, 208, 225, 0.35), transparent 32%), linear-gradient(180deg, rgba(18, 24, 38, 0.2) 0%, rgba(18, 24, 38, 0.55) 100%)',
-        }}
-      />
-
-      <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1, flex: 1, minHeight: 0 }}>
+      <Stack spacing={2.5} sx={{ flex: 1, minHeight: 0 }}>
         <Box sx={{ flexShrink: 0, width: 1 }}>
           <Box
             sx={{
@@ -739,8 +721,11 @@ export function UniverseLandingBookshelf({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: 'rgba(255,255,255,0.92)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                  bgcolor: spaceTheme.surfaceBg,
+                  border: `1px solid ${spaceTheme.border}`,
+                  boxShadow: spaceTheme.isDark
+                    ? '0 8px 24px rgba(0,0,0,0.2)'
+                    : '0 8px 24px rgba(60, 45, 30, 0.08)',
                   flexShrink: 0,
                 }}
               >
@@ -772,10 +757,9 @@ export function UniverseLandingBookshelf({
                 <Typography
                   variant="h3"
                   sx={{
-                    color: 'common.white',
+                    color: spaceTheme.textPrimary,
                     fontWeight: 800,
                     letterSpacing: { xs: 1, md: 1.5 },
-                    textShadow: '0 4px 16px rgba(0,0,0,0.35)',
                     fontSize: { xs: '1.35rem', sm: '1.5rem', md: '2rem' },
                   }}
                 >
@@ -784,8 +768,7 @@ export function UniverseLandingBookshelf({
                 <Typography
                   variant="subtitle1"
                   sx={{
-                    color: 'rgba(255,255,255,0.88)',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                    color: spaceTheme.textSecondary,
                     fontSize: { xs: '0.85rem', sm: '0.95rem', md: '1rem' },
                     display: { xs: 'none', sm: 'block' },
                   }}

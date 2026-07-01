@@ -438,8 +438,8 @@ export function UniverseLandingHero({
                         variant="caption"
                         sx={{
                           color: isGuestAreaHomeSpaceOnlyMotif(universe.motif)
-                            ? 'error.main'
-                            : 'text.secondary',
+                            ? 'error.light'
+                            : varAlpha(commonVars.whiteChannel, 0.82),
                           lineHeight: 1.45,
                           wordBreak: 'break-word',
                           display: '-webkit-box',

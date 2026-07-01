@@ -14,9 +14,6 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-import { paths } from 'src/routes/paths';
-
-import { Logo } from 'src/components/universe/logo';
 import { Iconify } from 'src/components/universe/iconify';
 
 import {
@@ -269,7 +266,12 @@ function MySpaceSidebar({
                 minHeight: 160,
                 flexShrink: 0,
                 p: 0,
-                border: 'none',
+                border: '2px solid',
+                borderColor: isActive
+                  ? 'primary.main'
+                  : hasDistinctSidebar(spaceTheme)
+                    ? 'rgba(255, 248, 240, 0.28)'
+                    : spaceTheme.border,
                 cursor: 'pointer',
                 textAlign: 'left',
                 borderRadius: `${CARD_RADIUS}px`,
@@ -278,9 +280,7 @@ function MySpaceSidebar({
                 boxShadow: isActive
                   ? '0 8px 22px rgba(0, 0, 0, 0.22)'
                   : '0 4px 12px rgba(0, 0, 0, 0.25)',
-                outline: isActive ? '2px solid' : 'none',
-                outlineColor: 'primary.main',
-                outlineOffset: 2,
+                outline: 'none',
                 transition: (theme) =>
                   theme.transitions.create(['box-shadow', 'transform'], {
                     duration: theme.transitions.duration.shorter,
@@ -379,27 +379,6 @@ function MySpaceSidebar({
             </Box>
           );
         })}
-      </Stack>
-
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        sx={{
-          flexShrink: 0,
-          mt: 2,
-          pt: 2,
-          borderTop: '1px solid',
-          borderColor: spaceTheme.sidebarDivider,
-        }}
-      >
-        <Logo
-          href={paths.home}
-          isSingle
-          sx={{
-            width: 96,
-            height: 56,
-          }}
-        />
       </Stack>
     </Stack>
   );
