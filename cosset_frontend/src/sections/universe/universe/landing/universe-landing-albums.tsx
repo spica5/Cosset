@@ -202,6 +202,7 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
               fontSize: '1.05rem',
               lineHeight: 1.35,
               minWidth: 0,
+              color: spaceTheme.textPrimary,
             }}
             noWrap
           >

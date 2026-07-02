@@ -118,7 +118,12 @@ function DrawerCategoryCard({ item }: DrawerCategoryCardProps) {
         </Box>
 
         <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" fontWeight={700} noWrap>
+          <Typography
+            variant="subtitle2"
+            fontWeight={700}
+            noWrap
+            sx={{ color: spaceTheme.textPrimary }}
+          >
             {item.label}
           </Typography>
           <Typography variant="caption" color="text.secondary">

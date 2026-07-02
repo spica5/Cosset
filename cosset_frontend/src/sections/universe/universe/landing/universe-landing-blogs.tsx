@@ -220,6 +220,7 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
             fontWeight: 700,
             fontSize: '1.05rem',
             lineHeight: 1.35,
+            color: spaceTheme.textPrimary,
           }}
           noWrap
         >
