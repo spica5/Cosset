@@ -17,7 +17,8 @@ export type DesignSpaceType =
   | 'serene-elegant'
   | 'warm-nostalgic'
   | 'strong-modern'
-  | 'young-dynamic';
+  | 'young-dynamic'
+  | 'navy-blue';
 
 export interface DesignSpace {
   id: number;
@@ -38,6 +39,7 @@ const DESIGN_SPACE_TYPES = new Set<DesignSpaceType>([
   'warm-nostalgic',
   'strong-modern',
   'young-dynamic',
+  'navy-blue',
 ]);
 
 const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
@@ -46,6 +48,7 @@ const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
   evening: 'serene-elegant',
   night: 'strong-modern',
   young_dynamic: 'young-dynamic',
+  navy_blue: 'navy-blue',
 };
 
 export const normalizeDesignType = (value: unknown): DesignSpaceType => {

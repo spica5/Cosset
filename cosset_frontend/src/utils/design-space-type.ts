@@ -5,7 +5,8 @@ export type DesignSpaceType =
   | 'serene-elegant'
   | 'warm-nostalgic'
   | 'strong-modern'
-  | 'young-dynamic';
+  | 'young-dynamic'
+  | 'navy-blue';
 
 export const DEFAULT_DESIGN_SPACE_TYPE: DesignSpaceType = 'gentle-feminine-romantic';
 
@@ -28,6 +29,7 @@ export type DesignSpaceTheme = {
   sidebarTextSecondary: string;
   categoryTitleColor: string;
   categorySubtitleColor: string;
+  categoryTextShadow?: string;
   isDark: boolean;
 };
 
@@ -74,8 +76,9 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     textSecondary: 'rgba(46, 58, 66, 0.72)',
     sidebarTextPrimary: '#2E3A42',
     sidebarTextSecondary: 'rgba(46, 58, 66, 0.72)',
-    categoryTitleColor: 'rgb(50, 57, 61)', 
-    categorySubtitleColor: 'rgba(102, 148, 180, 0.8)',
+    categoryTitleColor: '#2E3A42',
+    categorySubtitleColor: 'rgba(46, 58, 66, 0.72)',
+    categoryTextShadow: '0 1px 3px rgba(255, 255, 255, 0.75)',
     isDark: false,
   },
   'warm-nostalgic': {
@@ -141,6 +144,27 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     categorySubtitleColor: 'rgba(255, 255, 255, 0.92)',
     isDark: false,
   },
+  'navy-blue': {
+    pageBg: '#0B1220',
+    sidebarBg: '#0B1220',
+    contentBg: '#0F172A',
+    cardBg: '#152238',
+    surfaceBg: '#1A2744',
+    accent: '#3B9EFF',
+    accentHover: '#2563EB',
+    accentSoft: 'rgba(59, 158, 255, 0.18)',
+    border: 'rgba(255, 255, 255, 0.1)',
+    sidebarBorder: 'rgba(255, 255, 255, 0.12)',
+    sidebarDivider: 'rgba(255, 255, 255, 0.1)',
+    divider: 'rgba(255, 255, 255, 0.1)',
+    textPrimary: '#F8FAFC',
+    textSecondary: 'rgba(147, 197, 253, 0.82)',
+    sidebarTextPrimary: '#F8FAFC',
+    sidebarTextSecondary: 'rgba(147, 197, 253, 0.82)',
+    categoryTitleColor: '#FFFFFF',
+    categorySubtitleColor: 'rgba(147, 197, 253, 0.9)',
+    isDark: true,
+  },
 };
 
 export const DESIGN_SPACE_TYPE_OPTIONS: {
@@ -173,6 +197,11 @@ export const DESIGN_SPACE_TYPE_OPTIONS: {
     label: 'Young Dynamic',
     description: 'Bright, playful pastels with rounded cards and energetic purple accents',
   },
+  {
+    value: 'navy-blue',
+    label: 'Navy Blue',
+    description: 'Deep midnight navy with electric blue accents — a lo-fi space for night focus',
+  },
 ];
 
 const DESIGN_SPACE_TYPE_SET = new Set<string>(DESIGN_SPACE_TYPE_OPTIONS.map((option) => option.value));
@@ -183,6 +212,7 @@ const LEGACY_DESIGN_TYPE_MAP: Record<string, DesignSpaceType> = {
   evening: 'serene-elegant',
   night: 'strong-modern',
   young_dynamic: 'young-dynamic',
+  navy_blue: 'navy-blue',
 };
 
 export function normalizeDesignSpaceType(value: unknown): DesignSpaceType {
@@ -229,6 +259,8 @@ export function getDesignSpaceBackgroundFilter(designType: DesignSpaceType): str
       return 'brightness(0.42) saturate(0.75) contrast(1.15)';
     case 'young-dynamic':
       return 'brightness(1.06) saturate(1.12) contrast(1.02)';
+    case 'navy-blue':
+      return 'brightness(0.38) saturate(0.92) contrast(1.12) hue-rotate(12deg)';
     default:
       return undefined;
   }
@@ -260,6 +292,11 @@ export function getDesignSpaceOverlaySx(designType: DesignSpaceType) {
       return {
         background:
           'linear-gradient(180deg, rgba(196, 181, 253, 0.18) 0%, rgba(255, 255, 255, 0.04) 100%)',
+      };
+    case 'navy-blue':
+      return {
+        background:
+          'linear-gradient(180deg, rgba(15, 40, 80, 0.38) 0%, rgba(11, 18, 32, 0.58) 100%)',
       };
     default:
       return undefined;

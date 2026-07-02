@@ -31,6 +31,9 @@ import {
   requestBookshelfBorrow,
   useGetBookshelfBorrowStatuses,
 } from 'src/actions/bookshelf-borrow';
+import { useGetBookshelfEbookReadingCounts, revalidateBookshelfEbookReadingCounts } from 'src/actions/bookshelf-ebook-reading';
+
+import { isBookFavorite } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import { MYSPACE_SECTION_SERIF } from './myspace-section-title';
 import { useDesignSpaceTheme } from './design-space-theme-context';
@@ -51,16 +54,24 @@ import {
   filterBookshelfByNavCategory,
   buildBookshelfShelfRows,
   getBookshelfNavCounts,
+  getBookshelfReadingCountsForEntry,
 } from './universe-landing-bookshelf-theme';
 import {
   type BookshelfItem,
-  getEntryKey,
   PARCHMENT_SX,
-  filterBookshelfItems,
+  padShelfEntries,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT,
   BookshelfBookCover,
   BookshelfBookDetailPanel,
+  BookshelfBookQuotesPanel,
+  BookshelfShelfSlotPlaceholder,
 } from './universe-landing-bookshelf-parts';
 
+import {
+  getEntryKey,
+  filterBookshelfItems,
+} from './universe-landing-bookshelf-utils';
 // ----------------------------------------------------------------------
 
 type Props = BoxProps & {
@@ -302,6 +313,7 @@ export function UniverseLandingBookshelf({
 }: Props) {
   const muiTheme = useTheme();
   const isDesktop = useMediaQuery(muiTheme.breakpoints.up('lg'));
+  const isWideDesktop = useMediaQuery(muiTheme.breakpoints.up('xl'));
   const { designType, theme: spaceTheme } = useDesignSpaceTheme();
   const layoutTheme = useMemo(
     () => getBookshelfLayoutTheme(designType, spaceTheme),
@@ -335,12 +347,30 @@ export function UniverseLandingBookshelf({
     return ids;
   }, [audiobooks, ebooks, showAudiobooks, showEbooks]);
 
+  const ebookIds = useMemo(() => ebooks.map((item) => item.id), [ebooks]);
+
+  const readingCountsCustomerId = ownerCustomerId || (isOwner ? viewerCustomerId : undefined);
+
+  const { countsByBookId } = useGetBookshelfEbookReadingCounts(
+    ebookIds,
+    readingCountsCustomerId,
+  );
+
+  useEffect(() => {
+    if (!readingCountsCustomerId || ebookIds.length === 0) {
+      return;
+    }
+
+    revalidateBookshelfEbookReadingCounts(readingCountsCustomerId);
+  }, [ebookIds, readingCountsCustomerId]);
+
   const canRequestBorrow = authenticated && !!viewerCustomerId && !isOwner && !!ownerCustomerId;
+  const shouldLoadBorrowStatuses = authenticated && !!viewerCustomerId && !!ownerCustomerId && !isOwner;
 
   const { borrowStatuses, borrowStatusesLoading } = useGetBookshelfBorrowStatuses(
-    canRequestBorrow ? viewerCustomerId : undefined,
-    canRequestBorrow ? ownerCustomerId : undefined,
-    canRequestBorrow ? bookIds : undefined,
+    shouldLoadBorrowStatuses ? viewerCustomerId : undefined,
+    shouldLoadBorrowStatuses ? ownerCustomerId : undefined,
+    shouldLoadBorrowStatuses ? bookIds : undefined,
   );
 
   const bookshelfItems = useMemo<BookshelfItem[]>(() => {
@@ -371,13 +401,19 @@ export function UniverseLandingBookshelf({
   const isSearching = searchQuery.trim().length > 0;
 
   const navCounts = useMemo(
-    () => getBookshelfNavCounts(bookshelfItems, mergedBorrowStatuses),
-    [bookshelfItems, mergedBorrowStatuses],
+    () => getBookshelfNavCounts(bookshelfItems, mergedBorrowStatuses, countsByBookId),
+    [bookshelfItems, countsByBookId, mergedBorrowStatuses],
   );
 
   const categoryItems = useMemo(
-    () => filterBookshelfByNavCategory(bookshelfItems, navCategory, mergedBorrowStatuses),
-    [bookshelfItems, mergedBorrowStatuses, navCategory],
+    () =>
+      filterBookshelfByNavCategory(
+        bookshelfItems,
+        navCategory,
+        mergedBorrowStatuses,
+        countsByBookId,
+      ),
+    [bookshelfItems, countsByBookId, mergedBorrowStatuses, navCategory],
   );
 
   const filteredItems = useMemo(
@@ -394,8 +430,8 @@ export function UniverseLandingBookshelf({
   }, [filteredItems, page, pageCount]);
 
   const shelfRows = useMemo(
-    () => buildBookshelfShelfRows(paginatedItems, navCategory, navCategory === 'all' && pageCount === 1),
-    [navCategory, pageCount, paginatedItems],
+    () => buildBookshelfShelfRows(paginatedItems),
+    [paginatedItems],
   );
 
   const selectedEntry = useMemo(
@@ -494,6 +530,35 @@ export function UniverseLandingBookshelf({
 
   const greetingName = (customerName || 'friend').split(' ')[0];
   const activeNavItem = BOOKSHELF_NAV_ITEMS.find((item) => item.id === navCategory);
+  const showDetailBesideGrid = isWideDesktop;
+
+  const getEntryBookMarks = useCallback(
+    (entry: BookshelfItem) => {
+      const readingCounts = getBookshelfReadingCountsForEntry(entry, countsByBookId);
+      const hasReadingBookmarks = (readingCounts?.bookmarkCount ?? 0) > 0;
+
+      const isCurrentlyReading =
+        !!viewerCustomerId &&
+        mergedBorrowStatuses.some(
+          (borrow) =>
+            borrow.status === 'approved' &&
+            borrow.borrowerCustomerId === viewerCustomerId &&
+            borrow.bookKind === entry.kind &&
+            borrow.bookId === entry.item.id,
+        );
+
+      return {
+        isFavorite: isBookFavorite(entry.item.isFavorite),
+        hasBookmarks: hasReadingBookmarks || isCurrentlyReading,
+        hasComments: (readingCounts?.commentCount ?? 0) > 0,
+      };
+    },
+    [countsByBookId, mergedBorrowStatuses, viewerCustomerId],
+  );
+
+  const shelfGridTemplateColumns = showDetailBesideGrid
+    ? BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT
+    : BOOKSHELF_GRID_TEMPLATE_COLUMNS;
 
   const sidebar = (
     <BookshelfSidebar
@@ -534,6 +599,10 @@ export function UniverseLandingBookshelf({
           sx={{
             width: 350,
             flexShrink: 0,
+            minHeight: 0,
+            height: { lg: '100%' },
+            display: 'flex',
+            flexDirection: 'column',
             px: 2,
             py: 2.5,
             mr: 2,
@@ -551,6 +620,7 @@ export function UniverseLandingBookshelf({
           flex: 1,
           minWidth: 0,
           minHeight: 0,
+          height: { lg: '100%' },
           display: 'flex',
           flexDirection: 'column',
           px: { xs: 2, md: 3 },
@@ -673,7 +743,7 @@ export function UniverseLandingBookshelf({
         <Box
           sx={{
             ...layoutTheme.woodFrameSx,
-            flex: 1,
+            flex: '1 1 0',
             minHeight: { xs: 420, lg: 0 },
             p: { xs: 1.25, md: 2 },
             display: 'flex',
@@ -709,77 +779,72 @@ export function UniverseLandingBookshelf({
             </Stack>
           ) : (
             <Stack
-              direction={{ xs: 'column', lg: 'row' }}
-              spacing={{ xs: 1.5, lg: 0 }}
-              sx={{ flex: 1, minHeight: 0 }}
+              direction={{ xs: 'column', xl: 'row' }}
+              spacing={{ xs: 1.5, xl: 2 }}
+              sx={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}
             >
               <Box
                 sx={{
+                  // flex: showDetailBesideGrid ? { xl: '3 1 0' } : '1 1 0',
                   flex: { lg: '0 0 65%' },
+                  width: 1,
+                  minWidth: 0,
+                  height: showDetailBesideGrid ? { xl: '100%' } : 'auto',
                   px: { xs: 0.25, md: 0.75 },
                   py: 0.5,
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: { lg: 'space-between' },
-                  gap: { xs: 1.5, lg: 1 },
+                  gap: { xs: 1.25, lg: 1 },
                   minHeight: 0,
-                  overflowX: { xs: 'auto', lg: 'visible' },
+                  overflowX: 'hidden',
+                  overflowY: { xs: 'auto', xl: showDetailBesideGrid ? 'auto' : 'visible' },
                 }}
               >
                 {shelfRows.map((shelf, shelfIndex) => (
                   <Box
                     key={`bookshelf-shelf-${shelf.label ?? shelfIndex}`}
                     sx={{
-                      flex: { xs: '0 0 auto', lg: 1 },
+                      flex: '0 0 auto',
                       display: 'flex',
                       flexDirection: 'column',
-                      minHeight: { xs: 108, lg: 0 },
-                      minWidth: { xs: 300, lg: 'auto' },
+                      minWidth: 0,
+                      pt: { xs: 1, md: 2 },
+                      gap: { xs: 1.25, lg: 1 },
                     }}
                   >
-                    {shelf.label ? (
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        sx={{ px: 0.5, pb: 0.75 }}
-                      >
-                        <Stack direction="row" alignItems="center" spacing={0.75}>
-                          <Iconify
-                            icon="solar:star-bold"
-                            width={14}
-                            sx={{ color: layoutTheme.shelfIconColor }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontWeight: 800,
-                              letterSpacing: '0.14em',
-                              color: layoutTheme.shelfLabelColor,
-                            }}
-                          >
-                            {shelf.label}
-                          </Typography>
-                        </Stack>
-                      </Stack>
-                    ) : null}
-
-                    <Stack
-                      direction="row"
-                      alignItems="flex-end"
-                      spacing={{ xs: 1.25, sm: 1.75, md: 2 }}
-                      sx={{ flex: 1, px: 0.5, pb: 0.5, minHeight: { xs: 88, lg: 0 } }}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: shelfGridTemplateColumns,
+                        gap: { xs: 1, sm: 1.25, md: 1.5, lg: 1.75, xl: 2 },
+                        alignItems: 'start',
+                        px: 0.5,
+                        pb: 0.5,
+                      }}
                     >
-                      {shelf.entries.map((entry) => (
-                        <BookshelfBookCover
-                          key={getEntryKey(entry)}
-                          entry={entry}
-                          variant="themed"
-                          active={activeEntryKey === getEntryKey(entry)}
-                          onSelect={handleSelect}
-                        />
+                      {padShelfEntries(shelf.entries).map((entry, columnIndex) => (
+                        <Box
+                          key={
+                            entry
+                              ? getEntryKey(entry)
+                              : `bookshelf-slot-${shelf.label ?? shelfIndex}-${columnIndex}`
+                          }
+                          sx={{ minWidth: 0 }}
+                        >
+                          {entry ? (
+                            <BookshelfBookCover
+                              entry={entry}
+                              variant="themed"
+                              active={activeEntryKey === getEntryKey(entry)}
+                              {...getEntryBookMarks(entry)}
+                              onSelect={handleSelect}
+                            />
+                          ) : (
+                            <BookshelfShelfSlotPlaceholder />
+                          )}
+                        </Box>
                       ))}
-                    </Stack>
+                    </Box>
                     <Box sx={layoutTheme.shelfBoardSx} />
                   </Box>
                 ))}
@@ -787,31 +852,42 @@ export function UniverseLandingBookshelf({
 
               <Box
                 sx={{
-                  flex: 1,
+                  flex: showDetailBesideGrid ? { xl: '2 1 0' } : '0 0 auto',
+                  minWidth: { xl: 280 },
+                  width: showDetailBesideGrid ? undefined : 1,
                   ...PARCHMENT_SX,
                   borderRadius: 1.5,
                   border: '1px solid rgba(74,47,35,0.1)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  minHeight: { xs: 280, lg: 0 },
-                  mx: { lg: 0.5 },
+                  minHeight: { xs: 280, xl: showDetailBesideGrid ? 0 : 280 },
+                  height: showDetailBesideGrid ? { xl: '100%' } : 'auto',
+                  mx: { xl: 0.5 },
                 }}
               >
-                <BookshelfBookDetailPanel
-                  entry={selectedEntry}
-                  borrowStatus={selectedBorrowStatus}
-                  canRequestBorrow={canRequestBorrow && !borrowStatusesLoading}
-                  viewerCustomerId={viewerCustomerId}
-                  requestingBorrow={requestingBorrow}
-                  onRequestBorrow={handleRequestBorrow}
-                />
+                {navCategory === 'quotes' ? (
+                  <BookshelfBookQuotesPanel
+                    entry={selectedEntry}
+                    commentsCustomerId={readingCountsCustomerId}
+                    viewerCustomerId={viewerCustomerId}
+                  />
+                ) : (
+                  <BookshelfBookDetailPanel
+                    entry={selectedEntry}
+                    borrowStatus={selectedBorrowStatus}
+                    canRequestBorrow={canRequestBorrow && !borrowStatusesLoading}
+                    viewerCustomerId={viewerCustomerId}
+                    requestingBorrow={requestingBorrow}
+                    onRequestBorrow={handleRequestBorrow}
+                  />
+                )}
               </Box>
             </Stack>
           )}
 
           {filteredItems.length > 0 ? (
-            <Stack alignItems="center" sx={{ pt: 2, flexShrink: 0 }}>
+            <Stack alignItems="center" sx={{ pt: 1.5, flexShrink: 0 }}>
               <Pagination
                 count={pageCount}
                 page={Math.min(page, pageCount)}
@@ -833,20 +909,20 @@ export function UniverseLandingBookshelf({
               />
             </Stack>
           ) : null}
-        </Box>
 
-        <Typography
-          variant="caption"
-          sx={{
-            pt: 2,
-            textAlign: 'center',
-            color: spaceTheme.textSecondary,
-            fontStyle: 'italic',
-            flexShrink: 0,
-          }}
-        >
-          {BOOKSHELF_FOOTER_QUOTE}
-        </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              pt: 1.5,
+              textAlign: 'center',
+              color: spaceTheme.textSecondary,
+              fontStyle: 'italic',
+              flexShrink: 0,
+            }}
+          >
+            {BOOKSHELF_FOOTER_QUOTE}
+          </Typography>
+        </Box>
       </Box>
 
       <Drawer

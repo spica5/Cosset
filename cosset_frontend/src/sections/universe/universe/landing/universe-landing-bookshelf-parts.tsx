@@ -7,9 +7,16 @@ import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 
+import { fDateTime } from 'src/utils/format-time';
+
 import { Iconify } from 'src/components/universe/iconify';
+
+import { useGetBookshelfEbookReadingComments } from 'src/actions/bookshelf-ebook-reading';
+
+import { isBookFavorite } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
 
 import {
   resolveAudiobookAssetUrl,
@@ -25,18 +32,19 @@ import { useDesignSpaceTheme } from './design-space-theme-context';
 import { getBookshelfLayoutTheme } from './universe-landing-bookshelf-theme';
 import {
   type BookshelfItem,
-  getEntryKey,
   getEntryTitle,
-  filterBookshelfItems,
 } from './universe-landing-bookshelf-utils';
 
 export type { BookshelfItem } from './universe-landing-bookshelf-utils';
 export {
   SHELF_COUNT,
   BOOKS_PER_SHELF,
-  getEntryKey,
+  BOOKSHELF_GRID_COLUMNS,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS,
+  BOOKSHELF_GRID_COLUMNS_COMPACT,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT,
   getEntryTitle,
-  filterBookshelfItems,
+  padShelfEntries,
   splitEntriesIntoShelves,
 } from './universe-landing-bookshelf-utils';
 
@@ -62,6 +70,9 @@ export const PARCHMENT_SX = {
     'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%), radial-gradient(circle at top right, rgba(255,255,255,0.45), transparent 55%)',
 };
 
+/** Book cover width:height — matches the original 140% padding-top sizing. */
+export const BOOK_COVER_ASPECT_RATIO = '5 / 7';
+
 async function resolveCoverUrl(entry: BookshelfItem) {
   const { coverImage } = entry.item;
 
@@ -79,13 +90,37 @@ type BookCoverProps = {
   entry: BookshelfItem;
   active?: boolean;
   variant?: 'default' | 'themed';
+  isFavorite?: boolean;
+  hasBookmarks?: boolean;
+  hasComments?: boolean;
   onSelect: (entry: BookshelfItem) => void;
 };
+
+/** Invisible slot used to preserve shelf row height and column width when empty. */
+export function BookshelfShelfSlotPlaceholder() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        visibility: 'hidden',
+        width: 1,
+        minWidth: 0,
+        pointerEvents: 'none',
+      }}
+    >
+      <Box sx={{ width: 1, pt: '140%' }} />
+      <Box sx={{ mt: 0.5, minHeight: { xs: 22, sm: 24, md: 28 } }} />
+    </Box>
+  );
+}
 
 export function BookshelfBookCover({
   entry,
   active,
   variant = 'default',
+  isFavorite = false,
+  hasBookmarks = false,
+  hasComments = false,
   onSelect,
 }: BookCoverProps) {
   const [coverUrl, setCoverUrl] = useState('');
@@ -113,24 +148,34 @@ export function BookshelfBookCover({
       ? 'solar:headphones-round-bold'
       : 'solar:book-2-bold';
 
+  const showFavoriteMark = isFavorite || isBookFavorite(entry.item.isFavorite);
+  const showBookmarkMark = hasBookmarks;
+  const showCommentMark = hasComments;
+
   return (
     <Box
       onClick={() => onSelect(entry)}
       sx={{
         position: 'relative',
-        width: { xs: 56, sm: 68, md: isThemed ? 96 : 112 },
-        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        width: 1,
+        minWidth: 0,
         cursor: 'pointer',
-        transform: active ? 'translateY(-6px) scale(1.04)' : 'none',
-        transition: 'transform 0.2s ease',
+        transform: active ? 'translateY(-4px)' : 'none',
+        boxShadow: active ? '0 8px 16px rgba(0, 0, 0, 0.18)' : 'none',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
       }}
     >
       <Box
         sx={{
-          pt: '140%',
-          borderRadius: isThemed ? 1 : 0.5,
           position: 'relative',
           overflow: 'hidden',
+          flexShrink: 0,
+          width: 1,
+          pt: '140%',
+          borderRadius: isThemed ? 1 : 0.5,
           border: active
             ? `2px solid ${isThemed ? layoutTheme.coverActiveBorder : '#f6d58d'}`
             : `1px solid ${isThemed ? spaceTheme.border : 'rgba(0,0,0,0.25)'}`,
@@ -170,9 +215,74 @@ export function BookshelfBookCover({
             <Iconify icon={fallbackIcon} width={28} />
           </Stack>
         )}
+
+        {showFavoriteMark || showBookmarkMark || showCommentMark ? (
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              zIndex: 1,
+            }}
+          >
+            {showBookmarkMark ? (
+              <Box
+                aria-label="Reading bookmark"
+                sx={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  bgcolor: 'rgba(255, 255, 255, 0.94)',
+                  color: isThemed ? layoutTheme.coverActiveBorder : spaceTheme.accent,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.22)',
+                }}
+              >
+                <Iconify icon="solar:bookmark-bold" width={13} />
+              </Box>
+            ) : null}
+            {showCommentMark ? (
+              <Box
+                aria-label="Reading comment"
+                sx={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  bgcolor: 'rgba(255, 255, 255, 0.94)',
+                  color: spaceTheme.accent,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.22)',
+                }}
+              >
+                <Iconify icon="solar:chat-round-dots-bold" width={13} />
+              </Box>
+            ) : null}
+            {showFavoriteMark ? (
+              <Box
+                aria-label="Favorite"
+                sx={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  bgcolor: 'rgba(255, 255, 255, 0.94)',
+                  color: spaceTheme.accent,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.22)',
+                }}
+              >
+                <Iconify icon="solar:heart-bold" width={13} />
+              </Box>
+            ) : null}
+          </Stack>
+        ) : null}
       </Box>
 
-      <Box sx={{ mt: 0.5, minHeight: { xs: 22, sm: 24, md: 28 } }}>
+      <Box sx={{ mt: 0.5, width: 1, minHeight: { xs: 22, sm: 24, md: 28 }, flexShrink: 0 }}>
         <Typography
           variant="caption"
           title={title}
@@ -448,6 +558,219 @@ export function BookshelfBookDetailPanel({
           ebook={entry.item}
           customerId={viewerCustomerId}
           onClose={() => setReaderOpen(false)}
+        />
+      ) : null}
+    </Stack>
+  );
+}
+
+// ----------------------------------------------------------------------
+
+function formatCommentPosition(
+  pageNumber?: number | null,
+  scrollPosition?: number | null,
+) {
+  if (pageNumber != null && pageNumber > 0) {
+    return `Page ${pageNumber}`;
+  }
+
+  if (scrollPosition != null && scrollPosition >= 0) {
+    return `Position ${Math.round(scrollPosition)}`;
+  }
+
+  return null;
+}
+
+type BookQuotesPanelProps = {
+  entry: BookshelfItem | null;
+  commentsCustomerId?: string;
+  viewerCustomerId?: string;
+};
+
+export function BookshelfBookQuotesPanel({
+  entry,
+  commentsCustomerId,
+  viewerCustomerId,
+}: BookQuotesPanelProps) {
+  const [readerOpen, setReaderOpen] = useState(false);
+  const [readerTarget, setReaderTarget] = useState<{
+    pageNumber?: number | null;
+    scrollPosition?: number | null;
+  } | null>(null);
+  const bookId = entry?.kind === 'ebook' ? entry.item.id : '';
+  const readerCustomerId = commentsCustomerId ?? viewerCustomerId;
+
+  const { comments, commentsLoading } = useGetBookshelfEbookReadingComments(
+    bookId,
+    commentsCustomerId,
+  );
+
+  const openReader = (
+    target?: { pageNumber?: number | null; scrollPosition?: number | null } | null,
+  ) => {
+    setReaderTarget(target ?? null);
+    setReaderOpen(true);
+  };
+
+  const closeReader = () => {
+    setReaderOpen(false);
+    setReaderTarget(null);
+  };
+
+  if (!entry) {
+    return (
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        spacing={1.5}
+        sx={{ flex: 1, minHeight: 280, px: 2, py: 4, textAlign: 'center' }}
+      >
+        <Iconify icon="solar:chat-round-dots-bold" width={48} sx={{ color: 'rgba(74,47,35,0.35)' }} />
+        <Typography variant="subtitle1" sx={{ color: '#4a2f23', fontWeight: 700 }}>
+          Select a book
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(74,47,35,0.7)', maxWidth: 240 }}>
+          Click a cover on the shelf to view its reading comments here.
+        </Typography>
+      </Stack>
+    );
+  }
+
+  const title = getEntryTitle(entry);
+  const author = (entry.item.author || '').trim();
+  const positionLabel = (pageNumber?: number | null, scrollPosition?: number | null) =>
+    formatCommentPosition(pageNumber, scrollPosition);
+
+  return (
+    <Stack
+      spacing={2}
+      sx={{
+        flex: 1,
+        minHeight: 200,
+        px: { xs: 2, md: 2.5 },
+        py: { xs: 2, md: 2.5 },
+        overflow: 'hidden',
+      }}
+    >
+      <Stack spacing={0.75} sx={{ flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Iconify icon="solar:chat-round-dots-bold" width={20} sx={{ color: '#5c4030' }} />
+          <Typography variant="overline" sx={{ color: '#5c4030', fontWeight: 700, letterSpacing: 1.2 }}>
+            Reading comments
+          </Typography>
+        </Stack>
+
+        <Typography variant="h6" sx={{ color: '#2d1a12', fontWeight: 800, lineHeight: 1.35 }}>
+          {title}
+        </Typography>
+
+        {author ? (
+          <Typography variant="body2" sx={{ color: '#5c4030', fontWeight: 600 }}>
+            by {author}
+          </Typography>
+        ) : null}
+
+        {entry.kind === 'ebook' ? (
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => openReader()}
+            startIcon={<Iconify icon="solar:book-2-bold" width={16} />}
+            sx={{
+              alignSelf: 'flex-start',
+              mt: 0.5,
+              px: 1.5,
+              py: 0.65,
+              borderRadius: 10,
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: '#2d1a12',
+              color: 'common.white',
+              '&:hover': {
+                bgcolor: '#1f120d',
+              },
+            }}
+          >
+            Read book
+          </Button>
+        ) : null}
+      </Stack>
+
+      <Divider sx={{ borderColor: 'rgba(74,47,35,0.12)' }} />
+
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', pr: 0.5 }}>
+        {commentsLoading ? (
+          <Typography variant="body2" sx={{ color: 'rgba(74,47,35,0.7)' }}>
+            Loading comments…
+          </Typography>
+        ) : comments.length === 0 ? (
+          <Typography variant="body2" sx={{ color: 'rgba(74,47,35,0.7)' }}>
+            No reading comments for this book yet.
+          </Typography>
+        ) : (
+          <Stack spacing={2} divider={<Divider flexItem sx={{ borderColor: 'rgba(74,47,35,0.1)' }} />}>
+            {comments.map((item) => {
+              const position = positionLabel(item.pageNumber, item.scrollPosition);
+
+              return (
+                <Box key={item.id}>
+                  {position || item.createdAt ? (
+                    <Typography variant="caption" sx={{ color: 'rgba(92,64,48,0.85)', fontWeight: 600 }}>
+                      {position}
+                      {position && item.createdAt ? ' · ' : ''}
+                      {item.createdAt ? fDateTime(item.createdAt) : ''}
+                    </Typography>
+                  ) : null}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mt: 0.75,
+                      color: 'rgba(45,26,18,0.88)',
+                      lineHeight: 1.75,
+                      fontStyle: 'italic',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    “{item.comment}”
+                  </Typography>
+                  {entry.kind === 'ebook' &&
+                  (item.pageNumber != null || item.scrollPosition != null) ? (
+                    <Button
+                      size="small"
+                      onClick={() =>
+                        openReader({
+                          pageNumber: item.pageNumber,
+                          scrollPosition: item.scrollPosition,
+                        })
+                      }
+                      sx={{
+                        mt: 0.5,
+                        px: 0,
+                        minWidth: 0,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        color: '#2d1a12',
+                      }}
+                    >
+                      Go to position
+                    </Button>
+                  ) : null}
+                </Box>
+              );
+            })}
+          </Stack>
+        )}
+      </Box>
+
+      {entry.kind === 'ebook' ? (
+        <BookshelfEbookViewDialog
+          open={readerOpen}
+          ebook={entry.item}
+          customerId={readerCustomerId}
+          initialPageNumber={readerTarget?.pageNumber}
+          initialScrollPosition={readerTarget?.scrollPosition}
+          onClose={closeReader}
         />
       ) : null}
     </Stack>

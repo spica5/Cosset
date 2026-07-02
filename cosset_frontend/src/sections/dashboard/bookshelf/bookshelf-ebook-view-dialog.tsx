@@ -32,10 +32,19 @@ type Props = {
   open: boolean;
   ebook: IBookshelfEbook | null;
   customerId?: string | number | null;
+  initialPageNumber?: number | null;
+  initialScrollPosition?: number | null;
   onClose: () => void;
 };
 
-export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: Props) {
+export function BookshelfEbookViewDialog({
+  open,
+  ebook,
+  customerId,
+  initialPageNumber = null,
+  initialScrollPosition = null,
+  onClose,
+}: Props) {
   const [fileUrl, setFileUrl] = useState('');
   const [txtContent, setTxtContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,8 +93,8 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
         }
 
         setFileUrl(resolvedUrl);
-        setCurrentPage(1);
-        setIframePage(1);
+        setCurrentPage(normalizePageNumber(initialPageNumber ?? 1));
+        setIframePage(normalizePageNumber(initialPageNumber ?? 1));
         setPdfFrameKey((key) => key + 1);
 
         if (ebook.fileType === 'txt' && resolvedUrl) {
@@ -96,6 +105,19 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
           const text = await response.text();
           if (mounted) {
             setTxtContent(text);
+            if (initialScrollPosition != null) {
+              window.requestAnimationFrame(() => {
+                const container = txtScrollRef.current;
+                if (!container) {
+                  return;
+                }
+
+                const maxScroll = container.scrollHeight - container.clientHeight;
+                container.scrollTop = Math.round(
+                  (Math.max(0, Math.min(100, initialScrollPosition)) / 100) * maxScroll,
+                );
+              });
+            }
           }
         } else if (mounted) {
           setTxtContent('');
@@ -117,7 +139,7 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
     return () => {
       mounted = false;
     };
-  }, [ebook, open]);
+  }, [ebook, initialPageNumber, initialScrollPosition, open]);
 
   useEffect(() => {
     if (!open) {
@@ -156,8 +178,8 @@ export function BookshelfEbookViewDialog({ open, ebook, customerId, onClose }: P
       return;
     }
 
-    applyPdfPage(1);
-  }, [applyPdfPage, ebook?.fileType, open, pdfBaseUrl]);
+    applyPdfPage(initialPageNumber ?? 1);
+  }, [applyPdfPage, ebook?.fileType, initialPageNumber, open, pdfBaseUrl]);
 
   useEffect(() => {
     if (!open || ebook?.fileType !== 'pdf' || !pdfBaseUrl) {

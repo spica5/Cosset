@@ -1,7 +1,10 @@
 import type { IBookshelfBorrow } from 'src/types/bookshelf-borrow';
+import type { IBookshelfEbookReadingCount } from 'src/types/bookshelf-ebook-reading';
 import type { DesignSpaceType, DesignSpaceTheme } from 'src/utils/design-space-type';
 
 import { isBookFavorite } from 'src/sections/dashboard/bookshelf/bookshelf-book-categories';
+
+import { normalizeReadingCountBookId } from 'src/actions/bookshelf-ebook-reading';
 
 import {
   getEntryKey,
@@ -35,12 +38,10 @@ export const BOOKSHELF_NAV_ITEMS: BookshelfNavItem[] = [
     id: 'currently-reading',
     label: 'Currently Reading',
     sublabel: 'On your shelf now',
-    icon: 'solar:cup-hot-bold',
+    icon: 'solar:bookmark-bold',
   },
   { id: 'quotes', label: 'Quotes', sublabel: 'Words that stayed', icon: 'solar:chat-round-dots-bold' },
 ];
-
-export const BOOKSHELF_SHELF_LABELS = ['FAVORITES', 'TO READ', 'COLLECTIONS'] as const;
 
 export const BOOKSHELF_TITLE = 'My Bookshelf';
 
@@ -75,7 +76,7 @@ export type BookshelfLayoutTheme = {
 };
 
 const LIGHT_WOOD_BY_DESIGN: Record<
-  Exclude<DesignSpaceType, 'strong-modern'>,
+  Exclude<DesignSpaceType, 'strong-modern' | 'navy-blue'>,
   Pick<BookshelfLayoutTheme, 'woodFrameSx' | 'shelfBoardSx' | 'shelfLabelColor' | 'shelfIconColor'>
 > = {
   'gentle-feminine-romantic': {
@@ -191,7 +192,7 @@ export function getBookshelfLayoutTheme(
     };
   }
 
-  const wood = LIGHT_WOOD_BY_DESIGN[designType as Exclude<DesignSpaceType, 'strong-modern'>]
+  const wood = LIGHT_WOOD_BY_DESIGN[designType as Exclude<DesignSpaceType, 'strong-modern' | 'navy-blue'>]
     ?? LIGHT_WOOD_BY_DESIGN['serene-elegant'];
 
   return {
@@ -209,10 +210,44 @@ export function getBookshelfLayoutTheme(
   };
 }
 
+export function getBookshelfReadingCountsForEntry(
+  entry: BookshelfItem,
+  countsByBookId: Map<number, IBookshelfEbookReadingCount>,
+) {
+  if (entry.kind !== 'ebook') {
+    return undefined;
+  }
+
+  const bookId = normalizeReadingCountBookId(entry.item.id);
+  return bookId !== null ? countsByBookId.get(bookId) : undefined;
+}
+
+export function hasBookshelfReadingComments(
+  entry: BookshelfItem,
+  countsByBookId: Map<number, IBookshelfEbookReadingCount>,
+) {
+  return (getBookshelfReadingCountsForEntry(entry, countsByBookId)?.commentCount ?? 0) > 0;
+}
+
+export function hasBookshelfReadingBookmarks(
+  entry: BookshelfItem,
+  countsByBookId: Map<number, IBookshelfEbookReadingCount>,
+) {
+  return (getBookshelfReadingCountsForEntry(entry, countsByBookId)?.bookmarkCount ?? 0) > 0;
+}
+
+export function hasBookshelfReadingActivity(
+  entry: BookshelfItem,
+  countsByBookId: Map<number, IBookshelfEbookReadingCount>,
+) {
+  return hasBookshelfReadingBookmarks(entry, countsByBookId);
+}
+
 export function filterBookshelfByNavCategory(
   items: BookshelfItem[],
   category: BookshelfNavCategory,
   borrowStatuses: IBookshelfBorrow[],
+  countsByBookId: Map<number, IBookshelfEbookReadingCount> = new Map(),
 ) {
   if (category === 'favorites') {
     return items.filter((entry) => isBookFavorite(entry.item.isFavorite));
@@ -225,36 +260,20 @@ export function filterBookshelfByNavCategory(
         .map((borrow) => `${borrow.bookKind}-${borrow.bookId}`),
     );
 
-    return items.filter((entry) => approvedKeys.has(getEntryKey(entry)));
+    return items.filter(
+      (entry) =>
+        approvedKeys.has(getEntryKey(entry)) || hasBookshelfReadingActivity(entry, countsByBookId),
+    );
   }
 
   if (category === 'quotes') {
-    return items.filter((entry) => (entry.item.description || '').trim().length > 0);
+    return items.filter((entry) => hasBookshelfReadingComments(entry, countsByBookId));
   }
 
   return items;
 }
 
-export function buildBookshelfShelfRows(
-  items: BookshelfItem[],
-  category: BookshelfNavCategory,
-  showCuratedLabels: boolean,
-): BookshelfShelfRow[] {
-  if (category === 'all' && showCuratedLabels) {
-    const favorites = items.filter((entry) => isBookFavorite(entry.item.isFavorite));
-    const remaining = items.filter((entry) => !isBookFavorite(entry.item.isFavorite));
-    const midpoint = Math.ceil(remaining.length / 2);
-
-    return [
-      { label: BOOKSHELF_SHELF_LABELS[0], entries: favorites.slice(0, BOOKS_PER_SHELF) },
-      { label: BOOKSHELF_SHELF_LABELS[1], entries: remaining.slice(0, midpoint).slice(0, BOOKS_PER_SHELF) },
-      {
-        label: BOOKSHELF_SHELF_LABELS[2],
-        entries: remaining.slice(midpoint).slice(0, BOOKS_PER_SHELF),
-      },
-    ];
-  }
-
+export function buildBookshelfShelfRows(items: BookshelfItem[]): BookshelfShelfRow[] {
   return splitEntriesIntoShelves(items).map((entries) => ({
     label: null,
     entries,
@@ -264,12 +283,13 @@ export function buildBookshelfShelfRows(
 export function getBookshelfNavCounts(
   items: BookshelfItem[],
   borrowStatuses: IBookshelfBorrow[],
+  countsByBookId: Map<number, IBookshelfEbookReadingCount> = new Map(),
 ): Record<BookshelfNavCategory, number> {
   return {
     all: items.length,
-    favorites: filterBookshelfByNavCategory(items, 'favorites', borrowStatuses).length,
-    'currently-reading': filterBookshelfByNavCategory(items, 'currently-reading', borrowStatuses)
+    favorites: filterBookshelfByNavCategory(items, 'favorites', borrowStatuses, countsByBookId).length,
+    'currently-reading': filterBookshelfByNavCategory(items, 'currently-reading', borrowStatuses, countsByBookId)
       .length,
-    quotes: filterBookshelfByNavCategory(items, 'quotes', borrowStatuses).length,
+    quotes: filterBookshelfByNavCategory(items, 'quotes', borrowStatuses, countsByBookId).length,
   };
 }

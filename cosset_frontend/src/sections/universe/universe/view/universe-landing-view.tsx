@@ -644,12 +644,22 @@ export function UniverseLandingView({
     [ebooks],
   );
 
+  const visibleEbooks = useMemo(
+    () => (isCurrentCustomer ? sortBookshelfItems(ebooks) : publicEbooks),
+    [ebooks, isCurrentCustomer, publicEbooks],
+  );
+
   const publicAudiobooks = useMemo(
     () =>
       sortBookshelfItems(
         audiobooks.filter((audiobook) => isPublicBookshelfItem(audiobook.isPublic)),
       ),
     [audiobooks],
+  );
+
+  const visibleAudiobooks = useMemo(
+    () => (isCurrentCustomer ? sortBookshelfItems(audiobooks) : publicAudiobooks),
+    [audiobooks, isCurrentCustomer, publicAudiobooks],
   );
 
   const drawerItems = useMemo(
@@ -727,8 +737,8 @@ export function UniverseLandingView({
     sadMemoDrawerStats.count > 0;
   const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
   const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
-  const showBookshelfEbooks = drawerSettings.ebooks || publicEbooks.length > 0;
-  const showBookshelfAudiobooks = drawerSettings.audiobooks || publicAudiobooks.length > 0;
+  const showBookshelfEbooks = drawerSettings.ebooks || visibleEbooks.length > 0;
+  const showBookshelfAudiobooks = drawerSettings.audiobooks || visibleAudiobooks.length > 0;
   const showBookshelfSection =
     allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
 
@@ -957,8 +967,8 @@ export function UniverseLandingView({
           <UniverseLandingSectionSplitBar designType={designSpaceType} />
           <UniverseLandingBookshelfPage designType={designSpaceType}>
             <UniverseLandingBookshelf
-              ebooks={showBookshelfEbooks ? publicEbooks : []}
-              audiobooks={showBookshelfAudiobooks ? publicAudiobooks : []}
+              ebooks={showBookshelfEbooks ? visibleEbooks : []}
+              audiobooks={showBookshelfAudiobooks ? visibleAudiobooks : []}
               showEbooks={showBookshelfEbooks}
               showAudiobooks={showBookshelfAudiobooks}
               loading={ebooksLoading || audiobooksLoading}

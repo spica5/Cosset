@@ -39,21 +39,15 @@ const getCustomerIdFromToken = async (req: NextRequest): Promise<string | null> 
   }
 };
 
-const resolveCustomerId = async (
+const resolveReadCustomerId = async (
   req: NextRequest,
   queryCustomerId?: string | null,
 ): Promise<string | null> => {
-  const tokenCustomerId = await getCustomerIdFromToken(req);
-
-  if (tokenCustomerId) {
-    return tokenCustomerId;
-  }
-
   if (queryCustomerId?.trim()) {
     return queryCustomerId.trim();
   }
 
-  return null;
+  return getCustomerIdFromToken(req);
 };
 
 const parseBookIds = (raw: string | null): number[] => {
@@ -75,7 +69,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const bookIds = parseBookIds(searchParams.get('bookIds'));
-    const customerId = await resolveCustomerId(req, searchParams.get('customerId'));
+    const customerId = await resolveReadCustomerId(req, searchParams.get('customerId'));
 
     if (!customerId) {
       return response({ message: 'Unauthorized' }, STATUS.UNAUTHORIZED);

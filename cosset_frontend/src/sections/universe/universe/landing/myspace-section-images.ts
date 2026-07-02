@@ -23,6 +23,7 @@ const DESIGN_TYPE_ASSET_FOLDER: Record<DesignSpaceType, string> = {
   'warm-nostalgic': 'warm_nostalgic',
   'strong-modern': 'strong_modern',
   'young-dynamic': 'young_dynamic',
+  'navy-blue': 'navy_blue',
 };
 
 const SECTION_IMAGE_FILE: Record<MyspaceSectionImageKey, string> = {
@@ -58,9 +59,11 @@ export function getMyspaceSectionImageFallbackUrl(sectionId: MyspaceSectionImage
 }
 
 export function getDesignCategoryImageUrl(designType: DesignSpaceType): string {
-  const folder = getDesignTypeAssetFolder(designType);
+  const normalized = normalizeDesignSpaceType(designType);
+  const folder = getDesignTypeAssetFolder(normalized);
+  const file = normalized === 'navy-blue' ? 'navy blue.png' : `${folder}.png`;
 
-  return `${DESIGN_CATEGORY_ASSETS_BASE}/${folder}.png`;
+  return `${DESIGN_CATEGORY_ASSETS_BASE}/${file}`;
 }
 
 export function getMyspaceBookshelfDecorImageUrl(designType: DesignSpaceType): string {

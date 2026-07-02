@@ -42,7 +42,18 @@ const getCustomerIdFromToken = async (req: NextRequest): Promise<string | null> 
   }
 };
 
-const resolveCustomerId = async (
+const resolveReadCustomerId = async (
+  req: NextRequest,
+  queryCustomerId?: string | null,
+): Promise<string | null> => {
+  if (queryCustomerId?.trim()) {
+    return queryCustomerId.trim();
+  }
+
+  return getCustomerIdFromToken(req);
+};
+
+const resolveWriteCustomerId = async (
   req: NextRequest,
   bodyCustomerId?: unknown,
 ): Promise<string | null> => {
@@ -63,7 +74,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const bookId = parseInteger(searchParams.get('bookId'));
-    const customerId = await resolveCustomerId(req, searchParams.get('customerId'));
+    const customerId = await resolveReadCustomerId(req, searchParams.get('customerId'));
 
     if (bookId === null) {
       return response({ message: 'bookId is required and must be an integer' }, STATUS.BAD_REQUEST);
@@ -90,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     const bookId = parseInteger(body.bookId);
-    const customerId = await resolveCustomerId(req, body.customerId);
+    const customerId = await resolveWriteCustomerId(req, body.customerId);
     const comment = typeof body.comment === 'string' ? body.comment.trim() : '';
 
     if (bookId === null) {

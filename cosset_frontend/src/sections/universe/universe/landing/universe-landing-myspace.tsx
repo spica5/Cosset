@@ -213,7 +213,7 @@ function MySpaceSidebar({
   onNavigate?: () => void;
 }) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
-  const navTextShadow = '0 1px 4px rgba(0, 0, 0, 0.45)';
+  const navTextShadow = spaceTheme.categoryTextShadow ?? '0 1px 4px rgba(0, 0, 0, 0.45)';
 
   return (
     <Stack

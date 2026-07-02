@@ -55,6 +55,7 @@ export const DesignSpaceSchema = zod.object({
     'warm-nostalgic',
     'strong-modern',
     'young-dynamic',
+    'navy-blue',
   ]),
 });
 
