@@ -162,13 +162,22 @@ export function UniverseLandingView({
   const [requestingFriend, setRequestingFriend] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [designGalleryUrls, setDesignGalleryUrls] = useState<string[]>([]);
+  const [designGalleryLoaded, setDesignGalleryLoaded] = useState(false);
+  const [heroUrlResolved, setHeroUrlResolved] = useState(false);
   const [designSpaceType, setDesignSpaceType] = useState<DesignSpaceType>(DEFAULT_DESIGN_SPACE_TYPE);
   const [sharedAlbums, setSharedAlbums] = useState<
     (IAlbumItem & { signedCoverUrl?: string })[]
   >([]);
   const [albumsLoading, setAlbumsLoading] = useState(false);
 
-  const defaultCoverImage = `${CONFIG.universe.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`;
+
+  useEffect(() => {
+    setHeroUrl('');
+    setHeroUrlResolved(false);
+    setDesignGalleryUrls([]);
+    setDesignGalleryLoaded(false);
+  }, [customerId]);
 
   const giftCountData = useGiftCount(customerId, 'Public', 'gift');
 
@@ -233,7 +242,11 @@ export function UniverseLandingView({
       }
     };
 
-    resolveCover();
+    resolveCover().finally(() => {
+      if (mounted) {
+        setHeroUrlResolved(true);
+      }
+    });
 
     return () => {
       mounted = false;
@@ -381,12 +394,16 @@ export function UniverseLandingView({
         if (!mounted) return;
 
         const urls = Array.from(new Set(resolvedUrls.filter(Boolean)));
-        setDesignGalleryUrls(urls.length > 0 ? urls : (defaultCoverImage ? [defaultCoverImage] : []));
+        setDesignGalleryUrls(urls);
       } catch (error) {
         console.error('Failed to load design space gallery for universe view', error);
         if (mounted) {
-          setDesignGalleryUrls(defaultCoverImage ? [defaultCoverImage] : []);
+          setDesignGalleryUrls([]);
           setDesignSpaceType(DEFAULT_DESIGN_SPACE_TYPE);
+        }
+      } finally {
+        if (mounted) {
+          setDesignGalleryLoaded(true);
         }
       }
     };
@@ -498,9 +515,43 @@ export function UniverseLandingView({
     };
   }, [customerId]);
 
+  const resolvedDesignGalleryUrls = useMemo(() => {
+    if (!designGalleryLoaded) {
+      return [];
+    }
+
+    return Array.from(new Set(designGalleryUrls.filter(Boolean)));
+  }, [designGalleryLoaded, designGalleryUrls]);
+
+  const resolvedHeroUrl = useMemo(() => {
+    if (resolvedDesignGalleryUrls.length > 0) {
+      return resolvedDesignGalleryUrls[0];
+    }
+
+    if (!heroUrlResolved) {
+      return '';
+    }
+
+    if (heroUrl) {
+      return heroUrl;
+    }
+
+    if (designGalleryLoaded && defaultCoverImage) {
+      return defaultCoverImage;
+    }
+
+    return '';
+  }, [
+    defaultCoverImage,
+    designGalleryLoaded,
+    heroUrl,
+    heroUrlResolved,
+    resolvedDesignGalleryUrls,
+  ]);
+
   const resolvedUniverse = useMemo<IUniverseProps>(() => {
-    const hero = designGalleryUrls.length > 0 ? designGalleryUrls[0] : (heroUrl || '');
-    const gallery = designGalleryUrls.length ? designGalleryUrls : [];
+    const hero = resolvedHeroUrl;
+    const gallery = resolvedDesignGalleryUrls;
 
     if (!guestarea) {
       const now = new Date().toISOString();
@@ -553,7 +604,7 @@ export function UniverseLandingView({
       },
       program: [],
     };
-  }, [customerId, designGalleryUrls, guestarea, heroUrl]);
+  }, [customerId, guestarea, resolvedDesignGalleryUrls, resolvedHeroUrl]);
 
   const drawerSettings = useMemo(() => {
     if (!guestarea?.drawer) {

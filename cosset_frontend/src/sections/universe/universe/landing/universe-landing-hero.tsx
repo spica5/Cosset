@@ -81,6 +81,8 @@ export function UniverseLandingHero({
   const [openGallery, setOpenGallery] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
+  const [loadedBackgroundUrls, setLoadedBackgroundUrls] = useState<string[]>([]);
+  const [failedBackgroundUrls, setFailedBackgroundUrls] = useState<string[]>([]);
   const [fadeLayers, setFadeLayers] = useState({
     a: '',
     b: '',
@@ -96,12 +98,54 @@ export function UniverseLandingHero({
     const images = [...galleryImages];
     const heroUrl = universe?.heroUrl?.trim();
 
-    if (heroUrl && !images.includes(heroUrl)) {
-      images.unshift(heroUrl);
+    // Guest-area cover is only a fallback when there is no design-space gallery.
+    if (!images.length && heroUrl) {
+      images.push(heroUrl);
     }
 
-    return images;
-  }, [galleryImages, universe?.heroUrl]);
+    return images.filter((url) => url && !failedBackgroundUrls.includes(url));
+  }, [failedBackgroundUrls, galleryImages, universe?.heroUrl]);
+
+  useEffect(() => {
+    setFailedBackgroundUrls([]);
+    setLoadedBackgroundUrls([]);
+  }, [universe?.heroUrl, universe?.gallery]);
+
+  useEffect(() => {
+    const pendingUrls = backgroundImages.filter(
+      (url) =>
+        url &&
+        !loadedBackgroundUrls.includes(url) &&
+        !failedBackgroundUrls.includes(url),
+    );
+
+    if (!pendingUrls.length) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    pendingUrls.forEach((url) => {
+      const image = new window.Image();
+      image.onload = () => {
+        if (!cancelled) {
+          setLoadedBackgroundUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+        }
+      };
+      image.onerror = () => {
+        if (!cancelled) {
+          setFailedBackgroundUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+        }
+      };
+      image.src = url;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backgroundImages, failedBackgroundUrls, loadedBackgroundUrls]);
+
+  const hasVisibleBackground = backgroundImages.some((url) => loadedBackgroundUrls.includes(url));
 
   useEffect(() => {
     setSelectedBackground((prev) => {
@@ -118,7 +162,7 @@ export function UniverseLandingHero({
   }, [backgroundImages]);
 
   useEffect(() => {
-    if (!selectedBackground) {
+    if (!selectedBackground || !loadedBackgroundUrls.includes(selectedBackground)) {
       return;
     }
 
@@ -139,7 +183,34 @@ export function UniverseLandingHero({
 
       return { a: selectedBackground, b: prev.b, active: 'a' };
     });
-  }, [selectedBackground]);
+  }, [loadedBackgroundUrls, selectedBackground]);
+
+  const preloadBackground = useCallback(
+    (url: string) =>
+      new Promise<boolean>((resolve) => {
+        if (!url) {
+          resolve(false);
+          return;
+        }
+
+        if (loadedBackgroundUrls.includes(url)) {
+          resolve(true);
+          return;
+        }
+
+        const image = new window.Image();
+        image.onload = () => {
+          setLoadedBackgroundUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+          resolve(true);
+        };
+        image.onerror = () => {
+          setFailedBackgroundUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+          resolve(false);
+        };
+        image.src = url;
+      }),
+    [loadedBackgroundUrls],
+  );
 
   useEffect(() => {
     if (backgroundImages.length <= 1) {
@@ -204,6 +275,20 @@ export function UniverseLandingHero({
     },
     [backgroundImages],
   );
+
+  const handleSelectBackground = useCallback(
+    async (image: string) => {
+      const loaded = await preloadBackground(image);
+      if (loaded) {
+        setSelectedBackground(image);
+      }
+    },
+    [preloadBackground],
+  );
+
+  const handleBackgroundImageError = useCallback((url: string) => {
+    setFailedBackgroundUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+  }, []);
 
   const backgroundSliderButtonSx = {
     flexShrink: 0,
@@ -271,11 +356,9 @@ export function UniverseLandingHero({
             height: '100vh',
             maxHeight: 1440,
           },
-          ...sx,
         }}
-        {...other}
       >
-        {fadeLayers.a || fadeLayers.b ? (
+        {hasVisibleBackground && (fadeLayers.a || fadeLayers.b) ? (
           <Box
             sx={{
               top: 0,
@@ -295,13 +378,15 @@ export function UniverseLandingHero({
               }
 
               const isActive = fadeLayers.active === layer;
+              const isLoaded = loadedBackgroundUrls.includes(src);
 
               return (
                 <Box
                   key={layer}
                   component="img"
-                  alt={universe.name}
+                  alt=""
                   src={src}
+                  onError={() => handleBackgroundImageError(src)}
                   sx={{
                     top: 0,
                     left: 0,
@@ -309,7 +394,7 @@ export function UniverseLandingHero({
                     height: 1,
                     objectFit: 'cover',
                     position: 'absolute',
-                    opacity: isActive ? 1 : 0,
+                    opacity: isActive && isLoaded ? 1 : 0,
                     transition: `opacity ${BACKGROUND_FADE_MS}ms ease-in-out`,
                   }}
                 />
@@ -324,12 +409,14 @@ export function UniverseLandingHero({
               xs: showTopMenu ? 12 : 12,
               md: showTopMenu ? 25 : 25,
             },
-            left: { xs: 15, md: 30 },
+            left: { xs: 12, md: 30 },
+            right: { xs: 'auto', md: 'auto' },
             zIndex: 10,
-            px: 1.5,
-            py: 1.25,
-            minWidth: { xs: 180, sm: 220 },
-            maxWidth: { xs: 'calc(100vw - 24px)', sm: 260 },
+            px: { xs: 0.5, md: 1.5 },
+            py: { xs: 0.5, md: 1.25 },
+            width: { xs: 'auto', md: 'auto' },
+            minWidth: { xs: 0, md: 220 },
+            maxWidth: { xs: 'none', md: 260 },
             position: 'absolute',
             bgcolor: varAlpha(commonVars.blackChannel, 0.5),
             border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
@@ -343,6 +430,7 @@ export function UniverseLandingHero({
               aria-label={isFullScreen ? 'exit full screen preview' : 'enter full screen preview'}
               onClick={onToggleFullScreen}
               sx={{
+                display: { xs: 'none', md: 'inline-flex' },
                 position: 'absolute',
                 top: 8,
                 right: 8,
@@ -366,7 +454,7 @@ export function UniverseLandingHero({
             </IconButton>
           ) : null}
 
-          <Stack spacing={1.25}>
+          <Stack spacing={{ xs: 0, md: 1.25 }}>
             {universe.name ? (
               <Typography
                 variant="subtitle2"
@@ -375,7 +463,7 @@ export function UniverseLandingHero({
                   lineHeight: 1.45,
                   textAlign: 'center',
                   wordBreak: 'break-word',
-                  display: '-webkit-box',
+                  display: { xs: 'none', md: '-webkit-box' },
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
@@ -387,31 +475,35 @@ export function UniverseLandingHero({
               </Typography>
             ) : null}
 
-            <Stack direction="row" spacing={1} alignItems="flex-start">
-              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ minWidth: 0, flex: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="flex-start"
+              sx={{ minWidth: 0, flex: 1, width: 1 }}
+            >
                 <Box sx={{ position: 'relative', flexShrink: 0 }}>
                   <Avatar
                     src={customer?.avatarUrl || undefined}
                     alt={customer?.name || 'Customer'}
                     onClick={() => { if (customer?.avatarUrl) setOpenAvatarPreview(true); }}
                     sx={{
-                      width: 100,
-                      height: 120,
+                      width: { xs: 48, md: 100 },
+                      height: { xs: 58, md: 120 },
                       bgcolor: 'grey.700',
                       cursor: customer?.avatarUrl ? 'pointer' : 'default',
                       transition: 'opacity 0.2s',
                       '&:hover': customer?.avatarUrl ? { opacity: 0.8 } : {},
-                      borderRadius: 2,
+                      borderRadius: { xs: 1.25, md: 2 },
                     }}
                   />
                   {friendshipState === 'friend' ? (
                     <Box
                       sx={{
                         position: 'absolute',
-                        top: 6,
-                        left: 6,
-                        width: 26,
-                        height: 26,
+                        top: { xs: 3, md: 6 },
+                        left: { xs: 3, md: 6 },
+                        width: { xs: 18, md: 26 },
+                        height: { xs: 18, md: 26 },
                         borderRadius: '50%',
                         display: 'grid',
                         placeItems: 'center',
@@ -420,12 +512,25 @@ export function UniverseLandingHero({
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.28)',
                       }}
                     >
-                      <Iconify icon="solar:heart-bold" width={14} sx={{ color: '#FF8A8A' }} />
+                      <Iconify icon="solar:heart-bold" width={14} sx={{ color: '#FF8A8A', width: { xs: 10, md: 14 } }} />
                     </Box>
                   ) : null}
                 </Box>
-                <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1, pt: 0.25 }}>
-                  <Typography variant="body1" noWrap>
+                <Stack
+                  spacing={0.75}
+                  sx={{
+                    display: { xs: 'none', md: 'flex' },
+                    minWidth: 0,
+                    flex: 1,
+                    pt: 0.25,
+                    width: 1,
+                  }}
+                >
+                  <Typography
+                    variant="body1"
+                    noWrap
+                    sx={{ width: 1 }}
+                  >
                     {customer?.name || 'Customer'}
                   </Typography>
 
@@ -479,7 +584,6 @@ export function UniverseLandingHero({
                     </Button>
                   ) : null}
                 </Stack>
-              </Stack>
             </Stack>
           </Stack>
         </Card>
@@ -615,7 +719,7 @@ export function UniverseLandingHero({
                       fullWidth
                       variant={selectedBackground === image ? 'contained' : 'outlined'}
                       onClick={() => {
-                        setSelectedBackground(image);
+                        handleSelectBackground(image);
                         setOpenGallery(false);
                       }}
                     >
@@ -676,5 +780,5 @@ export function UniverseLandingHero({
         </Box>
       </Dialog>
     </Box>
-  )
+  );
 }

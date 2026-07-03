@@ -3,11 +3,14 @@ import type { IAlbumItem } from 'src/types/album';
 import { z as zod } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
+import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
@@ -23,8 +26,12 @@ import { createAlbum, updateAlbum } from 'src/actions/album';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
+import { Iconify } from 'src/components/dashboard/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+import { AlbumImageUpload } from './album-image-upload';
+import { AlbumImageGallery } from './album-image-gallery';
 
 // ----------------------------------------------------------------------
 
@@ -64,6 +71,8 @@ function stripHtmlTags(input: string): string {
 
 export function AlbumNewEditForm({ currentAlbum }: Props) {
   const router = useRouter();
+  const [openUploadDialog, setOpenUploadDialog] = useState(false);
+  const [galleryRefreshKey, setGalleryRefreshKey] = useState(0);
 
   const { user } = useAuthContext();
 
@@ -176,6 +185,10 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
     setValue('coverUrl', null);
   }, [setValue]);
 
+  const handleGalleryRefresh = useCallback(() => {
+    setGalleryRefreshKey((prev) => prev + 1);
+  }, []);
+
   const renderDetails = (
     <Card>
       <CardHeader title="Album Details" subheader="Title, short description, image..." sx={{ mb: 3 }} />
@@ -201,30 +214,34 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
     </Card>
   );
 
-  const renderGallery = (
+  const renderGallery = currentAlbum?.id ? (
     <Card>
-      <CardHeader title="Gallery" subheader="Showcase multiple images of your space..." sx={{ mb: 3 }} />
+      <CardHeader
+        title="Photo Gallery"
+        subheader="Upload and manage album photos..."
+        sx={{ mb: 3 }}
+        action={
+          <Button
+            variant="outlined"
+            startIcon={<Iconify icon="solar:upload-bold" />}
+            onClick={() => setOpenUploadDialog(true)}
+          >
+            Add Photos
+          </Button>
+        }
+      />
 
       <Divider />
 
-      <Stack spacing={3} sx={{ p: 3 }}>
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle2">Images</Typography>
-          <Field.Upload
-            multiple
-            thumbnail
-            name="images"
-            maxSize={3145728}
-            onRemove={(file) => {
-              console.info('ON REMOVE FILE:', file);
-            }}
-            onRemoveAll={() => console.info('ON REMOVE ALL')}
-            onUpload={() => console.info('ON UPLOAD')}
-          />
-        </Stack>
-      </Stack>
+      <Box sx={{ p: 3 }}>
+        <AlbumImageGallery
+          albumId={String(currentAlbum.id)}
+          refreshKey={galleryRefreshKey}
+          onRefresh={handleGalleryRefresh}
+        />
+      </Box>
     </Card>
-  );
+  ) : null;
 
   const renderActions = (
     <Stack direction="row" alignItems="center" flexWrap="wrap">
@@ -265,10 +282,22 @@ export function AlbumNewEditForm({ currentAlbum }: Props) {
       <Stack spacing={{ xs: 3, md: 5 }} sx={{ mx: 'auto', maxWidth: { xs: 720, xl: 880 } }}>
         {renderDetails}
 
-        {/* {renderGallery} */}
+        {renderGallery}
 
         {renderActions}
       </Stack>
+
+      {currentAlbum?.id ? (
+        <Dialog open={openUploadDialog} onClose={() => setOpenUploadDialog(false)} maxWidth="sm" fullWidth>
+          <AlbumImageUpload
+            albumId={String(currentAlbum.id)}
+            onUploadSuccess={() => {
+              setOpenUploadDialog(false);
+              handleGalleryRefresh();
+            }}
+          />
+        </Dialog>
+      ) : null}
     </Form>
   );
 }

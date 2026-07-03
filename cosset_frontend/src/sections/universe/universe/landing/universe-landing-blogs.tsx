@@ -1,7 +1,7 @@
 import type { IBlogItem } from 'src/types/blog';
 import type { BoxProps } from '@mui/material/Box';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 
 import { useGetViewedBlogIds } from 'src/actions/blog';
 import { useGetReactionSummary } from 'src/actions/reaction';
@@ -14,6 +14,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Pagination from '@mui/material/Pagination';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import InputAdornment from '@mui/material/InputAdornment';
 import CardActionArea from '@mui/material/CardActionArea';
 
@@ -36,7 +38,15 @@ import {
 } from './myspace-section-title';
 
 import { useDesignSpaceTheme } from './design-space-theme-context';
-import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import {
+  MYSPACE_BLOG_GRID_COLUMNS,
+  MYSPACE_BLOG_GRID_GAP,
+  MYSPACE_BLOG_ITEM_MIN_WIDTH,
+  MYSPACE_BLOG_LIST_PAGE_SIZE,
+  getBlogGridColumnCount,
+  myspaceBlogListGridSx,
+  myspaceBlogListGridItemSx,
+} from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 
@@ -48,7 +58,54 @@ type Props = BoxProps & {
   getBlogHref?: (blog: IBlogItem) => string;
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = MYSPACE_BLOG_LIST_PAGE_SIZE;
+
+function useBlogListColumnCount(enabled: boolean) {
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [columnCount, setColumnCount] = useState(MYSPACE_BLOG_GRID_COLUMNS);
+
+  const updateColumnCount = useCallback(() => {
+    const node = gridRef.current;
+    if (!node || !enabled) {
+      return;
+    }
+
+    const nextCount = getBlogGridColumnCount(
+      node.clientWidth,
+      MYSPACE_BLOG_ITEM_MIN_WIDTH,
+      MYSPACE_BLOG_GRID_COLUMNS,
+      MYSPACE_BLOG_GRID_GAP,
+    );
+
+    setColumnCount((prev) => (prev === nextCount ? prev : nextCount));
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setColumnCount(MYSPACE_BLOG_GRID_COLUMNS);
+      return undefined;
+    }
+
+    const node = gridRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    updateColumnCount();
+
+    const observer = new ResizeObserver(() => {
+      updateColumnCount();
+    });
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [enabled, updateColumnCount]);
+
+  return { gridRef, columnCount };
+}
 
 const formatBlogDate = (value: unknown) => {
   if (!value) {
@@ -91,6 +148,7 @@ type BlogCardProps = {
   blog: IBlogItem;
   blogHref?: string;
   isViewed: boolean;
+  fillHeight?: boolean;
 };
 
 function BlogCardHeart({ blogId }: { blogId: number }) {
@@ -142,7 +200,7 @@ function BlogCardHeart({ blogId }: { blogId: number }) {
   );
 }
 
-function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
+function UniverseLandingBlogCard({ blog, blogHref, isViewed, fillHeight = false }: BlogCardProps) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const fallbackAppearance = getBlogContentAppearance(blog.comments);
   const contentAppearance = {
@@ -159,13 +217,26 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
 
   const cardBody = (
     <>
-      <Box sx={{ position: 'relative', px: 1.5, pt: 1.5 }}>
+      <Box
+        sx={{
+          position: 'relative',
+          px: 1.5,
+          pt: 1.5,
+          flex: fillHeight ? '1 1 0' : '0 0 auto',
+          minHeight: fillHeight ? 0 : 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <Box
           sx={{
             position: 'relative',
-            minHeight: 120,
+            flex: fillHeight ? '1 1 0' : '0 0 auto',
+            minHeight: fillHeight ? 0 : 120,
             borderRadius: 2,
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
             ...getBlogContentBackgroundSx(contentAppearance.backgroundPreset, {
               designTheme: spaceTheme,
             }),
@@ -194,17 +265,18 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
           <Typography
             variant="body2"
             sx={{
+              flex: fillHeight ? 1 : '0 0 auto',
               p: 1.5,
               pr: 5,
               pt: 4,
               color: getBlogContentFontColor({ designTheme: spaceTheme }),
               ...getBlogContentFontSx(contentAppearance.fontPreset),
               display: '-webkit-box',
-              WebkitLineClamp: 4,
+              WebkitLineClamp: fillHeight ? 8 : 4,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              lineHeight: 1.55,
-              minHeight: 112,
+              lineHeight: 1.5,
+              minHeight: fillHeight ? 0 : 112,
             }}
           >
             {plainContent}
@@ -212,7 +284,16 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
         </Box>
       </Box>
 
-      <Stack spacing={0.75} sx={{ p: 2, pt: 1.5, flex: 1, position: 'relative' }}>
+      <Stack
+        spacing={0.75}
+        sx={{
+          p: 2,
+          pt: 1.5,
+          flex: '0 0 auto',
+          flexShrink: 0,
+          position: 'relative',
+        }}
+      >
         <Typography
           variant="subtitle1"
           sx={{
@@ -243,7 +324,6 @@ function UniverseLandingBlogCard({ blog, blogHref, isViewed }: BlogCardProps) {
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             lineHeight: 1.5,
-            flex: 1,
           }}
         >
           {getExcerpt(blog)}
@@ -331,6 +411,9 @@ export function UniverseLandingBlogs({
   sx,
   ...other
 }: Props) {
+  const muiTheme = useTheme();
+  const isMobileBlogList = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const { gridRef, columnCount } = useBlogListColumnCount(!isMobileBlogList);
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const { viewedBlogIds } = useGetViewedBlogIds(ownerCustomerId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -457,13 +540,21 @@ export function UniverseLandingBlogs({
           </Typography>
         ) : (
           <>
-            <Box sx={myspaceItemGridSx}>
+            <Box
+              ref={gridRef}
+              sx={myspaceBlogListGridSx({
+                itemCount: paginatedBlogs.length,
+                pageSize: PAGE_SIZE,
+                columnCount,
+              })}
+            >
               {paginatedBlogs.map((blog) => (
-                <Box key={blog.id} sx={myspaceItemCardSx}>
+                <Box key={blog.id} sx={myspaceBlogListGridItemSx}>
                   <UniverseLandingBlogCard
                     blog={blog}
                     blogHref={getBlogHref?.(blog)}
                     isViewed={viewedIdSet.has(String(blog.id))}
+                    fillHeight={!isMobileBlogList}
                   />
                 </Box>
               ))}

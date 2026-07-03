@@ -130,8 +130,8 @@ function MySpaceCustomerTitle({
           src={customerAvatarUrl || undefined}
           alt={customerName}
           sx={{
-            width: isSidebar ? 50 : 36,
-            height: isSidebar ? 50 : 36,
+            width: isSidebar ? 50 : { xs: 52, sm: 44 },
+            height: isSidebar ? 50 : { xs: 52, sm: 44 },
             border: '2px solid',
             borderColor: useSidebarPalette
               ? 'rgba(255, 248, 240, 0.35)'
@@ -157,12 +157,22 @@ function MySpaceCustomerTitle({
 
         <Typography
           variant={isSidebar ? 'h5' : 'h6'}
-          noWrap
+          noWrap={isSidebar}
           sx={{
             fontFamily: '"Georgia", "Times New Roman", serif',
             fontWeight: 500,
             minWidth: 0,
             color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : 'inherit',
+            ...(!isSidebar
+              ? {
+                  wordBreak: 'break-word',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  lineHeight: 1.25,
+                }
+              : {}),
           }}
         >
           {`${customerName || 'My'}'s Space`}
@@ -174,7 +184,7 @@ function MySpaceCustomerTitle({
         size="small"
         sx={{
           alignSelf: 'flex-start',
-          ml: isSidebar ? 7.5 : 5.5,
+          ml: isSidebar ? 7.5 : { xs: 7.5, sm: 5.5 },
           height: 24,
           fontSize: '0.7rem',
           fontWeight: 600,
@@ -475,10 +485,10 @@ function UniverseLandingMySpaceContent({
       id="myspace-section"
       sx={{
         minHeight: '100dvh',
-        height: '100dvh',
+        height: { xs: 'auto', lg: '100dvh' },
         bgcolor: spaceTheme.pageBg,
         color: spaceTheme.textPrimary,
-        overflow: 'hidden',
+        overflow: { xs: 'visible', lg: 'hidden' },
         display: 'flex',
         flexDirection: 'column',
         scrollMarginTop: 0,
@@ -540,7 +550,12 @@ function UniverseLandingMySpaceContent({
           }}
         >
           {!isDesktop ? (
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ pt: 2, pb: 1, flexShrink: 0 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1.25}
+              sx={{ pt: 2, pb: 1.5, flexShrink: 0, position: 'sticky', top: 0, zIndex: 2, bgcolor: spaceTheme.contentBg }}
+            >
               <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open navigation">
                 <Iconify icon="solar:hamburger-menu-linear" />
               </IconButton>
@@ -570,7 +585,7 @@ function UniverseLandingMySpaceContent({
         onClose={() => setMobileNavOpen(false)}
         PaperProps={{
           sx: {
-            width: SIDEBAR_WIDTH + 32,
+            width: { xs: 'min(100vw, 360px)', sm: SIDEBAR_WIDTH + 32 },
             bgcolor: spaceTheme.sidebarBg,
             color: spaceTheme.sidebarTextPrimary,
             p: 2,

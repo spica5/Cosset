@@ -22,7 +22,6 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Markdown } from 'src/components/dashboard/markdown';
-import { useLightBox } from 'src/components/dashboard/lightbox';
 
 import { AlbumImageUpload } from './album-image-upload';
 import { AlbumImageGallery } from './album-image-gallery';
@@ -34,40 +33,11 @@ type Props = {
 };
 
 export function AlbumDetailsContent({ album }: Props) {
-  const [slides, setSlides] = useState<Array<{ src: string; id: number }>>([]);
   const [coverUrl, setCoverUrl] = useState<string>('');
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [imageToDelete, setImageToDelete] = useState<number | null>(null);
-
-  const fetchAlbumImages = useCallback(async () => {
-    if (!album?.id) {
-      setSlides([]);
-      return;
-    }
-
-    try {
-      const res = await axiosInstance.get(endpoints.album.images.list(album.id));
-      const images = res.data?.images || [];
-
-      // Convert file_key to signed URLs
-      const slidesWithUrls = await Promise.all(
-        images.map(async (image: any) => {
-          const signedUrl = await getS3SignedUrl(image.fileUrl);
-          return { src: signedUrl, id: image.id };
-        })
-      );
-
-      setSlides(slidesWithUrls);
-    } catch (error) {
-      console.error('Failed to fetch album images:', error);
-      setSlides([]);
-    }
-  }, [album?.id]);
-
-  useEffect(() => {
-    fetchAlbumImages();
-  }, [fetchAlbumImages]);
+  const [galleryRefreshKey, setGalleryRefreshKey] = useState(0);
 
   useEffect(() => {
     const loadCoverUrl = async () => {
@@ -88,14 +58,16 @@ export function AlbumDetailsContent({ album }: Props) {
     loadCoverUrl();
   }, [album?.coverUrl]);
 
-  useLightBox(slides);
+  const handleGalleryRefresh = useCallback(() => {
+    setGalleryRefreshKey((prev) => prev + 1);
+  }, []);
 
   const handleDelete = async (imageId: number) => {
     try {
       await axiosInstance.delete(endpoints.album.images.delete(album!.id, String(imageId)));
       setOpenDeleteDialog(false);
       setImageToDelete(null);
-      fetchAlbumImages();
+      handleGalleryRefresh();
     } catch (error) {
       console.error('Failed to delete image:', error);
     }
@@ -120,139 +92,14 @@ export function AlbumDetailsContent({ album }: Props) {
       </Stack>
 
       <Divider sx={{ borderStyle: 'dashed', my: 1 }} />
-      {/* <Box
-        gap={1}
-        display="grid"
-        gridTemplateColumns={{ xs: 'repeat(1, 1fr)', md: 'repeat(2, 1fr)' }}
-        sx={{ mb: { xs: 3, md: 5 } }}
-      >
-        {slides.length > 0 && (
-          <>
-            <Box
-              sx={{
-                position: 'relative',
-                cursor: 'pointer',
-                // width: '100%',
-                // aspectRatio: '1/1',
-                '&:hover .image-overlay': {
-                  opacity: 1,
-                },
-              }}
-              onClick={() => handleOpenLightbox(slides[0].src)}
-            >
-              <Image
-                alt={slides[0].src}
-                src={slides[0].src}
-                ratio="1/1"
-                sx={{
-                  borderRadius: 2,
-                  transition: (theme) => theme.transitions.create('opacity'),
-                  '&:hover': { opacity: 0.8 },
-                }}
-              />
-              <Box
-                className="image-overlay"
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
-                  opacity: 0,
-                  transition: 'opacity 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                }}
-              >
-                <Tooltip title="Delete">
-                  <IconButton
-                    color="error"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDelete(slides[0].id);
-                    }}
-                    sx={{ bgcolor: 'background.paper' }}
-                  >
-                    <Iconify icon="solar:trash-bin-trash-bold" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
-
-            <Box gap={1} display="grid" gridTemplateColumns="repeat(2, 1fr)">
-              {slides.slice(1, 5).map((slide) => (
-                <Box
-                  key={slide.src}
-                  sx={{
-                    position: 'relative',
-                    cursor: 'pointer',
-                    // width: '100%',
-                    // aspectRatio: '1/1',
-                    '&:hover .image-overlay': {
-                      opacity: 1,
-                    },
-                  }}
-                  onClick={() => handleOpenLightbox(slide.src)}
-                >
-                  <Image
-                    alt={slide.src}
-                    src={slide.src}
-                    ratio="1/1"
-                    sx={{
-                      borderRadius: 2,
-                      transition: (theme) => theme.transitions.create('opacity'),
-                      '&:hover': { opacity: 0.8 },
-                    }}
-                  />
-                  <Box
-                    className="image-overlay"
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      bgcolor: 'rgba(0, 0, 0, 0.5)',
-                      opacity: 0,
-                      transition: 'opacity 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <Tooltip title="Delete">
-                      <IconButton
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenDelete(slide.id);
-                        }}
-                        sx={{ bgcolor: 'background.paper' }}
-                      >
-                        <Iconify icon="solar:trash-bin-trash-bold" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </>
-        )}
-      </Box> 
-
-      <Lightbox
-        index={selectedImage}
-        slides={slides}
-        open={openLightbox}
-        close={handleCloseLightbox}
-      /> */}
+      
 
       {album?.id && (
-        <AlbumImageGallery albumId={String(album.id)} onRefresh={fetchAlbumImages} />
+        <AlbumImageGallery
+          albumId={String(album.id)}
+          refreshKey={galleryRefreshKey}
+          onRefresh={handleGalleryRefresh}
+        />
       )}
     </>
   );
@@ -325,7 +172,7 @@ export function AlbumDetailsContent({ album }: Props) {
             albumId={String(album.id)}
             onUploadSuccess={() => {
               setOpenUploadDialog(false);
-              fetchAlbumImages();
+              handleGalleryRefresh();
             }}
           />
         )}

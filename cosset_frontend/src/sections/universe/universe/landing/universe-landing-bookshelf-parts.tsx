@@ -32,6 +32,7 @@ import { useDesignSpaceTheme } from './design-space-theme-context';
 import { getBookshelfLayoutTheme } from './universe-landing-bookshelf-theme';
 import {
   type BookshelfItem,
+  getEntryKey,
   getEntryTitle,
 } from './universe-landing-bookshelf-utils';
 
@@ -93,6 +94,7 @@ type BookCoverProps = {
   isFavorite?: boolean;
   hasBookmarks?: boolean;
   hasComments?: boolean;
+  hideTitle?: boolean;
   onSelect: (entry: BookshelfItem) => void;
 };
 
@@ -121,6 +123,7 @@ export function BookshelfBookCover({
   isFavorite = false,
   hasBookmarks = false,
   hasComments = false,
+  hideTitle = false,
   onSelect,
 }: BookCoverProps) {
   const [coverUrl, setCoverUrl] = useState('');
@@ -282,7 +285,15 @@ export function BookshelfBookCover({
         ) : null}
       </Box>
 
-      <Box sx={{ mt: 0.5, width: 1, minHeight: { xs: 22, sm: 24, md: 28 }, flexShrink: 0 }}>
+      <Box
+        sx={{
+          mt: hideTitle ? 0 : 0.5,
+          width: 1,
+          minHeight: hideTitle ? 0 : { xs: 22, sm: 24, md: 28 },
+          flexShrink: 0,
+          display: hideTitle ? 'none' : 'block',
+        }}
+      >
         <Typography
           variant="caption"
           title={title}
@@ -309,6 +320,57 @@ export function BookshelfBookCover({
           {title}
         </Typography>
       </Box>
+    </Box>
+  );
+}
+
+type MobileBookStripProps = {
+  entries: BookshelfItem[];
+  activeEntryKey: string | null;
+  getEntryBookMarks: (entry: BookshelfItem) => {
+    isFavorite: boolean;
+    hasBookmarks: boolean;
+    hasComments: boolean;
+  };
+  onSelect: (entry: BookshelfItem) => void;
+};
+
+/** Compact horizontal book picker for narrow viewports. */
+export function BookshelfMobileBookStrip({
+  entries,
+  activeEntryKey,
+  getEntryBookMarks,
+  onSelect,
+}: MobileBookStripProps) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1,
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        py: 0.5,
+        px: 0.25,
+        WebkitOverflowScrolling: 'touch',
+        scrollSnapType: 'x proximity',
+        scrollbarWidth: 'thin',
+      }}
+    >
+      {entries.map((entry) => (
+          <Box
+            key={getEntryKey(entry)}
+            sx={{ flex: '0 0 auto', width: 72, scrollSnapAlign: 'start' }}
+          >
+            <BookshelfBookCover
+              entry={entry}
+              variant="themed"
+              active={activeEntryKey === getEntryKey(entry)}
+              hideTitle
+              {...getEntryBookMarks(entry)}
+              onSelect={onSelect}
+            />
+          </Box>
+        ))}
     </Box>
   );
 }
@@ -399,25 +461,28 @@ export function BookshelfBookDetailPanel({
       spacing={2}
       sx={{
         flex: 1,
-        minHeight: 200,
+        minHeight: 0,
+        minWidth: 0,
         px: { xs: 2, md: 2.5 },
         py: { xs: 2, md: 2.5 },
-        overflow: 'auto',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
       <Stack
-        direction="row"
+        direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        alignItems="flex-start"
+        alignItems={{ xs: 'center', sm: 'flex-start' }}
         justifyContent="center"
         sx={{ width: 1 }}
       >
         <Box
           sx={{
-            width: '45%',
-            maxWidth: '45%',
+            width: { xs: 120, sm: '45%' },
+            maxWidth: { xs: 120, sm: '45%' },
             flexShrink: 0,
-            alignSelf: 'flex-start',
+            alignSelf: { xs: 'center', sm: 'flex-start' },
             aspectRatio: '5 / 7',
             position: 'relative',
             borderRadius: 1,
@@ -454,7 +519,7 @@ export function BookshelfBookDetailPanel({
           )}
         </Box>
 
-        <Stack spacing={1} sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
+        <Stack spacing={1} sx={{ flex: 1, minWidth: 0, pt: { sm: 0.25 }, width: { xs: 1, sm: 'auto' } }}>
           <Button
             fullWidth
             variant="contained"
@@ -519,7 +584,13 @@ export function BookshelfBookDetailPanel({
         </Typography>
 
         {author ? (
-          <Typography variant="body2" sx={{ color: '#5c4030', fontWeight: 600 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: '#5c4030',
+              fontWeight: 600,
+            }}
+          >
             by {author}
             {entry.item.publishYear ? ` · ${entry.item.publishYear}` : ''}
           </Typography>
@@ -532,9 +603,6 @@ export function BookshelfBookDetailPanel({
             lineHeight: 1.7,
             textAlign: 'left',
             whiteSpace: 'pre-wrap',
-            minHeight: 96,
-            overflow: 'auto',
-            maxHeight: 160,
           }}
         >
           {description ? `Description: ${description}` : 'No description available'}
@@ -646,7 +714,8 @@ export function BookshelfBookQuotesPanel({
       spacing={2}
       sx={{
         flex: 1,
-        minHeight: 200,
+        minHeight: 0,
+        minWidth: 0,
         px: { xs: 2, md: 2.5 },
         py: { xs: 2, md: 2.5 },
         overflow: 'hidden',

@@ -86,10 +86,14 @@ export function filterBookshelfItems(items: BookshelfItem[], query: string) {
 }
 
 export function splitEntriesIntoShelves(items: BookshelfItem[]) {
-  const shelves: BookshelfItem[][] = Array.from({ length: SHELF_COUNT }, () => []);
+  const shelves: BookshelfItem[][] = [];
 
   items.forEach((entry, index) => {
-    const shelfIndex = Math.min(Math.floor(index / BOOKS_PER_SHELF), SHELF_COUNT - 1);
+    const shelfIndex = Math.floor(index / BOOKS_PER_SHELF);
+
+    if (!shelves[shelfIndex]) {
+      shelves[shelfIndex] = [];
+    }
 
     if (shelves[shelfIndex].length < BOOKS_PER_SHELF) {
       shelves[shelfIndex].push(entry);

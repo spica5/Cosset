@@ -274,10 +274,12 @@ export function filterBookshelfByNavCategory(
 }
 
 export function buildBookshelfShelfRows(items: BookshelfItem[]): BookshelfShelfRow[] {
-  return splitEntriesIntoShelves(items).map((entries) => ({
-    label: null,
-    entries,
-  }));
+  return splitEntriesIntoShelves(items)
+    .filter((entries) => entries.length > 0)
+    .map((entries) => ({
+      label: null,
+      entries,
+    }));
 }
 
 export function getBookshelfNavCounts(

@@ -32,9 +32,10 @@ import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 type Props = {
   albumId: string;
   onRefresh?: () => void;
+  refreshKey?: number;
 };
 
-export function AlbumImageGallery({ albumId, onRefresh }: Props) {
+export function AlbumImageGallery({ albumId, onRefresh, refreshKey = 0 }: Props) {
   const [images, setImages] = useState<IAlbumImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDelete, setOpenDelete] = useState(false);
@@ -76,7 +77,7 @@ export function AlbumImageGallery({ albumId, onRefresh }: Props) {
 
   useEffect(() => {
     fetchImages();
-  }, [fetchImages]);
+  }, [fetchImages, refreshKey]);
 
   const handleDelete = useCallback(async (id: number) => {
     try {

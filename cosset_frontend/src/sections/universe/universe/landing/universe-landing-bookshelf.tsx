@@ -65,6 +65,7 @@ import {
   BookshelfBookCover,
   BookshelfBookDetailPanel,
   BookshelfBookQuotesPanel,
+  BookshelfMobileBookStrip,
   BookshelfShelfSlotPlaceholder,
 } from './universe-landing-bookshelf-parts';
 
@@ -103,7 +104,7 @@ function BookshelfTitleAvatar({
   const useSidebarPalette = hasDistinctSidebar(spaceTheme);
   const isSidebar = size === 'sidebar';
   const displayName = customerName || 'Customer';
-  const dimension = isSidebar ? 40 : 36;
+  const dimension = isSidebar ? 40 : { xs: 48, sm: 40 };
 
   return (
     <Avatar
@@ -531,6 +532,7 @@ export function UniverseLandingBookshelf({
   const greetingName = (customerName || 'friend').split(' ')[0];
   const activeNavItem = BOOKSHELF_NAV_ITEMS.find((item) => item.id === navCategory);
   const showDetailBesideGrid = isWideDesktop;
+  const useCompactBookList = !showDetailBesideGrid;
 
   const getEntryBookMarks = useCallback(
     (entry: BookshelfItem) => {
@@ -590,7 +592,7 @@ export function UniverseLandingBookshelf({
         flexDirection: { xs: 'column', lg: 'row' },
         bgcolor: spaceTheme.contentBg,
         color: spaceTheme.textPrimary,
-        overflow: 'hidden',
+        overflow: { xs: 'visible', lg: 'hidden' },
       }}
     >
       {isDesktop ? (
@@ -629,7 +631,18 @@ export function UniverseLandingBookshelf({
         }}
       >
         {!isDesktop ? (
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ pb: 1.5 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            sx={{
+              pb: 1.5,
+              position: 'sticky',
+              top: 0,
+              zIndex: 2,
+              bgcolor: spaceTheme.contentBg,
+            }}
+          >
             <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open bookshelf navigation">
               <Iconify icon="solar:hamburger-menu-linear" />
             </IconButton>
@@ -638,8 +651,16 @@ export function UniverseLandingBookshelf({
               customerAvatarUrl={customerAvatarUrl}
               size="mobile"
             />
-            <Stack spacing={0} sx={{ minWidth: 0 }}>
-              <Typography variant="h6" sx={{ fontFamily: MYSPACE_SECTION_SERIF, fontWeight: 600, lineHeight: 1.2 }}>
+            <Stack spacing={0} sx={{ minWidth: 0, flex: 1 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontFamily: MYSPACE_SECTION_SERIF,
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word',
+                }}
+              >
                 {BOOKSHELF_TITLE}
               </Typography>
               <Typography variant="caption" sx={{ color: spaceTheme.textSecondary, lineHeight: 1.3 }}>
@@ -743,12 +764,12 @@ export function UniverseLandingBookshelf({
         <Box
           sx={{
             ...layoutTheme.woodFrameSx,
-            flex: '1 1 0',
-            minHeight: { xs: 420, lg: 0 },
+            flex: { xs: '0 0 auto', lg: '1 1 0' },
+            minHeight: { lg: 0 },
             p: { xs: 1.25, md: 2 },
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden',
+            overflow: { xs: 'visible', lg: 'hidden' },
           }}
         >
           {loading ? (
@@ -781,11 +802,25 @@ export function UniverseLandingBookshelf({
             <Stack
               direction={{ xs: 'column', xl: 'row' }}
               spacing={{ xs: 1.5, xl: 2 }}
-              sx={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}
+              sx={{
+                flex: { xs: '0 0 auto', lg: '1 1 0' },
+                minHeight: { xs: 'auto', lg: 0 },
+                overflow: { xs: 'visible', lg: 'hidden' },
+              }}
             >
+              {useCompactBookList ? (
+                <Box sx={{ width: 1, minWidth: 0, flexShrink: 0 }}>
+                  <BookshelfMobileBookStrip
+                    entries={paginatedItems}
+                    activeEntryKey={activeEntryKey}
+                    getEntryBookMarks={getEntryBookMarks}
+                    onSelect={handleSelect}
+                  />
+                  <Box sx={{ ...layoutTheme.shelfBoardSx, mt: 0.75 }} />
+                </Box>
+              ) : (
               <Box
                 sx={{
-                  // flex: showDetailBesideGrid ? { xl: '3 1 0' } : '1 1 0',
                   flex: { lg: '0 0 65%' },
                   width: 1,
                   minWidth: 0,
@@ -849,6 +884,7 @@ export function UniverseLandingBookshelf({
                   </Box>
                 ))}
               </Box>
+              )}
 
               <Box
                 sx={{
@@ -861,7 +897,12 @@ export function UniverseLandingBookshelf({
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  minHeight: { xs: 280, xl: showDetailBesideGrid ? 0 : 280 },
+                  minHeight: { xs: 220, xl: showDetailBesideGrid ? 0 : 220 },
+                  maxHeight: useCompactBookList
+                    ? 'min(440px, 52vh)'
+                    : showDetailBesideGrid
+                      ? { xl: '100%' }
+                      : 'none',
                   height: showDetailBesideGrid ? { xl: '100%' } : 'auto',
                   mx: { xl: 0.5 },
                 }}
@@ -931,7 +972,7 @@ export function UniverseLandingBookshelf({
         onClose={() => setMobileNavOpen(false)}
         PaperProps={{
           sx: {
-            width: 300,
+            width: { xs: 'min(100vw, 340px)', sm: 300 },
             p: 2,
             bgcolor: useSidebarPalette ? spaceTheme.sidebarBg : spaceTheme.pageBg,
             color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary,
