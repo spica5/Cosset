@@ -49,7 +49,7 @@ import {
   BOOKSHELF_TITLE,
   BOOKSHELF_SUBTITLE,
   BOOKSHELF_FOOTER_QUOTE,
-  BOOKSHELF_SIDEBAR_QUOTE,
+  getBookshelfSidebarQuote,
   getBookshelfLayoutTheme,
   filterBookshelfByNavCategory,
   buildBookshelfShelfRows,
@@ -59,6 +59,7 @@ import {
 import {
   type BookshelfItem,
   PARCHMENT_SX,
+  SHELF_COUNT,
   padShelfEntries,
   BOOKSHELF_GRID_TEMPLATE_COLUMNS,
   BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT,
@@ -155,7 +156,7 @@ function BookshelfSidebar({
   onSelectCategory,
   onNavigate,
 }: BookshelfSidebarProps) {
-  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const { designType, theme: spaceTheme } = useDesignSpaceTheme();
   const useSidebarPalette = hasDistinctSidebar(spaceTheme);
   const titleColor = useSidebarPalette ? spaceTheme.sidebarTextPrimary : spaceTheme.textPrimary;
   const subtitleColor = useSidebarPalette ? spaceTheme.sidebarTextSecondary : spaceTheme.textSecondary;
@@ -267,6 +268,7 @@ function BookshelfSidebar({
       <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${dividerColor}` }}>
         <Box
           sx={{
+            position: 'relative',
             borderRadius: 2,
             overflow: 'hidden',
             border: `1px solid ${spaceTheme.border}`,
@@ -280,19 +282,35 @@ function BookshelfSidebar({
             onError={onDecorImageError}
             sx={{ width: 1, height: 'auto', display: 'block' }}
           />
-          <Typography
-            variant="caption"
+
+          <Box
             sx={{
-              display: 'block',
-              px: 1.5,
-              py: 1.25,
-              fontStyle: 'italic',
-              color: subtitleColor,
-              lineHeight: 1.5,
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              px: 2.5,
+              py: 2,
+              background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 70%, transparent 100%)',
             }}
           >
-            {BOOKSHELF_SIDEBAR_QUOTE}
-          </Typography>
+            <Typography
+              sx={{
+                fontStyle: 'italic',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                lineHeight: 1.65,
+                color: 'rgba(45, 26, 18, 0.85)',
+                whiteSpace: 'pre-line',
+                textShadow: '0 1px 3px rgba(255,255,255,0.6)',
+              }}
+            >
+              {getBookshelfSidebarQuote(designType)}
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </Stack>
@@ -430,9 +448,11 @@ export function UniverseLandingBookshelf({
     return filteredItems.slice(start, start + BOOKSHELF_PAGE_SIZE);
   }, [filteredItems, page, pageCount]);
 
+  const showDetailBesideGrid = isWideDesktop;
+
   const shelfRows = useMemo(
-    () => buildBookshelfShelfRows(paginatedItems),
-    [paginatedItems],
+    () => buildBookshelfShelfRows(paginatedItems, showDetailBesideGrid ? SHELF_COUNT : 0),
+    [paginatedItems, showDetailBesideGrid],
   );
 
   const selectedEntry = useMemo(
@@ -531,7 +551,6 @@ export function UniverseLandingBookshelf({
 
   const greetingName = (customerName || 'friend').split(' ')[0];
   const activeNavItem = BOOKSHELF_NAV_ITEMS.find((item) => item.id === navCategory);
-  const showDetailBesideGrid = isWideDesktop;
   const useCompactBookList = !showDetailBesideGrid;
 
   const getEntryBookMarks = useCallback(
@@ -689,11 +708,20 @@ export function UniverseLandingBookshelf({
             >
               {activeNavItem?.label ?? 'All Books'}
             </Typography>
-            <Typography variant="body2" sx={{ color: spaceTheme.textSecondary }}>
-              Hello, {greetingName}!
-              {activeNavItem?.sublabel ? ` · ${activeNavItem.sublabel}` : ''}
-              {isSearching ? ` · ${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'}` : ''}
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={0.75}>
+              {activeNavItem?.icon && (
+                <Iconify
+                  icon={activeNavItem.icon}
+                  width={16}
+                  sx={{ color: spaceTheme.accent, flexShrink: 0 }}
+                />
+              )}
+              <Typography variant="body2" sx={{ color: spaceTheme.textSecondary }}>
+                Bookshelf
+                {activeNavItem?.sublabel ? ` · ${activeNavItem.sublabel}` : ''}
+                {isSearching ? ` · ${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'}` : ''}
+              </Typography>
+            </Stack>
           </Stack>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ minWidth: { md: 360 } }}>
@@ -829,60 +857,68 @@ export function UniverseLandingBookshelf({
                   py: 0.5,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: { xs: 1.25, lg: 1 },
+                  gap: { xs: 1.25, lg: 2 },
                   minHeight: 0,
                   overflowX: 'hidden',
                   overflowY: { xs: 'auto', xl: showDetailBesideGrid ? 'auto' : 'visible' },
                 }}
               >
-                {shelfRows.map((shelf, shelfIndex) => (
-                  <Box
-                    key={`bookshelf-shelf-${shelf.label ?? shelfIndex}`}
-                    sx={{
-                      flex: '0 0 auto',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minWidth: 0,
-                      pt: { xs: 1, md: 2 },
-                      gap: { xs: 1.25, lg: 1 },
-                    }}
-                  >
+                {shelfRows.map((shelf, shelfIndex) => {
+                  const isEmpty = shelf.entries.length === 0;
+
+                  return (
                     <Box
+                      key={`bookshelf-shelf-${shelf.label ?? shelfIndex}`}
                       sx={{
-                        display: 'grid',
-                        gridTemplateColumns: shelfGridTemplateColumns,
-                        gap: { xs: 1, sm: 1.25, md: 1.5, lg: 1.75, xl: 2 },
-                        alignItems: 'start',
-                        px: 0.5,
-                        pb: 0.5,
+                        flex: isEmpty ? '1 1 auto' : '0 0 auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: isEmpty ? 'flex-end' : 'flex-start',
+                        minWidth: 0,
+                        
+                        
                       }}
                     >
-                      {padShelfEntries(shelf.entries).map((entry, columnIndex) => (
+                      {!isEmpty && (
                         <Box
-                          key={
-                            entry
-                              ? getEntryKey(entry)
-                              : `bookshelf-slot-${shelf.label ?? shelfIndex}-${columnIndex}`
-                          }
-                          sx={{ minWidth: 0 }}
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: shelfGridTemplateColumns,
+                            gap: { xs: 1, sm: 1.25, md: 1.5, lg: 1.75, xl: 2 },
+                            alignItems: 'end',
+                            px: 0.5,
+                            pb: 0.5,
+                          }}
                         >
-                          {entry ? (
-                            <BookshelfBookCover
-                              entry={entry}
-                              variant="themed"
-                              active={activeEntryKey === getEntryKey(entry)}
-                              {...getEntryBookMarks(entry)}
-                              onSelect={handleSelect}
-                            />
-                          ) : (
-                            <BookshelfShelfSlotPlaceholder />
-                          )}
+                          {padShelfEntries(shelf.entries).map((entry, columnIndex) => (
+                            <Box
+                              key={
+                                entry
+                                  ? getEntryKey(entry)
+                                  : `bookshelf-slot-${shelf.label ?? shelfIndex}-${columnIndex}`
+                              }
+                              sx={{ minWidth: 0 }}
+                            >
+                              {entry ? (
+                                <BookshelfBookCover
+                                  entry={entry}
+                                  variant="themed"
+                                  active={activeEntryKey === getEntryKey(entry)}
+                                  hideTitle
+                                  {...getEntryBookMarks(entry)}
+                                  onSelect={handleSelect}
+                                />
+                              ) : (
+                                <BookshelfShelfSlotPlaceholder />
+                              )}
+                            </Box>
+                          ))}
                         </Box>
-                      ))}
+                      )}
+                      <Box sx={layoutTheme.shelfBoardSx} />
                     </Box>
-                    <Box sx={layoutTheme.shelfBoardSx} />
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
               )}
 

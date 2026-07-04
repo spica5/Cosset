@@ -132,6 +132,7 @@ export const endpoints = {
     presenceMe: '/api/coffee-shop/presence',
     menu: (id: string | number) => `/api/coffee-shop/${id}/menu`,
     menuOrder: (id: string | number) => `/api/coffee-shop/${id}/menu/order`,
+    favorite: '/api/coffee-shop/favorite',
   },
   reaction: {
     root: '/api/reaction',

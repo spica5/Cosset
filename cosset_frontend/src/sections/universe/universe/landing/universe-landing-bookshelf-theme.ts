@@ -50,7 +50,18 @@ export const BOOKSHELF_SUBTITLE = 'E-books, audiobooks, and shared favorites.';
 export const BOOKSHELF_FOOTER_QUOTE =
   'A room without books is like a body without a soul. — Cicero';
 
-export const BOOKSHELF_SIDEBAR_QUOTE = 'Little by little, a little becomes a lot.';
+const BOOKSHELF_SIDEBAR_QUOTES: Record<string, string> = {
+  'warm-nostalgic': 'Take your time.\nEnjoy the little things.',
+  'serene-elegant': 'Little by little,\na little becomes a lot.',
+  'navy-blue': 'A room without books\nis like a body without a soul.',
+  'young-dynamic': 'Small steps every day\nlead to big changes.',
+  'gentle-feminine-romantic': 'Take your time.\nEnjoy the little things.',
+  'strong-modern': 'A room without books\nis like a body without a soul.',
+};
+
+export function getBookshelfSidebarQuote(designType: DesignSpaceType): string {
+  return BOOKSHELF_SIDEBAR_QUOTES[designType] ?? BOOKSHELF_SIDEBAR_QUOTES['serene-elegant'];
+}
 
 export type BookshelfLayoutTheme = {
   woodFrameSx: Record<string, unknown>;
@@ -273,13 +284,22 @@ export function filterBookshelfByNavCategory(
   return items;
 }
 
-export function buildBookshelfShelfRows(items: BookshelfItem[]): BookshelfShelfRow[] {
-  return splitEntriesIntoShelves(items)
-    .filter((entries) => entries.length > 0)
-    .map((entries) => ({
-      label: null,
-      entries,
-    }));
+export function buildBookshelfShelfRows(
+  items: BookshelfItem[],
+  minRows: number = 0,
+): BookshelfShelfRow[] {
+  const shelves = splitEntriesIntoShelves(items).filter((entries) => entries.length > 0);
+
+  const rows: BookshelfShelfRow[] = shelves.map((entries) => ({
+    label: null,
+    entries,
+  }));
+
+  while (rows.length < minRows) {
+    rows.push({ label: null, entries: [] });
+  }
+
+  return rows;
 }
 
 export function getBookshelfNavCounts(

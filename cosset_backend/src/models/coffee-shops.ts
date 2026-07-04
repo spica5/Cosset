@@ -10,6 +10,7 @@ export interface CoffeeShop {
   description?: string | null;
   type?: number | null;
   background?: string | null;
+  coverImage?: string | null;
   files?: string | null;
   /** JSON array of drink menu items for universe ordering */
   menu?: string | null;
@@ -64,6 +65,7 @@ const ensureCoffeeShopsTable = async (): Promise<void> => {
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS menu TEXT`);
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS music TEXT`);
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS atmosphere TEXT`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS cover_image TEXT`);
     })().catch((error) => {
       ensureCoffeeShopsTablePromise = null;
       throw error;
@@ -92,6 +94,7 @@ export async function getAllCoffeeShops(
           description,
           type,
           background,
+          cover_image as "coverImage",
           files,
           menu,
           music,
@@ -138,6 +141,7 @@ export async function getCoffeeShopById(id: number): Promise<CoffeeShop | null> 
           description,
           type,
           background,
+          cover_image as "coverImage",
           files,
           menu,
           music,
@@ -176,13 +180,14 @@ export async function createCoffeeShop(
           description,
           type,
           background,
+          cover_image,
           files,
           menu,
           music,
           atmosphere,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         RETURNING
           id,
           name,
@@ -190,6 +195,7 @@ export async function createCoffeeShop(
           description,
           type,
           background,
+          cover_image as "coverImage",
           files,
           menu,
           music,
@@ -202,6 +208,7 @@ export async function createCoffeeShop(
         coffeeShop.description ?? null,
         normalizeNullableInteger(coffeeShop.type),
         coffeeShop.background ?? null,
+        coffeeShop.coverImage ?? null,
         coffeeShop.files ?? null,
         coffeeShop.menu ?? null,
         coffeeShop.music ?? null,
@@ -280,6 +287,12 @@ export async function updateCoffeeShop(
       paramIndex += 1;
     }
 
+    if (updates.coverImage !== undefined) {
+      fields.push(`cover_image = $${paramIndex}`);
+      values.push(updates.coverImage ?? null);
+      paramIndex += 1;
+    }
+
     if (updates.files !== undefined) {
       fields.push(`files = $${paramIndex}`);
       values.push(updates.files ?? null);
@@ -330,6 +343,7 @@ export async function updateCoffeeShop(
           description,
           type,
           background,
+          cover_image as "coverImage",
           files,
           menu,
           music,

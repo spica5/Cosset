@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       description: coffeeShop.description ?? null,
       type: coffeeShop.type ?? null,
       background: coffeeShop.background ?? null,
+      coverImage: coffeeShop.coverImage ?? null,
       files: coffeeShop.files ?? null,
       menu: coffeeShop.menu ?? null,
       music: coffeeShop.music ?? null,

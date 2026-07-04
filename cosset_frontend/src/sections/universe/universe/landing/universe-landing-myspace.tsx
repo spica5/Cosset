@@ -43,24 +43,28 @@ const NAV_SECTIONS = [
     title: 'BLOGS',
     description: 'Thoughts, stories and ideas.',
     icon: 'solar:document-text-bold',
+    decorativeLabel: '',
   },
   {
     id: 'albums-section' as const,
     title: 'ALBUMS',
     description: 'Photos, memories and moments.',
     icon: 'solar:album-bold',
+    decorativeLabel: '',
   },
   {
     id: 'drawers-section' as const,
     title: 'DRAWERS',
     description: 'Private notes and daily bits.',
     icon: 'solar:box-bold',
+    decorativeLabel: 'Keep Growing!',
   },
   {
     id: 'collection-items-section' as const,
     title: 'COLLECTIONS',
     description: 'Saved favorites and inspiration.',
     icon: 'solar:widget-4-bold',
+    decorativeLabel: 'Dream Big',
   },
 ] as const;
 
@@ -159,8 +163,11 @@ function MySpaceCustomerTitle({
           variant={isSidebar ? 'h5' : 'h6'}
           noWrap={isSidebar}
           sx={{
-            fontFamily: '"Georgia", "Times New Roman", serif',
-            fontWeight: 500,
+            fontFamily: spaceTheme.decorativeFont || '"Georgia", "Times New Roman", serif',
+            fontWeight: spaceTheme.decorativeFont ? 400 : 500,
+            fontSize: spaceTheme.decorativeFont
+              ? (isSidebar ? '1.5rem' : { xs: '1.35rem', sm: '1.25rem' })
+              : undefined,
             minWidth: 0,
             color: useSidebarPalette ? spaceTheme.sidebarTextPrimary : 'inherit',
             ...(!isSidebar
@@ -276,11 +283,11 @@ function MySpaceSidebar({
                 minHeight: 160,
                 flexShrink: 0,
                 p: 0,
-                border: '2px solid',
+                border: isActive ? '3px solid' : '1px solid',
                 borderColor: isActive
                   ? spaceTheme.accent
                   : hasDistinctSidebar(spaceTheme)
-                    ? 'rgba(255, 248, 240, 0.28)'
+                    ? 'rgba(0, 0, 0, 0.5)'
                     : spaceTheme.border,
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -354,10 +361,33 @@ function MySpaceSidebar({
                     fontSize: '1.25rem',
                     color: spaceTheme.categoryTitleColor,
                     textShadow: navTextShadow,
+                    ...(spaceTheme.decorativeFont
+                      ? {
+                          fontFamily: spaceTheme.decorativeFont,
+                          fontSize: '1.35rem',
+                          fontWeight: 400,
+                        }
+                      : {}),
                   }}
                 >
                   {section.title}
                 </Typography>
+
+                {spaceTheme.decorativeFont && section.decorativeLabel && (
+                  <Typography
+                    sx={{
+                      fontFamily: spaceTheme.decorativeFont,
+                      fontWeight: 500,
+                      fontSize: '0.95rem',
+                      color: spaceTheme.categorySubtitleColor,
+                      textShadow: navTextShadow,
+                      lineHeight: 1.2,
+                      mt: 0.25,
+                    }}
+                  >
+                    {section.decorativeLabel}
+                  </Typography>
+                )}
 
                 <Box sx={{ position: 'relative', display: 'inline-block', pr: 3.5, mt: 0.25 }}>
                   <Typography
@@ -535,6 +565,7 @@ function UniverseLandingMySpaceContent({
           component="main"
           id="myspace-main-scroll"
           sx={{
+            position: 'relative',
             flex: '1 1 auto',
             minWidth: 0,
             minHeight: 0,
@@ -569,6 +600,29 @@ function UniverseLandingMySpaceContent({
 
           {header}
 
+          {spaceTheme.decorativeFont && isDesktop && (
+            <Typography
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                top: 12,
+                right: 24,
+                fontFamily: spaceTheme.decorativeFont,
+                fontSize: '1.15rem',
+                fontWeight: 500,
+                color: spaceTheme.textSecondary,
+                opacity: 0.7,
+                pointerEvents: 'none',
+                whiteSpace: 'pre-line',
+                textAlign: 'right',
+                lineHeight: 1.4,
+                zIndex: 1,
+              }}
+            >
+              {'Enjoy the little\n   things'}
+            </Typography>
+          )}
+
           <Box key={activeSection} sx={{ pt: header ? 0 : { xs: 0, lg: 1 } }}>
             {activeContent ?? (
               <Typography color="text.secondary" sx={{ py: 4 }}>
@@ -576,6 +630,26 @@ function UniverseLandingMySpaceContent({
               </Typography>
             )}
           </Box>
+
+          {spaceTheme.decorativeFont && (
+            <Typography
+              aria-hidden
+              sx={{
+                textAlign: 'right',
+                pr: { xs: 2, lg: 3 },
+                pt: 1,
+                fontFamily: spaceTheme.decorativeFont,
+                fontSize: '1.3rem',
+                fontWeight: 600,
+                fontStyle: 'italic',
+                color: spaceTheme.accent,
+                opacity: 0.75,
+                pointerEvents: 'none',
+              }}
+            >
+              Keep going!
+            </Typography>
+          )}
         </Box>
       </Box>
 

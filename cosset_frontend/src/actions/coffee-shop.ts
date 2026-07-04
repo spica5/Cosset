@@ -195,6 +195,26 @@ export async function fetchMyCoffeeShopPresence(): Promise<{ coffeeShopId?: numb
   return res.data as { coffeeShopId?: number | null };
 }
 
+// ---- Favorites ----
+
+const COFFEE_SHOP_FAVORITE_ENDPOINT = endpoints.coffeeShop.favorite;
+
+export async function fetchCoffeeShopFavorites(): Promise<number[]> {
+  try {
+    const res = await axios.get(COFFEE_SHOP_FAVORITE_ENDPOINT);
+    return res.data?.favoriteIds || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleCoffeeShopFavorite(coffeeShopId: number) {
+  const res = await axios.post(COFFEE_SHOP_FAVORITE_ENDPOINT, { coffeeShopId });
+  return res.data as { isFavorite: boolean };
+}
+
+// ---- Menu ----
+
 type CoffeeShopMenuResponse = {
   items?: CoffeeShopMenuItem[];
 };

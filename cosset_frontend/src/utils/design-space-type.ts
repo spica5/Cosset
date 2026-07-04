@@ -30,6 +30,7 @@ export type DesignSpaceTheme = {
   categoryTitleColor: string;
   categorySubtitleColor: string;
   categoryTextShadow?: string;
+  decorativeFont?: string;
   isDark: boolean;
 };
 
@@ -100,6 +101,7 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     sidebarTextSecondary: 'rgba(255, 248, 240, 0.84)',
     categoryTitleColor: '#FFFFFF',
     categorySubtitleColor: 'rgba(255, 248, 240, 0.9)',
+    decorativeFont: '"Caveat Variable", "Caveat", cursive',
     isDark: false,
   },
   'strong-modern': {
@@ -140,8 +142,9 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     textSecondary: 'rgba(30, 41, 59, 0.68)',
     sidebarTextPrimary: '#1E293B',
     sidebarTextSecondary: 'rgba(30, 41, 59, 0.68)',
-    categoryTitleColor: '#FFFFFF',
-    categorySubtitleColor: 'rgba(255, 255, 255, 0.92)',
+    categoryTitleColor: '#1E293B',
+    categorySubtitleColor: 'rgba(30, 41, 59, 0.78)',
+    decorativeFont: '"Pacifico", cursive',
     isDark: false,
   },
   'navy-blue': {
@@ -163,6 +166,7 @@ const DESIGN_SPACE_THEMES: Record<DesignSpaceType, DesignSpaceTheme> = {
     sidebarTextSecondary: 'rgba(147, 197, 253, 0.82)',
     categoryTitleColor: '#FFFFFF',
     categorySubtitleColor: 'rgba(147, 197, 253, 0.9)',
+    decorativeFont: '"Caveat Variable", "Caveat", cursive',
     isDark: true,
   },
 };

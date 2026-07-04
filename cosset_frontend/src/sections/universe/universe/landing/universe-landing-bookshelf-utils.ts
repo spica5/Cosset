@@ -8,7 +8,7 @@ export type BookshelfItem =
   | { kind: 'audiobook'; item: IBookshelfAudiobook };
 
 export const SHELF_COUNT = 3;
-export const BOOKS_PER_SHELF = 8;
+export const BOOKS_PER_SHELF = 6;
 
 export const BOOKSHELF_GRID_COLUMNS = {
   xs: 3,
@@ -30,7 +30,7 @@ export const BOOKSHELF_GRID_COLUMNS_COMPACT = {
   sm: 3,
   md: 5,
   lg: 6,
-  xl: 8,
+  xl: 6,
 } as const;
 
 export const BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT = {

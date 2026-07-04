@@ -75,7 +75,7 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount, centered = fal
         <Typography
           variant="h3"
           sx={{
-            fontFamily: MYSPACE_SECTION_SERIF,
+            fontFamily: spaceTheme.decorativeFont || MYSPACE_SECTION_SERIF,
             fontWeight: 700,
             letterSpacing: '0.06em',
             color: spaceTheme.textPrimary,
@@ -104,7 +104,17 @@ export function MySpaceSectionTitle({ title, subtitle, itemCount, centered = fal
           <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
           <Typography
             variant="body2"
-            sx={{ fontStyle: 'italic', color: spaceTheme.textSecondary }}
+            sx={{
+              fontStyle: 'italic',
+              color: spaceTheme.textSecondary,
+              ...(spaceTheme.decorativeFont
+                ? {
+                    fontFamily: spaceTheme.decorativeFont,
+                    fontSize: '1rem',
+                    fontWeight: 500,
+                  }
+                : {}),
+            }}
           >
             {subtitle}
           </Typography>

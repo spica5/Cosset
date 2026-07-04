@@ -89,6 +89,7 @@ type FormState = {
   description: string;
   type: string;
   background: string;
+  coverImage: string;
 };
 
 const DEFAULT_BACKGROUND = 'linear-gradient(120deg, #1d3557 0%, #457b9d 100%)';
@@ -99,6 +100,7 @@ const createInitialForm = (): FormState => ({
   description: '',
   type: '1',
   background: DEFAULT_BACKGROUND,
+  coverImage: '',
 });
 
 export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
@@ -109,6 +111,9 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
   const { coffeeShop, coffeeShopLoading } = useGetCoffeeShop(coffeeShopId || '');
   const [form, setForm] = useState<FormState>(createInitialForm());
   const [saving, setSaving] = useState(false);
+  const [coverImageUploading, setCoverImageUploading] = useState(false);
+  const [coverImageResolvedUrl, setCoverImageResolvedUrl] = useState('');
+  const [coverPreviewOpen, setCoverPreviewOpen] = useState(false);
   const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [backgroundResolvedUrls, setBackgroundResolvedUrls] = useState<string[]>([]);
   const [selectedBackgroundPreview, setSelectedBackgroundPreview] = useState(0);
@@ -134,6 +139,22 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
     // Use uploadFileToS3 which handles large files with direct S3 upload
     const result = await uploadFileToS3({ file, key, isPublic: false });
     return result.key || key;
+  };
+
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setCoverImageUploading(true);
+      const key = await uploadFileToStorage(file, 'cover');
+      setForm((prev) => ({ ...prev, coverImage: key }));
+    } catch (error) {
+      console.error('Failed to upload cover image:', error);
+    } finally {
+      setCoverImageUploading(false);
+      event.target.value = '';
+    }
   };
 
   const handleBackgroundImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,6 +345,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
       description: coffeeShop.description || '',
       type: String(coffeeShop.type ?? 1),
       background: coffeeShop.background || DEFAULT_BACKGROUND,
+      coverImage: coffeeShop.coverImage || '',
     });
     setMenuItems(getCoffeeShopMenuItems(coffeeShop.menu, coffeeShop.files));
     setMusicTracks(getCoffeeShopMusicTracks(coffeeShop.music));
@@ -358,6 +380,27 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
       mounted = false;
     };
   }, [menuItems]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolve = async () => {
+      const raw = form.coverImage.trim();
+      if (!raw) {
+        if (mounted) setCoverImageResolvedUrl('');
+        return;
+      }
+      if (raw.startsWith('http://') || raw.startsWith('https://')) {
+        if (mounted) setCoverImageResolvedUrl(raw);
+        return;
+      }
+      const url = await getS3SignedUrl(raw);
+      if (mounted) setCoverImageResolvedUrl(url || '');
+    };
+
+    resolve();
+    return () => { mounted = false; };
+  }, [form.coverImage]);
 
   useEffect(() => {
     let mounted = true;
@@ -519,6 +562,7 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
         description: form.description.trim() || null,
         type: Number.isNaN(parsedType) ? 1 : parsedType,
         background: form.background.trim() || DEFAULT_BACKGROUND,
+        coverImage: form.coverImage.trim() || null,
         menu: serializedMenu || null,
         music: serializedMusic || null,
         atmosphere: serializeCoffeeShopAtmosphereConfig(atmosphereConfig),
@@ -610,6 +654,111 @@ export function CoffeeShopCreateEditView({ coffeeShopId }: Props) {
             value={form.type}
             onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
           />
+
+          <Typography variant="subtitle2">Cover image</Typography>
+
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            alignItems={{ sm: 'center' }}
+          >
+            <Button
+              variant="outlined"
+              component="label"
+              disabled={coverImageUploading || saving}
+              sx={{ width: { xs: 1, sm: 'auto' } }}
+            >
+              {coverImageUploading ? 'Uploading…' : 'Upload cover image'}
+              <input
+                hidden
+                type="file"
+                accept="image/*"
+                onChange={handleCoverImageUpload}
+              />
+            </Button>
+
+            {form.coverImage && (
+              <Button
+                variant="text"
+                size="small"
+                color="error"
+                onClick={() => setForm((prev) => ({ ...prev, coverImage: '' }))}
+                disabled={saving}
+              >
+                Remove
+              </Button>
+            )}
+
+            <Typography variant="caption" color="text.secondary">
+              {form.coverImage
+                ? 'Cover image will be shown on the coffee shop list.'
+                : 'Optional — shown as the main thumbnail on the list page.'}
+            </Typography>
+          </Stack>
+
+          {coverImageResolvedUrl ? (
+            <Box
+              component="img"
+              src={coverImageResolvedUrl}
+              alt="Cover preview"
+              onClick={() => setCoverPreviewOpen(true)}
+              sx={{
+                maxWidth: 200,
+                maxHeight: 150,
+                borderRadius: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                objectFit: 'contain',
+                cursor: 'zoom-in',
+              }}
+            />
+          ) : null}
+
+          <Dialog
+            open={coverPreviewOpen}
+            onClose={() => setCoverPreviewOpen(false)}
+            maxWidth={false}
+            PaperProps={{
+              sx: {
+                bgcolor: 'transparent',
+                boxShadow: 'none',
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                m: 0,
+              },
+            }}
+          >
+            <Box
+              sx={{ position: 'relative', display: 'inline-flex' }}
+            >
+              <Box
+                component="img"
+                src={coverImageResolvedUrl}
+                alt="Cover full"
+                onClick={() => setCoverPreviewOpen(false)}
+                sx={{
+                  maxWidth: '90vw',
+                  maxHeight: '90vh',
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  cursor: 'zoom-out',
+                }}
+              />
+              <IconButton
+                onClick={() => setCoverPreviewOpen(false)}
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  bgcolor: 'rgba(0,0,0,0.5)',
+                  color: 'common.white',
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                }}
+              >
+                <Iconify icon="mingcute:close-line" width={18} />
+              </IconButton>
+            </Box>
+          </Dialog>
 
           <Stack
             direction={{ xs: 'column', sm: 'row' }}

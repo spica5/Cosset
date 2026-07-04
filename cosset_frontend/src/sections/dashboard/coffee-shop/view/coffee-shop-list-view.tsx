@@ -5,6 +5,8 @@ import type { ICoffeeShopItem } from 'src/types/coffee-shop';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -14,7 +16,13 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { useGetCoffeeShops, deleteCoffeeShop, revalidateCoffeeShopList } from 'src/actions/coffee-shop';
+import {
+  useGetCoffeeShops,
+  deleteCoffeeShop,
+  revalidateCoffeeShopList,
+  fetchCoffeeShopFavorites,
+  toggleCoffeeShopFavorite,
+} from 'src/actions/coffee-shop';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -45,15 +53,28 @@ export function CoffeeShopListView() {
   const router = useRouter();
   const { user } = useAuthContext();
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<'all' | 'favorites'>('all');
   const [sortBy, setSortBy] = useState('randomize');
   const [randomFirstId, setRandomFirstId] = useState<number | null>(null);
   const canManage = isUserAdmin(user?.role);
 
   const { coffeeShops, coffeeShopsLoading } = useGetCoffeeShops();
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const favoriteSet = useMemo(() => new Set(favoriteIds.map(Number)), [favoriteIds]);
 
   useEffect(() => {
     revalidateCoffeeShopList();
   }, []);
+
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+
+    fetchCoffeeShopFavorites().then((ids) => {
+      setFavoriteIds(ids);
+    });
+  }, [userId]);
 
   const handleSortBy = useCallback((newValue: string) => {
     setSortBy(newValue);
@@ -107,9 +128,21 @@ export function CoffeeShopListView() {
 
   // no auto-redirect: allow users to view the coffee shop list without being forced into a universe page
 
+  const categoryData = useMemo(() => {
+    if (category === 'favorites') {
+      return searchedData.filter((item) => favoriteSet.has(Number(item.id)));
+    }
+    return searchedData;
+  }, [searchedData, category, favoriteSet]);
+
   const filteredData = useMemo(
-    () => applyFilter({ inputData: searchedData, sortBy, randomFirstId }),
-    [searchedData, sortBy, randomFirstId]
+    () => applyFilter({ inputData: categoryData, sortBy, randomFirstId }),
+    [categoryData, sortBy, randomFirstId]
+  );
+
+  const favoritesCount = useMemo(
+    () => searchedData.filter((item) => favoriteSet.has(Number(item.id))).length,
+    [searchedData, favoriteSet],
   );
 
   const handleDelete = async (id: number) => {
@@ -119,6 +152,28 @@ export function CoffeeShopListView() {
       console.error('Failed to delete coffee shop:', error);
     }
   };
+
+  const handleToggleFavorite = useCallback(
+    async (id: number) => {
+      const numId = Number(id);
+      const wasFavorite = favoriteSet.has(numId);
+
+      setFavoriteIds((prev) =>
+        wasFavorite ? prev.filter((fid) => fid !== numId) : [...prev, numId],
+      );
+
+      try {
+        await toggleCoffeeShopFavorite(numId);
+        const fresh = await fetchCoffeeShopFavorites();
+        setFavoriteIds(fresh);
+      } catch {
+        setFavoriteIds((prev) =>
+          wasFavorite ? [...prev, numId] : prev.filter((fid) => fid !== numId),
+        );
+      }
+    },
+    [favoriteSet],
+  );
 
   return (
     <DashboardContent>
@@ -191,6 +246,27 @@ export function CoffeeShopListView() {
             </Stack>
           </Stack>
 
+          <Tabs
+            value={category}
+            onChange={(_e, v) => setCategory(v)}
+            sx={{
+              '& .MuiTab-root': { minHeight: 40, textTransform: 'none' },
+            }}
+          >
+            <Tab
+              value="all"
+              label={`All (${searchedData.length})`}
+              icon={<Iconify icon="solar:cup-bold" width={18} />}
+              iconPosition="start"
+            />
+            <Tab
+              value="favorites"
+              label={`Favorites (${favoritesCount})`}
+              icon={<Iconify icon="solar:heart-bold" width={18} />}
+              iconPosition="start"
+            />
+          </Tabs>
+
           {coffeeShopsLoading ? (
             <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
               <Iconify icon="solar:refresh-outline" width={16} />
@@ -220,10 +296,13 @@ export function CoffeeShopListView() {
                   title={item.title}
                   description={item.description}
                   background={item.background}
+                  coverImage={item.coverImage}
                   files={item.files}
                   createdAt={item.createdAt}
                   previewHref={paths.dashboard.community.coffeeShop.view(item.id)}
                   canManage={canManage}
+                  isFavorite={favoriteSet.has(Number(item.id))}
+                  onToggleFavorite={handleToggleFavorite}
                   onEdit={
                     canManage
                       ? (id) => router.push(paths.dashboard.community.coffeeShop.edit(id))

@@ -57,6 +57,7 @@ export async function PUT(
       description: updates.description,
       type: updates.type,
       background: updates.background,
+      coverImage: updates.coverImage,
       files: updates.files,
       menu: updates.menu,
       music: updates.music,

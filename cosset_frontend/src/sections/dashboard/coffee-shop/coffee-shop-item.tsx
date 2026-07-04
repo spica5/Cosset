@@ -23,6 +23,7 @@ export type CoffeeShopItemCardProps = {
   title?: string | null;
   description?: string | null;
   background?: string | null;
+  coverImage?: string | null;
   files?: string | null;
   previewHref?: string;
   commentCount?: number;
@@ -30,6 +31,8 @@ export type CoffeeShopItemCardProps = {
   memberNames?: string[];
   createdAt?: string | Date | null;
   canManage?: boolean;
+  isFavorite?: boolean;
+  onToggleFavorite?: (id: number) => void;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
   onEnter?: () => void;
@@ -72,6 +75,7 @@ export function CoffeeShopItem({
   title,
   description,
   background,
+  coverImage,
   files,
   previewHref,
   commentCount = 0,
@@ -79,11 +83,14 @@ export function CoffeeShopItem({
   memberNames = [],
   createdAt,
   canManage = false,
+  isFavorite = false,
+  onToggleFavorite,
   onEdit,
   onDelete,
   onEnter,
 }: CoffeeShopItemCardProps) {
   const [resolvedBackground, setResolvedBackground] = useState<string>(background || '');
+  const [resolvedCoverImage, setResolvedCoverImage] = useState<string>(coverImage || '');
 
   const openBackgroundPreviewWindow = () => {
     if (!previewHref) {
@@ -147,34 +154,43 @@ export function CoffeeShopItem({
     };
   }, [background]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const resolve = async () => {
+      const raw = (coverImage || '').trim();
+
+      if (!raw) {
+        if (mounted) setResolvedCoverImage('');
+        return;
+      }
+
+      if (raw.startsWith('http://') || raw.startsWith('https://')) {
+        if (mounted) setResolvedCoverImage(raw);
+        return;
+      }
+
+      const signedUrl = await getS3SignedUrl(raw);
+      if (mounted) setResolvedCoverImage(signedUrl || raw);
+    };
+
+    resolve();
+
+    return () => {
+      mounted = false;
+    };
+  }, [coverImage]);
+
   const previewBackground = getPreviewBackground(resolvedBackground);
+
+  const displayImage = resolvedCoverImage || resolvedBackground;
+  const hasImage =
+    !!displayImage &&
+    (displayImage.includes('gradient(') || displayImage.startsWith('http'));
 
   return (
     <Card sx={{ p: 1.25, border: '1px solid', borderColor: 'divider' }}>
       <Stack spacing={1}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-          <Typography variant="subtitle2" noWrap sx={{ minWidth: 0, flex: 1 }}>
-            {title || name}
-          </Typography>
-
-          {canManage ? (
-            <Stack direction="row" spacing={0.25}>
-              <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit coffee shop">
-                <Iconify icon="solar:pen-bold" width={15} />
-              </IconButton>
-
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => onDelete?.(id)}
-                title="Delete coffee shop"
-              >
-                <Iconify icon="solar:trash-bin-trash-bold" width={15} />
-              </IconButton>
-            </Stack>
-          ) : null}
-        </Stack>
-
         <Box
           onClick={openBackgroundPreviewWindow}
           sx={{
@@ -182,31 +198,93 @@ export function CoffeeShopItem({
             width: '100%',
             pt: { xs: '56%', sm: '52%', md: '50%' },
             borderRadius: 1.25,
-            border: '1px solid',
-            borderColor: 'divider',
-            cursor: 'zoom-in',
             overflow: 'hidden',
+            cursor: 'zoom-in',
           }}
         >
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              ...previewBackground,
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
-            {!resolvedBackground ||
-            (!resolvedBackground.includes('gradient(') && !resolvedBackground.startsWith('http')) ? (
-              <Iconify icon="solar:gallery-bold" width={20} sx={{ color: 'text.disabled' }} />
-            ) : null}
-          </Box>
+          {resolvedCoverImage ? (
+            <Box
+              component="img"
+              src={resolvedCoverImage}
+              alt={title || name}
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                ...previewBackground,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              {!hasImage ? (
+                <Iconify icon="solar:gallery-bold" width={20} sx={{ color: 'text.disabled' }} />
+              ) : null}
+            </Box>
+          )}
+
+          {onToggleFavorite ? (
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(id);
+              }}
+              sx={{
+                position: 'absolute',
+                top: 6,
+                right: 6,
+                bgcolor: 'rgba(0,0,0,0.4)',
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.6)' },
+              }}
+            >
+              <Iconify
+                icon={isFavorite ? 'solar:heart-bold' : 'solar:heart-linear'}
+                width={18}
+                sx={{ color: isFavorite ? '#ff4d6a' : '#fff' }}
+              />
+            </IconButton>
+          ) : null}
         </Box>
 
-        <Typography variant="body2" color="text.secondary" noWrap>
-          {name}
-        </Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+          <Typography variant="subtitle2" noWrap sx={{ minWidth: 0, flex: 1 }}>
+            {title || name}
+          </Typography>
+
+          <Stack direction="row" spacing={0.25} alignItems="center">
+            {canManage ? (
+              <>
+                <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit coffee shop">
+                  <Iconify icon="solar:pen-bold" width={15} />
+                </IconButton>
+
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => onDelete?.(id)}
+                  title="Delete coffee shop"
+                >
+                  <Iconify icon="solar:trash-bin-trash-bold" width={15} />
+                </IconButton>
+              </>
+            ) : null}
+
+            {onEnter ? (
+              <IconButton size="small" onClick={onEnter} title="Enter coffee shop">
+                <Iconify icon="ic:round-open-in-new" width={16} />
+              </IconButton>
+            ) : null}
+          </Stack>
+        </Stack>
 
         <Typography
           variant="caption"
@@ -253,14 +331,6 @@ export function CoffeeShopItem({
             </AvatarGroup>
           ) : null}
         </Stack>
-
-        {onEnter ? (
-          <Stack direction="row" justifyContent="flex-end" sx={{ pt: 1 }}>
-            <IconButton size="small" onClick={onEnter} title="Enter coffee shop">
-              <Iconify icon="ic:round-open-in-new" width={16} />
-            </IconButton>
-          </Stack>
-        ) : null}
 
         <Typography variant="caption" color="text.disabled" noWrap>
           {formatDateTime(createdAt)}
