@@ -24,6 +24,7 @@ import { Label } from 'src/components/dashboard/label';
 import { useSettingsContext } from 'src/components/dashboard/settings';
 
 import { paths } from 'src/routes/paths';
+import { usePathname } from 'src/routes/hooks';
 
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
@@ -42,6 +43,22 @@ import { NotificationsDrawer } from '../components/notifications-drawer';
 
 // ----------------------------------------------------------------------
 
+// ----------------------------------------------------------------------
+
+const COFFEE_SHOP_HEADER_ICON_SX: SxProps<Theme> = {
+  width: 40,
+  height: 40,
+  border: '1px solid rgba(255, 248, 240, 0.88)',
+  borderRadius: '50%',
+  color: '#FFF8F0',
+  bgcolor: 'rgba(10, 8, 6, 0.35)',
+  backdropFilter: 'blur(6px)',
+  '&:hover': {
+    bgcolor: 'rgba(10, 8, 6, 0.5)',
+    borderColor: '#FFFFFF',
+  },
+};
+
 export type DashboardLayoutProps = {
   sx?: SxProps<Theme>;
   children: React.ReactNode;
@@ -55,7 +72,11 @@ export type DashboardLayoutProps = {
 
 export function DashboardLayout({ sx, children, header, data }: DashboardLayoutProps) {
   const theme = useTheme();
+  const pathname = usePathname();
   const { user } = useAuthContext();
+
+  const isCoffeeShopPage = pathname?.includes('/community/coffee-shop');
+  const coffeeShopHeaderIconSx = isCoffeeShopPage ? COFFEE_SHOP_HEADER_ICON_SX : undefined;
 
   const mobileNavOpen = useBoolean();
   const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
@@ -207,11 +228,15 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
             rightArea: (
               <Box display="flex" alignItems="center" gap={{ xs: 0, sm: 0.75 }}>
                 {/* -- Notifications popover -- */}
-                <NotificationsDrawer data={notifications} customerId={user?.id ? String(user.id) : undefined} />
+                <NotificationsDrawer
+                  data={notifications}
+                  customerId={user?.id ? String(user.id) : undefined}
+                  sx={coffeeShopHeaderIconSx}
+                />
                 {/* -- Contacts popover -- */}
-                <ContactsPopover />
+                <ContactsPopover sx={coffeeShopHeaderIconSx} />
                 {/* -- Account drawer -- */}
-                <AccountDrawer data={_account} />
+                <AccountDrawer data={_account} sx={coffeeShopHeaderIconSx} />
               </Box>
             ),
           }}

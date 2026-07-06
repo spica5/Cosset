@@ -576,7 +576,7 @@ function UniverseLandingMySpaceContent({
             color: spaceTheme.textPrimary,
             px: { xs: 2, sm: 3, lg: 0 },
             pl: { lg: 0.5 },
-            pb: 3,
+            pb: 2,
             scrollbarWidth: 'thin',
           }}
         >
@@ -630,26 +630,6 @@ function UniverseLandingMySpaceContent({
               </Typography>
             )}
           </Box>
-
-          {spaceTheme.decorativeFont && (
-            <Typography
-              aria-hidden
-              sx={{
-                textAlign: 'right',
-                pr: { xs: 2, lg: 3 },
-                pt: 1,
-                fontFamily: spaceTheme.decorativeFont,
-                fontSize: '1.3rem',
-                fontWeight: 600,
-                fontStyle: 'italic',
-                color: spaceTheme.accent,
-                opacity: 0.75,
-                pointerEvents: 'none',
-              }}
-            >
-              Keep going!
-            </Typography>
-          )}
         </Box>
       </Box>
 

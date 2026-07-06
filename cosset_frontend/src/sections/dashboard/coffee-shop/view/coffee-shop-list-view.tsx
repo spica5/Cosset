@@ -35,6 +35,10 @@ import { Iconify } from 'src/components/universe/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 import { CoffeeShopItem } from 'src/sections/dashboard/coffee-shop/coffee-shop-item';
+import {
+  CoffeeShopIntro,
+  COFFEE_SHOP_PAGE_BACKGROUND,
+} from 'src/sections/dashboard/coffee-shop/coffee-shop-intro';
 import { CoffeeShopSort } from 'src/sections/dashboard/coffee-shop/coffee-shop-sort';
 
 // ----------------------------------------------------------------------
@@ -176,146 +180,185 @@ export function CoffeeShopListView() {
   );
 
   return (
-    <DashboardContent>
-      <CustomBreadcrumbs
-        heading="Coffee Shops"
-        links={[
-          { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Community' },
-          { name: 'Coffee Shops' },
-        ]}
-        sx={{ mb: { xs: 3, md: 5 } }}
+    <DashboardContent disablePadding sx={{ position: 'relative', overflow: 'hidden' }}>
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          backgroundImage: `url(${COFFEE_SHOP_PAGE_BACKGROUND})`,
+          backgroundSize: '100% auto',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
+        }}
       />
 
-      <Card sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack spacing={2}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            alignItems={{ md: 'center' }}
-            justifyContent="space-between"
-            spacing={1.5}
-          >
-            <TextField
-              size="small"
-              fullWidth
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by name, title, type, or file"
-            />
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          px: { xs: 2, md: 3 },
+          pt: 'var(--layout-dashboard-content-pt)',
+          pb: 'var(--layout-dashboard-content-pb)',
+        }}
+      >
+        <CustomBreadcrumbs
+          heading="Coffee Shops"
+          links={[
+            { name: 'Dashboard', href: paths.dashboard.root },
+            { name: 'Community' },
+            { name: 'Coffee Shops' },
+          ]}
+          sx={{
+            mb: { xs: 3, md: 5 },
+            '& .MuiTypography-h4': {
+              color: '#FFF8F0',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
+            },
+            '& .MuiBreadcrumbs-root a, & .MuiBreadcrumbs-root .MuiBox-root': {
+              color: 'rgba(255, 248, 240, 0.92) !important',
+              textShadow: '0 1px 4px rgba(0, 0, 0, 0.45)',
+            },
+            '& .MuiBreadcrumbs-root a:hover': {
+              color: '#FFFFFF !important',
+            },
+            '& .MuiBreadcrumbs-li > span': {
+              bgcolor: 'rgba(255, 248, 240, 0.75) !important',
+            },
+          }}
+        />
 
+        <CoffeeShopIntro />
+
+        <Card sx={{ p: { xs: 2, md: 3 } }}>
+          <Stack spacing={2}>
             <Stack
-              direction={{ xs: 'column', sm: 'row' }}
+              direction={{ xs: 'column', md: 'row' }}
+              alignItems={{ md: 'center' }}
+              justifyContent="space-between"
               spacing={1.5}
-              alignItems={{ xs: 'stretch', sm: 'center' }}
-              sx={{ width: { xs: 1, md: 'auto' }, flexShrink: 0 }}
             >
-              <CoffeeShopSort
-                sort={sortBy}
-                onSort={handleSortBy}
-                sortOptions={COFFEE_SHOP_SORT_OPTIONS}
+              <TextField
+                size="small"
+                fullWidth
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by name, title, type, or file"
               />
 
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={1.5}
                 alignItems={{ xs: 'stretch', sm: 'center' }}
-                sx={{ flexShrink: 0 }}
+                sx={{ width: { xs: 1, md: 'auto' }, flexShrink: 0 }}
               >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    whiteSpace: 'nowrap',
-                    textAlign: { xs: 'center', sm: 'left' },
-                  }}
-                >
-                  Showing {filteredData.length} of {coffeeShops.length}
-                </Typography>
+                <CoffeeShopSort
+                  sort={sortBy}
+                  onSort={handleSortBy}
+                  sortOptions={COFFEE_SHOP_SORT_OPTIONS}
+                />
 
-                {canManage ? (
-                  <Button
-                    variant="contained"
-                    startIcon={<Iconify icon="mingcute:add-line" />}
-                    onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
-                    sx={{ whiteSpace: 'nowrap', width: { xs: 1, sm: 'auto' } }}
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
+                  sx={{ flexShrink: 0 }}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      textAlign: { xs: 'center', sm: 'left' },
+                    }}
                   >
-                    Add Coffee Shop
-                  </Button>
-                ) : null}
+                    Showing {filteredData.length} of {coffeeShops.length}
+                  </Typography>
+
+                  {canManage ? (
+                    <Button
+                      variant="contained"
+                      startIcon={<Iconify icon="mingcute:add-line" />}
+                      onClick={() => router.push(paths.dashboard.community.coffeeShop.new)}
+                      sx={{ whiteSpace: 'nowrap', width: { xs: 1, sm: 'auto' } }}
+                    >
+                      Add Coffee Shop
+                    </Button>
+                  ) : null}
+                </Stack>
               </Stack>
             </Stack>
-          </Stack>
 
-          <Tabs
-            value={category}
-            onChange={(_e, v) => setCategory(v)}
-            sx={{
-              '& .MuiTab-root': { minHeight: 40, textTransform: 'none' },
-            }}
-          >
-            <Tab
-              value="all"
-              label={`All (${searchedData.length})`}
-              icon={<Iconify icon="solar:cup-bold" width={18} />}
-              iconPosition="start"
-            />
-            <Tab
-              value="favorites"
-              label={`Favorites (${favoritesCount})`}
-              icon={<Iconify icon="solar:heart-bold" width={18} />}
-              iconPosition="start"
-            />
-          </Tabs>
-
-          {coffeeShopsLoading ? (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
-              <Iconify icon="solar:refresh-outline" width={16} />
-              <Typography variant="body2" color="text.secondary">
-                Loading coffee shops...
-              </Typography>
-            </Stack>
-          ) : filteredData.length === 0 ? (
-            <EmptyContent title="No coffee shops found" filled sx={{ py: 8 }} />
-          ) : (
-            <Box
+            <Tabs
+              value={category}
+              onChange={(_e, v) => setCategory(v)}
               sx={{
-                display: 'grid',
-                gap: 2,
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, minmax(0, 1fr))',
-                  lg: 'repeat(3, minmax(0, 1fr))',
-                },
+                '& .MuiTab-root': { minHeight: 40, textTransform: 'none' },
               }}
             >
-              {filteredData.map((item) => (
-                <CoffeeShopItem
-                  key={item.id}
-                  id={item.id}
-                  name={item.name}
-                  title={item.title}
-                  description={item.description}
-                  background={item.background}
-                  coverImage={item.coverImage}
-                  files={item.files}
-                  createdAt={item.createdAt}
-                  previewHref={paths.dashboard.community.coffeeShop.view(item.id)}
-                  canManage={canManage}
-                  isFavorite={favoriteSet.has(Number(item.id))}
-                  onToggleFavorite={handleToggleFavorite}
-                  onEdit={
-                    canManage
-                      ? (id) => router.push(paths.dashboard.community.coffeeShop.edit(id))
-                      : undefined
-                  }
-                  onDelete={canManage ? handleDelete : undefined}
-                  onEnter={() => router.push(paths.dashboard.community.coffeeShop.view(item.id))}
-                />
-              ))}
-            </Box>
-          )}
-        </Stack>
-      </Card>
+              <Tab
+                value="all"
+                label={`All (${searchedData.length})`}
+                icon={<Iconify icon="solar:cup-bold" width={18} />}
+                iconPosition="start"
+              />
+              <Tab
+                value="favorites"
+                label={`Favorites (${favoritesCount})`}
+                icon={<Iconify icon="solar:heart-bold" width={18} />}
+                iconPosition="start"
+              />
+            </Tabs>
+
+            {coffeeShopsLoading ? (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
+                <Iconify icon="solar:refresh-outline" width={16} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading coffee shops...
+                </Typography>
+              </Stack>
+            ) : filteredData.length === 0 ? (
+              <EmptyContent title="No coffee shops found" filled sx={{ py: 8 }} />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    lg: 'repeat(3, minmax(0, 1fr))',
+                  },
+                }}
+              >
+                {filteredData.map((item) => (
+                  <CoffeeShopItem
+                    key={item.id}
+                    id={item.id}
+                    name={item.name}
+                    title={item.title}
+                    description={item.description}
+                    background={item.background}
+                    coverImage={item.coverImage}
+                    files={item.files}
+                    createdAt={item.createdAt}
+                    previewHref={paths.dashboard.community.coffeeShop.view(item.id)}
+                    canManage={canManage}
+                    isFavorite={favoriteSet.has(Number(item.id))}
+                    onToggleFavorite={handleToggleFavorite}
+                    onEdit={
+                      canManage
+                        ? (id) => router.push(paths.dashboard.community.coffeeShop.edit(id))
+                        : undefined
+                    }
+                    onDelete={canManage ? handleDelete : undefined}
+                    onEnter={() => router.push(paths.dashboard.community.coffeeShop.view(item.id))}
+                  />
+                ))}
+              </Box>
+            )}
+          </Stack>
+        </Card>
+      </Box>
     </DashboardContent>
   );
 }
