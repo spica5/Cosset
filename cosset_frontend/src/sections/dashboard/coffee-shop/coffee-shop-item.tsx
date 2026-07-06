@@ -6,6 +6,7 @@ import Avatar from '@mui/material/Avatar';
 import AvatarGroup from '@mui/material/AvatarGroup';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -25,7 +26,6 @@ export type CoffeeShopItemCardProps = {
   background?: string | null;
   coverImage?: string | null;
   files?: string | null;
-  previewHref?: string;
   commentCount?: number;
   fileCount?: number;
   memberNames?: string[];
@@ -77,7 +77,6 @@ export function CoffeeShopItem({
   background,
   coverImage,
   files,
-  previewHref,
   commentCount = 0,
   fileCount = 0,
   memberNames = [],
@@ -91,13 +90,14 @@ export function CoffeeShopItem({
 }: CoffeeShopItemCardProps) {
   const [resolvedBackground, setResolvedBackground] = useState<string>(background || '');
   const [resolvedCoverImage, setResolvedCoverImage] = useState<string>(coverImage || '');
+  const [coverPreviewOpen, setCoverPreviewOpen] = useState(false);
 
-  const openBackgroundPreviewWindow = () => {
-    if (!previewHref) {
+  const handleCoverClick = () => {
+    if (!resolvedCoverImage) {
       return;
     }
 
-    window.open(previewHref, '_blank', 'noopener,noreferrer');
+    setCoverPreviewOpen(true);
   };
 
   useEffect(() => {
@@ -192,14 +192,14 @@ export function CoffeeShopItem({
     <Card sx={{ p: 1.25, border: '1px solid', borderColor: 'divider' }}>
       <Stack spacing={1}>
         <Box
-          onClick={openBackgroundPreviewWindow}
+          onClick={handleCoverClick}
           sx={{
             position: 'relative',
             width: '100%',
             pt: { xs: '56%', sm: '52%', md: '50%' },
             borderRadius: 1.25,
             overflow: 'hidden',
-            cursor: 'zoom-in',
+            cursor: resolvedCoverImage ? 'zoom-in' : 'default',
           }}
         >
           {resolvedCoverImage ? (
@@ -336,6 +336,50 @@ export function CoffeeShopItem({
           {formatDateTime(createdAt)}
         </Typography>
       </Stack>
+
+      <Dialog
+        open={coverPreviewOpen}
+        onClose={() => setCoverPreviewOpen(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            bgcolor: 'transparent',
+            boxShadow: 'none',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            m: 0,
+          },
+        }}
+      >
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+          <Box
+            component="img"
+            src={resolvedCoverImage}
+            alt={title || name}
+            onClick={() => setCoverPreviewOpen(false)}
+            sx={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              borderRadius: 1,
+              cursor: 'zoom-out',
+            }}
+          />
+          <IconButton
+            onClick={() => setCoverPreviewOpen(false)}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              bgcolor: 'rgba(0,0,0,0.5)',
+              color: 'common.white',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+            }}
+          >
+            <Iconify icon="mingcute:close-line" width={18} />
+          </IconButton>
+        </Box>
+      </Dialog>
     </Card>
   );
 }

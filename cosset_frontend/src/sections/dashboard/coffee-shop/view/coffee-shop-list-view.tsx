@@ -341,7 +341,6 @@ export function CoffeeShopListView() {
                     coverImage={item.coverImage}
                     files={item.files}
                     createdAt={item.createdAt}
-                    previewHref={paths.dashboard.community.coffeeShop.view(item.id)}
                     canManage={canManage}
                     isFavorite={favoriteSet.has(Number(item.id))}
                     onToggleFavorite={handleToggleFavorite}
@@ -351,7 +350,13 @@ export function CoffeeShopListView() {
                         : undefined
                     }
                     onDelete={canManage ? handleDelete : undefined}
-                    onEnter={() => router.push(paths.dashboard.community.coffeeShop.view(item.id))}
+                    onEnter={() => {
+                      window.open(
+                        paths.dashboard.community.coffeeShop.view(item.id),
+                        '_blank',
+                        'noopener,noreferrer',
+                      );
+                    }}
                   />
                 ))}
               </Box>
