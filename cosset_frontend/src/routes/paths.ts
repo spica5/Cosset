@@ -93,6 +93,13 @@ export const paths = {
         `${ROOTS.DASHBOARD}/bookshelf/audio-books?bookId=${bookId}`,
       borrowRequests: `${ROOTS.DASHBOARD}/bookshelf/borrow-requests`,
     },
+    journeyDiary: {
+      root: `${ROOTS.DASHBOARD}/journey-diary`,
+      myJourney: `${ROOTS.DASHBOARD}/journey-diary/my-journey`,
+      myNotes: `${ROOTS.DASHBOARD}/journey-diary/my-notes`,
+      memorialThings: `${ROOTS.DASHBOARD}/journey-diary/memorial-things`,
+      whereHaveYouBeen: `${ROOTS.DASHBOARD}/journey-diary/where-have-you-been`,
+    },
     community: {
       root: `${ROOTS.DASHBOARD}/community`,
       post: {

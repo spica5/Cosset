@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
-
 import { DatabaseError } from '@/db/errors';
-import { executeQuery, queryOne } from '@/db/neon';
+import { queryOne, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'password_reset_codes';
 const CODE_EXPIRY_MINUTES = 15;

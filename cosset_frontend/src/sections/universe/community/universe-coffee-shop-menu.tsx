@@ -2,19 +2,19 @@
 
 import type { CoffeeShopMenuItem } from 'src/utils/coffee-shop-menu';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -23,14 +23,14 @@ import { fetchCoffeeShopMenu, placeCoffeeShopOrder } from 'src/actions/coffee-sh
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import {
-  COFFEE_SHOP_MOBILE_DOCK,
-  COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH,
-  COFFEE_SHOP_MOBILE_PANEL_EVENT,
-  closeCoffeeShopMobilePanel,
+  type CoffeeShopMobilePanel,  
   coffeeShopMobileFabSx,
-  getCoffeeShopMobileMenuPanelMaxHeight,
+  COFFEE_SHOP_MOBILE_DOCK,
+  closeCoffeeShopMobilePanel,  
   toggleCoffeeShopMobilePanel,
-  type CoffeeShopMobilePanel,
+  COFFEE_SHOP_MOBILE_PANEL_EVENT,
+  COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH, 
+  getCoffeeShopMobileMenuPanelMaxHeight,
 } from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------

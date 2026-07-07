@@ -134,6 +134,36 @@ export const endpoints = {
     menuOrder: (id: string | number) => `/api/coffee-shop/${id}/menu/order`,
     favorite: '/api/coffee-shop/favorite',
   },
+  journeyDiary: {
+    location: {
+      list: '/api/journey-diary/location/list',
+      add: '/api/journey-diary/location/new',
+      details: (id: string | number) => `/api/journey-diary/location/${id}`,
+      update: (id: string | number) => `/api/journey-diary/location/${id}`,
+      delete: (id: string | number) => `/api/journey-diary/location/${id}`,
+    },
+    picture: {
+      list: '/api/journey-diary/picture/list',
+      add: '/api/journey-diary/picture/new',
+      details: (id: string | number) => `/api/journey-diary/picture/${id}`,
+      update: (id: string | number) => `/api/journey-diary/picture/${id}`,
+      delete: (id: string | number) => `/api/journey-diary/picture/${id}`,
+    },
+    note: {
+      list: '/api/journey-diary/note/list',
+      add: '/api/journey-diary/note/new',
+      details: (id: string | number) => `/api/journey-diary/note/${id}`,
+      update: (id: string | number) => `/api/journey-diary/note/${id}`,
+      delete: (id: string | number) => `/api/journey-diary/note/${id}`,
+    },
+    memorialThing: {
+      list: '/api/journey-diary/memorial-thing/list',
+      add: '/api/journey-diary/memorial-thing/new',
+      details: (id: string | number) => `/api/journey-diary/memorial-thing/${id}`,
+      update: (id: string | number) => `/api/journey-diary/memorial-thing/${id}`,
+      delete: (id: string | number) => `/api/journey-diary/memorial-thing/${id}`,
+    },
+  },
   reaction: {
     root: '/api/reaction',
   },

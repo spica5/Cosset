@@ -71,7 +71,7 @@ export const CONFIG: ConfigValue = {
   /**
    * Google Map
    */
-  googleMapApiKey: process.env.NEXT_PUBLIC_MAP_API ?? '',
+  googleMapApiKey: process.env.NEXT_PUBLIC_MAP_API ?? 'AIzaSyBjHMDvIRZ9LDEreOPlW9eIA6xeEtXiyjs',
   /**
    * Mapbox
    */

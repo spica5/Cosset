@@ -5,6 +5,10 @@ import { listUserCoffeeShops } from 'src/models/coffee-shop-presence';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
+
 const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> => {
   const authorization = req.headers.get('authorization');
 

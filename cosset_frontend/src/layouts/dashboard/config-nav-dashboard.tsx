@@ -143,6 +143,17 @@ export const navData = [
           { title: 'Borrow requests', path: paths.dashboard.bookshelf.borrowRequests },
         ],
       },
+      {
+        title: 'Journey Diary',
+        path: paths.dashboard.journeyDiary.root,
+        icon: ICONS.tour,
+        children: [
+          { title: 'Where have you been', path: paths.dashboard.journeyDiary.whereHaveYouBeen },
+          { title: 'My Journey', path: paths.dashboard.journeyDiary.myJourney },
+          { title: 'My Notes', path: paths.dashboard.journeyDiary.myNotes },
+          { title: 'Memorial Things', path: paths.dashboard.journeyDiary.memorialThings },
+        ],
+      },
       { 
         title: 'Community', 
         path: paths.dashboard.community.root, 

@@ -1,5 +1,6 @@
 export const STATUS = {
   OK: 200,
+  CREATED: 201,
   ERROR: 500,
   CONFLICT: 409,
   NOT_FOUND: 404,
