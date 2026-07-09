@@ -3,7 +3,8 @@
 import type { IDateValue } from 'src/types/common';
 import type { IJourneyDiaryLocation } from 'src/types/journey-diary-location';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { mutate } from 'swr';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -25,26 +26,25 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 
-import { mutate } from 'swr';
 import { endpoints } from 'src/utils/axios';
 
+import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
   deleteJourneyDiaryLocation,
   useGetJourneyDiaryLocations,
 } from 'src/actions/journey-diary-location';
-
-import { useAuthContext } from 'src/auth/hooks';
-
-import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
+import { useAuthContext } from 'src/auth/hooks';
+
+import { hasJourneyCoords } from '../journey-diary-coords';
+import { JourneyCompanionAvatars } from '../journey-companion-picker';
 import { JourneyDiaryLocationFormDialog } from '../journey-diary-location-form-dialog';
 import { JourneyDiaryWorldMap, type JourneyDiaryMapMarker } from '../journey-diary-world-map';
-import { hasJourneyCoords } from '../journey-diary-coords';
 
 // ----------------------------------------------------------------------
 
@@ -212,6 +212,7 @@ export function WhereHaveYouBeenView() {
                   <TableCell>City / Country</TableCell>
                   <TableCell>Visited from</TableCell>
                   <TableCell>Visited until</TableCell>
+                  <TableCell>Accompanied by</TableCell>
                   <TableCell>Notes</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -238,6 +239,9 @@ export function WhereHaveYouBeenView() {
                     <TableCell>{formatPlace(entry)}</TableCell>
                     <TableCell>{formatDateTime(entry.visitedAt)}</TableCell>
                     <TableCell>{formatDateTime(entry.endAt)}</TableCell>
+                    <TableCell sx={{ minWidth: 160, maxWidth: 220 }}>
+                      <JourneyCompanionAvatars companionIds={entry.companionUserIds} />
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 240 }}>
                       <Typography variant="body2" color="text.secondary" noWrap>
                         {entry.notes || '-'}

@@ -2,13 +2,13 @@
 
 import type { Theme, SxProps } from '@mui/material/styles';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
-  APIProvider,
-  Map as ReactGoogleMap,
-  AdvancedMarker,
   InfoWindow,
+  APIProvider,
+  AdvancedMarker,
   useAdvancedMarkerRef,
+  Map as ReactGoogleMap,
 } from '@vis.gl/react-google-maps';
 
 import Box from '@mui/material/Box';
@@ -146,8 +146,7 @@ export function JourneyDiaryWorldMap({
         lat = mapEvent.latLng.lat();
         lng = mapEvent.latLng.lng();
       } else if (mapEvent.detail?.latLng) {
-        lat = mapEvent.detail.latLng.lat;
-        lng = mapEvent.detail.latLng.lng;
+        ({ lat, lng } = mapEvent.detail.latLng);
       }
 
       if (lat === undefined || lng === undefined) {

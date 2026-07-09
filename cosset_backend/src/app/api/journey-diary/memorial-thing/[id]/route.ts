@@ -86,6 +86,7 @@ export async function PUT(
       imageKey: imageKeys ? imageKeys[0] || null : updates.imageKey ?? null,
       memorialDate: updates.memorialDate ?? null,
       sortOrder: updates.sortOrder,
+      isPublic: updates.isPublic,
     });
 
     const images =

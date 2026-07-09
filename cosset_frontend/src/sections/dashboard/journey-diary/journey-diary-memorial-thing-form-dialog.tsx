@@ -20,8 +20,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
-import type { JourneyTimelineEntry } from './my-journey-utils';
 import { MEMORIAL_THING_CATEGORIES } from './memorial-things-categories';
+
+import type { JourneyTimelineEntry } from './my-journey-utils';
 
 // ----------------------------------------------------------------------
 

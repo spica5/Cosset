@@ -13,6 +13,7 @@ export interface JourneyDiaryRepresentativePicture {
   caption?: string | null;
   imageKey: string;
   sortOrder?: number | null;
+  isPublic?: number | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 }
@@ -38,6 +39,9 @@ const ensureTable = async (): Promise<void> => {
         )
       `,
     )
+      .then(() =>
+        executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_public INT DEFAULT 0`),
+      )
       .then(() => undefined)
       .catch((error) => {
         ensureTablePromise = null;
@@ -58,6 +62,7 @@ const PICTURE_COLUMNS = `
   caption,
   image_key as "imageKey",
   sort_order as "sortOrder",
+  is_public as "isPublic",
   created_at as "createdAt",
   updated_at as "updatedAt"
 `;
@@ -191,7 +196,7 @@ export async function createJourneyDiaryRepresentativePicture(
 
 export async function updateJourneyDiaryRepresentativePicture(
   id: number,
-  entry: Partial<Pick<JourneyDiaryRepresentativePicture, 'caption' | 'sortOrder'>>,
+  entry: Partial<Pick<JourneyDiaryRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic'>>,
 ): Promise<JourneyDiaryRepresentativePicture> {
   try {
     await ensureTable();
@@ -209,6 +214,12 @@ export async function updateJourneyDiaryRepresentativePicture(
     if (entry.sortOrder !== undefined) {
       fields.push(`sort_order = $${paramIndex}`);
       values.push(entry.sortOrder ?? 0);
+      paramIndex += 1;
+    }
+
+    if (entry.isPublic !== undefined) {
+      fields.push(`is_public = $${paramIndex}`);
+      values.push(entry.isPublic ?? 0);
       paramIndex += 1;
     }
 

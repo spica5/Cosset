@@ -16,9 +16,18 @@ export interface JourneyDiaryLocation {
   visitedAt?: Date | string | null;
   endAt?: Date | string | null;
   notes?: string | null;
+  companionUserIds?: string[] | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 }
+
+const normalizeCompanionUserIds = (value?: string[] | null): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value.map((id) => String(id || '').trim()).filter(Boolean))];
+};
 
 let ensureTablePromise: Promise<void> | null = null;
 
@@ -50,6 +59,9 @@ const ensureTable = async (): Promise<void> => {
           executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION`),
           executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION`),
           executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS representative_image TEXT`),
+          executeQuery(
+            `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS companion_user_ids JSONB NOT NULL DEFAULT '[]'::jsonb`,
+          ),
         ]),
       )
       .then(() => undefined)
@@ -75,6 +87,7 @@ const LOCATION_COLUMNS = `
   visited_at as "visitedAt",
   end_at as "endAt",
   notes,
+  COALESCE(companion_user_ids, '[]'::jsonb) as "companionUserIds",
   created_at as "createdAt",
   updated_at as "updatedAt"
 `;
@@ -160,10 +173,11 @@ export async function createJourneyDiaryLocation(
           visited_at,
           end_at,
           notes,
+          companion_user_ids,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())
         RETURNING ${LOCATION_COLUMNS}
       `,
       [
@@ -178,6 +192,7 @@ export async function createJourneyDiaryLocation(
         entry.visitedAt || null,
         entry.endAt || null,
         entry.notes || null,
+        JSON.stringify(normalizeCompanionUserIds(entry.companionUserIds)),
       ],
     );
 
@@ -275,6 +290,12 @@ export async function updateJourneyDiaryLocation(
     if (entry.notes !== undefined) {
       fields.push(`notes = $${paramIndex}`);
       values.push(entry.notes || null);
+      paramIndex += 1;
+    }
+
+    if (entry.companionUserIds !== undefined) {
+      fields.push(`companion_user_ids = $${paramIndex}::jsonb`);
+      values.push(JSON.stringify(normalizeCompanionUserIds(entry.companionUserIds)));
       paramIndex += 1;
     }
 

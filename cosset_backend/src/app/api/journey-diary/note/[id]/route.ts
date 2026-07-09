@@ -53,6 +53,7 @@ export async function PUT(
       content: updates.content?.trim(),
       noteDate: updates.noteDate ?? null,
       sortOrder: updates.sortOrder,
+      isPublic: updates.isPublic,
     });
 
     return response({ note: updated }, STATUS.OK);

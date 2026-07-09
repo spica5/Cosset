@@ -17,21 +17,25 @@ type NotesData = {
   notes: IJourneyDiaryNote[];
 };
 
-export function useGetJourneyDiaryNotes(
-  userId?: string | number,
-  journeyGroupKey?: string | null,
-) {
-  const params = new URLSearchParams();
-
-  if (userId) {
-    params.set('userId', String(userId));
+const buildNoteListUrl = (userId?: string | number, journeyGroupKey?: string | null) => {
+  if (!userId || journeyGroupKey === null) {
+    return null;
   }
+
+  const params = new URLSearchParams({ userId: String(userId) });
 
   if (journeyGroupKey) {
     params.set('journeyGroupKey', journeyGroupKey);
   }
 
-  const url = userId && journeyGroupKey ? `${NOTE_LIST_ENDPOINT}?${params.toString()}` : null;
+  return `${NOTE_LIST_ENDPOINT}?${params.toString()}`;
+};
+
+export function useGetJourneyDiaryNotes(
+  userId?: string | number,
+  journeyGroupKey?: string | null,
+) {
+  const url = buildNoteListUrl(userId, journeyGroupKey);
 
   const { data, isLoading, error, isValidating } = useSWR<NotesData>(url, fetcher, swrOptions);
 
@@ -48,17 +52,18 @@ export function useGetJourneyDiaryNotes(
 }
 
 const revalidateNoteList = (userId?: string | number, journeyGroupKey?: string | null) => {
-  if (!userId || !journeyGroupKey) {
-    mutate(NOTE_LIST_ENDPOINT);
-    return;
+  const userListUrl = buildNoteListUrl(userId);
+
+  if (userListUrl) {
+    mutate(userListUrl);
   }
 
-  const params = new URLSearchParams({
-    userId: String(userId),
-    journeyGroupKey,
-  });
+  const scopedListUrl = buildNoteListUrl(userId, journeyGroupKey);
 
-  mutate(`${NOTE_LIST_ENDPOINT}?${params.toString()}`);
+  if (scopedListUrl) {
+    mutate(scopedListUrl);
+  }
+
   mutate(NOTE_LIST_ENDPOINT);
 };
 
@@ -73,7 +78,7 @@ export async function createJourneyDiaryNote(
 export async function updateJourneyDiaryNote(
   id: string | number,
   updates: Partial<
-    Pick<IJourneyDiaryNote, 'pictureId' | 'imageKey' | 'title' | 'content' | 'noteDate' | 'sortOrder'>
+    Pick<IJourneyDiaryNote, 'pictureId' | 'imageKey' | 'title' | 'content' | 'noteDate' | 'sortOrder' | 'isPublic'>
   >,
   userId?: string | number,
   journeyGroupKey?: string | null,

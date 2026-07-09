@@ -26,6 +26,7 @@ export interface JourneyDiaryMemorialThing {
   imageKey?: string | null;
   memorialDate?: Date | string | null;
   sortOrder?: number | null;
+  isPublic?: number | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 }
@@ -55,6 +56,9 @@ const ensureTable = async (): Promise<void> => {
         )
       `,
     )
+      .then(() =>
+        executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_public INT DEFAULT 0`),
+      )
       .then(() => undefined)
       .catch((error) => {
         ensureTablePromise = null;
@@ -79,6 +83,7 @@ const MEMORIAL_THING_COLUMNS = `
   image_key as "imageKey",
   memorial_date as "memorialDate",
   sort_order as "sortOrder",
+  is_public as "isPublic",
   created_at as "createdAt",
   updated_at as "updatedAt"
 `;
@@ -236,6 +241,7 @@ export async function updateJourneyDiaryMemorialThing(
       | 'imageKey'
       | 'memorialDate'
       | 'sortOrder'
+      | 'isPublic'
     >
   >,
 ): Promise<JourneyDiaryMemorialThing> {
@@ -285,6 +291,12 @@ export async function updateJourneyDiaryMemorialThing(
     if (entry.sortOrder !== undefined) {
       fields.push(`sort_order = $${paramIndex}`);
       values.push(entry.sortOrder ?? 0);
+      paramIndex += 1;
+    }
+
+    if (entry.isPublic !== undefined) {
+      fields.push(`is_public = $${paramIndex}`);
+      values.push(entry.isPublic ?? 0);
       paramIndex += 1;
     }
 

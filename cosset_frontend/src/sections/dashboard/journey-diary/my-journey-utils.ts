@@ -22,6 +22,7 @@ export type JourneyPolaroidItem = {
   hasCustomImage: boolean;
   decoration: 'tape' | 'pin' | null;
   rotation: number;
+  isPublic?: number | null;
 };
 
 export const parseJourneyDate = (value?: IJourneyDiaryLocation['visitedAt']) => {
@@ -95,6 +96,7 @@ export const toPolaroidItemsFromPictures = (
     caption?: string | null;
     imageKey: string;
     journeyCountry?: string | null;
+    isPublic?: number | null;
   }>,
   resolvedUrls: Record<string, string>,
 ): JourneyPolaroidItem[] =>
@@ -106,4 +108,5 @@ export const toPolaroidItemsFromPictures = (
     hasCustomImage: Boolean(resolvedUrls[picture.imageKey]),
     decoration: (['tape', 'pin', null, null, 'tape', 'pin'] as const)[index % 6],
     rotation: ((index % 5) - 2) * 1.4,
+    isPublic: picture.isPublic,
   }));

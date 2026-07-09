@@ -57,6 +57,7 @@ export async function PUT(
       visitedAt: updates.visitedAt ?? null,
       endAt: updates.endAt ?? null,
       notes: updates.notes ?? null,
+      companionUserIds: Array.isArray(updates.companionUserIds) ? updates.companionUserIds : [],
     });
 
     return response({ location: updated }, STATUS.OK);

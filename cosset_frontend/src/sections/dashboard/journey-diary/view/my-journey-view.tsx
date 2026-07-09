@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from 'react';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -18,6 +18,8 @@ import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
+import { uploadFileToS3 } from 'src/actions/upload';
+import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { useGetJourneyDiaryLocations } from 'src/actions/journey-diary-location';
 import {
   createJourneyRepresentativePicture,
@@ -25,22 +27,21 @@ import {
   updateJourneyRepresentativePicture,
   useGetJourneyRepresentativePictures,
 } from 'src/actions/journey-diary-representative-picture';
-import { uploadFileToS3 } from 'src/actions/upload';
-
-import { useAuthContext } from 'src/auth/hooks';
-
-import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { MyJourneyCountryIcon } from '../my-journey-country-icon';
 import { MyJourneyPolaroidGrid } from '../my-journey-polaroid-grid';
+import type { JourneyVisibility } from '../journey-diary-public-utils';
+import { JourneyCompanionAvatars, JourneyCompanionSubtitleTrigger } from '../journey-companion-picker';
 import {
   buildJourneyTimeline,
-  toPolaroidItemsFromPictures,
   type JourneyPolaroidItem,
   type JourneyTimelineEntry,
+  toPolaroidItemsFromPictures,
 } from '../my-journey-utils';
 
 // ----------------------------------------------------------------------
@@ -55,10 +56,12 @@ const TIMELINE_CONTENT_OFFSET = 22;
 function TimelineItem({
   entry,
   active,
+  companionIds,
   onSelect,
 }: {
   entry: JourneyTimelineEntry;
   active: boolean;
+  companionIds: string[];
   onSelect: () => void;
 }) {
   return (
@@ -97,37 +100,56 @@ function TimelineItem({
         }}
       />
 
-      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: 1, minWidth: 0 }}>
-        <Typography
-          sx={{
-            minWidth: 34,
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            letterSpacing: '0.08em',
-            color: INK_COLOR,
-          }}
-        >
-          {entry.monthLabel}
-        </Typography>
+      <Stack spacing={0.75} sx={{ width: 1, minWidth: 0 }}>
+        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: 1, minWidth: 0 }}>
+          <Typography
+            sx={{
+              minWidth: 34,
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              letterSpacing: '0.08em',
+              color: INK_COLOR,
+            }}
+          >
+            {entry.monthLabel}
+          </Typography>
 
-        <Typography
-          sx={{
-            flexGrow: 1,
-            fontWeight: 700,
-            fontSize: '0.95rem',
-            color: INK_COLOR,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {entry.country}
-        </Typography>
+          <Typography
+            sx={{
+              flexGrow: 1,
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              color: INK_COLOR,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {entry.country}
+          </Typography>
 
-        <Box sx={{ flexShrink: 0, opacity: active ? 1 : 0.82 }}>
-          <MyJourneyCountryIcon country={entry.country} />
-        </Box>
+          <Box sx={{ flexShrink: 0, opacity: active ? 1 : 0.82 }}>
+            <MyJourneyCountryIcon country={entry.country} />
+          </Box>
+        </Stack>
+
+        {companionIds.length ? (
+          <Box sx={{ pl: 4.75, minWidth: 0 }}>
+            <JourneyCompanionAvatars
+              companionIds={companionIds}
+              max={3}
+              size={22}
+              emptyLabel=""
+            />
+          </Box>
+        ) : null}
       </Stack>
     </Button>
   );
+}
+
+function getEntryCompanionIds(entry: JourneyTimelineEntry) {
+  return [
+    ...new Set(entry.locations.flatMap((location) => location.companionUserIds || [])),
+  ];
 }
 
 export function MyJourneyView() {
@@ -144,6 +166,7 @@ export function MyJourneyView() {
   const [resolvingImages, setResolvingImages] = useState(false);
   const [addingPhoto, setAddingPhoto] = useState(false);
   const [uploadingIds, setUploadingIds] = useState<Record<string, boolean>>({});
+  const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(null);
 
   const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -201,6 +224,11 @@ export function MyJourneyView() {
   const selectedEntry = useMemo(
     () => yearEntries.find((entry) => entry.id === selectedEntryId) ?? null,
     [selectedEntryId, yearEntries],
+  );
+
+  const selectedCompanionIds = useMemo(
+    () => (selectedEntry ? getEntryCompanionIds(selectedEntry) : []),
+    [selectedEntry],
   );
 
   const { pictures, picturesLoading } = useGetJourneyRepresentativePictures(
@@ -355,6 +383,33 @@ export function MyJourneyView() {
     [selectedEntry, userId],
   );
 
+  const handleTogglePicturePublic = useCallback(
+    async (pictureId: string, isPublic: JourneyVisibility) => {
+      if (!userId || !selectedEntry) {
+        toast.error('You must be signed in to update sharing.');
+        return;
+      }
+
+      setVisibilitySavingId(pictureId);
+
+      try {
+        await updateJourneyRepresentativePicture(
+          pictureId,
+          { isPublic },
+          userId,
+          selectedEntry.id,
+        );
+        toast.success(isPublic === 1 ? 'Photo is now public on Home Space.' : 'Photo is now private.');
+      } catch (error) {
+        console.error('Failed to update photo visibility:', error);
+        toast.error('Failed to update sharing setting.');
+      } finally {
+        setVisibilitySavingId(null);
+      }
+    },
+    [selectedEntry, userId],
+  );
+
   const gridLoading = locationsLoading || picturesLoading || resolvingImages;
 
   return (
@@ -500,6 +555,7 @@ export function MyJourneyView() {
                         key={entry.id}
                         entry={entry}
                         active={entry.id === selectedEntryId}
+                        companionIds={getEntryCompanionIds(entry)}
                         onSelect={() => setSelectedEntryId(entry.id)}
                       />
                     ))}
@@ -523,6 +579,24 @@ export function MyJourneyView() {
                 p: { xs: 2, md: 2.5 },
               }}
             >
+              {selectedEntry ? (
+                <Box sx={{ mb: 2, minWidth: 0 }}>
+                  <Typography variant="h6" sx={{ color: INK_COLOR, fontWeight: 700 }}>
+                    {selectedEntry.country}
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedEntry.monthLabel} {selectedEntry.year}
+                      {selectedEntry.journeyName ? ` · ${selectedEntry.journeyName}` : ''}
+                    </Typography>
+                    <JourneyCompanionSubtitleTrigger
+                      companionIds={selectedCompanionIds}
+                      editHref={paths.dashboard.journeyDiary.whereHaveYouBeen}
+                    />
+                  </Stack>
+                </Box>
+              ) : null}
+
               {gridLoading ? (
                 <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 420 }}>
                   <CircularProgress />
@@ -533,9 +607,11 @@ export function MyJourneyView() {
                   uploadingIds={uploadingIds}
                   addingPhoto={addingPhoto}
                   canAdd={Boolean(selectedEntry)}
+                  visibilitySavingId={visibilitySavingId}
                   onAddPhoto={handleAddPhotoClick}
                   onDelete={handleDeletePhoto}
                   onRename={handleRenamePhoto}
+                  onTogglePublic={handleTogglePicturePublic}
                 />
               )}
 

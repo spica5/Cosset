@@ -13,6 +13,7 @@ export type IJourneyDiaryNote = {
   content: string;
   noteDate?: string | null;
   sortOrder?: number | null;
+  isPublic?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };

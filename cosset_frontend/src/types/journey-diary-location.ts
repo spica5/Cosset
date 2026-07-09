@@ -2,6 +2,13 @@ import type { IDateValue } from './common';
 
 // ----------------------------------------------------------------------
 
+export type IJourneyCompanion = {
+  id: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+};
+
 export type IJourneyDiaryLocation = {
   id: number;
   userId?: string | null;
@@ -15,6 +22,7 @@ export type IJourneyDiaryLocation = {
   visitedAt?: IDateValue | null;
   endAt?: IDateValue | null;
   notes?: string | null;
+  companionUserIds?: string[] | null;
   createdAt?: IDateValue | null;
   updatedAt?: IDateValue | null;
 };
@@ -29,4 +37,5 @@ export type IJourneyDiaryLocationForm = {
   visitedAt: string;
   endAt: string;
   notes: string;
+  companionUserIds: string[];
 };

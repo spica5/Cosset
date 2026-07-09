@@ -30,6 +30,7 @@ export type IJourneyMemorialThing = {
   images?: IJourneyMemorialThingImage[];
   memorialDate?: string | null;
   sortOrder?: number | null;
+  isPublic?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };

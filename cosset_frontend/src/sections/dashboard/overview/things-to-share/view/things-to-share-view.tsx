@@ -13,6 +13,7 @@ import { AlbumShareForm } from '../album-share-form';
 import { CollectionItemsShareForm } from '../collection-items-share-form';
 import { DrawerShareForm } from '../drawer-share-form';
 import { BookshelfShareForm } from '../bookshelf-share-form';
+import { JourneyDiaryShareForm } from '../journey-diary-share-form';
 
 // ---------------------------------------------------------------
 
@@ -34,6 +35,7 @@ export function ThingsToShareView() {
         <DrawerShareForm />
         <CollectionItemsShareForm />
         <BookshelfShareForm />
+        <JourneyDiaryShareForm />
       </Stack>
     </DashboardContent>
   );

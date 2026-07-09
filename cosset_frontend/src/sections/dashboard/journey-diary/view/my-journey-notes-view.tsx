@@ -45,6 +45,10 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import { MyJourneyCountryIcon } from '../my-journey-country-icon';
 import {
+  JourneyDiaryPublicControl,
+} from '../journey-diary-public-toggle';
+import type { JourneyVisibility } from '../journey-diary-public-utils';
+import {
   buildJourneyTimeline,
   parseJourneyDate,
   type JourneyTimelineEntry,
@@ -363,6 +367,8 @@ function NoteJournalDetail({
   onEdit,
   onDelete,
   onImagePreview,
+  onTogglePublic,
+  visibilitySaving,
   onPrev,
   onNext,
   hasPrev,
@@ -377,6 +383,8 @@ function NoteJournalDetail({
   onEdit: () => void;
   onDelete: () => void;
   onImagePreview?: (url: string, alt: string) => void;
+  onTogglePublic?: (visibility: JourneyVisibility) => void | Promise<void>;
+  visibilitySaving?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
   hasPrev?: boolean;
@@ -440,6 +448,13 @@ function NoteJournalDetail({
         </Stack>
 
         <Stack direction="row" spacing={0.5}>
+          {onTogglePublic ? (
+            <JourneyDiaryPublicControl
+              isPublic={note.isPublic}
+              saving={visibilitySaving}
+              onChange={onTogglePublic}
+            />
+          ) : null}
           <IconButton onClick={onEdit} aria-label="Edit note">
             <Iconify icon="solar:pen-bold" width={20} />
           </IconButton>
@@ -677,6 +692,7 @@ export function MyJourneyNotesView() {
   const [editingNote, setEditingNote] = useState<IJourneyDiaryNote | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(null);
   const [resolvingImages, setResolvingImages] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; alt: string } | null>(null);
@@ -927,6 +943,28 @@ export function MyJourneyNotesView() {
     [notes, selectedEntry, selectedNoteId, userId],
   );
 
+  const handleToggleNotePublic = useCallback(
+    async (noteId: string, isPublic: JourneyVisibility) => {
+      if (!userId || !selectedEntry) {
+        toast.error('You must be signed in to update sharing.');
+        return;
+      }
+
+      setVisibilitySavingId(noteId);
+
+      try {
+        await updateJourneyDiaryNote(noteId, { isPublic }, userId, selectedEntry.id);
+        toast.success(isPublic === 1 ? 'Note is now public on Home Space.' : 'Note is now private.');
+      } catch (error) {
+        console.error('Failed to update note visibility:', error);
+        toast.error('Failed to update sharing setting.');
+      } finally {
+        setVisibilitySavingId(null);
+      }
+    },
+    [selectedEntry, userId],
+  );
+
   const panelLoading = locationsLoading || picturesLoading || notesLoading || resolvingImages;
 
   return (
@@ -1103,6 +1141,10 @@ export function MyJourneyNotesView() {
                   onEdit={() => openEditDialog(selectedNote)}
                   onDelete={() => handleDelete(String(selectedNote.id))}
                   onImagePreview={(url, alt) => setPreviewImage({ url, alt })}
+                  onTogglePublic={(visibility) =>
+                    handleToggleNotePublic(String(selectedNote.id), visibility)
+                  }
+                  visibilitySaving={visibilitySavingId === String(selectedNote.id)}
                   onPrev={goToPrevNote}
                   onNext={goToNextNote}
                   hasPrev={selectedNoteIndex > 0}
@@ -1234,6 +1276,16 @@ export function MyJourneyNotesView() {
                                 }}
                               />
                             ) : null}
+
+                            <JourneyDiaryPublicControl
+                              isPublic={note.isPublic}
+                              saving={visibilitySavingId === String(note.id)}
+                              onChange={(visibility) =>
+                                handleToggleNotePublic(String(note.id), visibility)
+                              }
+                              stopPropagation
+                              align="flex-end"
+                            />
                           </Stack>
                         </Card>
                       ))}

@@ -49,6 +49,7 @@ export async function PUT(
     const updated = await updateJourneyDiaryRepresentativePicture(pictureId, {
       caption: updates.caption ?? null,
       sortOrder: updates.sortOrder,
+      isPublic: updates.isPublic,
     });
 
     return response({ picture: updated }, STATUS.OK);

@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
-import Avatar from '@mui/material/Avatar';
-import AvatarGroup from '@mui/material/AvatarGroup';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Dialog from '@mui/material/Dialog';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import Dialog from '@mui/material/Dialog';
+import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import AvatarGroup from '@mui/material/AvatarGroup';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 import { parseCoffeeShopBackgroundImages } from 'src/utils/coffee-shop-background';
@@ -68,6 +68,33 @@ const formatDateTime = (value: string | Date | null | undefined) => {
 };
 
 const getInitial = (name: string) => (name.trim().charAt(0) || '?').toUpperCase();
+
+const visitIconKeyframes = {
+  '@keyframes coffeeShopVisitIdle': {
+    '0%, 100%': {
+      transform: 'translateX(0) scale(1)',
+      opacity: 0.62,
+    },
+    '35%': {
+      transform: 'translateX(3px) scale(1.06)',
+      opacity: 0.88,
+    },
+    '70%': {
+      transform: 'translateX(5px) scale(1.1)',
+      opacity: 1,
+    },
+  },
+  '@keyframes coffeeShopVisitHover': {
+    '0%, 100%': {
+      transform: 'translateX(0) scale(1.05)',
+      opacity: 0.9,
+    },
+    '50%': {
+      transform: 'translateX(6px) scale(1.12)',
+      opacity: 1,
+    },
+  },
+} as const;
 
 export function CoffeeShopItem({
   id,
@@ -263,7 +290,7 @@ export function CoffeeShopItem({
           <Stack direction="row" spacing={0.25} alignItems="center">
             {canManage ? (
               <>
-                <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit coffee shop">
+                <IconButton size="small" onClick={() => onEdit?.(id)} title="Edit `coffee` shop">
                   <Iconify icon="solar:pen-bold" width={15} />
                 </IconButton>
 
@@ -279,8 +306,35 @@ export function CoffeeShopItem({
             ) : null}
 
             {onEnter ? (
-              <IconButton size="small" onClick={onEnter} title="Enter coffee shop">
-                <Iconify icon="ic:round-open-in-new" width={16} />
+              <IconButton
+                size="small"
+                onClick={onEnter}
+                title="Visit coffee shop"
+                aria-label="Visit coffee shop"
+                sx={{
+                  ...visitIconKeyframes,
+                  color: 'primary.dark',
+                  '&:hover': {
+                    color: 'primary.light',
+                    bgcolor: 'action.hover',
+                  },
+                  '&:hover .coffee-shop-visit-icon': {
+                    animation: 'coffeeShopVisitHover 0.9s ease-in-out infinite',
+                  },
+                }}
+              >
+                <Iconify
+                  className="coffee-shop-visit-icon"
+                  icon="tabler:door-enter"
+                  width={22}
+                  sx={{
+                    color: 'inherit',
+                    animation: 'coffeeShopVisitIdle 2s ease-in-out infinite',
+                    '@media (prefers-reduced-motion: reduce)': {
+                      animation: 'none',
+                    },
+                  }}
+                />
               </IconButton>
             ) : null}
           </Stack>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -16,7 +16,11 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import {
+  JourneyDiaryPublicControl,
+} from './journey-diary-public-toggle';
 import type { JourneyPolaroidItem } from './my-journey-utils';
+import type { JourneyVisibility } from './journey-diary-public-utils';
 
 // ----------------------------------------------------------------------
 
@@ -25,23 +29,29 @@ type Props = {
   uploadingIds?: Record<string, boolean>;
   addingPhoto?: boolean;
   canAdd?: boolean;
+  visibilitySavingId?: string | null;
   onAddPhoto?: () => void;
   onDelete?: (pictureId: string) => void;
   onRename?: (pictureId: string, caption: string) => void | Promise<void>;
+  onTogglePublic?: (pictureId: string, visibility: JourneyVisibility) => void | Promise<void>;
 };
 
 function PolaroidCard({
   item,
   uploading,
+  visibilitySaving,
   onDelete,
   onRename,
   onPreview,
+  onTogglePublic,
 }: {
   item: JourneyPolaroidItem;
   uploading?: boolean;
+  visibilitySaving?: boolean;
   onDelete?: (pictureId: string) => void;
   onRename?: (item: JourneyPolaroidItem) => void;
   onPreview?: (item: JourneyPolaroidItem) => void;
+  onTogglePublic?: (pictureId: string, visibility: JourneyVisibility) => void | Promise<void>;
 }) {
   const showImage = Boolean(item.imageUrl);
 
@@ -238,6 +248,16 @@ function PolaroidCard({
         >
           {item.title}
         </Typography>
+
+        {onTogglePublic ? (
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center' }}>
+            <JourneyDiaryPublicControl
+              isPublic={item.isPublic}
+              saving={visibilitySaving}
+              onChange={(visibility) => onTogglePublic(item.id, visibility)}
+            />
+          </Box>
+        ) : null}
       </Box>
     </Box>
   );
@@ -310,14 +330,24 @@ export function MyJourneyPolaroidGrid({
   uploadingIds = {},
   addingPhoto = false,
   canAdd = false,
+  visibilitySavingId = null,
   onAddPhoto,
   onDelete,
   onRename,
+  onTogglePublic,
 }: Props) {
   const [previewItem, setPreviewItem] = useState<JourneyPolaroidItem | null>(null);
   const [renameItem, setRenameItem] = useState<JourneyPolaroidItem | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
+
+  const handleTogglePublic = useCallback(
+    async (pictureId: string, visibility: JourneyVisibility) => {
+      await onTogglePublic?.(pictureId, visibility);
+      setPreviewItem((prev) => (prev?.id === pictureId ? { ...prev, isPublic: visibility } : prev));
+    },
+    [onTogglePublic],
+  );
 
   const openRenameDialog = (item: JourneyPolaroidItem) => {
     setRenameItem(item);
@@ -396,9 +426,11 @@ export function MyJourneyPolaroidGrid({
             key={item.id}
             item={item}
             uploading={uploadingIds[item.id]}
+            visibilitySaving={visibilitySavingId === item.id}
             onDelete={onDelete}
             onRename={onRename ? openRenameDialog : undefined}
             onPreview={setPreviewItem}
+            onTogglePublic={onTogglePublic ? handleTogglePublic : undefined}
           />
         ))}
 
@@ -476,6 +508,26 @@ export function MyJourneyPolaroidGrid({
             >
               {previewItem.title}
             </Typography>
+
+            {onTogglePublic ? (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  left: 16,
+                  top: 16,
+                  px: 1.25,
+                  py: 0.75,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0,0,0,0.55)',
+                }}
+              >
+                <JourneyDiaryPublicControl
+                  isPublic={previewItem.isPublic}
+                  saving={visibilitySavingId === previewItem.id}
+                  onChange={(visibility) => handleTogglePublic(previewItem.id, visibility)}
+                />
+              </Box>
+            ) : null}
           </Box>
         ) : null}
       </Dialog>

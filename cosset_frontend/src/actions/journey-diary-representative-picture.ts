@@ -21,22 +21,25 @@ type PicturesData = {
   pictures: IJourneyRepresentativePicture[];
 };
 
-export function useGetJourneyRepresentativePictures(
-  userId?: string | number,
-  journeyGroupKey?: string | null,
-) {
-  const params = new URLSearchParams();
-
-  if (userId) {
-    params.set('userId', String(userId));
+const buildPictureListUrl = (userId?: string | number, journeyGroupKey?: string | null) => {
+  if (!userId || journeyGroupKey === null) {
+    return null;
   }
+
+  const params = new URLSearchParams({ userId: String(userId) });
 
   if (journeyGroupKey) {
     params.set('journeyGroupKey', journeyGroupKey);
   }
 
-  const url =
-    userId && journeyGroupKey ? `${PICTURE_LIST_ENDPOINT}?${params.toString()}` : null;
+  return `${PICTURE_LIST_ENDPOINT}?${params.toString()}`;
+};
+
+export function useGetJourneyRepresentativePictures(
+  userId?: string | number,
+  journeyGroupKey?: string | null,
+) {
+  const url = buildPictureListUrl(userId, journeyGroupKey);
 
   const { data, isLoading, error, isValidating } = useSWR<PicturesData>(url, fetcher, swrOptions);
 
@@ -57,17 +60,18 @@ export function useGetJourneyRepresentativePictures(
 // ----------------------------------------------------------------------
 
 const revalidatePictureList = (userId?: string | number, journeyGroupKey?: string | null) => {
-  if (!userId || !journeyGroupKey) {
-    mutate(PICTURE_LIST_ENDPOINT);
-    return;
+  const userListUrl = buildPictureListUrl(userId);
+
+  if (userListUrl) {
+    mutate(userListUrl);
   }
 
-  const params = new URLSearchParams({
-    userId: String(userId),
-    journeyGroupKey,
-  });
+  const scopedListUrl = buildPictureListUrl(userId, journeyGroupKey);
 
-  mutate(`${PICTURE_LIST_ENDPOINT}?${params.toString()}`);
+  if (scopedListUrl) {
+    mutate(scopedListUrl);
+  }
+
   mutate(PICTURE_LIST_ENDPOINT);
 };
 
@@ -91,7 +95,7 @@ export async function deleteJourneyRepresentativePicture(
 
 export async function updateJourneyRepresentativePicture(
   id: string | number,
-  updates: Partial<Pick<IJourneyRepresentativePicture, 'caption' | 'sortOrder'>>,
+  updates: Partial<Pick<IJourneyRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic'>>,
   userId?: string | number,
   journeyGroupKey?: string | null,
 ) {

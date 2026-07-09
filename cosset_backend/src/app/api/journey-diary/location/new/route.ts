@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       visitedAt: entry.visitedAt || null,
       endAt: entry.endAt || null,
       notes: entry.notes?.trim() || null,
+      companionUserIds: Array.isArray(entry.companionUserIds) ? entry.companionUserIds : [],
     });
 
     return response({ location: created }, STATUS.OK);

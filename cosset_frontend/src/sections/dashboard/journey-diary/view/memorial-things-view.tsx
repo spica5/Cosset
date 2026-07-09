@@ -41,6 +41,10 @@ import { useAuthContext } from 'src/auth/hooks';
 import { MyJourneyCountryIcon } from '../my-journey-country-icon';
 import { JourneyDiaryMemorialThingFormDialog } from '../journey-diary-memorial-thing-form-dialog';
 import {
+  JourneyDiaryPublicControl,
+} from '../journey-diary-public-toggle';
+import type { JourneyVisibility } from '../journey-diary-public-utils';
+import {
   parseJourneyDate,
   buildJourneyTimeline,
   type JourneyTimelineEntry,
@@ -341,6 +345,7 @@ export function MemorialThingsView() {
   const [editingItem, setEditingItem] = useState<IJourneyMemorialThing | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<MemorialImagePreview | null>(null);
 
   const yearOptions = useMemo(() => {
@@ -674,6 +679,36 @@ export function MemorialThingsView() {
     [selectedEntry, userId],
   );
 
+  const handleToggleMemorialPublic = useCallback(
+    async (itemId: string, category: JourneyMemorialThingCategory, isPublic: JourneyVisibility) => {
+      if (!userId || !selectedEntry) {
+        toast.error('You must be signed in to update sharing.');
+        return;
+      }
+
+      setVisibilitySavingId(itemId);
+
+      try {
+        await updateJourneyMemorialThing(
+          itemId,
+          { isPublic },
+          userId,
+          selectedEntry.id,
+          category,
+        );
+        toast.success(
+          isPublic === 1 ? 'Memorial thing is now public on Home Space.' : 'Memorial thing is now private.',
+        );
+      } catch (error) {
+        console.error('Failed to update memorial thing visibility:', error);
+        toast.error('Failed to update sharing setting.');
+      } finally {
+        setVisibilitySavingId(null);
+      }
+    },
+    [selectedEntry, userId],
+  );
+
   const panelLoading = locationsLoading || memorialThingsLoading || resolvingImages;
 
   return (
@@ -912,7 +947,6 @@ export function MemorialThingsView() {
                           border: JOURNEY_CONTENT_BORDER,
                           bgcolor: 'rgba(255, 248, 233, 0.88)',
                           boxShadow: 'none',
-                          '&:hover .memorial-actions': { opacity: 1 },
                         }}
                       >
                         {imageUrls.length ? (
@@ -988,9 +1022,16 @@ export function MemorialThingsView() {
                             <Stack
                               direction="row"
                               spacing={0.25}
-                              className="memorial-actions"
-                              sx={{ opacity: { xs: 1, sm: 0 }, transition: 'opacity 0.2s ease' }}
+                              sx={{ flexShrink: 0 }}
                             >
+                              <JourneyDiaryPublicControl
+                                isPublic={item.isPublic}
+                                saving={visibilitySavingId === String(item.id)}
+                                onChange={(visibility) =>
+                                  handleToggleMemorialPublic(String(item.id), item.category, visibility)
+                                }
+                                stopPropagation
+                              />
                               <IconButton
                                 size="small"
                                 onClick={() => openEditDialog(item)}

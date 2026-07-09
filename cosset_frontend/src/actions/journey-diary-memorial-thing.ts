@@ -17,16 +17,16 @@ type MemorialThingsData = {
   memorialThings: IJourneyMemorialThing[];
 };
 
-export function useGetJourneyMemorialThings(
+const buildMemorialThingListUrl = (
   userId?: string | number,
   journeyGroupKey?: string | null,
   category?: JourneyMemorialThingCategory | null,
-) {
-  const params = new URLSearchParams();
-
-  if (userId) {
-    params.set('userId', String(userId));
+) => {
+  if (!userId || journeyGroupKey === null) {
+    return null;
   }
+
+  const params = new URLSearchParams({ userId: String(userId) });
 
   if (journeyGroupKey) {
     params.set('journeyGroupKey', journeyGroupKey);
@@ -36,8 +36,15 @@ export function useGetJourneyMemorialThings(
     params.set('category', category);
   }
 
-  const url =
-    userId && journeyGroupKey ? `${MEMORIAL_THING_LIST_ENDPOINT}?${params.toString()}` : null;
+  return `${MEMORIAL_THING_LIST_ENDPOINT}?${params.toString()}`;
+};
+
+export function useGetJourneyMemorialThings(
+  userId?: string | number,
+  journeyGroupKey?: string | null,
+  category?: JourneyMemorialThingCategory | null,
+) {
+  const url = buildMemorialThingListUrl(userId, journeyGroupKey, category);
 
   const { data, isLoading, error, isValidating } = useSWR<MemorialThingsData>(
     url,
@@ -62,21 +69,24 @@ const revalidateMemorialThingList = (
   journeyGroupKey?: string | null,
   category?: JourneyMemorialThingCategory | null,
 ) => {
-  if (!userId || !journeyGroupKey) {
-    mutate(MEMORIAL_THING_LIST_ENDPOINT);
-    return;
+  const userListUrl = buildMemorialThingListUrl(userId);
+
+  if (userListUrl) {
+    mutate(userListUrl);
   }
 
-  const params = new URLSearchParams({
-    userId: String(userId),
-    journeyGroupKey,
-  });
+  const scopedListUrl = buildMemorialThingListUrl(userId, journeyGroupKey, category);
 
-  if (category) {
-    params.set('category', category);
+  if (scopedListUrl) {
+    mutate(scopedListUrl);
   }
 
-  mutate(`${MEMORIAL_THING_LIST_ENDPOINT}?${params.toString()}`);
+  const journeyListUrl = buildMemorialThingListUrl(userId, journeyGroupKey);
+
+  if (journeyListUrl && journeyListUrl !== scopedListUrl) {
+    mutate(journeyListUrl);
+  }
+
   mutate(MEMORIAL_THING_LIST_ENDPOINT);
 };
 
@@ -107,6 +117,7 @@ export async function updateJourneyMemorialThing(
       | 'imageKey'
       | 'memorialDate'
       | 'sortOrder'
+      | 'isPublic'
     >
   > & {
     imageKeys?: string[];

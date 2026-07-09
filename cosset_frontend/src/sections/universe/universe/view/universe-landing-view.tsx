@@ -25,8 +25,11 @@ import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
 import { createNotification } from 'src/actions/notification';
+import { useGetJourneyDiaryNotes } from 'src/actions/journey-diary-note';
 import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
+import { useGetJourneyMemorialThings } from 'src/actions/journey-diary-memorial-thing';
 import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
+import { useGetJourneyRepresentativePictures } from 'src/actions/journey-diary-representative-picture';
 import { useGetBookshelfEbooks, getBookshelfEbookListEndpoint } from 'src/actions/bookshelf-ebook';
 import { useGetBookshelfAudiobooks, getBookshelfAudiobookListEndpoint } from 'src/actions/bookshelf-audiobook';
 
@@ -39,7 +42,9 @@ import { UniverseLandingAlbums } from '../landing/universe-landing-albums';
 import { UniverseLandingMySpace } from '../landing/universe-landing-myspace';
 import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
 import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
+import { UniverseLandingJourneyDiary } from '../landing/universe-landing-journey-diary';
 import { UniverseLandingBookshelfPage } from '../landing/universe-landing-bookshelf-page';
+import { UniverseLandingJourneyDiaryPage } from '../landing/universe-landing-journey-diary-page';
 import { UniverseLandingSectionSplitBar } from '../landing/universe-landing-section-split-bar';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
 
@@ -141,6 +146,12 @@ export function UniverseLandingView({
   );
   const { blogs, blogsLoading } = useGetBlogs(customerId);
   const { collections } = useGetCollections(customerId);
+  const { pictures: journeyPictures, picturesLoading: journeyPicturesLoading } =
+    useGetJourneyRepresentativePictures(customerId);
+  const { notes: journeyNotes, notesLoading: journeyNotesLoading } =
+    useGetJourneyDiaryNotes(customerId);
+  const { memorialThings: journeyMemorialThings, memorialThingsLoading: journeyMemorialThingsLoading } =
+    useGetJourneyMemorialThings(customerId);
   const { ebooks, ebooksLoading } = useGetBookshelfEbooks(customerId);
   const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(customerId);
 
@@ -615,6 +626,9 @@ export function UniverseLandingView({
         sadMemo: false,
         ebooks: false,
         audiobooks: false,
+        myJourney: false,
+        myNotes: false,
+        memorialThings: false,
         collectionItems: {} as Record<string, boolean>,
       };
     }
@@ -627,6 +641,9 @@ export function UniverseLandingView({
         sadMemo?: boolean;
         ebooks?: boolean;
         audiobooks?: boolean;
+        myJourney?: boolean;
+        myNotes?: boolean;
+        memorialThings?: boolean;
         collectionItems?: Record<string, unknown>;
       };
 
@@ -645,6 +662,9 @@ export function UniverseLandingView({
         sadMemo: !!parsed.sadMemo,
         ebooks: !!parsed.ebooks,
         audiobooks: !!parsed.audiobooks,
+        myJourney: !!parsed.myJourney,
+        myNotes: !!parsed.myNotes,
+        memorialThings: !!parsed.memorialThings,
         collectionItems,
       };
     } catch {
@@ -655,6 +675,9 @@ export function UniverseLandingView({
         sadMemo: false,
         ebooks: false,
         audiobooks: false,
+        myJourney: false,
+        myNotes: false,
+        memorialThings: false,
         collectionItems: {} as Record<string, boolean>,
       };
     }
@@ -688,6 +711,21 @@ export function UniverseLandingView({
           return bTime - aTime;
         }),
     [blogs],
+  );
+
+  const sharedJourneyPictures = useMemo(
+    () => journeyPictures.filter((picture) => isPublicBookshelfItem(picture.isPublic)),
+    [journeyPictures],
+  );
+
+  const sharedJourneyNotes = useMemo(
+    () => journeyNotes.filter((note) => isPublicBookshelfItem(note.isPublic)),
+    [journeyNotes],
+  );
+
+  const sharedJourneyMemorialThings = useMemo(
+    () => journeyMemorialThings.filter((item) => isPublicBookshelfItem(item.isPublic)),
+    [journeyMemorialThings],
   );
 
   const publicEbooks = useMemo(
@@ -792,6 +830,16 @@ export function UniverseLandingView({
   const showBookshelfAudiobooks = drawerSettings.audiobooks || visibleAudiobooks.length > 0;
   const showBookshelfSection =
     allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
+  const showMyJourneySection =
+    drawerSettings.myJourney || sharedJourneyPictures.length > 0;
+  const showMyNotesSection = drawerSettings.myNotes || sharedJourneyNotes.length > 0;
+  const showMemorialThingsSection =
+    drawerSettings.memorialThings || sharedJourneyMemorialThings.length > 0;
+  const showJourneyDiarySection =
+    allowVisitorSections &&
+    (showMyJourneySection || showMyNotesSection || showMemorialThingsSection);
+  const journeyDiaryLoading =
+    journeyPicturesLoading || journeyNotesLoading || journeyMemorialThingsLoading;
 
   const mySpaceSectionCounts = useMemo(
     () => ({
@@ -1031,6 +1079,24 @@ export function UniverseLandingView({
               customerAvatarUrl={customerAvatarUrl}
             />
           </UniverseLandingBookshelfPage>
+        </>
+      ) : null}
+
+      {showJourneyDiarySection ? (
+        <>
+          <UniverseLandingSectionSplitBar designType={designSpaceType} />
+          <UniverseLandingJourneyDiaryPage designType={designSpaceType}>
+            <UniverseLandingJourneyDiary
+              pictures={sharedJourneyPictures}
+              notes={sharedJourneyNotes}
+              memorialThings={sharedJourneyMemorialThings}
+              loading={journeyDiaryLoading}
+              showMyJourney={drawerSettings.myJourney}
+              showMyNotes={drawerSettings.myNotes}
+              showMemorialThings={drawerSettings.memorialThings}
+              isOwner={isCurrentCustomer}
+            />
+          </UniverseLandingJourneyDiaryPage>
         </>
       ) : null}
     </>

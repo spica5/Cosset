@@ -3,7 +3,7 @@
 import type { IDateValue } from 'src/types/common';
 import type { IJourneyDiaryLocation, IJourneyDiaryLocationForm } from 'src/types/journey-diary-location';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -11,10 +11,10 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import LoadingButton from '@mui/lab/LoadingButton';
 
 import {
   createJourneyDiaryLocation,
@@ -24,9 +24,10 @@ import {
 import { toast } from 'src/components/dashboard/snackbar';
 
 import { JourneyDiaryWorldMap } from './journey-diary-world-map';
+import { JourneyCompanionPicker } from './journey-companion-picker';
 import {
-  formatCoordInput,
   parseCoordInput,
+  formatCoordInput,
 } from './journey-diary-coords';
 
 // ----------------------------------------------------------------------
@@ -41,6 +42,7 @@ const EMPTY_FORM: IJourneyDiaryLocationForm = {
   visitedAt: '',
   endAt: '',
   notes: '',
+  companionUserIds: [],
 };
 
 const toDatetimeLocalValue = (value?: IDateValue | Date) => {
@@ -102,6 +104,7 @@ export function JourneyDiaryLocationFormDialog({
         visitedAt: toDatetimeLocalValue(currentEntry.visitedAt),
         endAt: toDatetimeLocalValue(currentEntry.endAt),
         notes: currentEntry.notes || '',
+        companionUserIds: currentEntry.companionUserIds || [],
       });
       return;
     }
@@ -122,6 +125,10 @@ export function JourneyDiaryLocationFormDialog({
 
   const handleChange = useCallback((field: keyof IJourneyDiaryLocationForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleCompanionsChange = useCallback((companionUserIds: string[]) => {
+    setForm((prev) => ({ ...prev, companionUserIds }));
   }, []);
 
   const handlePositionChange = useCallback((position: { lat: number; lng: number }) => {
@@ -164,6 +171,7 @@ export function JourneyDiaryLocationFormDialog({
       visitedAt: toIsoOrNull(form.visitedAt),
       endAt: toIsoOrNull(form.endAt),
       notes: form.notes.trim() || null,
+      companionUserIds: form.companionUserIds,
     };
 
     try {
@@ -288,6 +296,12 @@ export function JourneyDiaryLocationFormDialog({
               InputLabelProps={{ shrink: true }}
             />
           </Stack>
+
+          <JourneyCompanionPicker
+            value={form.companionUserIds}
+            onChange={handleCompanionsChange}
+            disabled={submitting}
+          />
 
           <TextField
             label="Notes"
