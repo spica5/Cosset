@@ -39,6 +39,9 @@ import type { JourneyVisibility } from '../journey-diary-public-utils';
 import { JourneyCompanionAvatars, JourneyCompanionSubtitleTrigger } from '../journey-companion-picker';
 import {
   buildJourneyTimeline,
+  parseJourneyDate,
+  sortPicturesByVisitDate,
+  toDateInputValue,
   type JourneyPolaroidItem,
   type JourneyTimelineEntry,
   toPolaroidItemsFromPictures,
@@ -52,6 +55,20 @@ const INK_COLOR = '#1F2A44';
 const JOURNEY_CONTENT_BORDER = '1px solid rgba(31, 42, 68, 0.16)';
 const TIMELINE_MARKER_SIZE = 14;
 const TIMELINE_CONTENT_OFFSET = 22;
+
+const getDefaultPhotoVisitedAt = (entry: JourneyTimelineEntry) => {
+  const locationDate =
+    parseJourneyDate(entry.locations[0]?.visitedAt) ||
+    parseJourneyDate(entry.locations[0]?.createdAt);
+
+  if (locationDate) {
+    return toDateInputValue(locationDate);
+  }
+
+  return toDateInputValue(new Date(entry.year, entry.month, 1));
+};
+
+const toVisitedAtIso = (dateValue: string) => new Date(`${dateValue}T12:00:00`).toISOString();
 
 function TimelineItem({
   entry,
@@ -260,7 +277,11 @@ export function MyJourneyView() {
         );
 
         if (!cancelled) {
-          setPolaroidItems(toPolaroidItemsFromPictures(pictures, resolvedUrls));
+          const tripVisitedAt =
+            parseJourneyDate(selectedEntry.locations[0]?.visitedAt) ||
+            parseJourneyDate(selectedEntry.locations[0]?.createdAt);
+          const sortedPictures = sortPicturesByVisitDate(pictures, tripVisitedAt);
+          setPolaroidItems(toPolaroidItemsFromPictures(sortedPictures, resolvedUrls));
         }
       } finally {
         if (!cancelled) {
@@ -312,6 +333,7 @@ export function MyJourneyView() {
           caption: captionBase || `Memory ${pictures.length + 1}`,
           imageKey: result.key,
           sortOrder: pictures.length,
+          visitedAt: toVisitedAtIso(getDefaultPhotoVisitedAt(selectedEntry)),
         });
 
         toast.success('Photo added successfully.');
@@ -371,6 +393,38 @@ export function MyJourneyView() {
       } catch (error) {
         console.error('Failed to rename journey photo:', error);
         toast.error('Failed to rename photo.');
+        throw error;
+      } finally {
+        setUploadingIds((prev) => {
+          const next = { ...prev };
+          delete next[pictureId];
+          return next;
+        });
+      }
+    },
+    [selectedEntry, userId],
+  );
+
+  const handleUpdatePhotoVisitDate = useCallback(
+    async (pictureId: string, visitedAt: string) => {
+      if (!userId || !selectedEntry) {
+        toast.error('You must be signed in to update visit dates.');
+        return;
+      }
+
+      setUploadingIds((prev) => ({ ...prev, [pictureId]: true }));
+
+      try {
+        await updateJourneyRepresentativePicture(
+          pictureId,
+          { visitedAt: toVisitedAtIso(visitedAt) },
+          userId,
+          selectedEntry.id,
+        );
+        toast.success('Visit date updated successfully.');
+      } catch (error) {
+        console.error('Failed to update photo visit date:', error);
+        toast.error('Failed to update visit date.');
         throw error;
       } finally {
         setUploadingIds((prev) => {
@@ -611,6 +665,7 @@ export function MyJourneyView() {
                   onAddPhoto={handleAddPhotoClick}
                   onDelete={handleDeletePhoto}
                   onRename={handleRenamePhoto}
+                  onUpdateVisitDate={handleUpdatePhotoVisitDate}
                   onTogglePublic={handleTogglePicturePublic}
                 />
               )}

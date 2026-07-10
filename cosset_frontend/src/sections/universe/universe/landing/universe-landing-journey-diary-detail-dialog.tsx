@@ -16,6 +16,8 @@ import { Iconify } from 'src/components/universe/iconify';
 
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
+import { formatTripDateRange } from './universe-landing-journey-diary-my-journey-utils';
+
 // ----------------------------------------------------------------------
 
 export type JourneyPictureDetailItem = IJourneyRepresentativePicture & { signedImageUrl?: string };
@@ -30,6 +32,8 @@ export type JourneyDiaryDetailState =
       type: 'picture';
       index: number;
       items: JourneyPictureDetailItem[];
+      visitedAt?: Date | null;
+      endAt?: Date | null;
     }
   | {
       type: 'note';
@@ -82,6 +86,67 @@ const formatDate = (value: unknown) => {
 };
 
 const stripHtml = (value: string) => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const parseDetailDate = (value: unknown) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value as string | number | Date);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatPictureVisitDate = (picture: JourneyPictureDetailItem) => {
+  const visitedAt = parseDetailDate(picture.visitedAt);
+  if (visitedAt) {
+    return formatDate(visitedAt);
+  }
+
+  if (picture.journeyMonth !== undefined && picture.journeyMonth !== null && picture.journeyYear) {
+    const journeyDate = new Date(picture.journeyYear, picture.journeyMonth, 1);
+    if (!Number.isNaN(journeyDate.getTime())) {
+      return journeyDate.toLocaleDateString(undefined, {
+        month: 'short',
+        year: 'numeric',
+      });
+    }
+  }
+
+  if (picture.journeyYear) {
+    return String(picture.journeyYear);
+  }
+
+  return null;
+};
+
+const getPictureVisitDateLabel = (
+  picture: JourneyPictureDetailItem,
+  visitedAt?: Date | null,
+  endAt?: Date | null,
+) => {
+  const fromPhoto = formatPictureVisitDate(picture);
+  if (fromPhoto && fromPhoto !== '-') {
+    return fromPhoto;
+  }
+
+  const tripVisitLabel = formatTripDateRange(visitedAt ?? null, endAt ?? null);
+  if (tripVisitLabel !== 'Dates TBD') {
+    return tripVisitLabel;
+  }
+
+  return formatPictureVisitDate(picture);
+};
+
+function getDetailSectionLabel(type: JourneyDiaryDetailState['type']) {
+  switch (type) {
+    case 'picture':
+      return 'My Journey';
+    case 'note':
+      return 'My Notes';
+    default:
+      return 'Memorial Things';
+  }
+}
 
 function DetailNavButton({
   direction,
@@ -207,6 +272,115 @@ export function UniverseLandingJourneyDiaryDetailDialog({
     title = (picture.caption || '').trim() || formatJourneyLabel(picture);
     subtitle = formatJourneyLabel(picture);
     imageUrl = picture.signedImageUrl || '';
+    const visitDateLabel = getPictureVisitDateLabel(picture, detail.visitedAt, detail.endAt);
+
+    return (
+      <Dialog
+        open
+        onClose={onClose}
+        fullScreen
+        PaperProps={{
+          sx: {
+            bgcolor: '#000',
+            color: 'common.white',
+          },
+        }}
+      >
+        <Stack sx={{ height: 1, minHeight: 0 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.5,
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              bgcolor: 'rgba(0,0,0,0.72)',
+              backdropFilter: 'blur(8px)',
+              flexShrink: 0,
+            }}
+          >
+            <Stack spacing={0.25} sx={{ minWidth: 0, pr: 2 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.62)', letterSpacing: '0.16em' }}>
+                {getDetailSectionLabel('picture')}
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>
+                {title}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }} noWrap>
+                {subtitle}
+              </Typography>
+              {visitDateLabel ? (
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.62)' }} noWrap>
+                  Visited {visitDateLabel}
+                </Typography>
+              ) : null}
+            </Stack>
+
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+              <DetailNavButton direction="prev" disabled={!hasPrev} onClick={onPrev} />
+              <Typography
+                variant="caption"
+                sx={{ color: 'rgba(255,255,255,0.72)', minWidth: 56, textAlign: 'center' }}
+              >
+                {detail.index + 1} / {detail.items.length}
+              </Typography>
+              <DetailNavButton direction="next" disabled={!hasNext} onClick={onNext} />
+              <IconButton onClick={onClose} sx={{ color: 'common.white' }} aria-label="Close detail">
+                <Iconify icon="mingcute:close-line" width={20} />
+              </IconButton>
+            </Stack>
+          </Stack>
+
+          <Box
+            sx={{
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: '#000',
+            }}
+          >
+            {imageUrl ? (
+              <Box
+                component="img"
+                src={imageUrl}
+                alt={title}
+                sx={{
+                  width: 1,
+                  height: 1,
+                  maxWidth: 1,
+                  maxHeight: 1,
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                sx={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                <Iconify icon="solar:gallery-bold-duotone" width={42} />
+              </Stack>
+            )}
+
+            {hasPrev ? (
+              <Box sx={{ position: 'absolute', top: '50%', left: { xs: 8, md: 24 }, transform: 'translateY(-50%)' }}>
+                <DetailNavButton direction="prev" onClick={onPrev} />
+              </Box>
+            ) : null}
+
+            {hasNext ? (
+              <Box sx={{ position: 'absolute', top: '50%', right: { xs: 8, md: 24 }, transform: 'translateY(-50%)' }}>
+                <DetailNavButton direction="next" onClick={onNext} />
+              </Box>
+            ) : null}
+          </Box>
+        </Stack>
+      </Dialog>
+    );
   }
 
   if (detail.type === 'note') {
@@ -254,11 +428,7 @@ export function UniverseLandingJourneyDiaryDetailDialog({
         >
           <Stack spacing={0.5} sx={{ minWidth: 0, pr: 2 }}>
             <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.62)', letterSpacing: '0.16em' }}>
-              {detail.type === 'picture'
-                ? 'My Journey'
-                : detail.type === 'note'
-                  ? 'My Notes'
-                  : 'Memorial Things'}
+              {getDetailSectionLabel(detail.type)}
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 700 }} noWrap>
               {title}

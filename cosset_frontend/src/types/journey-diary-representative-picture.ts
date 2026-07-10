@@ -11,6 +11,7 @@ export type IJourneyRepresentativePicture = {
   imageKey: string;
   sortOrder?: number | null;
   isPublic?: number | null;
+  visitedAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };

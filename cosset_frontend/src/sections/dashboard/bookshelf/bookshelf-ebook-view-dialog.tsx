@@ -15,16 +15,17 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { Iconify } from 'src/components/dashboard/iconify';
-
 import { revalidateBookshelfEbookReadingCounts } from 'src/actions/bookshelf-ebook-reading';
 
-import {
-  resolveEbookContentUrl,
-  getEbookFileTypeLabel,
-} from './bookshelf-ebook-utils';
-import { buildPdfViewerSrc, normalizePageNumber, readPdfPageFromIframe, setPdfIframePage } from './bookshelf-ebook-pdf-page';
+import { Iconify } from 'src/components/dashboard/iconify';
+
+import { normalizePageNumber } from './bookshelf-ebook-pdf-page';
+import { BookshelfEbookPdfViewer } from './bookshelf-ebook-pdf-viewer';
 import { BookshelfEbookReaderPanel } from './bookshelf-ebook-reader-panel';
+import {
+  getEbookFileTypeLabel,
+  resolveEbookContentUrl,
+} from './bookshelf-ebook-utils';
 
 // ----------------------------------------------------------------------
 
@@ -50,13 +51,9 @@ export function BookshelfEbookViewDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [iframePage, setIframePage] = useState(1);
-  const [pdfFrameKey, setPdfFrameKey] = useState(0);
   const [readerToolsOpen, setReaderToolsOpen] = useState(true);
   const [summaryAnchor, setSummaryAnchor] = useState<HTMLElement | null>(null);
   const txtScrollRef = useRef<HTMLDivElement | null>(null);
-  const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
-  const skipPollUntilRef = useRef(0);
 
   const normalizedCustomerId = customerId != null ? String(customerId).trim() : '';
   const canUseReaderTools = Boolean(normalizedCustomerId && ebook);
@@ -77,8 +74,6 @@ export function BookshelfEbookViewDialog({
         setTxtContent('');
         setError('');
         setCurrentPage(1);
-        setIframePage(1);
-        setPdfFrameKey(0);
         return;
       }
 
@@ -94,8 +89,6 @@ export function BookshelfEbookViewDialog({
 
         setFileUrl(resolvedUrl);
         setCurrentPage(normalizePageNumber(initialPageNumber ?? 1));
-        setIframePage(normalizePageNumber(initialPageNumber ?? 1));
-        setPdfFrameKey((key) => key + 1);
 
         if (ebook.fileType === 'txt' && resolvedUrl) {
           const response = await fetch(resolvedUrl);
@@ -156,22 +149,17 @@ export function BookshelfEbookViewDialog({
   }, [ebook?.fileType, fileUrl]);
 
   const applyPdfPage = useCallback((page: number) => {
-    const nextPage = normalizePageNumber(page);
-    setCurrentPage(nextPage);
-    setIframePage(nextPage);
-    setPdfFrameKey((key) => key + 1);
-    skipPollUntilRef.current = Date.now() + 3000;
+    setCurrentPage(normalizePageNumber(page));
   }, []);
 
-  const getCurrentPdfPage = useCallback(() => {
-    const detectedPage = readPdfPageFromIframe(pdfIframeRef.current);
-    return detectedPage ?? currentPage;
-  }, [currentPage]);
+  const handlePdfPageChange = useCallback((page: number) => {
+    setCurrentPage((previousPage) => {
+      const nextPage = normalizePageNumber(page);
+      return previousPage === nextPage ? previousPage : nextPage;
+    });
+  }, []);
 
-  const handlePdfIframeLoad = useCallback(() => {
-    setPdfIframePage(pdfIframeRef.current, iframePage);
-    skipPollUntilRef.current = Date.now() + 1500;
-  }, [iframePage]);
+  const getCurrentPdfPage = useCallback(() => currentPage, [currentPage]);
 
   useEffect(() => {
     if (!open || !pdfBaseUrl || ebook?.fileType !== 'pdf') {
@@ -180,33 +168,6 @@ export function BookshelfEbookViewDialog({
 
     applyPdfPage(initialPageNumber ?? 1);
   }, [applyPdfPage, ebook?.fileType, initialPageNumber, open, pdfBaseUrl]);
-
-  useEffect(() => {
-    if (!open || ebook?.fileType !== 'pdf' || !pdfBaseUrl) {
-      return undefined;
-    }
-
-    const syncPdfPageFromViewer = () => {
-      if (Date.now() < skipPollUntilRef.current) {
-        return;
-      }
-
-      const detectedPage = readPdfPageFromIframe(pdfIframeRef.current);
-      if (!detectedPage) {
-        return;
-      }
-
-      setCurrentPage((previousPage) => (previousPage === detectedPage ? previousPage : detectedPage));
-    };
-
-    const intervalId = window.setInterval(syncPdfPageFromViewer, 400);
-    window.addEventListener('focus', syncPdfPageFromViewer);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', syncPdfPageFromViewer);
-    };
-  }, [ebook?.fileType, open, pdfBaseUrl]);
 
   const handleJumpToPage = useCallback(
     (page: number) => {
@@ -358,21 +319,11 @@ export function BookshelfEbookViewDialog({
               ) : null}
             </Stack>
           ) : ebook.fileType === 'pdf' && pdfBaseUrl ? (
-            <Box
-              component="iframe"
-              key={`pdf-frame-${pdfFrameKey}`}
-              ref={pdfIframeRef}
-              src={buildPdfViewerSrc(pdfBaseUrl, iframePage)}
+            <BookshelfEbookPdfViewer
+              url={pdfBaseUrl}
+              page={currentPage}
               title={ebook.title}
-              onLoad={handlePdfIframeLoad}
-              sx={{
-                width: 1,
-                flex: 1,
-                minHeight: { xs: '60dvh', md: 'calc(100dvh - 180px)' },
-                border: 'none',
-                borderRadius: 1,
-                bgcolor: 'background.neutral',
-              }}
+              onPageChange={handlePdfPageChange}
             />
           ) : ebook.fileType === 'txt' ? (
             <Box

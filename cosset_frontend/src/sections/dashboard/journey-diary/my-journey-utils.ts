@@ -18,6 +18,8 @@ export type JourneyPolaroidItem = {
   id: string;
   title: string;
   subtitle?: string;
+  visitedAt?: string | null;
+  visitDateLabel?: string | null;
   imageUrl: string;
   hasCustomImage: boolean;
   decoration: 'tape' | 'pin' | null;
@@ -25,12 +27,87 @@ export type JourneyPolaroidItem = {
   isPublic?: number | null;
 };
 
-export const parseJourneyDate = (value?: IJourneyDiaryLocation['visitedAt']) => {
+export const formatPhotoVisitDate = (value?: string | Date | null) => {
+  const parsed = parseJourneyDate(value);
+  if (!parsed) {
+    return null;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+export const toDateInputValue = (value?: string | Date | null) => {
+  const parsed = parseJourneyDate(value);
+  if (!parsed) {
+    return '';
+  }
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+export const getPictureVisitTimestamp = (
+  picture: {
+    visitedAt?: string | null;
+    journeyYear?: number;
+    journeyMonth?: number;
+    sortOrder?: number | null;
+    id: number;
+  },
+  tripVisitedAt?: Date | null,
+) => {
+  const photoVisitedAt = parseJourneyDate(picture.visitedAt);
+  if (photoVisitedAt) {
+    return photoVisitedAt.getTime();
+  }
+
+  if (tripVisitedAt) {
+    return tripVisitedAt.getTime();
+  }
+
+  if (picture.journeyMonth !== undefined && picture.journeyMonth !== null && picture.journeyYear) {
+    return new Date(picture.journeyYear, picture.journeyMonth, 1).getTime();
+  }
+
+  return 0;
+};
+
+export const sortPicturesByVisitDate = <
+  T extends {
+    visitedAt?: string | null;
+    journeyYear?: number;
+    journeyMonth?: number;
+    sortOrder?: number | null;
+    id: number;
+  },
+>(
+  pictures: T[],
+  tripVisitedAt?: Date | null,
+) =>
+  [...pictures].sort((a, b) => {
+    const visitDiff =
+      getPictureVisitTimestamp(b, tripVisitedAt) - getPictureVisitTimestamp(a, tripVisitedAt);
+
+    if (visitDiff !== 0) {
+      return visitDiff;
+    }
+
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id;
+  });
+
+export const parseJourneyDate = (value?: unknown) => {
   if (value === null || value === undefined || value === '') {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = value instanceof Date ? value : new Date(value as string | number);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
@@ -96,6 +173,7 @@ export const toPolaroidItemsFromPictures = (
     caption?: string | null;
     imageKey: string;
     journeyCountry?: string | null;
+    visitedAt?: string | null;
     isPublic?: number | null;
   }>,
   resolvedUrls: Record<string, string>,
@@ -104,6 +182,8 @@ export const toPolaroidItemsFromPictures = (
     id: String(picture.id),
     title: picture.caption?.trim() || `Memory ${index + 1}`,
     subtitle: picture.journeyCountry || undefined,
+    visitedAt: picture.visitedAt || null,
+    visitDateLabel: formatPhotoVisitDate(picture.visitedAt),
     imageUrl: resolvedUrls[picture.imageKey] || '',
     hasCustomImage: Boolean(resolvedUrls[picture.imageKey]),
     decoration: (['tape', 'pin', null, null, 'tape', 'pin'] as const)[index % 6],

@@ -95,7 +95,7 @@ export async function deleteJourneyRepresentativePicture(
 
 export async function updateJourneyRepresentativePicture(
   id: string | number,
-  updates: Partial<Pick<IJourneyRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic'>>,
+  updates: Partial<Pick<IJourneyRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic' | 'visitedAt'>>,
   userId?: string | number,
   journeyGroupKey?: string | null,
 ) {

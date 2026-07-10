@@ -1,20 +1,25 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import type { BoxProps } from '@mui/material/Box';
 import type { IJourneyDiaryNote } from 'src/types/journey-diary-note';
+import type { IJourneyDiaryLocation } from 'src/types/journey-diary-location';
 import type { IJourneyMemorialThing } from 'src/types/journey-diary-memorial-thing';
 import type { IJourneyRepresentativePicture } from 'src/types/journey-diary-representative-picture';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Avatar from '@mui/material/Avatar';
+import Drawer from '@mui/material/Drawer';
+import TextField from '@mui/material/TextField';
+import { useTheme } from '@mui/material/styles';
+import Pagination from '@mui/material/Pagination';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import CardActionArea from '@mui/material/CardActionArea';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -23,30 +28,57 @@ import { getS3SignedUrl } from 'src/utils/helper';
 
 import { Iconify } from 'src/components/universe/iconify';
 
-import { MyJourneyCountryIcon } from 'src/sections/dashboard/journey-diary/my-journey-country-icon';
-import {
-  getMemorialThingCategoryIcon,
-  getMemorialThingCategoryLabel,
-} from 'src/sections/dashboard/journey-diary/memorial-things-categories';
-import { toPolaroidItemsFromPictures } from 'src/sections/dashboard/journey-diary/my-journey-utils';
+import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
-import {
-  UniverseLandingJourneyDiaryDetailDialog,
-  type JourneyDiaryDetailState,
-  type JourneyMemorialDetailItem,
-  type JourneyNoteDetailItem,
-  type JourneyPictureDetailItem,
-} from './universe-landing-journey-diary-detail-dialog';
-import { MYSPACE_SECTION_SERIF } from './myspace-section-title';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingJourneyDiaryHome } from './universe-landing-journey-diary-home';
+import {
+  MySpaceSectionTitle,
+  MYSPACE_SECTION_SERIF,
+} from './myspace-section-title';
+import { UniverseLandingJourneyDiaryMyNotes } from './universe-landing-journey-diary-my-notes';
+import { UniverseLandingJourneyDiaryMyJourney } from './universe-landing-journey-diary-my-journey';
+import { UniverseLandingJourneyDiaryMyMemorialThings } from './universe-landing-journey-diary-my-memorial-things';
+import {
+  JOURNEY_PAGE_SIZE,
+  filterJourneyEntries,
+  type JourneyDiaryEntry,
+  filterEntriesByCategory,
+} from './universe-landing-journey-diary-utils';
+import {
+  JOURNEY_DIARY_TITLE,
+  JOURNEY_DIARY_SUBTITLE,
+  JOURNEY_DIARY_NAV_SECTIONS,
+  type JourneyDiaryNavCategory,
+} from './universe-landing-journey-diary-theme';
+import {
+  JourneyDiaryEntryCard,
+  JourneyDiarySidebarTitle,
+  JourneyDiaryCustomerHeader,
+  JourneyDiaryCategorySidebar,
+} from './universe-landing-journey-diary-parts';
+import {
+  MYSPACE_BLOG_GRID_GAP,
+  myspaceBlogListGridSx,
+  getBlogGridColumnCount,
+  MYSPACE_BLOG_GRID_COLUMNS,
+  myspaceBlogListGridItemSx,
+  MYSPACE_BLOG_ITEM_MIN_WIDTH,
+} from './myspace-item-layout';
+import {
+  type JourneyNoteDetailItem,
+  type JourneyDiaryDetailState,
+  type JourneyPictureDetailItem,
+  type JourneyMemorialDetailItem,
+  UniverseLandingJourneyDiaryDetailDialog,
+} from './universe-landing-journey-diary-detail-dialog';
+
+import type { UniverseJourneyTrip } from './universe-landing-journey-diary-my-journey-utils';
 
 // ----------------------------------------------------------------------
 
+const SIDEBAR_WIDTH = 350;
 const MONTH_LABELS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const JOURNEY_PAPER = '#F8F3E8';
-const JOURNEY_INK = '#1F2A44';
-const JOURNEY_LINE = 'rgba(31, 42, 68, 0.08)';
-const JOURNEY_PANEL_BORDER = '1px solid rgba(31, 42, 68, 0.14)';
 
 type JourneyPictureItem = JourneyPictureDetailItem;
 type JourneyNoteItem = JourneyNoteDetailItem;
@@ -58,21 +90,22 @@ type ResolvedJourneyDiaryContent = {
   memorialThings: JourneyMemorialItem[];
 };
 
-type JourneyGroup = {
-  id: string;
-  country: string;
-  year: number;
-  month: number;
-  monthLabel: string;
-  pictures: JourneyPictureItem[];
-};
-
 const signedImageUrlCache = new Map<string, Promise<string>>();
 
 type Props = BoxProps & {
   pictures: IJourneyRepresentativePicture[];
   notes: IJourneyDiaryNote[];
   memorialThings: IJourneyMemorialThing[];
+  locations?: IJourneyDiaryLocation[];
+  customerName?: string;
+  customerAvatarUrl?: string;
+  communityUsers?: Array<{
+    id?: string | number;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    photoURL?: string | null;
+  }>;
   loading?: boolean;
   showMyJourney?: boolean;
   showMyNotes?: boolean;
@@ -81,7 +114,22 @@ type Props = BoxProps & {
 };
 
 const getPictureImageKey = (item: IJourneyRepresentativePicture) => item.imageKey || '';
-const getNoteImageKey = (item: IJourneyDiaryNote) => item.imageKey || '';
+const getNoteImageKey = (
+  item: IJourneyDiaryNote,
+  pictures: IJourneyRepresentativePicture[] = [],
+) => {
+  const directKey = (item.imageKey || '').trim();
+  if (directKey) {
+    return directKey;
+  }
+
+  if (item.pictureId) {
+    const linkedPicture = pictures.find((picture) => picture.id === item.pictureId);
+    return (linkedPicture?.imageKey || '').trim();
+  }
+
+  return '';
+};
 
 const getMemorialImageKeys = (item: IJourneyMemorialThing) => {
   const galleryKeys = (item.images || []).map((image) => image.imageKey).filter(Boolean);
@@ -158,47 +206,11 @@ const buildJourneyDiarySignature = (
 ) =>
   [
     ...pictures.map((item) => `p:${item.id}:${getPictureImageKey(item)}`),
-    ...notes.map((item) => `n:${item.id}:${getNoteImageKey(item)}`),
+    ...notes.map(
+      (item) => `n:${item.id}:${getNoteImageKey(item, pictures)}:${item.pictureId ?? ''}`,
+    ),
     ...memorialThings.map((item) => `m:${item.id}:${getMemorialImageKeys(item).join(',')}`),
   ].join('|');
-
-const groupPicturesByJourney = (pictures: JourneyPictureItem[]): JourneyGroup[] => {
-  const groups = new Map<string, JourneyGroup>();
-
-  pictures.forEach((picture) => {
-    const country = picture.journeyCountry || 'Journey';
-    const year = picture.journeyYear ?? new Date().getFullYear();
-    const month = picture.journeyMonth ?? 0;
-    const groupKey = picture.journeyGroupKey || `${year}-${month}-${country.toLowerCase()}`;
-
-    const existing = groups.get(groupKey);
-    if (existing) {
-      existing.pictures.push(picture);
-      return;
-    }
-
-    groups.set(groupKey, {
-      id: groupKey,
-      country,
-      year,
-      month,
-      monthLabel: MONTH_LABELS[month] || 'JAN',
-      pictures: [picture],
-    });
-  });
-
-  return [...groups.values()].sort((a, b) => {
-    if (a.year !== b.year) {
-      return b.year - a.year;
-    }
-
-    if (a.month !== b.month) {
-      return b.month - a.month;
-    }
-
-    return a.country.localeCompare(b.country);
-  });
-};
 
 function useResolvedJourneyDiaryContent(
   pictures: IJourneyRepresentativePicture[],
@@ -245,7 +257,7 @@ function useResolvedJourneyDiaryContent(
           Promise.all(
             nextNotes.map(async (item) => ({
               ...item,
-              signedImageUrl: await resolveImageUrl(getNoteImageKey(item)),
+              signedImageUrl: await resolveImageUrl(getNoteImageKey(item, nextPictures)),
             })),
           ),
           Promise.all(
@@ -286,271 +298,108 @@ function useResolvedJourneyDiaryContent(
   return { resolvedContent, resolving };
 }
 
-function ScrapbookPanel({
-  title,
-  subtitle,
-  children,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <Card
-      elevation={0}
-      sx={{
-        height: 1,
-        borderRadius: 3,
-        overflow: 'hidden',
-        bgcolor: JOURNEY_PAPER,
-        border: JOURNEY_PANEL_BORDER,
-        boxShadow: '0 18px 40px rgba(8, 12, 24, 0.22)',
-        backgroundImage:
-          'linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 18%), repeating-linear-gradient(180deg, transparent, transparent 31px, rgba(31,42,68,0.05) 32px)',
-      }}
-    >
-      <Stack spacing={2.5} sx={{ p: { xs: 2, md: 2.5 }, height: 1 }}>
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography
-              sx={{
-                fontFamily: MYSPACE_SECTION_SERIF,
-                fontWeight: 700,
-                letterSpacing: '0.12em',
-                color: JOURNEY_INK,
-              }}
-            >
-              {title}
-            </Typography>
-            {subtitle ? (
-              <Typography variant="body2" sx={{ color: 'rgba(31, 42, 68, 0.68)' }}>
-                {subtitle}
-              </Typography>
-            ) : null}
-          </Stack>
-          {action}
-        </Stack>
-        <Box sx={{ flex: 1, minHeight: 0 }}>{children}</Box>
-      </Stack>
-    </Card>
-  );
+function useEntryGridColumnCount(enabled: boolean) {
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [columnCount, setColumnCount] = useState(MYSPACE_BLOG_GRID_COLUMNS);
+
+  const updateColumnCount = useCallback(() => {
+    const node = gridRef.current;
+    if (!node || !enabled) {
+      return;
+    }
+
+    const nextCount = getBlogGridColumnCount(
+      node.clientWidth,
+      MYSPACE_BLOG_ITEM_MIN_WIDTH,
+      MYSPACE_BLOG_GRID_COLUMNS,
+      MYSPACE_BLOG_GRID_GAP,
+    );
+
+    setColumnCount((prev) => (prev === nextCount ? prev : nextCount));
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setColumnCount(MYSPACE_BLOG_GRID_COLUMNS);
+      return undefined;
+    }
+
+    const node = gridRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    updateColumnCount();
+
+    const observer = new ResizeObserver(() => {
+      updateColumnCount();
+    });
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [enabled, updateColumnCount]);
+
+  return { gridRef, columnCount };
 }
 
-function JourneyTimeline({
-  groups,
-  activeId,
-  onSelect,
-}: {
-  groups: JourneyGroup[];
-  activeId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <Stack
-      spacing={1}
-      sx={{
-        pr: { md: 1.5 },
-        borderRight: { md: `1px dashed ${JOURNEY_LINE}` },
-        minWidth: { md: 180 },
-      }}
-    >
-      {groups.map((group) => {
-        const active = group.id === activeId;
-
-        return (
-          <Button
-            key={group.id}
-            onClick={() => onSelect(group.id)}
-            color="inherit"
-            sx={{
-              justifyContent: 'flex-start',
-              textAlign: 'left',
-              px: 1.25,
-              py: 1.25,
-              borderRadius: 2,
-              border: JOURNEY_PANEL_BORDER,
-              bgcolor: active ? 'rgba(255,255,255,0.55)' : 'transparent',
-              color: JOURNEY_INK,
-            }}
-          >
-            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', letterSpacing: '0.08em' }}>
-                {group.monthLabel}
-              </Typography>
-              <Typography sx={{ fontWeight: 700, flex: 1 }} noWrap>
-                {group.country}
-              </Typography>
-              <MyJourneyCountryIcon country={group.country} />
-            </Stack>
-          </Button>
-        );
-      })}
-    </Stack>
-  );
+function buildPictureEntries(pictures: JourneyPictureItem[]): JourneyDiaryEntry[] {
+  return pictures.map((item, index) => ({
+    kind: 'picture' as const,
+    id: item.id,
+    index,
+    title: (item.caption || '').trim() || `Memory ${index + 1}`,
+    subtitle: formatJourneyLabel(item),
+    imageUrl: item.signedImageUrl,
+    dateLabel: item.visitedAt
+      ? formatDate(item.visitedAt)
+      : item.journeyMonth !== undefined && item.journeyMonth !== null
+        ? `${MONTH_LABELS[item.journeyMonth] || 'JAN'} ${item.journeyYear || ''}`.trim()
+        : item.journeyYear
+          ? String(item.journeyYear)
+          : undefined,
+    createdAt: item.visitedAt || item.createdAt,
+  }));
 }
 
-function JourneyPolaroid({
-  title,
-  imageUrl,
-  onClick,
-}: {
-  title: string;
-  imageUrl?: string;
-  onClick: () => void;
-}) {
-  return (
-    <CardActionArea onClick={onClick} sx={{ borderRadius: 0 }}>
-      <Box
-        sx={{
-          bgcolor: '#fff',
-          p: 1,
-          pb: 2.25,
-          boxShadow: '0 10px 24px rgba(47, 35, 22, 0.14)',
-          transform: 'rotate(-1deg)',
-          transition: 'transform 0.2s ease',
-          '&:hover': { transform: 'rotate(0deg) scale(1.02)' },
-        }}
-      >
-        <Box
-          sx={{
-            position: 'relative',
-            aspectRatio: '4 / 3',
-            bgcolor: 'grey.200',
-            overflow: 'hidden',
-          }}
-        >
-          {imageUrl ? (
-            <Box component="img" src={imageUrl} alt={title} sx={{ width: 1, height: 1, objectFit: 'cover' }} />
-          ) : (
-            <Stack alignItems="center" justifyContent="center" sx={{ width: 1, height: 1 }}>
-              <Iconify icon="solar:gallery-bold-duotone" width={28} sx={{ color: 'text.disabled' }} />
-            </Stack>
-          )}
-        </Box>
-        <Typography
-          align="center"
-          sx={{
-            mt: 1.25,
-            fontFamily: '"Caveat Variable", "Pacifico", cursive',
-            fontSize: '1.15rem',
-            color: JOURNEY_INK,
-          }}
-        >
-          {title}
-        </Typography>
-      </Box>
-    </CardActionArea>
-  );
+function buildNoteEntries(notes: JourneyNoteItem[]): JourneyDiaryEntry[] {
+  return notes.map((note, index) => ({
+    kind: 'note' as const,
+    id: note.id,
+    index,
+    title: (note.title || '').trim() || `Note #${note.id}`,
+    subtitle: formatJourneyLabel(note),
+    excerpt: getNoteExcerpt(note),
+    imageUrl: note.signedImageUrl,
+    dateLabel: formatDate(note.noteDate || note.createdAt),
+    createdAt: note.noteDate || note.createdAt,
+  }));
 }
 
-function JourneyNoteRow({
-  note,
-  onClick,
-}: {
-  note: JourneyNoteItem;
-  onClick: () => void;
-}) {
-  const title = (note.title || '').trim() || `Note #${note.id}`;
-
-  return (
-    <CardActionArea
-      onClick={onClick}
-      sx={{
-        borderRadius: 2,
-        border: JOURNEY_PANEL_BORDER,
-        bgcolor: 'rgba(255,255,255,0.42)',
-      }}
-    >
-      <Stack direction="row" spacing={1.5} sx={{ p: 1.5 }}>
-        <Box
-          sx={{
-            width: 72,
-            height: 72,
-            borderRadius: 1.5,
-            overflow: 'hidden',
-            flexShrink: 0,
-            bgcolor: 'rgba(31,42,68,0.08)',
-          }}
-        >
-          {note.signedImageUrl ? (
-            <Box component="img" src={note.signedImageUrl} alt={title} sx={{ width: 1, height: 1, objectFit: 'cover' }} />
-          ) : (
-            <Stack alignItems="center" justifyContent="center" sx={{ width: 1, height: 1 }}>
-              <Iconify icon="solar:notebook-bold-duotone" width={24} sx={{ color: 'text.disabled' }} />
-            </Stack>
-          )}
-        </Box>
-
-        <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="caption" sx={{ color: 'rgba(31,42,68,0.58)', fontWeight: 700 }}>
-            {formatDate(note.noteDate || note.createdAt)}
-          </Typography>
-          <Typography sx={{ fontWeight: 700, color: JOURNEY_INK }} noWrap>
-            {title}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(31,42,68,0.72)', lineHeight: 1.5 }}>
-            {getNoteExcerpt(note)}
-          </Typography>
-        </Stack>
-      </Stack>
-    </CardActionArea>
-  );
-}
-
-function MemorialMomentCard({
-  item,
-  onClick,
-}: {
-  item: JourneyMemorialItem;
-  onClick: () => void;
-}) {
-  return (
-    <CardActionArea
-      onClick={onClick}
-      sx={{
-        borderRadius: 2.5,
-        overflow: 'hidden',
-        border: JOURNEY_PANEL_BORDER,
-        bgcolor: 'rgba(255,255,255,0.5)',
-      }}
-    >
-      <Box sx={{ position: 'relative', pt: '62%', bgcolor: 'rgba(31,42,68,0.08)' }}>
-        {item.signedImageUrl ? (
-          <Box
-            component="img"
-            src={item.signedImageUrl}
-            alt={item.title}
-            sx={{ position: 'absolute', inset: 0, width: 1, height: 1, objectFit: 'cover' }}
-          />
-        ) : (
-          <Stack alignItems="center" justifyContent="center" sx={{ position: 'absolute', inset: 0 }}>
-            <Iconify icon={getMemorialThingCategoryIcon(item.category)} width={30} sx={{ color: JOURNEY_INK }} />
-          </Stack>
-        )}
-      </Box>
-
-      <Stack spacing={0.5} sx={{ p: 1.5 }}>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Iconify icon={getMemorialThingCategoryIcon(item.category)} width={16} sx={{ color: JOURNEY_INK }} />
-          <Typography variant="caption" sx={{ color: 'rgba(31,42,68,0.62)', fontWeight: 700 }}>
-            {getMemorialThingCategoryLabel(item.category)}
-          </Typography>
-        </Stack>
-        <Typography sx={{ fontWeight: 700, color: JOURNEY_INK }}>{item.title}</Typography>
-        <Typography variant="caption" sx={{ color: 'rgba(31,42,68,0.58)' }}>
-          {formatJourneyLabel(item)}
-        </Typography>
-      </Stack>
-    </CardActionArea>
-  );
+function buildMemorialEntries(items: JourneyMemorialItem[]): JourneyDiaryEntry[] {
+  return items.map((item, index) => ({
+    kind: 'memorial' as const,
+    id: item.id,
+    index,
+    title: item.title,
+    subtitle: `${getMemorialThingCategoryLabel(item.category)} · ${formatJourneyLabel(item)}`,
+    excerpt: (item.description || '').trim() || undefined,
+    imageUrl: item.signedImageUrl,
+    dateLabel: formatDate(item.memorialDate || item.createdAt),
+    createdAt: item.memorialDate || item.createdAt,
+  }));
 }
 
 export function UniverseLandingJourneyDiary({
   pictures,
   notes,
   memorialThings,
+  locations = [],
+  customerName = 'Friend',
+  customerAvatarUrl,
+  communityUsers = [],
   loading = false,
   showMyJourney = false,
   showMyNotes = false,
@@ -559,7 +408,10 @@ export function UniverseLandingJourneyDiary({
   sx,
   ...other
 }: Props) {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const { theme: spaceTheme } = useDesignSpaceTheme();
+
   const { resolvedContent, resolving } = useResolvedJourneyDiaryContent(
     pictures,
     notes,
@@ -568,59 +420,136 @@ export function UniverseLandingJourneyDiary({
   const { pictures: resolvedPictures, notes: resolvedNotes, memorialThings: resolvedMemorialThings } =
     resolvedContent;
 
-  const journeyGroups = useMemo(
-    () => groupPicturesByJourney(resolvedPictures),
-    [resolvedPictures],
-  );
-
-  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
+  const [navCategory, setNavCategory] = useState<JourneyDiaryNavCategory>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [detail, setDetail] = useState<JourneyDiaryDetailState | null>(null);
 
-  useEffect(() => {
-    if (!journeyGroups.length) {
-      setSelectedJourneyId(null);
-      return;
-    }
+  const availableSections = useMemo(() => {
+    const allowed = new Set<JourneyDiaryNavCategory>(['all']);
+    if (showMyJourney) allowed.add('journey');
+    if (showMyNotes) allowed.add('notes');
+    if (showMemorialThings) allowed.add('memorial');
 
-    setSelectedJourneyId((prev) =>
-      prev && journeyGroups.some((group) => group.id === prev) ? prev : journeyGroups[0].id,
-    );
-  }, [journeyGroups]);
+    return JOURNEY_DIARY_NAV_SECTIONS.filter((section) => allowed.has(section.id));
+  }, [showMemorialThings, showMyJourney, showMyNotes]);
 
-  const activeJourneyPictures = useMemo(() => {
-    const activeGroup = journeyGroups.find((group) => group.id === selectedJourneyId);
-    return activeGroup?.pictures || resolvedPictures;
-  }, [journeyGroups, resolvedPictures, selectedJourneyId]);
-
-  const polaroidItems = useMemo(() => {
-    const urlMap = Object.fromEntries(
-      activeJourneyPictures
-        .filter((picture) => picture.imageKey)
-        .map((picture) => [picture.imageKey, picture.signedImageUrl || '']),
-    );
-
-    return toPolaroidItemsFromPictures(activeJourneyPictures, urlMap);
-  }, [activeJourneyPictures]);
-
-  const openPictureDetail = useCallback(
-    (index: number) => {
-      setDetail({ type: 'picture', index, items: activeJourneyPictures });
-    },
-    [activeJourneyPictures],
-  );
-
-  const openNoteDetail = useCallback(
-    (index: number) => {
-      setDetail({ type: 'note', index, items: resolvedNotes });
-    },
-    [resolvedNotes],
-  );
-
-  const openMemorialDetail = useCallback(
-    (index: number) => {
-      setDetail({ type: 'memorial', index, items: resolvedMemorialThings });
-    },
+  const pictureEntries = useMemo(() => buildPictureEntries(resolvedPictures), [resolvedPictures]);
+  const noteEntries = useMemo(() => buildNoteEntries(resolvedNotes), [resolvedNotes]);
+  const memorialEntries = useMemo(
+    () => buildMemorialEntries(resolvedMemorialThings),
     [resolvedMemorialThings],
+  );
+
+  const allEntries = useMemo(() => {
+    const entries: JourneyDiaryEntry[] = [];
+    if (showMyJourney) entries.push(...pictureEntries);
+    if (showMyNotes) entries.push(...noteEntries);
+    if (showMemorialThings) entries.push(...memorialEntries);
+    return entries;
+  }, [
+    memorialEntries,
+    noteEntries,
+    pictureEntries,
+    showMemorialThings,
+    showMyJourney,
+    showMyNotes,
+  ]);
+
+  const navCounts = useMemo(
+    () => ({
+      all: allEntries.length,
+      journey: pictureEntries.length,
+      notes: noteEntries.length,
+      memorial: memorialEntries.length,
+    }),
+    [allEntries.length, memorialEntries.length, noteEntries.length, pictureEntries.length],
+  );
+
+  const categoryEntries = useMemo(
+    () => filterEntriesByCategory(allEntries, navCategory),
+    [allEntries, navCategory],
+  );
+
+  const filteredEntries = useMemo(
+    () => filterJourneyEntries(categoryEntries, searchQuery),
+    [categoryEntries, searchQuery],
+  );
+
+  const pageCount = Math.max(1, Math.ceil(filteredEntries.length / JOURNEY_PAGE_SIZE));
+  const paginatedEntries = useMemo(() => {
+    const safePage = Math.min(page, pageCount);
+    const start = (safePage - 1) * JOURNEY_PAGE_SIZE;
+    return filteredEntries.slice(start, start + JOURNEY_PAGE_SIZE);
+  }, [filteredEntries, page, pageCount]);
+
+  const activeNavSection = availableSections.find((section) => section.id === navCategory);
+  const { gridRef, columnCount } = useEntryGridColumnCount(paginatedEntries.length > 0);
+  const isResolving = resolving;
+  const openTripPicture = useCallback((trip: UniverseJourneyTrip, index: number) => {
+    setDetail({
+      type: 'picture',
+      index,
+      items: trip.pictures,
+      visitedAt: trip.visitedAt,
+      endAt: trip.endAt,
+    });
+  }, []);
+
+  const openTripNote = useCallback((tripNotes: JourneyNoteDetailItem[], index: number) => {
+    setDetail({
+      type: 'note',
+      index,
+      items: tripNotes,
+    });
+  }, []);
+
+  const openTripMemorial = useCallback((items: JourneyMemorialDetailItem[], index: number) => {
+    setDetail({
+      type: 'memorial',
+      index,
+      items,
+    });
+  }, []);
+
+  const showMyJourneyScrapbook = showMyJourney && navCategory === 'journey';
+  const showMyNotesScrapbook = showMyNotes && navCategory === 'notes';
+  const showMemorialThingsScrapbook = showMemorialThings && navCategory === 'memorial';
+  const showHomeDashboard = navCategory === 'all';
+  const showAnySection = showMyJourney || showMyNotes || showMemorialThings;
+
+  useEffect(() => {
+    if (!availableSections.some((section) => section.id === navCategory)) {
+      setNavCategory(availableSections[0]?.id ?? 'all');
+    }
+  }, [availableSections, navCategory]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [navCategory, searchQuery]);
+
+  const openEntryDetail = useCallback(
+    (entry: JourneyDiaryEntry) => {
+      if (entry.kind === 'picture') {
+        setDetail({ type: 'picture', index: entry.index, items: resolvedPictures });
+        return;
+      }
+
+      if (entry.kind === 'note') {
+        setDetail({ type: 'note', index: entry.index, items: resolvedNotes });
+        return;
+      }
+
+      setDetail({ type: 'memorial', index: entry.index, items: resolvedMemorialThings });
+    },
+    [resolvedMemorialThings, resolvedNotes, resolvedPictures],
   );
 
   const handlePrevDetail = useCallback(() => {
@@ -643,13 +572,41 @@ export function UniverseLandingJourneyDiary({
     });
   }, []);
 
-  const totalCount = pictures.length + notes.length + memorialThings.length;
-  const isResolving = resolving;
-  const showAnySection = showMyJourney || showMyNotes || showMemorialThings;
+  const handleSelectCategory = (category: JourneyDiaryNavCategory) => {
+    setNavCategory(category);
+
+    const mainEl = document.getElementById('journey-diary-main-scroll');
+    if (mainEl) {
+      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   if (!showAnySection) {
     return null;
   }
+
+  const sidebar = (
+    <Stack sx={{ width: 1, height: 1, minHeight: 0, overflow: 'hidden' }}>
+      <JourneyDiarySidebarTitle />
+
+      <JourneyDiaryCustomerHeader
+        customerName={customerName}
+        customerAvatarUrl={customerAvatarUrl}
+      />
+
+      <JourneyDiaryCategorySidebar
+        sections={availableSections}
+        activeCategory={navCategory}
+        counts={navCounts}
+        onSelectCategory={handleSelectCategory}
+        onNavigate={() => {
+          if (!isDesktop) {
+            setMobileNavOpen(false);
+          }
+        }}
+      />
+    </Stack>
+  );
 
   return (
     <Box
@@ -657,157 +614,266 @@ export function UniverseLandingJourneyDiary({
       sx={{
         flex: 1,
         minHeight: 0,
-        px: { xs: 2, md: 3 },
-        py: { xs: 3, md: 4 },
-        color: 'common.white',
+        height: { xs: 'auto', lg: 1 },
+        display: 'flex',
+        flexDirection: { xs: 'column', lg: 'row' },
+        bgcolor: spaceTheme.pageBg,
+        color: spaceTheme.textPrimary,
+        overflow: { xs: 'visible', lg: 'hidden' },
         ...sx,
       }}
       {...other}
     >
-      <Stack spacing={3.5}>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          alignItems={{ xs: 'flex-start', md: 'flex-end' }}
-          justifyContent="space-between"
+      {isDesktop ? (
+        <Box
+          component="aside"
+          sx={{
+            width: SIDEBAR_WIDTH,
+            flexShrink: 0,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: 1,
+            pr: 2,
+            mr: 2.5,
+            bgcolor: spaceTheme.sidebarBg,
+            color: spaceTheme.sidebarTextPrimary,
+            borderRight: '1px solid',
+            borderColor: spaceTheme.sidebarBorder,
+            borderRadius: { lg: 2 },
+          }}
         >
-          <Stack spacing={1} sx={{ maxWidth: 720 }}>
-            <Typography
-              variant="h3"
+          {sidebar}
+        </Box>
+      ) : null}
+
+      <Box
+        component="main"
+        id="journey-diary-main-scroll"
+        sx={{
+          position: 'relative',
+          flex: '1 1 auto',
+          minWidth: 0,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          bgcolor: spaceTheme.contentBg,
+          borderRadius: 2,
+          color: spaceTheme.textPrimary,
+          px: { xs: 2, sm: 3, lg: 0 },
+          pl: { lg: 0.5 },
+          pb: 2,
+          scrollbarWidth: 'thin',
+        }}
+      >
+        {!isDesktop ? (
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            sx={{ pt: 2, pb: 1.5, position: 'sticky', top: 0, zIndex: 2, bgcolor: spaceTheme.contentBg }}
+          >
+            <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open journey diary navigation">
+              <Iconify icon="solar:hamburger-menu-linear" />
+            </IconButton>
+            <Avatar
+              src={customerAvatarUrl || undefined}
+              alt={customerName}
               sx={{
-                fontFamily: MYSPACE_SECTION_SERIF,
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                color: 'common.white',
+                width: 40,
+                height: 40,
+                border: '2px solid',
+                borderColor: spaceTheme.border,
+                bgcolor: spaceTheme.accentSoft,
+                color: spaceTheme.accent,
               }}
             >
-              JOURNEY DIARY
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.72)', lineHeight: 1.7 }}>
-              Collect moments, not things. Shared journey photos, handwritten notes, and memorial keepsakes.
+              {customerName.charAt(0)}
+            </Avatar>
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: spaceTheme.decorativeFont || MYSPACE_SECTION_SERIF,
+                fontWeight: 600,
+                flex: 1,
+                minWidth: 0,
+              }}
+              noWrap
+            >
+              {JOURNEY_DIARY_TITLE}
             </Typography>
           </Stack>
+        ) : null}
 
-          {isOwner ? (
-            <Button
-              component={RouterLink}
-              href={paths.dashboard.homeSpace.thingsToShare}
-              variant="contained"
-              startIcon={<Iconify icon="solar:share-bold" />}
-              sx={{
-                borderRadius: 99,
-                px: 2.5,
-                whiteSpace: 'nowrap',
-                bgcolor: spaceTheme.accent,
-                boxShadow: 'none',
-                '&:hover': { bgcolor: spaceTheme.accentHover, boxShadow: 'none' },
+        <Stack spacing={3} sx={{ pt: { xs: 0, lg: 1 }, px: { lg: 2 } }}>
+          {showMyJourneyScrapbook ? (
+            <UniverseLandingJourneyDiaryMyJourney
+              pictures={resolvedPictures}
+              locations={locations}
+              communityUsers={communityUsers}
+              loading={loading || isResolving}
+              onOpenPicture={openTripPicture}
+            />
+          ) : showMyNotesScrapbook ? (
+            <UniverseLandingJourneyDiaryMyNotes
+              notes={resolvedNotes}
+              pictures={resolvedPictures}
+              locations={locations}
+              loading={loading || isResolving}
+              onOpenNote={openTripNote}
+            />
+          ) : showMemorialThingsScrapbook ? (
+            <UniverseLandingJourneyDiaryMyMemorialThings
+              memorialThings={resolvedMemorialThings}
+              pictures={resolvedPictures}
+              locations={locations}
+              loading={loading || isResolving}
+              onOpenMemorial={openTripMemorial}
+            />
+          ) : showHomeDashboard ? (
+            <UniverseLandingJourneyDiaryHome
+              entries={allEntries}
+              pictures={resolvedPictures}
+              locations={locations}
+              customerName={customerName}
+              categorySections={availableSections.filter((section) => section.id !== 'all')}
+              navCounts={navCounts}
+              loading={loading || isResolving}
+              onEntryClick={openEntryDetail}
+              onSelectCategory={(category) => {
+                setNavCategory(category);
+                setMobileNavOpen(false);
               }}
-            >
-              Manage Sharing
-            </Button>
-          ) : null}
-        </Stack>
+            />
+          ) : (
+            <>
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={2}
+                alignItems={{ xs: 'flex-start', md: 'flex-end' }}
+                justifyContent="space-between"
+              >
+                <MySpaceSectionTitle
+                  title={activeNavSection?.title ?? 'HOME'}
+                  subtitle={activeNavSection?.description ?? JOURNEY_DIARY_SUBTITLE}
+                  itemCount={filteredEntries.length}
+                />
 
-        {loading || isResolving ? (
-          <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>Loading journey diary...</Typography>
-        ) : totalCount === 0 ? (
-          <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
-            No shared journey diary items found.
-          </Typography>
-        ) : (
-          <Grid container spacing={2.5}>
-            {showMyJourney ? (
-              <Grid item xs={12} lg={showMemorialThings ? 8 : 12}>
-                <ScrapbookPanel
-                  title="JOURNEY"
-                  subtitle="Polaroid memories from each trip."
-                  action={
-                    <Typography variant="caption" sx={{ color: 'rgba(31,42,68,0.58)', fontWeight: 700 }}>
-                      {resolvedPictures.length} photos
-                    </Typography>
-                  }
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
+                  sx={{ width: { xs: 1, md: 'auto' } }}
                 >
-                  {resolvedPictures.length === 0 ? (
-                    <Typography sx={{ color: 'rgba(31,42,68,0.68)' }}>
-                      No shared journey photos yet.
-                    </Typography>
-                  ) : (
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5}>
-                      <JourneyTimeline
-                        groups={journeyGroups}
-                        activeId={selectedJourneyId}
-                        onSelect={setSelectedJourneyId}
-                      />
+                  <TextField
+                    size="small"
+                    placeholder="Search entries..."
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    sx={{
+                      minWidth: { sm: 240 },
+                      bgcolor: 'background.paper',
+                      borderRadius: 99,
+                      '& .MuiOutlinedInput-root': { borderRadius: 99 },
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Iconify icon="eva:search-fill" width={18} sx={{ color: 'text.disabled' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
 
-                      <Box
+                  {isOwner ? (
+                    <Button
+                      component={RouterLink}
+                      href={paths.dashboard.homeSpace.thingsToShare}
+                      variant="contained"
+                      startIcon={<Iconify icon="solar:share-bold" />}
+                      sx={{
+                        borderRadius: 99,
+                        px: 2.5,
+                        whiteSpace: 'nowrap',
+                        bgcolor: spaceTheme.accent,
+                        boxShadow: 'none',
+                        '&:hover': { bgcolor: spaceTheme.accentHover, boxShadow: 'none' },
+                      }}
+                    >
+                      Manage Sharing
+                    </Button>
+                  ) : null}
+                </Stack>
+              </Stack>
+
+              {loading || isResolving ? (
+                <Typography color="text.secondary">Loading journey diary...</Typography>
+              ) : filteredEntries.length === 0 ? (
+                <Typography color="text.secondary">
+                  {searchQuery.trim()
+                    ? 'No entries match your search.'
+                    : 'No shared journey diary items found.'}
+                </Typography>
+              ) : (
+                <>
+                  <Box
+                    ref={gridRef}
+                    sx={myspaceBlogListGridSx({
+                      itemCount: paginatedEntries.length,
+                      pageSize: JOURNEY_PAGE_SIZE,
+                      columnCount,
+                    })}
+                  >
+                    {paginatedEntries.map((entry) => (
+                      <Box key={`${entry.kind}-${entry.id}`} sx={myspaceBlogListGridItemSx}>
+                        <JourneyDiaryEntryCard entry={entry} onClick={() => openEntryDetail(entry)} />
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {pageCount > 1 ? (
+                    <Stack alignItems="center" sx={{ pt: 1 }}>
+                      <Pagination
+                        count={pageCount}
+                        page={page}
+                        onChange={(_, value) => setPage(value)}
+                        shape="rounded"
                         sx={{
-                          flex: 1,
-                          display: 'grid',
-                          gap: 2,
-                          gridTemplateColumns: {
-                            xs: 'repeat(2, minmax(0, 1fr))',
-                            sm: 'repeat(3, minmax(0, 1fr))',
+                          '& .MuiPaginationItem-root': { fontWeight: 600 },
+                          '& .Mui-selected': {
+                            bgcolor: `${spaceTheme.accent} !important`,
+                            color: 'common.white',
                           },
                         }}
-                      >
-                        {polaroidItems.map((item, index) => (
-                          <JourneyPolaroid
-                            key={item.id}
-                            title={item.title}
-                            imageUrl={item.imageUrl}
-                            onClick={() => openPictureDetail(index)}
-                          />
-                        ))}
-                      </Box>
+                      />
                     </Stack>
-                  )}
-                </ScrapbookPanel>
-              </Grid>
-            ) : null}
+                  ) : null}
+                </>
+              )}
+            </>
+          )}
+        </Stack>
+      </Box>
 
-            {showMemorialThings ? (
-              <Grid item xs={12} lg={showMyJourney ? 4 : 6}>
-                <ScrapbookPanel
-                  title="MEMORIAL THINGS"
-                  subtitle="Scenery, food, culture, and special moments."
-                >
-                  {resolvedMemorialThings.length === 0 ? (
-                    <Typography sx={{ color: 'rgba(31,42,68,0.68)' }}>
-                      No shared memorial things yet.
-                    </Typography>
-                  ) : (
-                    <Stack spacing={1.5}>
-                      {resolvedMemorialThings.map((item, index) => (
-                        <MemorialMomentCard
-                          key={item.id}
-                          item={item}
-                          onClick={() => openMemorialDetail(index)}
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </ScrapbookPanel>
-              </Grid>
-            ) : null}
-
-            {showMyNotes ? (
-              <Grid item xs={12} lg={showMemorialThings && !showMyJourney ? 6 : 12}>
-                <ScrapbookPanel title="MY NOTES" subtitle="Travel journal entries and reflections.">
-                  {resolvedNotes.length === 0 ? (
-                    <Typography sx={{ color: 'rgba(31,42,68,0.68)' }}>No shared notes yet.</Typography>
-                  ) : (
-                    <Stack spacing={1.25}>
-                      {resolvedNotes.map((note, index) => (
-                        <JourneyNoteRow key={note.id} note={note} onClick={() => openNoteDetail(index)} />
-                      ))}
-                    </Stack>
-                  )}
-                </ScrapbookPanel>
-              </Grid>
-            ) : null}
-          </Grid>
-        )}
-      </Stack>
+      <Drawer
+        anchor="left"
+        open={!isDesktop && mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        PaperProps={{
+          sx: {
+            width: { xs: 'min(100vw, 360px)', sm: SIDEBAR_WIDTH + 32 },
+            bgcolor: spaceTheme.sidebarBg,
+            color: spaceTheme.sidebarTextPrimary,
+            p: 2,
+            height: '100%',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        {sidebar}
+      </Drawer>
 
       <UniverseLandingJourneyDiaryDetailDialog
         detail={detail}

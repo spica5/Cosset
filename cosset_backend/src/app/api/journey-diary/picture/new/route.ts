@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       caption: picture.caption?.trim() || null,
       imageKey: String(picture.imageKey),
       sortOrder: picture.sortOrder ?? 0,
+      visitedAt: picture.visitedAt || null,
     });
 
     return response({ picture: created }, STATUS.OK);

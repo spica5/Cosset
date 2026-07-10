@@ -14,6 +14,7 @@ export interface JourneyDiaryRepresentativePicture {
   imageKey: string;
   sortOrder?: number | null;
   isPublic?: number | null;
+  visitedAt?: Date | string | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 }
@@ -42,6 +43,9 @@ const ensureTable = async (): Promise<void> => {
       .then(() =>
         executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS is_public INT DEFAULT 0`),
       )
+      .then(() =>
+        executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS visited_at TIMESTAMP`),
+      )
       .then(() => undefined)
       .catch((error) => {
         ensureTablePromise = null;
@@ -63,6 +67,7 @@ const PICTURE_COLUMNS = `
   image_key as "imageKey",
   sort_order as "sortOrder",
   is_public as "isPublic",
+  visited_at as "visitedAt",
   created_at as "createdAt",
   updated_at as "updatedAt"
 `;
@@ -156,10 +161,11 @@ export async function createJourneyDiaryRepresentativePicture(
           caption,
           image_key,
           sort_order,
+          visited_at,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING ${PICTURE_COLUMNS}
       `,
       [
@@ -171,6 +177,7 @@ export async function createJourneyDiaryRepresentativePicture(
         picture.caption || null,
         picture.imageKey,
         picture.sortOrder ?? 0,
+        picture.visitedAt || null,
       ],
     );
 
@@ -196,7 +203,9 @@ export async function createJourneyDiaryRepresentativePicture(
 
 export async function updateJourneyDiaryRepresentativePicture(
   id: number,
-  entry: Partial<Pick<JourneyDiaryRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic'>>,
+  entry: Partial<
+    Pick<JourneyDiaryRepresentativePicture, 'caption' | 'sortOrder' | 'isPublic' | 'visitedAt'>
+  >,
 ): Promise<JourneyDiaryRepresentativePicture> {
   try {
     await ensureTable();
@@ -220,6 +229,12 @@ export async function updateJourneyDiaryRepresentativePicture(
     if (entry.isPublic !== undefined) {
       fields.push(`is_public = $${paramIndex}`);
       values.push(entry.isPublic ?? 0);
+      paramIndex += 1;
+    }
+
+    if (entry.visitedAt !== undefined) {
+      fields.push(`visited_at = $${paramIndex}`);
+      values.push(entry.visitedAt || null);
       paramIndex += 1;
     }
 

@@ -20,6 +20,7 @@ import {
   JourneyDiaryPublicControl,
 } from './journey-diary-public-toggle';
 import type { JourneyPolaroidItem } from './my-journey-utils';
+import { toDateInputValue } from './my-journey-utils';
 import type { JourneyVisibility } from './journey-diary-public-utils';
 
 // ----------------------------------------------------------------------
@@ -33,6 +34,7 @@ type Props = {
   onAddPhoto?: () => void;
   onDelete?: (pictureId: string) => void;
   onRename?: (pictureId: string, caption: string) => void | Promise<void>;
+  onUpdateVisitDate?: (pictureId: string, visitedAt: string) => void | Promise<void>;
   onTogglePublic?: (pictureId: string, visibility: JourneyVisibility) => void | Promise<void>;
 };
 
@@ -42,6 +44,7 @@ function PolaroidCard({
   visibilitySaving,
   onDelete,
   onRename,
+  onUpdateVisitDate,
   onPreview,
   onTogglePublic,
 }: {
@@ -50,6 +53,7 @@ function PolaroidCard({
   visibilitySaving?: boolean;
   onDelete?: (pictureId: string) => void;
   onRename?: (item: JourneyPolaroidItem) => void;
+  onUpdateVisitDate?: (item: JourneyPolaroidItem) => void;
   onPreview?: (item: JourneyPolaroidItem) => void;
   onTogglePublic?: (pictureId: string, visibility: JourneyVisibility) => void | Promise<void>;
 }) {
@@ -174,7 +178,7 @@ function PolaroidCard({
             </Stack>
           ) : null}
 
-          {(onDelete || onRename) && item.hasCustomImage ? (
+          {(onDelete || onRename || onUpdateVisitDate) && item.hasCustomImage ? (
             <Stack
               direction="row"
               spacing={0.5}
@@ -187,6 +191,23 @@ function PolaroidCard({
                 transition: 'opacity 0.2s ease',
               }}
             >
+              {onUpdateVisitDate ? (
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onUpdateVisitDate(item);
+                  }}
+                  sx={{
+                    bgcolor: 'rgba(255,255,255,0.92)',
+                    boxShadow: 1,
+                    '&:hover': { bgcolor: 'common.white' },
+                  }}
+                  aria-label="Edit visit date"
+                >
+                  <Iconify icon="solar:calendar-bold" width={18} />
+                </IconButton>
+              ) : null}
               {onRename ? (
                 <IconButton
                   size="small"
@@ -225,6 +246,26 @@ function PolaroidCard({
                 </IconButton>
               ) : null}
             </Stack>
+          ) : null}
+
+          {item.visitDateLabel ? (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 8,
+                left: 8,
+                px: 0.9,
+                py: 0.35,
+                borderRadius: 1,
+                bgcolor: 'rgba(255,255,255,0.92)',
+                color: '#1F2A44',
+                fontSize: 11,
+                fontWeight: 700,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              }}
+            >
+              {item.visitDateLabel}
+            </Box>
           ) : null}
         </Box>
 
@@ -334,12 +375,16 @@ export function MyJourneyPolaroidGrid({
   onAddPhoto,
   onDelete,
   onRename,
+  onUpdateVisitDate,
   onTogglePublic,
 }: Props) {
   const [previewItem, setPreviewItem] = useState<JourneyPolaroidItem | null>(null);
   const [renameItem, setRenameItem] = useState<JourneyPolaroidItem | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
+  const [dateItem, setDateItem] = useState<JourneyPolaroidItem | null>(null);
+  const [dateValue, setDateValue] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
 
   const handleTogglePublic = useCallback(
     async (pictureId: string, visibility: JourneyVisibility) => {
@@ -352,6 +397,20 @@ export function MyJourneyPolaroidGrid({
   const openRenameDialog = (item: JourneyPolaroidItem) => {
     setRenameItem(item);
     setRenameValue(item.title);
+  };
+
+  const openDateDialog = (item: JourneyPolaroidItem) => {
+    setDateItem(item);
+    setDateValue(toDateInputValue(item.visitedAt));
+  };
+
+  const closeDateDialog = () => {
+    if (savingDate) {
+      return;
+    }
+
+    setDateItem(null);
+    setDateValue('');
   };
 
   const closeRenameDialog = () => {
@@ -383,6 +442,41 @@ export function MyJourneyPolaroidGrid({
       setRenameValue('');
     } finally {
       setRenaming(false);
+    }
+  };
+
+  const handleSaveVisitDate = async () => {
+    if (!dateItem || !onUpdateVisitDate || !dateValue) {
+      return;
+    }
+
+    setSavingDate(true);
+
+    try {
+      await onUpdateVisitDate(dateItem.id, dateValue);
+
+      if (previewItem?.id === dateItem.id) {
+        const visitDateLabel = new Date(`${dateValue}T12:00:00`).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+        setPreviewItem((prev) =>
+          prev
+            ? {
+                ...prev,
+                visitedAt: dateValue,
+                visitDateLabel,
+              }
+            : null,
+        );
+      }
+
+      setDateItem(null);
+      setDateValue('');
+    } finally {
+      setSavingDate(false);
     }
   };
 
@@ -429,6 +523,7 @@ export function MyJourneyPolaroidGrid({
             visibilitySaving={visibilitySavingId === item.id}
             onDelete={onDelete}
             onRename={onRename ? openRenameDialog : undefined}
+            onUpdateVisitDate={onUpdateVisitDate ? openDateDialog : undefined}
             onPreview={setPreviewItem}
             onTogglePublic={onTogglePublic ? handleTogglePublic : undefined}
           />
@@ -479,6 +574,22 @@ export function MyJourneyPolaroidGrid({
             >
               <Iconify icon="mingcute:close-line" width={18} />
             </IconButton>
+            {onUpdateVisitDate ? (
+              <IconButton
+                onClick={() => openDateDialog(previewItem)}
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: onRename ? 88 : 48,
+                  bgcolor: 'rgba(0,0,0,0.5)',
+                  color: 'common.white',
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                }}
+                aria-label="Edit visit date"
+              >
+                <Iconify icon="solar:calendar-bold" width={18} />
+              </IconButton>
+            ) : null}
             {onRename ? (
               <IconButton
                 onClick={() => openRenameDialog(previewItem)}
@@ -495,19 +606,30 @@ export function MyJourneyPolaroidGrid({
                 <Iconify icon="solar:pen-bold" width={18} />
               </IconButton>
             ) : null}
-            <Typography
-              sx={{
-                position: 'absolute',
-                left: 16,
-                bottom: 16,
-                color: 'common.white',
-                fontFamily: '"Caveat Variable", "Pacifico", cursive',
-                fontSize: '1.5rem',
-                textShadow: '0 2px 8px rgba(0,0,0,0.45)',
-              }}
-            >
-              {previewItem.title}
-            </Typography>
+            <Stack sx={{ position: 'absolute', left: 16, bottom: 16, gap: 0.25 }}>
+              <Typography
+                sx={{
+                  color: 'common.white',
+                  fontFamily: '"Caveat Variable", "Pacifico", cursive',
+                  fontSize: '1.5rem',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.45)',
+                }}
+              >
+                {previewItem.title}
+              </Typography>
+              {previewItem.visitDateLabel ? (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'rgba(255,255,255,0.88)',
+                    fontWeight: 700,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.45)',
+                  }}
+                >
+                  Visited {previewItem.visitDateLabel}
+                </Typography>
+              ) : null}
+            </Stack>
 
             {onTogglePublic ? (
               <Box
@@ -530,6 +652,34 @@ export function MyJourneyPolaroidGrid({
             ) : null}
           </Box>
         ) : null}
+      </Dialog>
+
+      <Dialog open={Boolean(dateItem)} onClose={closeDateDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Visit date</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            type="date"
+            label="Visited on"
+            value={dateValue}
+            onChange={(event) => setDateValue(event.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDateDialog} disabled={savingDate}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveVisitDate}
+            disabled={savingDate || !dateValue}
+          >
+            Save
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog open={Boolean(renameItem)} onClose={closeRenameDialog} fullWidth maxWidth="xs">

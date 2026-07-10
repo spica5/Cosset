@@ -4,33 +4,33 @@ import type { IAlbumItem } from 'src/types/album';
 import type { IUniverseProps } from 'src/types/universe';
 import type { ICollectionDrawerItem } from 'src/types/collection-item';
 
-import { useMemo, useState, useEffect } from 'react';
 import { mutate } from 'swr';
+import { useMemo, useState, useEffect } from 'react';
 
 import { paths } from 'src/routes/paths';
 
-import { CONFIG } from 'src/config-global';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
-
 import {
   type DesignSpaceType,
   normalizeDesignSpaceType,
   DEFAULT_DESIGN_SPACE_TYPE,
 } from 'src/utils/design-space-type';
 
+import { CONFIG } from 'src/config-global';
 import { useGetBlogs } from 'src/actions/blog';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
 import { createNotification } from 'src/actions/notification';
-import { useGetJourneyDiaryNotes } from 'src/actions/journey-diary-note';
 import { useGiftCount, useGetViewedGiftIds } from 'src/actions/gift';
+import { useGetJourneyDiaryNotes } from 'src/actions/journey-diary-note';
+import { useGetJourneyDiaryLocations } from 'src/actions/journey-diary-location';
 import { useGetJourneyMemorialThings } from 'src/actions/journey-diary-memorial-thing';
 import { useGetCollectionItems, useGetViewedCollectionItemIds } from 'src/actions/collection-item';
-import { useGetJourneyRepresentativePictures } from 'src/actions/journey-diary-representative-picture';
 import { useGetBookshelfEbooks, getBookshelfEbookListEndpoint } from 'src/actions/bookshelf-ebook';
+import { useGetJourneyRepresentativePictures } from 'src/actions/journey-diary-representative-picture';
 import { useGetBookshelfAudiobooks, getBookshelfAudiobookListEndpoint } from 'src/actions/bookshelf-audiobook';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -44,9 +44,9 @@ import { useUniverseHomeSpaceAccess } from './use-universe-home-space-access';
 import { UniverseLandingBookshelf } from '../landing/universe-landing-bookshelf';
 import { UniverseLandingJourneyDiary } from '../landing/universe-landing-journey-diary';
 import { UniverseLandingBookshelfPage } from '../landing/universe-landing-bookshelf-page';
-import { UniverseLandingJourneyDiaryPage } from '../landing/universe-landing-journey-diary-page';
-import { UniverseLandingSectionSplitBar } from '../landing/universe-landing-section-split-bar';
 import { UniverseLandingCollectionItems } from '../landing/universe-landing-collection-items';
+import { UniverseLandingSectionSplitBar } from '../landing/universe-landing-section-split-bar';
+import { UniverseLandingJourneyDiaryPage } from '../landing/universe-landing-journey-diary-page';
 
 // ----------------------------------------------------------------------
 
@@ -133,7 +133,7 @@ export function UniverseLandingView({
   const viewerId = String(user?.id || '').trim();
   const isCurrentCustomer = !!viewerId && viewerId === String(customerId || '').trim();
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
-  const { users } = useGetCommunityUsers(100, 0, authenticated);
+  const { users } = useGetCommunityUsers(500, 0, Boolean(customerId));
   const { friends: acceptedFriends, friendsLoading: acceptedFriendsLoading } = useGetFriends(
     viewerId,
     'accepted',
@@ -152,6 +152,8 @@ export function UniverseLandingView({
     useGetJourneyDiaryNotes(customerId);
   const { memorialThings: journeyMemorialThings, memorialThingsLoading: journeyMemorialThingsLoading } =
     useGetJourneyMemorialThings(customerId);
+  const { locations: journeyLocations, locationsLoading: journeyLocationsLoading } =
+    useGetJourneyDiaryLocations(customerId);
   const { ebooks, ebooksLoading } = useGetBookshelfEbooks(customerId);
   const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(customerId);
 
@@ -839,7 +841,10 @@ export function UniverseLandingView({
     allowVisitorSections &&
     (showMyJourneySection || showMyNotesSection || showMemorialThingsSection);
   const journeyDiaryLoading =
-    journeyPicturesLoading || journeyNotesLoading || journeyMemorialThingsLoading;
+    journeyPicturesLoading ||
+    journeyNotesLoading ||
+    journeyMemorialThingsLoading ||
+    journeyLocationsLoading;
 
   const mySpaceSectionCounts = useMemo(
     () => ({
@@ -1090,6 +1095,10 @@ export function UniverseLandingView({
               pictures={sharedJourneyPictures}
               notes={sharedJourneyNotes}
               memorialThings={sharedJourneyMemorialThings}
+              locations={journeyLocations}
+              customerName={customerName}
+              customerAvatarUrl={customerAvatarUrl}
+              communityUsers={users}
               loading={journeyDiaryLoading}
               showMyJourney={drawerSettings.myJourney}
               showMyNotes={drawerSettings.myNotes}

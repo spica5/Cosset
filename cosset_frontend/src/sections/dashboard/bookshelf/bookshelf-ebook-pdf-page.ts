@@ -1,5 +1,18 @@
 const PAGE_HASH_PATTERN = /page=(\d+)/i;
 
+export function shouldUseEmbeddedPdfViewer(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const ua = navigator.userAgent;
+  const isIos =
+    /iPad|iPhone|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  return !isIos;
+}
+
 export function normalizePageNumber(value: unknown, fallback = 1): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(1, Math.trunc(value));
@@ -50,7 +63,7 @@ export function setPdfIframePage(iframe: HTMLIFrameElement | null, page: number)
   }
 
   try {
-    const contentWindow = iframe.contentWindow;
+    const {contentWindow} = iframe;
     const targetHash = `page=${nextPage}`;
     if (contentWindow && contentWindow.location.hash.replace(/^#/, '') !== targetHash) {
       contentWindow.location.hash = targetHash;

@@ -203,7 +203,7 @@ export const DESIGN_SPACE_TYPE_OPTIONS: {
   },
   {
     value: 'navy-blue',
-    label: 'Navy Blue',
+    label: 'Mysterious, Creative',
     description: 'Deep midnight navy with electric blue accents — a lo-fi space for night focus',
   },
 ];

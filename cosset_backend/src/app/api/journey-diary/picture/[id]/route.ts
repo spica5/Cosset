@@ -50,6 +50,7 @@ export async function PUT(
       caption: updates.caption ?? null,
       sortOrder: updates.sortOrder,
       isPublic: updates.isPublic,
+      visitedAt: updates.visitedAt,
     });
 
     return response({ picture: updated }, STATUS.OK);
