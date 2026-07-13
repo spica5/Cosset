@@ -833,10 +833,10 @@ export function UniverseLandingView({
   const showBookshelfSection =
     allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
   const showMyJourneySection =
-    drawerSettings.myJourney || sharedJourneyPictures.length > 0;
-  const showMyNotesSection = drawerSettings.myNotes || sharedJourneyNotes.length > 0;
+    !!drawerSettings.myJourney && sharedJourneyPictures.length > 0;
+  const showMyNotesSection = !!drawerSettings.myNotes && sharedJourneyNotes.length > 0;
   const showMemorialThingsSection =
-    drawerSettings.memorialThings || sharedJourneyMemorialThings.length > 0;
+    !!drawerSettings.memorialThings && sharedJourneyMemorialThings.length > 0;
   const showJourneyDiarySection =
     allowVisitorSections &&
     (showMyJourneySection || showMyNotesSection || showMemorialThingsSection);
@@ -1100,9 +1100,9 @@ export function UniverseLandingView({
               customerAvatarUrl={customerAvatarUrl}
               communityUsers={users}
               loading={journeyDiaryLoading}
-              showMyJourney={drawerSettings.myJourney}
-              showMyNotes={drawerSettings.myNotes}
-              showMemorialThings={drawerSettings.memorialThings}
+              showMyJourney={showMyJourneySection}
+              showMyNotes={showMyNotesSection}
+              showMemorialThings={showMemorialThingsSection}
               isOwner={isCurrentCustomer}
             />
           </UniverseLandingJourneyDiaryPage>

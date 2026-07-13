@@ -47,3 +47,30 @@ export function getJourneyDiarySectionImageFallbackUrl(
 ): string {
   return getMyspaceSectionImageUrl(designType, MYSPACE_SECTION_FALLBACK[sectionId]);
 }
+
+// ----------------------------------------------------------------------
+
+const JOURNEY_REPRESENTATIVE_ASSETS_BASE = `${CONFIG.universe.assetsDir}/assets/images/journey`;
+
+const DEFAULT_JOURNEY_REPRESENTATIVE_FILE = 'warm_nostalgic_represent.png';
+
+const JOURNEY_REPRESENTATIVE_IMAGE_FILE: Record<DesignSpaceType, string> = {
+  'gentle-feminine-romantic': 'romantic_represent.png',
+  'serene-elegant': 'elegant_serene_represent.png',
+  'warm-nostalgic': 'warm_nostalgic_represent.png',
+  'strong-modern': 'strong_mordern_represent.png',
+  'young-dynamic': 'young_dynamic_represent.png',
+  'navy-blue': 'mysterious_creative_represnet.png',
+};
+
+export function getJourneyDiaryRepresentativeImageUrl(designType: DesignSpaceType): string {
+  const normalized = normalizeDesignSpaceType(designType);
+  const file =
+    JOURNEY_REPRESENTATIVE_IMAGE_FILE[normalized] ?? DEFAULT_JOURNEY_REPRESENTATIVE_FILE;
+
+  return `${JOURNEY_REPRESENTATIVE_ASSETS_BASE}/${file}`;
+}
+
+export function getJourneyDiaryRepresentativeImageFallbackUrl(): string {
+  return `${JOURNEY_REPRESENTATIVE_ASSETS_BASE}/${DEFAULT_JOURNEY_REPRESENTATIVE_FILE}`;
+}

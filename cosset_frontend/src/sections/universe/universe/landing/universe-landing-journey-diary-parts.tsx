@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -21,6 +23,10 @@ import {
   journeyDiaryDateBadgeSx,
   JOURNEY_ENTRY_IMAGE_GRADIENT,
 } from './universe-landing-journey-diary-utils';
+import {
+  getJourneyDiaryRepresentativeImageUrl,
+  getJourneyDiaryRepresentativeImageFallbackUrl,
+} from './journey-diary-section-images';
 
 // ----------------------------------------------------------------------
 
@@ -192,6 +198,44 @@ type SidebarProps = {
   onSelectCategory: (category: JourneyDiaryNavCategory) => void;
   onNavigate?: () => void;
 };
+
+export function JourneyDiaryRepresentativePicture() {
+  const { designType, theme: spaceTheme } = useDesignSpaceTheme();
+  const [imageSrc, setImageSrc] = useState(() =>
+    getJourneyDiaryRepresentativeImageUrl(designType),
+  );
+
+  useEffect(() => {
+    setImageSrc(getJourneyDiaryRepresentativeImageUrl(designType));
+  }, [designType]);
+
+  return (
+    <Box
+      sx={{
+        mt: 'auto',
+        pt: 2,
+        flexShrink: 0,
+        borderTop: `1px solid ${spaceTheme.sidebarDivider}`,
+      }}
+    >
+      <Box
+        component="img"
+        src={imageSrc}
+        alt=""
+        onError={() => {
+          setImageSrc(getJourneyDiaryRepresentativeImageFallbackUrl());
+        }}
+        sx={{
+          width: 1,
+          height: 'auto',
+          display: 'block',
+          borderRadius: 2,
+          objectFit: 'contain',
+        }}
+      />
+    </Box>
+  );
+}
 
 export function JourneyDiaryCategorySidebar({
   sections,

@@ -115,7 +115,13 @@ export const paths = {
         edit: (id: string | number) => `${ROOTS.DASHBOARD}/community/coffee-shop/${id}`,
         view: (id: string | number) => `${ROOTS.UNIVERSE}/community/coffee-shop/${id}/view`,
       },
-      cinema:  `${ROOTS.DASHBOARD}/community/cinema`,
+      cinema: {
+        root: `${ROOTS.DASHBOARD}/community/cinema`,
+        classic: `${ROOTS.DASHBOARD}/community/cinema/classic`,
+        genre: `${ROOTS.DASHBOARD}/community/cinema/genre`,
+        drama: `${ROOTS.DASHBOARD}/community/cinema/drama`,
+        view: (category: string) => `${ROOTS.UNIVERSE}/community/cinema/${category}/view`,
+      },
       friend: `${ROOTS.DASHBOARD}/community/friend`,
       neighbor: {
         root: `${ROOTS.DASHBOARD}/community/neighbor`,

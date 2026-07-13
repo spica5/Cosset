@@ -254,8 +254,18 @@ export function UniverseLandingJourneyDiaryMyNotes({
         backgroundSize: '28px 28px',
       }}
     >
-      <Box sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Stack direction={{ xs: 'column', xl: 'row' }} spacing={2.5} alignItems="stretch">
+      <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gap: { xs: 2, md: 2.5 },
+            alignItems: 'start',
+            gridTemplateColumns: {
+              xs: '1fr',
+              lg: 'minmax(220px, 250px) minmax(0, 1fr)',
+            },
+          }}
+        >
           <JourneyDiaryMyTripsPanel
             filteredTrips={filteredTrips}
             tripFilter={tripFilter}
@@ -273,12 +283,12 @@ export function UniverseLandingJourneyDiaryMyNotes({
 
           <Box
             sx={{
-              flex: 1,
               minWidth: 0,
               borderRadius: 2,
               border: palette.border,
               bgcolor: palette.panelActive,
-              p: { xs: 2, md: 2.5 },
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              overflow: 'hidden',
             }}
           >
             <Stack spacing={0.5} sx={{ mb: 2.5 }}>
@@ -329,7 +339,7 @@ export function UniverseLandingJourneyDiaryMyNotes({
               </Typography>
             )}
           </Box>
-        </Stack>
+        </Box>
       </Box>
     </Box>
   );

@@ -91,8 +91,8 @@ export function JourneyDiaryTripListCard({
       <Stack direction="row" spacing={1.25} alignItems="center" sx={{ width: 1, minWidth: 0 }}>
         <Box
           sx={{
-            width: 54,
-            height: 54,
+            width: { xs: 48, sm: 54 },
+            height: { xs: 48, sm: 54 },
             borderRadius: 1.5,
             overflow: 'hidden',
             flexShrink: 0,
@@ -113,10 +113,12 @@ export function JourneyDiaryTripListCard({
           )}
         </Box>
 
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Stack direction="row" spacing={0.75} alignItems="center">
-            <MyJourneyCountryIcon country={trip.country} />
-            <Typography sx={{ fontWeight: 700, color: palette.ink }} noWrap>
+        <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+            <Box sx={{ flexShrink: 0, display: 'inline-flex' }}>
+              <MyJourneyCountryIcon country={trip.country} />
+            </Box>
+            <Typography sx={{ fontWeight: 700, color: palette.ink, minWidth: 0 }} noWrap>
               {trip.country}
             </Typography>
           </Stack>
@@ -158,12 +160,12 @@ export function JourneyDiaryMyTripsPanel({
   return (
     <Box
       sx={{
-        width: { xs: 1, xl: 280 },
-        flexShrink: 0,
+        width: 1,
+        minWidth: 0,
         borderRadius: 2,
         border: palette.border,
         bgcolor: palette.panel,
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
       }}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
@@ -185,11 +187,14 @@ export function JourneyDiaryMyTripsPanel({
         sx={{
           mb: 1.5,
           width: 1,
+          display: 'flex',
           '& .MuiToggleButton-root': {
             flex: 1,
+            minWidth: 0,
+            px: { xs: 0.75, sm: 1 },
             textTransform: 'none',
             fontWeight: 700,
-            fontSize: '0.78rem',
+            fontSize: { xs: '0.72rem', sm: '0.78rem' },
             color: palette.ink,
             borderColor: spaceTheme.border,
             '&.Mui-selected': {
@@ -204,7 +209,21 @@ export function JourneyDiaryMyTripsPanel({
         <ToggleButton value="upcoming">Upcoming</ToggleButton>
       </ToggleButtonGroup>
 
-      <Stack spacing={1}>
+      <Stack
+        spacing={1}
+        direction="column"
+        sx={{
+          display: { xs: 'grid', lg: 'flex' },
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+          },
+          maxHeight: { lg: 'min(70vh, 720px)' },
+          overflowY: { lg: 'auto' },
+          overflowX: 'hidden',
+          pr: { lg: 0.5 },
+        }}
+      >
         {filteredTrips.map((trip) => (
           <JourneyDiaryTripListCard
             key={trip.groupKey}

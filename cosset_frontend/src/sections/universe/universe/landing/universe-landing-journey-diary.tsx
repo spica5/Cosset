@@ -56,6 +56,7 @@ import {
   JourneyDiarySidebarTitle,
   JourneyDiaryCustomerHeader,
   JourneyDiaryCategorySidebar,
+  JourneyDiaryRepresentativePicture,
 } from './universe-landing-journey-diary-parts';
 import {
   MYSPACE_BLOG_GRID_GAP,
@@ -605,6 +606,8 @@ export function UniverseLandingJourneyDiary({
           }
         }}
       />
+
+      <JourneyDiaryRepresentativePicture />
     </Stack>
   );
 

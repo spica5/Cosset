@@ -211,6 +211,22 @@ export const endpoints = {
       update: (id: string | number) => `/api/bookshelf/borrow/${id}`,
     },
   },
+  cinema: {
+    film: {
+      list: '/api/cinema/film/list',
+      add: '/api/cinema/film/new',
+      details: (id: string | number) => `/api/cinema/film/${id}`,
+      update: (id: string | number) => `/api/cinema/film/${id}`,
+      delete: (id: string | number) => `/api/cinema/film/${id}`,
+    },
+    screening: {
+      list: '/api/cinema/screening/list',
+      add: '/api/cinema/screening/new',
+      details: (id: string | number) => `/api/cinema/screening/${id}`,
+      update: (id: string | number) => `/api/cinema/screening/${id}`,
+      delete: (id: string | number) => `/api/cinema/screening/${id}`,
+    },
+  },
   post: {
     list: '/api/post/list',
     latest: '/api/post/latest',

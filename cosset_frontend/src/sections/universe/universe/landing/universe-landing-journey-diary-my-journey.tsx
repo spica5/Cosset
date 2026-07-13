@@ -3,13 +3,15 @@
 import type { DesignSpaceTheme } from 'src/utils/design-space-type';
 import type { IJourneyDiaryLocation } from 'src/types/journey-diary-location';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
+
+import { getS3SignedUrl } from 'src/utils/helper';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -42,15 +44,13 @@ type CommunityUser = {
   photoURL?: string | null;
 };
 
-type Props = {
-  pictures: JourneyPictureDetailItem[];
-  locations: IJourneyDiaryLocation[];
-  communityUsers?: CommunityUser[];
-  loading?: boolean;
-  onOpenPicture: (trip: UniverseJourneyTrip, index: number) => void;
+type CompanionProfile = {
+  id: string;
+  name: string;
+  avatarUrl: string;
 };
 
-function resolveCompanionProfiles(companionIds: string[], users: CommunityUser[]) {
+function resolveCompanionProfiles(companionIds: string[], users: CommunityUser[]): CompanionProfile[] {
   const byId = new Map(users.map((user) => [String(user.id || '').toLowerCase(), user]));
 
   return companionIds.map((id) => {
@@ -62,6 +62,72 @@ function resolveCompanionProfiles(companionIds: string[], users: CommunityUser[]
 
     return { id, name, avatarUrl };
   });
+}
+
+function CompanionAvatar({
+  companion,
+  spaceTheme,
+  size = 48,
+}: {
+  companion: CompanionProfile;
+  spaceTheme: DesignSpaceTheme;
+  size?: number;
+}) {
+  const [avatarSrc, setAvatarSrc] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const raw = String(companion.avatarUrl || '').trim();
+
+    if (!raw) {
+      setAvatarSrc('');
+      return undefined;
+    }
+
+    if (
+      raw.startsWith('http://') ||
+      raw.startsWith('https://') ||
+      raw.startsWith('/') ||
+      raw.startsWith('public:')
+    ) {
+      setAvatarSrc(raw.startsWith('public:') ? raw.replace(/^public:/, '') : raw);
+      return undefined;
+    }
+
+    (async () => {
+      try {
+        const url = await getS3SignedUrl(raw);
+        if (!cancelled) {
+          setAvatarSrc(url || '');
+        }
+      } catch (error) {
+        console.error('Failed to resolve companion avatar', error);
+        if (!cancelled) {
+          setAvatarSrc('');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companion.avatarUrl]);
+
+  return (
+    <Avatar
+      alt={companion.name}
+      src={avatarSrc || undefined}
+      sx={{
+        width: size,
+        height: size,
+        bgcolor: spaceTheme.accentSoft,
+        color: spaceTheme.accent,
+        border: `2px solid ${spaceTheme.border}`,
+      }}
+    >
+      {companion.name.charAt(0).toUpperCase()}
+    </Avatar>
+  );
 }
 
 function JourneyCompanionsPanel({
@@ -90,22 +156,7 @@ function JourneyCompanionsPanel({
         <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
           {companions.map((companion) => (
             <Stack key={companion.id} alignItems="center" spacing={0.5} sx={{ width: 76 }}>
-              <Avatar
-                src={
-                  companion.avatarUrl.startsWith('http://') || companion.avatarUrl.startsWith('https://')
-                    ? companion.avatarUrl
-                    : undefined
-                }
-                sx={{
-                  width: 48,
-                  height: 48,
-                  bgcolor: spaceTheme.accentSoft,
-                  color: spaceTheme.accent,
-                  border: `2px solid ${spaceTheme.border}`,
-                }}
-              >
-                {companion.name.charAt(0)}
-              </Avatar>
+              <CompanionAvatar companion={companion} spaceTheme={spaceTheme} />
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -126,6 +177,14 @@ function JourneyCompanionsPanel({
   );
 }
 
+type Props = {
+  pictures: JourneyPictureDetailItem[];
+  locations: IJourneyDiaryLocation[];
+  communityUsers?: CommunityUser[];
+  loading?: boolean;
+  onOpenPicture: (trip: UniverseJourneyTrip, index: number) => void;
+};
+
 function ScrapbookPolaroid({
   imageUrl,
   title,
@@ -141,14 +200,18 @@ function ScrapbookPolaroid({
     <Box
       sx={{
         position: 'relative',
-        width: { xs: 1, md: 220 },
-        maxWidth: 220,
-        flexShrink: 0,
-        transform: `rotate(${rotation}deg)`,
+        width: 1,
+        maxWidth: { xs: 220, sm: 200, lg: 180 },
+        flex: { sm: '0 0 auto' },
+        transform: {
+          xs: 'none',
+          sm: `rotate(${rotation}deg)`,
+        },
       }}
     >
       <Box
         sx={{
+          display: { xs: 'none', sm: 'block' },
           position: 'absolute',
           top: -10,
           left: '50%',
@@ -191,6 +254,9 @@ function ScrapbookPolaroid({
             fontSize: '1.05rem',
             color: palette.ink,
             lineHeight: 1.2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
           {title}
@@ -217,55 +283,68 @@ function TimelineEntry({
   const visitDateLabel = formatPictureVisitDateLabel(picture, trip);
 
   return (
-    <Stack direction="row" spacing={2} sx={{ position: 'relative', pl: { xs: 0, md: 1 } }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: '88px minmax(0, 1fr)',
+        },
+        columnGap: { md: 2 },
+        position: 'relative',
+        pb: { xs: 2.5, md: 3.5 },
+      }}
+    >
       <Box
         sx={{
-          display: { xs: 'none', md: 'block' },
-          width: 72,
-          flexShrink: 0,
-          pt: 1,
-          textAlign: 'right',
-          pr: 1,
+          display: { xs: 'none', md: 'flex' },
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          pt: 1.25,
+          pr: 1.5,
+          minWidth: 0,
         }}
       >
-        <Stack spacing={0.25} sx={{ pt: 1 }}>
-          <Typography
-            sx={{
-              fontWeight: 800,
-              fontSize: '0.62rem',
-              letterSpacing: '0.12em',
-              color: palette.muted,
-              lineHeight: 1,
-            }}
-          >
-            VISITED
-          </Typography>
-          <Typography
-            sx={{
-              fontWeight: 800,
-              fontSize: '0.72rem',
-              letterSpacing: '0.08em',
-              color: palette.accent,
-              lineHeight: 1.2,
-            }}
-          >
-            {visitDateLabel || 'Date TBD'}
-          </Typography>
-        </Stack>
+        <Typography
+          sx={{
+            fontWeight: 800,
+            fontSize: '0.62rem',
+            letterSpacing: '0.12em',
+            color: palette.muted,
+            lineHeight: 1,
+          }}
+        >
+          VISITED
+        </Typography>
+        <Typography
+          sx={{
+            mt: 0.35,
+            fontWeight: 800,
+            fontSize: '0.72rem',
+            letterSpacing: '0.04em',
+            color: palette.accent,
+            lineHeight: 1.25,
+            textAlign: 'right',
+            wordBreak: 'break-word',
+          }}
+        >
+          {visitDateLabel || 'Date TBD'}
+        </Typography>
       </Box>
 
-      <Box sx={{ position: 'relative', flex: 1, minWidth: 0, pb: 4 }}>
+      <Box sx={{ position: 'relative', minWidth: 0 }}>
         <Box
           sx={{
             display: { xs: 'none', md: 'block' },
             position: 'absolute',
-            left: -18,
-            top: 12,
+            left: -19,
+            top: 14,
             width: 10,
             height: 10,
             borderRadius: '50%',
             bgcolor: palette.accent,
             boxShadow: `0 0 0 4px ${palette.accentSoft}`,
+            zIndex: 1,
           }}
         />
 
@@ -276,7 +355,8 @@ function TimelineEntry({
             borderRadius: 2.5,
             border: palette.border,
             bgcolor: palette.panelActive,
-            p: { xs: 2, md: 2.5 },
+            p: { xs: 1.5, sm: 2, md: 2.25 },
+            overflow: 'hidden',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             '&:hover': {
               transform: 'translateY(-2px)',
@@ -286,8 +366,9 @@ function TimelineEntry({
         >
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
-            spacing={2.5}
+            spacing={{ xs: 1.5, sm: 2 }}
             alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+            flexWrap="wrap"
           >
             {picture.signedImageUrl ? (
               <ScrapbookPolaroid
@@ -298,28 +379,63 @@ function TimelineEntry({
               />
             ) : null}
 
-            <Stack spacing={1} sx={{ flex: 1, minWidth: 0, pt: { sm: 0.5 } }}>
-              <Typography sx={{ display: { md: 'none' }, fontSize: '0.62rem', fontWeight: 800, color: palette.muted, letterSpacing: '0.12em' }}>
+            <Stack spacing={1} sx={{ flex: '1 1 160px', minWidth: 0, pt: { sm: 0.5 } }}>
+              <Typography
+                sx={{
+                  display: { xs: 'block', md: 'none' },
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  color: palette.muted,
+                  letterSpacing: '0.12em',
+                }}
+              >
                 VISITED
               </Typography>
-              <Typography sx={{ display: { md: 'none' }, fontSize: '0.72rem', fontWeight: 800, color: palette.accent }}>
+              <Typography
+                sx={{
+                  display: { xs: 'block', md: 'none' },
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: palette.accent,
+                }}
+              >
                 {visitDateLabel || 'Date TBD'}
               </Typography>
-              <Typography variant="h6" sx={{ color: palette.ink, fontWeight: 700 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: palette.ink,
+                  fontWeight: 700,
+                  fontSize: { xs: '1.05rem', sm: '1.15rem' },
+                  overflowWrap: 'anywhere',
+                }}
+              >
                 {title}
               </Typography>
-              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: 'text.secondary' }}>
-                <Iconify icon="solar:map-point-bold" width={16} />
-                <Typography variant="body2">{trip.locationLabel}</Typography>
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: 'text.secondary', minWidth: 0 }}>
+                <Iconify icon="solar:map-point-bold" width={16} sx={{ flexShrink: 0 }} />
+                <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
+                  {trip.locationLabel}
+                </Typography>
               </Stack>
-              <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  lineHeight: 1.7,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
                 {title}
               </Typography>
             </Stack>
           </Stack>
         </Box>
       </Box>
-    </Stack>
+    </Box>
   );
 }
 
@@ -392,11 +508,18 @@ export function UniverseLandingJourneyDiaryMyJourney({
         backgroundSize: '28px 28px',
       }}
     >
-      <Box sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Stack
-          direction={{ xs: 'column', xl: 'row' }}
-          spacing={2.5}
-          alignItems="stretch"
+      <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gap: { xs: 2, md: 2.5 },
+            alignItems: 'start',
+            gridTemplateColumns: {
+              xs: '1fr',
+              lg: 'minmax(220px, 250px) minmax(0, 1fr)',
+              xl: 'minmax(220px, 250px) minmax(0, 1fr) minmax(200px, 240px)',
+            },
+          }}
         >
           <JourneyDiaryMyTripsPanel
             filteredTrips={filteredTrips}
@@ -419,12 +542,12 @@ export function UniverseLandingJourneyDiaryMyJourney({
           {/* Center: Journey Diary timeline */}
           <Box
             sx={{
-              flex: 1,
               minWidth: 0,
               borderRadius: 2,
               border: palette.border,
               bgcolor: palette.panelActive,
-              p: { xs: 2, md: 2.5 },
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              overflow: 'hidden',
             }}
           >
             <Stack
@@ -434,15 +557,16 @@ export function UniverseLandingJourneyDiaryMyJourney({
               spacing={2}
               sx={{ mb: 2.5 }}
             >
-              <Box>
+              <Box sx={{ minWidth: 0 }}>
                 <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Iconify icon="solar:heart-bold" width={18} sx={{ color: palette.accent }} />
+                  <Iconify icon="solar:heart-bold" width={18} sx={{ color: palette.accent, flexShrink: 0 }} />
                   <Typography
                     sx={{
                       fontFamily: spaceTheme.decorativeFont || 'inherit',
                       fontWeight: 700,
-                      fontSize: '1.5rem',
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' },
                       color: palette.ink,
+                      minWidth: 0,
                     }}
                   >
                     Journey Diary
@@ -455,31 +579,31 @@ export function UniverseLandingJourneyDiaryMyJourney({
             </Stack>
 
             {selectedTrip ? (
-              <Box sx={{ mb: 2.5 }}>
+              <Box sx={{ mb: 2.5, minWidth: 0 }}>
                 <Typography variant="h6" sx={{ color: palette.ink, fontWeight: 700 }}>
                   {selectedTrip.country}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
                   {formatTripDateRange(selectedTrip.visitedAt, selectedTrip.endAt)}
                   {selectedTrip.journeyName ? ` · ${selectedTrip.journeyName}` : ''}
                 </Typography>
               </Box>
             ) : null}
 
-            <Box sx={{ position: 'relative', pl: { md: 2 } }}>
+            <Box sx={{ position: 'relative', pl: { md: 0.5 } }}>
               <Box
                 sx={{
                   display: { xs: 'none', md: 'block' },
                   position: 'absolute',
                   top: 0,
                   bottom: 0,
-                  left: 78,
+                  left: 88,
                   width: 2,
                   bgcolor: palette.accentSoft,
                 }}
               />
 
-              <Stack spacing={1}>
+              <Stack spacing={0}>
                 {visiblePictures.map((picture, index) => (
                   <TimelineEntry
                     key={picture.id}
@@ -509,14 +633,17 @@ export function UniverseLandingJourneyDiaryMyJourney({
           {/* Right: Widgets */}
           <Box
             sx={{
-              width: { xs: 1, xl: 300 },
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
+              minWidth: 0,
+              display: 'grid',
               gap: 2,
+              gridColumn: { xs: 'auto', lg: '1 / -1', xl: 'auto' },
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr',
+                xl: '1fr',
+              },
             }}
           >
-
             <Box sx={{ borderRadius: 2, border: palette.border, bgcolor: palette.panelActive, p: 2 }}>
               <Typography sx={{ fontWeight: 800, color: palette.ink, mb: 1.25 }}>
                 Journey Stats
@@ -527,7 +654,7 @@ export function UniverseLandingJourneyDiaryMyJourney({
                   { icon: 'solar:camera-bold', label: 'Photos', value: stats.photos },
                   { icon: 'solar:map-point-bold', label: 'Cities', value: stats.cities },
                 ].map((item) => (
-                  <Stack key={item.label} alignItems="center" spacing={0.5} sx={{ flex: 1 }}>
+                  <Stack key={item.label} alignItems="center" spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
                     <Iconify icon={item.icon} width={20} sx={{ color: palette.accent }} />
                     <Typography sx={{ fontWeight: 800, color: palette.ink }}>{item.value}</Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -545,7 +672,7 @@ export function UniverseLandingJourneyDiaryMyJourney({
               spaceTheme={spaceTheme}
             />
           </Box>
-        </Stack>
+        </Box>
       </Box>
     </Box>
   );

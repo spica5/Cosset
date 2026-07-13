@@ -56,18 +56,6 @@ const JOURNEY_CONTENT_BORDER = '1px solid rgba(31, 42, 68, 0.16)';
 const TIMELINE_MARKER_SIZE = 14;
 const TIMELINE_CONTENT_OFFSET = 22;
 
-const getDefaultPhotoVisitedAt = (entry: JourneyTimelineEntry) => {
-  const locationDate =
-    parseJourneyDate(entry.locations[0]?.visitedAt) ||
-    parseJourneyDate(entry.locations[0]?.createdAt);
-
-  if (locationDate) {
-    return toDateInputValue(locationDate);
-  }
-
-  return toDateInputValue(new Date(entry.year, entry.month, 1));
-};
-
 const toVisitedAtIso = (dateValue: string) => new Date(`${dateValue}T12:00:00`).toISOString();
 
 function TimelineItem({
@@ -333,7 +321,7 @@ export function MyJourneyView() {
           caption: captionBase || `Memory ${pictures.length + 1}`,
           imageKey: result.key,
           sortOrder: pictures.length,
-          visitedAt: toVisitedAtIso(getDefaultPhotoVisitedAt(selectedEntry)),
+          visitedAt: toVisitedAtIso(toDateInputValue(new Date())),
         });
 
         toast.success('Photo added successfully.');
