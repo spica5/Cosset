@@ -114,7 +114,101 @@ export const parseJourneyDate = (value?: unknown) => {
 export const normalizeCountryKey = (country?: string | null) =>
   (country || 'Unknown').trim().toLowerCase();
 
-export const buildJourneyTimeline = (locations: IJourneyDiaryLocation[]) => {
+export const pictureMatchesJourneyEntry = <
+  T extends {
+    journeyGroupKey?: string | null;
+    journeyYear?: number | null;
+    journeyMonth?: number | null;
+    journeyCountry?: string | null;
+  },
+>(
+  picture: T,
+  entry: Pick<JourneyTimelineEntry, 'id' | 'year' | 'month' | 'country'>,
+  allEntries: Array<Pick<JourneyTimelineEntry, 'id' | 'year' | 'month' | 'country'>>,
+) => {
+  if (picture.journeyGroupKey && picture.journeyGroupKey === entry.id) {
+    return true;
+  }
+
+  const pictureCountry = normalizeCountryKey(picture.journeyCountry);
+  const entryCountry = normalizeCountryKey(entry.country);
+
+  if (!pictureCountry || pictureCountry !== entryCountry) {
+    return false;
+  }
+
+  if (picture.journeyYear !== entry.year) {
+    return false;
+  }
+
+  if (
+    picture.journeyMonth !== undefined &&
+    picture.journeyMonth !== null &&
+    picture.journeyMonth === entry.month
+  ) {
+    return true;
+  }
+
+  // Soft match: location dates (and therefore timeline group keys) can drift from the
+  // journeyGroupKey stored on older photos. Mirror Home Space and still attach the photo
+  // when the country + year match and this entry is the best month fit.
+  const sameCountryYearEntries = allEntries.filter(
+    (candidate) =>
+      candidate.year === entry.year && normalizeCountryKey(candidate.country) === entryCountry,
+  );
+
+  if (!sameCountryYearEntries.length) {
+    return false;
+  }
+
+  if (sameCountryYearEntries.length === 1) {
+    return sameCountryYearEntries[0].id === entry.id;
+  }
+
+  const pictureMonth =
+    picture.journeyMonth !== undefined && picture.journeyMonth !== null
+      ? picture.journeyMonth
+      : entry.month;
+
+  const closest = sameCountryYearEntries.reduce((best, candidate) =>
+    Math.abs(candidate.month - pictureMonth) < Math.abs(best.month - pictureMonth)
+      ? candidate
+      : best,
+  );
+
+  return closest.id === entry.id;
+};
+
+export const filterPicturesForJourneyEntry = <
+  T extends {
+    journeyGroupKey?: string | null;
+    journeyYear?: number | null;
+    journeyMonth?: number | null;
+    journeyCountry?: string | null;
+  },
+>(
+  pictures: T[],
+  entry: Pick<JourneyTimelineEntry, 'id' | 'year' | 'month' | 'country'> | null,
+  allEntries: Array<Pick<JourneyTimelineEntry, 'id' | 'year' | 'month' | 'country'>>,
+) => {
+  if (!entry) {
+    return [];
+  }
+
+  return pictures.filter((picture) => pictureMatchesJourneyEntry(picture, entry, allEntries));
+};
+
+export const buildJourneyTimeline = <
+  T extends {
+    journeyGroupKey?: string | null;
+    journeyYear?: number | null;
+    journeyMonth?: number | null;
+    journeyCountry?: string | null;
+  },
+>(
+  locations: IJourneyDiaryLocation[],
+  pictures: T[] = [],
+) => {
   const groups = new Map<string, JourneyTimelineEntry>();
 
   locations.forEach((location) => {
@@ -139,6 +233,38 @@ export const buildJourneyTimeline = (locations: IJourneyDiaryLocation[]) => {
       country,
       journeyName: location.journeyName || undefined,
       locations: [location],
+    });
+  });
+
+  // Include photo groups that Home Space can show even when their stored
+  // journeyGroupKey no longer matches a location-derived timeline id.
+  pictures.forEach((picture) => {
+    const country = picture.journeyCountry?.trim() || 'Journey';
+    const year = picture.journeyYear ?? new Date().getFullYear();
+    const month = picture.journeyMonth ?? 0;
+    const groupKey =
+      picture.journeyGroupKey?.trim() ||
+      `${year}-${month}-${country.toLowerCase()}`;
+
+    if (groups.has(groupKey)) {
+      return;
+    }
+
+    const alreadyCovered = [...groups.values()].some((entry) =>
+      pictureMatchesJourneyEntry(picture, entry, [...groups.values()]),
+    );
+
+    if (alreadyCovered) {
+      return;
+    }
+
+    groups.set(groupKey, {
+      id: groupKey,
+      year,
+      month,
+      monthLabel: MONTH_LABELS[month] || 'JAN',
+      country,
+      locations: [],
     });
   });
 

@@ -39,6 +39,7 @@ import type { JourneyVisibility } from '../journey-diary-public-utils';
 import { JourneyCompanionAvatars, JourneyCompanionSubtitleTrigger } from '../journey-companion-picker';
 import {
   buildJourneyTimeline,
+  filterPicturesForJourneyEntry,
   parseJourneyDate,
   sortPicturesByVisitDate,
   toDateInputValue,
@@ -163,7 +164,14 @@ export function MyJourneyView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { locations, locationsLoading } = useGetJourneyDiaryLocations(userId);
-  const { entries, years } = useMemo(() => buildJourneyTimeline(locations), [locations]);
+  // Load all pictures for the user, then match them to the selected timeline entry.
+  // Exact journeyGroupKey filters miss older photos whose stored key no longer matches
+  // the location-derived timeline id (same gap Home Space already works around).
+  const { pictures: allPictures, picturesLoading } = useGetJourneyRepresentativePictures(userId);
+  const { entries, years } = useMemo(
+    () => buildJourneyTimeline(locations, allPictures),
+    [allPictures, locations],
+  );
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -236,9 +244,9 @@ export function MyJourneyView() {
     [selectedEntry],
   );
 
-  const { pictures, picturesLoading } = useGetJourneyRepresentativePictures(
-    userId,
-    selectedEntry?.id ?? null,
+  const pictures = useMemo(
+    () => filterPicturesForJourneyEntry(allPictures, selectedEntry, entries),
+    [allPictures, entries, selectedEntry],
   );
 
   useEffect(() => {
