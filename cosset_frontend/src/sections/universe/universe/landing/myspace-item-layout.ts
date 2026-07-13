@@ -1,5 +1,7 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
+import type { DesignSpaceTheme } from 'src/utils/design-space-type';
+
 /** Fixed card width for Albums, Drawers, and Collections in My Space. */
 export const MYSPACE_ITEM_CARD_WIDTH = 304;
 
@@ -96,3 +98,31 @@ export const myspaceBlogListGridItemSx: SxProps<Theme> = {
     minHeight: 0,
   },
 };
+
+/** Theme-aware pagination so inactive pages stay readable on dark and light design spaces. */
+export function getMyspacePaginationSx(spaceTheme: DesignSpaceTheme): SxProps<Theme> {
+  const selectedBg = spaceTheme.isDark ? spaceTheme.accent : spaceTheme.accentSoft;
+  const selectedColor = spaceTheme.isDark ? '#FFFFFF' : spaceTheme.textPrimary;
+
+  return {
+    '& .MuiPaginationItem-root': {
+      color: spaceTheme.textPrimary,
+      fontWeight: 600,
+      opacity: 1,
+      '&.Mui-disabled': {
+        opacity: 0.42,
+      },
+    },
+    '& .MuiPaginationItem-root:hover': {
+      bgcolor: spaceTheme.accentSoft,
+    },
+    '& .Mui-selected': {
+      bgcolor: `${selectedBg} !important`,
+      color: `${selectedColor} !important`,
+      ...(spaceTheme.isDark ? {} : { border: `1px solid ${spaceTheme.accent}` }),
+      '&:hover': {
+        bgcolor: `${selectedBg} !important`,
+      },
+    },
+  };
+}

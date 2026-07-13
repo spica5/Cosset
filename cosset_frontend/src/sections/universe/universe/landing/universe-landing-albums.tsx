@@ -26,7 +26,7 @@ import {
   MySpaceSectionTitle,
   MYSPACE_ITEM_TITLE_FONT,
 } from './myspace-section-title';
-import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { myspaceItemCardSx, myspaceItemGridSx, getMyspacePaginationSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
 
 // ----------------------------------------------------------------------
@@ -451,15 +451,7 @@ export function UniverseLandingAlbums({
                   page={Math.min(page, pageCount)}
                   onChange={(_, value) => setPage(value)}
                   shape="rounded"
-                  sx={{
-                    '& .MuiPaginationItem-root': {
-                      fontWeight: 600,
-                    },
-                    '& .Mui-selected': {
-                      bgcolor: `${spaceTheme.accent} !important`,
-                      color: 'common.white',
-                    },
-                  }}
+                  sx={getMyspacePaginationSx(spaceTheme)}
                 />
               </Stack>
             ) : null}

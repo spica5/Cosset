@@ -65,6 +65,7 @@ import {
   MYSPACE_BLOG_GRID_COLUMNS,
   myspaceBlogListGridItemSx,
   MYSPACE_BLOG_ITEM_MIN_WIDTH,
+  getMyspacePaginationSx,
 } from './myspace-item-layout';
 import {
   type JourneyNoteDetailItem,
@@ -841,13 +842,7 @@ export function UniverseLandingJourneyDiary({
                         page={page}
                         onChange={(_, value) => setPage(value)}
                         shape="rounded"
-                        sx={{
-                          '& .MuiPaginationItem-root': { fontWeight: 600 },
-                          '& .Mui-selected': {
-                            bgcolor: `${spaceTheme.accent} !important`,
-                            color: 'common.white',
-                          },
-                        }}
+                        sx={getMyspacePaginationSx(spaceTheme)}
                       />
                     </Stack>
                   ) : null}

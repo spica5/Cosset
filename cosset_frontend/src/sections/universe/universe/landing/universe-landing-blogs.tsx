@@ -44,6 +44,7 @@ import {
   MYSPACE_BLOG_ITEM_MIN_WIDTH,
   MYSPACE_BLOG_LIST_PAGE_SIZE,
   getBlogGridColumnCount,
+  getMyspacePaginationSx,
   myspaceBlogListGridSx,
   myspaceBlogListGridItemSx,
 } from './myspace-item-layout';
@@ -567,15 +568,7 @@ export function UniverseLandingBlogs({
                   page={Math.min(page, pageCount)}
                   onChange={(_, value) => setPage(value)}
                   shape="rounded"
-                  sx={{
-                    '& .MuiPaginationItem-root': {
-                      fontWeight: 600,
-                    },
-                    '& .Mui-selected': {
-                      bgcolor: `${spaceTheme.accent} !important`,
-                      color: 'common.white',
-                    },
-                  }}
+                  sx={getMyspacePaginationSx(spaceTheme)}
                 />
               </Stack>
             ) : null}
