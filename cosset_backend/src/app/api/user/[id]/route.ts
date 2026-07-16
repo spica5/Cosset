@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { updateUser, getUserById } from '@/models/users';
+import { updateUser, getUserById, updateUserRole, USER_ROLES } from '@/models/users';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, handleError, response } from 'src/utils/response';
@@ -78,13 +78,42 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const state = String(body?.state || '').trim().toLowerCase();
+    const stateRaw = body?.state;
+    const roleRaw = body?.role;
 
-    if (!CUSTOMER_STATES.has(state)) {
-      return response({ message: 'Invalid customer state' }, STATUS.BAD_REQUEST);
+    const hasState = stateRaw !== undefined && stateRaw !== null && String(stateRaw).trim() !== '';
+    const hasRole = roleRaw !== undefined && roleRaw !== null && String(roleRaw).trim() !== '';
+
+    if (!hasState && !hasRole) {
+      return response({ message: 'At least one of state or role is required' }, STATUS.BAD_REQUEST);
     }
 
-    const updatedUser = await updateUser(id, { state });
+    let updatedUser = await getUserById(id);
+
+    if (!updatedUser) {
+      return response({ message: 'User not found' }, STATUS.NOT_FOUND);
+    }
+
+    if (hasState) {
+      const state = String(stateRaw).trim().toLowerCase();
+
+      if (!CUSTOMER_STATES.has(state)) {
+        return response({ message: 'Invalid customer state' }, STATUS.BAD_REQUEST);
+      }
+
+      updatedUser = await updateUser(id, { state });
+    }
+
+    if (hasRole) {
+      const role = String(roleRaw).trim().toLowerCase();
+
+      if (!USER_ROLES.includes(role as (typeof USER_ROLES)[number])) {
+        return response({ message: 'Invalid user role' }, STATUS.BAD_REQUEST);
+      }
+
+      updatedUser = await updateUserRole(id, role as (typeof USER_ROLES)[number]);
+    }
+
     const safeUser = { ...updatedUser };
     delete (safeUser as { password?: string }).password;
 

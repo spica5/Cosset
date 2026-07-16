@@ -125,6 +125,12 @@ export const paths = {
         edit: (id: string | number) => `${ROOTS.DASHBOARD}/community/coffee-shop/${id}`,
         view: (id: string | number) => `${ROOTS.UNIVERSE}/community/coffee-shop/${id}/view`,
       },
+      brandsBoulevard: {
+        root: `${ROOTS.DASHBOARD}/community/brands-boulevard`,
+        list: `${ROOTS.DASHBOARD}/community/brands-boulevard`,
+        myStore: `${ROOTS.DASHBOARD}/community/brands-boulevard/my-store`,
+        store: (id: string | number) => `${ROOTS.DASHBOARD}/community/brands-boulevard/${id}`,
+      },
       cinema: {
         root: `${ROOTS.DASHBOARD}/community/cinema`,
         classic: `${ROOTS.DASHBOARD}/community/cinema/classic`,

@@ -46,7 +46,7 @@ import { NotificationsDrawer } from '../components/notifications-drawer';
 
 // ----------------------------------------------------------------------
 
-const COFFEE_SHOP_HEADER_ICON_SX: SxProps<Theme> = {
+const SCENE_HEADER_ICON_SX: SxProps<Theme> = {
   width: 40,
   height: 40,
   border: '1px solid rgba(255, 248, 240, 0.88)',
@@ -76,8 +76,10 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const pathname = usePathname();
   const { user } = useAuthContext();
 
-  const isCoffeeShopPage = pathname?.includes('/community/coffee-shop');
-  const coffeeShopHeaderIconSx = isCoffeeShopPage ? COFFEE_SHOP_HEADER_ICON_SX : undefined;
+  const isSceneHeaderPage =
+    pathname?.includes('/community/coffee-shop') ||
+    pathname?.includes('/community/brands-boulevard');
+  const sceneHeaderIconSx = isSceneHeaderPage ? SCENE_HEADER_ICON_SX : undefined;
 
   const mobileNavOpen = useBoolean();
   const { notifications } = useGetNotifications(user?.id ? String(user.id) : undefined);
@@ -255,12 +257,12 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
                 <NotificationsDrawer
                   data={notifications}
                   customerId={user?.id ? String(user.id) : undefined}
-                  sx={coffeeShopHeaderIconSx}
+                  sx={sceneHeaderIconSx}
                 />
                 {/* -- Contacts popover -- */}
-                <ContactsPopover sx={coffeeShopHeaderIconSx} />
+                <ContactsPopover sx={sceneHeaderIconSx} />
                 {/* -- Account drawer -- */}
-                <AccountDrawer data={_account} sx={coffeeShopHeaderIconSx} />
+                <AccountDrawer data={_account} sx={sceneHeaderIconSx} />
               </Box>
             ),
           }}

@@ -1,5 +1,8 @@
 'use client';
 
+import { toast } from 'sonner';
+import { useState } from 'react';
+
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
@@ -13,7 +16,9 @@ import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
 
-import { useGetCurrentUser } from 'src/actions/user';
+import { isUserBusiness } from 'src/auth/utils/role';
+
+import { useGetCurrentUser, requestBusinessAccount } from 'src/actions/user';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -25,6 +30,7 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 export function AccountView() {
   const theme = useTheme();
   const { user } = useGetCurrentUser();
+  const [requestingBusinessAccount, setRequestingBusinessAccount] = useState(false);
 
   // Determine account type based on user subscription status
   // This is a placeholder - adjust based on your actual user schema
@@ -32,6 +38,8 @@ export function AccountView() {
   const billingEmail = user?.email || '';
   const billingCycle = 'Monthly';
   const nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
+  const hasBusinessAccount = isUserBusiness(user?.role);
+  const hasPendingBusinessRequest = Boolean(user?.businessAccountRequestedAt) && !hasBusinessAccount;
 
   const getAccountTypeColor = (type: string) => {
     switch (type) {
@@ -45,6 +53,23 @@ export function AccountView() {
   };
 
   const isFreeAccount = accountType === 'Free Account';
+
+  const handleRequestBusinessAccount = async () => {
+    if (requestingBusinessAccount || hasBusinessAccount || hasPendingBusinessRequest) {
+      return;
+    }
+
+    try {
+      setRequestingBusinessAccount(true);
+      await requestBusinessAccount();
+      toast.success('Business account request submitted');
+    } catch (error) {
+      console.error('Failed to request business account', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to request business account');
+    } finally {
+      setRequestingBusinessAccount(false);
+    }
+  };
 
   return (
     <DashboardContent>
@@ -254,6 +279,47 @@ export function AccountView() {
                   </Grid>
                 </Grid>
               </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Stack spacing={2.5}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Business Account
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Business accounts unlock tools for managing media, reservations, and customer-facing
+                  experiences.
+                </Typography>
+              </Box>
+
+              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap">
+                {hasBusinessAccount ? (
+                  <Chip label="Business account active" color="success" variant="filled" />
+                ) : hasPendingBusinessRequest ? (
+                  <Chip label="Request pending review" color="warning" variant="outlined" />
+                ) : (
+                  <Chip label="Standard account" color="default" variant="outlined" />
+                )}
+              </Stack>
+
+              {!hasBusinessAccount ? (
+                <Button
+                  variant="contained"
+                  disabled={hasPendingBusinessRequest || requestingBusinessAccount}
+                  onClick={handleRequestBusinessAccount}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  {requestingBusinessAccount
+                    ? 'Submitting request...'
+                    : hasPendingBusinessRequest
+                      ? 'Request submitted'
+                      : 'Request business account'}
+                </Button>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>

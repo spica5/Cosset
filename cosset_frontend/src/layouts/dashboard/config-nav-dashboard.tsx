@@ -169,6 +169,7 @@ export const navData = [
         children: [
           { title: 'Posts', path: paths.dashboard.community.post.list },         
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop.root },
+          { title: 'Brands Boulevard', path: paths.dashboard.community.brandsBoulevard.root },
           { title: 'Cinema', path: paths.dashboard.community.cinema.root },
           { title: 'Friends', path: paths.dashboard.community.friend },
           { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },

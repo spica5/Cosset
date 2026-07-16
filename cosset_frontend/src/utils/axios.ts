@@ -45,6 +45,7 @@ export const endpoints = {
     list: '/api/user/list',
     directory: '/api/user/directory',
     details: (id: string | number) => `/api/user/${id}`,
+    businessRequest: '/api/user/business-request',
   },
   friend: {
     list: '/api/friend/list',
@@ -134,6 +135,20 @@ export const endpoints = {
     menu: (id: string | number) => `/api/coffee-shop/${id}/menu`,
     menuOrder: (id: string | number) => `/api/coffee-shop/${id}/menu/order`,
     favorite: '/api/coffee-shop/favorite',
+  },
+  brandStore: {
+    list: '/api/brand-store/list',
+    mine: '/api/brand-store/list?mine=1',
+    add: '/api/brand-store/new',
+    details: (id: string | number) => `/api/brand-store/${id}`,
+    update: (id: string | number) => `/api/brand-store/${id}`,
+    delete: (id: string | number) => `/api/brand-store/${id}`,
+    categories: (id: string | number) => `/api/brand-store/${id}/category`,
+    category: (id: string | number, categoryId: string | number) =>
+      `/api/brand-store/${id}/category/${categoryId}`,
+    products: (id: string | number) => `/api/brand-store/${id}/product`,
+    product: (id: string | number, productId: string | number) =>
+      `/api/brand-store/${id}/product/${productId}`,
   },
   journeyDiary: {
     location: {

@@ -114,11 +114,14 @@ export async function updateCurrentUser(updatedData: Record<string, any>) {
 }
 
 /**
- * Update a customer's state from the admin customers page
+ * Update a customer's state and/or role from the admin customers page
  */
-export async function updateCustomerState(customerId: string | number, state: string) {
+export async function updateCustomer(
+  customerId: string | number,
+  updates: { state?: string; role?: string }
+) {
   try {
-    const response = await axios.put(endpoints.user.details(customerId), { state });
+    const response = await axios.put(endpoints.user.details(customerId), updates);
 
     mutate(
       (key) => typeof key === 'string' && key.startsWith(endpoints.user.list),
@@ -132,8 +135,37 @@ export async function updateCustomerState(customerId: string | number, state: st
       typeof error === 'string'
         ? error
         : error && typeof error === 'object' && 'message' in error
-          ? String((error as { message?: unknown }).message || 'Failed to update customer state')
-          : 'Failed to update customer state';
+          ? String((error as { message?: unknown }).message || 'Failed to update customer')
+          : 'Failed to update customer';
+
+    throw new Error(message);
+  }
+}
+
+/**
+ * Update a customer's state from the admin customers page
+ */
+export async function updateCustomerState(customerId: string | number, state: string) {
+  return updateCustomer(customerId, { state });
+}
+
+/**
+ * Request a business account upgrade for the current user
+ */
+export async function requestBusinessAccount() {
+  try {
+    const response = await axios.post(endpoints.user.businessRequest, {});
+
+    mutate(ME_ENDPOINT);
+
+    return response.data?.user || response.data;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to request business account')
+          : 'Failed to request business account';
 
     throw new Error(message);
   }

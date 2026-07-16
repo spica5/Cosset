@@ -16,7 +16,7 @@
  */
 
 import { DatabaseError } from '@/db/errors';
-import { queryOne, queryMany } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 /**
  * Table name for users
@@ -31,7 +31,9 @@ export type UserPlanType = 'FREE' | 'PAID' | 'EXTRA-PAID';
 /**
  * User role type enum
  */
-export type UserRoleType = 'user' | 'admin';
+export type UserRoleType = 'user' | 'admin' | 'business';
+
+export const USER_ROLES: UserRoleType[] = ['user', 'admin', 'business'];
 
 /**
  * User record from the database
@@ -69,11 +71,52 @@ export interface User {
   about?: string;
   /** Whether profile is public */
   isPublic: boolean;
+  /** When the user requested a business account upgrade */
+  businessAccountRequestedAt?: Date | null;
   /** Record creation timestamp */
   createdAt: Date;
   /** Last update timestamp */
   updatedAt: Date;
 }
+
+const USER_SELECT_FIELDS = `
+  id,
+  email,
+  password,
+  plan as "plan",
+  role as "role",
+  phone_number as "phoneNumber",
+  first_name as "firstName",
+  last_name as "lastName",
+  photo_url as "photoURL",
+  country,
+  address,
+  state,
+  city,
+  zip_code as "zipCode",
+  about,
+  is_public as "isPublic",
+  business_account_requested_at as "businessAccountRequestedAt",
+  created_at as "createdAt",
+  updated_at as "updatedAt"
+`;
+
+let ensureUserBusinessColumnsPromise: Promise<void> | null = null;
+
+const ensureUserBusinessColumns = async (): Promise<void> => {
+  if (!ensureUserBusinessColumnsPromise) {
+    ensureUserBusinessColumnsPromise = (async () => {
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS business_account_requested_at TIMESTAMP NULL`,
+      );
+    })().catch((error) => {
+      ensureUserBusinessColumnsPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureUserBusinessColumnsPromise;
+};
 
 /**
  * Get user by email address
@@ -100,27 +143,12 @@ export interface User {
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
   try {
+    await ensureUserBusinessColumns();
+
     const user = await queryOne<User>(
       `
         SELECT
-          id,
-          email,
-          password,
-          plan as "plan",
-          role as "role",
-          phone_number as "phoneNumber",
-          first_name as "firstName",
-          last_name as "lastName",
-          photo_url as "photoURL",
-          country,
-          address,
-          state,
-          city,
-          zip_code as "zipCode",
-          about,
-          is_public as "isPublic",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          ${USER_SELECT_FIELDS}
         FROM ${TABLE_NAME}
         WHERE LOWER(email) = LOWER($1)
         LIMIT 1
@@ -163,27 +191,12 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  */
 export async function getUserById(id: string): Promise<User | null> {
   try {
+    await ensureUserBusinessColumns();
+
     const user = await queryOne<User>(
       `
         SELECT
-          id,
-          email,
-          password,
-          plan as "plan",
-          role as "role",
-          phone_number as "phoneNumber",
-          first_name as "firstName",
-          last_name as "lastName",
-          photo_url as "photoURL",
-          country,
-          address,
-          state,
-          city,
-          zip_code as "zipCode",
-          about,
-          is_public as "isPublic",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          ${USER_SELECT_FIELDS}
         FROM ${TABLE_NAME}
         WHERE id = $1
         LIMIT 1
@@ -327,27 +340,12 @@ export async function getAllUsers(
   offset: number = 0,
 ): Promise<User[]> {
   try {
+    await ensureUserBusinessColumns();
+
     const users = await queryMany<User>(
       `
         SELECT
-          id,
-          email,
-          password,
-          plan as "plan",
-          role as "role",
-          phone_number as "phoneNumber",
-          first_name as "firstName",
-          last_name as "lastName",
-          photo_url as "photoURL",
-          country,
-          address,
-          state,
-          city,
-          zip_code as "zipCode",
-          about,
-          is_public as "isPublic",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          ${USER_SELECT_FIELDS}
         FROM ${TABLE_NAME}
         ORDER BY created_at DESC
         LIMIT $1
@@ -761,6 +759,156 @@ export async function updateUser(
       throw new DatabaseError({
         code: 'UPDATE_USER_ERROR',
         message: `Failed to update user: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function updateUserRole(id: string, role: UserRoleType): Promise<User> {
+  try {
+    await ensureUserBusinessColumns();
+
+    const normalizedRole = String(role || '')
+      .trim()
+      .toLowerCase() as UserRoleType;
+
+    if (!USER_ROLES.includes(normalizedRole)) {
+      throw new DatabaseError({
+        code: 'INVALID_USER_ROLE',
+        message: 'Invalid user role',
+      });
+    }
+
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET
+          role = $2,
+          business_account_requested_at = CASE
+            WHEN $2 = 'business' THEN NULL
+            ELSE business_account_requested_at
+          END,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          ${USER_SELECT_FIELDS}
+      `,
+      [id, normalizedRole],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_ROLE_FAILED',
+        message: 'Failed to update user role: User not found',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'UPDATE_USER_ROLE_ERROR',
+      message: `Failed to update user role: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function requestBusinessAccount(id: string): Promise<User> {
+  try {
+    await ensureUserBusinessColumns();
+
+    const existing = await getUserById(id);
+
+    if (!existing) {
+      throw new DatabaseError({
+        code: 'REQUEST_BUSINESS_ACCOUNT_FAILED',
+        message: 'User not found',
+      });
+    }
+
+    if (existing.role === 'business') {
+      throw new DatabaseError({
+        code: 'BUSINESS_ACCOUNT_ALREADY_ACTIVE',
+        message: 'Business account is already active',
+      });
+    }
+
+    if (existing.businessAccountRequestedAt) {
+      throw new DatabaseError({
+        code: 'BUSINESS_ACCOUNT_ALREADY_REQUESTED',
+        message: 'Business account request is already pending',
+      });
+    }
+
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET business_account_requested_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          ${USER_SELECT_FIELDS}
+      `,
+      [id],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'REQUEST_BUSINESS_ACCOUNT_FAILED',
+        message: 'Failed to request business account',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'REQUEST_BUSINESS_ACCOUNT_ERROR',
+      message: `Failed to request business account: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function getAdminUsers(): Promise<Omit<User, 'password'>[]> {
+  try {
+    await ensureUserBusinessColumns();
+
+    return await queryMany<Omit<User, 'password'>>(
+      `
+        SELECT
+          id,
+          email,
+          plan as "plan",
+          role as "role",
+          phone_number as "phoneNumber",
+          first_name as "firstName",
+          last_name as "lastName",
+          photo_url as "photoURL",
+          country,
+          address,
+          state,
+          city,
+          zip_code as "zipCode",
+          about,
+          is_public as "isPublic",
+          business_account_requested_at as "businessAccountRequestedAt",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM ${TABLE_NAME}
+        WHERE LOWER(role) = 'admin'
+        ORDER BY created_at ASC
+      `,
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_ADMIN_USERS_ERROR',
+        message: `Failed to fetch admin users: ${error.message}`,
         detail: error.detail,
       });
     }
