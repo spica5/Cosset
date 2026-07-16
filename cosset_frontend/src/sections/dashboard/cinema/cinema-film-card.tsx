@@ -9,8 +9,10 @@ import Card from '@mui/material/Card';
 import Link from '@mui/material/Link';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -30,6 +32,9 @@ type Props = {
   canManage?: boolean;
   onEdit?: (film: ICinemaFilm) => void;
   onDelete?: (film: ICinemaFilm) => void;
+  onReserve?: (film: ICinemaFilm) => void;
+  isReserved?: boolean;
+  isReserving?: boolean;
 };
 
 const resolvePosterImage = async (posterImage?: string | null) => {
@@ -46,7 +51,15 @@ const resolvePosterImage = async (posterImage?: string | null) => {
   return (await getS3SignedUrl(normalized)) || normalized;
 };
 
-export function CinemaFilmCard({ film, canManage, onEdit, onDelete }: Props) {
+export function CinemaFilmCard({
+  film,
+  canManage,
+  onEdit,
+  onDelete,
+  onReserve,
+  isReserved,
+  isReserving,
+}: Props) {
   const [posterUrl, setPosterUrl] = useState('');
   const nextScreening = getNextFilmScreening(film);
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
@@ -119,8 +132,48 @@ export function CinemaFilmCard({ film, canManage, onEdit, onDelete }: Props) {
           </Stack>
         )}
 
+        {showStatusLabel ? (
+          <Chip
+            size="small"
+            label={showStatusLabel}
+            color={showStatus === 'now' ? 'success' : showStatus === 'upcoming' ? 'info' : 'default'}
+            variant={showStatus === 'past' ? 'outlined' : 'filled'}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              zIndex: 1,
+              fontWeight: 700,
+              bgcolor: showStatus === 'past' ? 'rgba(0,0,0,0.72)' : undefined,
+            }}
+          />
+        ) : null}
+
+        {showScheduleLabel ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1,
+              px: 1.25,
+              pt: 3.5,
+              pb: 1.25,
+              background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.88) 68%)',
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', color: '#FFF8E7', fontWeight: 600, lineHeight: 1.4 }}
+            >
+              {showScheduleLabel}
+            </Typography>
+          </Box>
+        ) : null}
+
         {canManage ? (
-          <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8 }}>
+          <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
             <IconButton
               size="small"
               color="default"
@@ -153,24 +206,6 @@ export function CinemaFilmCard({ film, canManage, onEdit, onDelete }: Props) {
           </Typography>
         ) : null}
 
-        {showScheduleLabel ? (
-          <Stack spacing={0.75}>
-            {showStatusLabel ? (
-              <Chip
-                size="small"
-                label={showStatusLabel}
-                color={showStatus === 'now' ? 'success' : showStatus === 'upcoming' ? 'info' : 'default'}
-                variant={showStatus === 'past' ? 'outlined' : 'filled'}
-                sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
-              />
-            ) : null}
-
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-              {showScheduleLabel}
-            </Typography>
-          </Stack>
-        ) : null}
-
         {film.description ? (
           <Typography
             variant="body2"
@@ -187,16 +222,36 @@ export function CinemaFilmCard({ film, canManage, onEdit, onDelete }: Props) {
         ) : null}
 
         <Box sx={{ mt: 'auto', pt: 1 }}>
-          <Link
-            href={film.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="body2"
-            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-          >
-            Watch film
-            <Iconify icon="eva:external-link-fill" width={16} />
-          </Link>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Link
+              href={film.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+            >
+              Watch film
+              <Iconify icon="eva:external-link-fill" width={16} />
+            </Link>
+
+            {onReserve ? (
+              <Button
+                size="small"
+                variant={isReserved ? 'outlined' : 'contained'}
+                disabled={isReserving}
+                onClick={() => onReserve(film)}
+                startIcon={
+                  isReserving ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : (
+                    <Iconify icon={isReserved ? 'solar:check-circle-bold' : 'solar:bookmark-bold'} />
+                  )
+                }
+              >
+                {isReserved ? 'Reserved' : 'Reserve'}
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
       </Stack>
     </Card>

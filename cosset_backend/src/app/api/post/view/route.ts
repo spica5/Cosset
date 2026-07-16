@@ -3,8 +3,12 @@ import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 
 import { JWT_SECRET } from 'src/config-global';
-import { markPostAsViewed } from 'src/models/post-reactions';
-import { getCommunityPostById, incrementCommunityPostViews } from 'src/models/community-posts';
+import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
+import {
+  getCommunityPostById,
+  getUnreadCommunityPostCount,
+  incrementCommunityPostViews,
+} from 'src/models/community-posts';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
 
@@ -59,7 +63,7 @@ const normalizeCustomerId = (value: unknown): number | null => {
   return hashed;
 };
 
-const getCustomerIdFromToken = async (req: NextRequest): Promise<number | null> => {
+const getTokenUserId = async (req: NextRequest): Promise<string | null> => {
   const authorization = req.headers.get('authorization');
 
   if (!authorization || !authorization.startsWith('Bearer ')) {
@@ -70,11 +74,41 @@ const getCustomerIdFromToken = async (req: NextRequest): Promise<number | null> 
 
   try {
     const data = await verify(accessToken, JWT_SECRET);
-    return normalizeCustomerId(data?.userId);
+    const userId = data?.userId != null ? String(data.userId).trim() : '';
+    return userId || null;
   } catch {
     return null;
   }
 };
+
+const getCustomerIdFromToken = async (req: NextRequest): Promise<number | null> => {
+  const userId = await getTokenUserId(req);
+  return userId ? normalizeCustomerId(userId) : null;
+};
+
+/** **************************************
+ * GET /api/post/view
+ * Returns viewed community post ids and unread count for the logged-in visitor.
+ *************************************** */
+export async function GET(req: NextRequest) {
+  try {
+    const tokenUserId = await getTokenUserId(req);
+    const viewerCustomerId = tokenUserId ? normalizeCustomerId(tokenUserId) : null;
+
+    if (!tokenUserId || viewerCustomerId === null) {
+      return response({ viewedPostIds: [], unreadCount: 0 }, STATUS.OK);
+    }
+
+    const [viewedPostIds, unreadCount] = await Promise.all([
+      getViewedPostIdsByCustomer('community', viewerCustomerId),
+      getUnreadCommunityPostCount(tokenUserId, viewerCustomerId),
+    ]);
+
+    return response({ viewedPostIds, unreadCount }, STATUS.OK);
+  } catch (error) {
+    return handleError('Community Post - Get viewed ids', error as Error);
+  }
+}
 
 /** **************************************
  * POST /api/post/view

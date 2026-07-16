@@ -2,7 +2,7 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -19,7 +19,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useAuthContext } from 'src/auth/hooks';
-import { useGetPosts } from 'src/actions/post';
+import { markPostsAsViewed, useGetPosts } from 'src/actions/post';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -54,10 +54,51 @@ export function PostListView() {
   const [authorQuery, setAuthorQuery] = useState('');
   const [orderBy, setOrderBy] = useState<OrderByValue>('newest');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const markedViewedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     refreshPosts();
   }, [refreshPosts]);
+
+  useEffect(() => {
+    if (postsLoading || !user?.id || !posts.length) {
+      return undefined;
+    }
+
+    const otherPostIds = posts
+      .filter((post) => String(post.customerId || '') !== String(user.id))
+      .map((post) => post.id)
+      .filter((id) => {
+        const key = String(id);
+        if (markedViewedIdsRef.current.has(key)) {
+          return false;
+        }
+        markedViewedIdsRef.current.add(key);
+        return true;
+      });
+
+    if (!otherPostIds.length) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const markVisiblePostsViewed = async () => {
+      try {
+        await markPostsAsViewed(otherPostIds);
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to mark community posts as viewed', error);
+        }
+      }
+    };
+
+    markVisiblePostsViewed();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [posts, postsLoading, user?.id]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedAuthorQuery = viewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();

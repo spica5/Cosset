@@ -3,6 +3,9 @@ import type { NextRequest } from 'next/server';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import { createCommunityPost } from 'src/models/community-posts';
+import { getUserById } from 'src/models/users';
+import { getUserFriends } from 'src/models/user-friends';
+import { createNotification } from 'src/models/notifications';
 import { verify } from 'src/utils/jwt';
 import { JWT_SECRET } from 'src/config-global';
 
@@ -39,6 +42,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const authorId = String(post.customerId || inferredCustomerId || '').trim() || null;
+
     const normalizedComments =
       typeof post.comments === 'string'
         ? post.comments
@@ -47,7 +52,7 @@ export async function POST(req: NextRequest) {
           : null;
 
     const created = await createCommunityPost({
-      customerId: post.customerId || inferredCustomerId || null,
+      customerId: authorId,
       title: typeof post.title === 'string' ? post.title.trim() : null,
       category: post.category ?? null,
       description:
@@ -68,6 +73,52 @@ export async function POST(req: NextRequest) {
       following: post.following ?? 0,
       comments: normalizedComments,
     });
+
+    // Notify accepted friends about the new community post.
+    if (authorId) {
+      try {
+        const author = await getUserById(authorId);
+        const authorName =
+          `${author?.firstName || ''} ${author?.lastName || ''}`.trim() ||
+          author?.email ||
+          'A friend';
+        const postTitle = (created.title || 'a new post').trim() || 'a new post';
+        const friends = await getUserFriends(authorId, 'accepted', 1000, 0);
+        const recipientIds = [
+          ...new Set(
+            friends
+              .map((friend) =>
+                friend.userId1 === authorId ? friend.userId2 : friend.userId1,
+              )
+              .filter((id) => id && id !== authorId),
+          ),
+        ];
+
+        await Promise.all(
+          recipientIds.map(async (recipientId) => {
+            try {
+              await createNotification({
+                customerId: recipientId,
+                avatarUrl: author?.photoURL || null,
+                type: 10,
+                category: 1,
+                isUnRead: true,
+                isArchived: false,
+                title: `<p><strong>${authorName}</strong> shared a new community post</p>`,
+                content: `${authorName} shared "${postTitle}"`,
+              });
+            } catch (notificationError) {
+              console.error(
+                `[Post - Create] failed to notify friend ${recipientId}`,
+                notificationError,
+              );
+            }
+          }),
+        );
+      } catch (notificationError) {
+        console.error('[Post - Create] failed to create post notifications', notificationError);
+      }
+    }
 
     return response({ post: created }, STATUS.OK);
   } catch (error) {

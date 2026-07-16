@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserById, updateUser } from '@/models/users';
+import { updateUser, getUserById } from '@/models/users';
 
 import { verify } from 'src/utils/jwt';
-import { STATUS, response, handleError } from 'src/utils/response';
+import { STATUS, handleError, response } from 'src/utils/response';
 
 import { JWT_SECRET } from 'src/config-global';
 
@@ -85,7 +85,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const updatedUser = await updateUser(id, { state });
-    const { password: _password, ...safeUser } = updatedUser;
+    const safeUser = { ...updatedUser };
+    delete (safeUser as { password?: string }).password;
 
     return response({ user: safeUser }, STATUS.OK);
   } catch (error) {

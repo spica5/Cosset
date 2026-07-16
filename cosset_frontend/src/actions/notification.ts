@@ -50,7 +50,7 @@ type NotificationsData = {
   }>;
 };
 
-const TYPE_LABEL: Record<number, string> = {
+  const TYPE_LABEL: Record<number, string> = {
   1: 'friend',
   2: 'project',
   3: 'file',
@@ -60,6 +60,7 @@ const TYPE_LABEL: Record<number, string> = {
   7: 'chat',
   8: 'mail',
   9: 'delivery',
+  10: 'community',
 };
 
 const CATEGORY_LABEL: Record<number, string> = {

@@ -1,5 +1,5 @@
 import { DatabaseError } from '@/db/errors';
-import { executeQuery, queryMany, queryOne } from '@/db/neon';
+import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'post_comments';
 const USERS_TABLE_NAME = 'cosset_users';

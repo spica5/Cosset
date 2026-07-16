@@ -80,6 +80,7 @@ export async function createPost(post: Omit<IPostItem, 'id' | 'createdAt' | 'upd
   const res = await axios.post(endpoints.post.add, data);
 
   mutate(POST_LIST_ENDPOINT);
+  mutate(endpoints.post.view);
   if (post.customerId) {
     mutate(`${POST_LIST_ENDPOINT}?customerId=${encodeURIComponent(String(post.customerId))}`);
   }
@@ -130,11 +131,40 @@ type PostViewData = {
   viewedAt?: string | null;
 };
 
+type PostUnreadData = {
+  viewedPostIds?: number[];
+  unreadCount?: number;
+};
+
+const POST_VIEW_ENDPOINT = endpoints.post.view;
+
+const postUnreadPollOptions = {
+  ...swrOptions,
+  refreshInterval: 30_000,
+};
+
+export function useGetPostUnreadCount(enabled = true) {
+  const url = enabled ? POST_VIEW_ENDPOINT : null;
+
+  const { data, isLoading } = useSWR<PostUnreadData>(url, fetcher, postUnreadPollOptions);
+
+  const unreadCount = useMemo(() => Math.max(0, data?.unreadCount ?? 0), [data?.unreadCount]);
+
+  return { unreadCount, unreadCountLoading: isLoading };
+}
+
+export function revalidatePostUnreadCount() {
+  return mutate(POST_VIEW_ENDPOINT);
+}
+
 /**
  * Record a view for a community post.
  * The backend increments total_views only when this customer has not viewed it before.
  */
-export async function recordPostView(postId: string | number): Promise<PostViewData> {
+export async function recordPostView(
+  postId: string | number,
+  options?: { revalidateUnread?: boolean },
+): Promise<PostViewData> {
   try {
     const res = await axios.post<PostViewData>(endpoints.post.view, { postId: Number(postId) });
 
@@ -143,10 +173,34 @@ export async function recordPostView(postId: string | number): Promise<PostViewD
     // PostItemForm components to unmount/remount and reset localTotalViews state.
     mutate(`${endpoints.post.details}?id=${encodeURIComponent(String(postId))}`);
 
+    if (options?.revalidateUnread !== false) {
+      mutate(POST_VIEW_ENDPOINT);
+    }
+
     return res.data;
   } catch {
     return {};
   }
+}
+
+/**
+ * Mark multiple community posts as viewed (used when opening the feed).
+ */
+export async function markPostsAsViewed(postIds: Array<string | number>): Promise<void> {
+  const uniqueIds = [
+    ...new Set(
+      postIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    ),
+  ];
+
+  if (!uniqueIds.length) {
+    return;
+  }
+
+  await Promise.all(uniqueIds.map((postId) => recordPostView(postId, { revalidateUnread: false })));
+  await mutate(POST_VIEW_ENDPOINT);
 }
 
 // ----------------------------------------------------------------------

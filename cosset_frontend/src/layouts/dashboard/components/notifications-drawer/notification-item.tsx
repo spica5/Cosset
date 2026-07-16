@@ -109,7 +109,7 @@ export function NotificationItem({ notification, onRead, onArchive, onDelete }: 
         >
           <Box
             component="img"
-            src={`${CONFIG.dashboard.assetsDir}/assets/icons/notification/${(notification.type === 'order' && 'ic-order') || (notification.type === 'chat' && 'ic-chat') || (notification.type === 'mail' && 'ic-mail') || (notification.type === 'delivery' && 'ic-delivery')}.svg`}
+            src={`${CONFIG.dashboard.assetsDir}/assets/icons/notification/${(notification.type === 'order' && 'ic-order') || ((notification.type === 'chat' || notification.type === 'community') && 'ic-chat') || (notification.type === 'mail' && 'ic-mail') || (notification.type === 'delivery' && 'ic-delivery')}.svg`}
             sx={{ width: 24, height: 24 }}
           />
         </Stack>

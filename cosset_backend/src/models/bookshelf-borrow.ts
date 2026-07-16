@@ -1,12 +1,11 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
-
-import { BOOKSHELF_BORROW_PERIOD_DAYS, normalizeBorrowPeriodDays } from '@/constants/bookshelf-borrow';
+import { normalizeBorrowPeriodDays, BOOKSHELF_BORROW_PERIOD_DAYS } from '@/constants/bookshelf-borrow';
 
 import { getBookshelfEbookById } from './bookshelf-ebook';
 import { getBookshelfAudiobookById } from './bookshelf-audiobook';
 
-export { BOOKSHELF_BORROW_PERIOD_DAYS, normalizeBorrowPeriodDays };
+export { normalizeBorrowPeriodDays, BOOKSHELF_BORROW_PERIOD_DAYS };
 
 // ----------------------------------------------------------------------
 
@@ -236,7 +235,8 @@ export async function createBookshelfBorrowRequest(input: {
   const ownerCustomerId = String(input.ownerCustomerId || '').trim();
   const bookKind = input.bookKind;
   const bookId = parseInteger(input.bookId);
-  const borrowPeriodDays = normalizeBorrowPeriodDays(input.borrowPeriodDays);
+  const { borrowPeriodDays: rawBorrowPeriodDays } = input;
+  const normalizedBorrowPeriodDays = normalizeBorrowPeriodDays(rawBorrowPeriodDays);
 
   if (!borrowerCustomerId || !ownerCustomerId) {
     throw new DatabaseError({
@@ -312,7 +312,7 @@ export async function createBookshelfBorrowRequest(input: {
       VALUES ($1, $2, $3, $4, 'pending', $5)
       RETURNING ${SELECT_COLUMNS}
     `,
-    [borrowerCustomerId, ownerCustomerId, bookKind, bookId, borrowPeriodDays],
+    [borrowerCustomerId, ownerCustomerId, bookKind, bookId, normalizedBorrowPeriodDays],
   );
 
   if (!row) {

@@ -128,3 +128,14 @@ export async function uploadFileToS3({
     return uploadFileViaBackendProxy(file, normalizedKey, isPublic);
   }
 }
+
+export async function deleteUploadedFile(key: string) {
+  const normalizedKey = key.trim();
+  if (!normalizedKey) {
+    throw new Error('Upload key is required.');
+  }
+
+  await axiosInstance.delete(endpoints.upload.delete, {
+    params: { key: normalizedKey },
+  });
+}

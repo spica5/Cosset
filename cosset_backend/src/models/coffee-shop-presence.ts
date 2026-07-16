@@ -1,5 +1,5 @@
 import { DatabaseError } from '@/db/errors';
-import { executeQuery, queryMany } from '@/db/neon';
+import { queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'coffee_shop_presence';
 

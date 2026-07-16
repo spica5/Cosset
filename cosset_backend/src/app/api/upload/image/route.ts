@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
@@ -212,6 +212,20 @@ async function getSignedUploadUrl(
   return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
+async function deleteFromS3(key: string) {
+  if (!key) throw new Error("key is requried");
+
+  const bucket = requireEnv('S3_BUCKET');
+  if (!bucket) throw new Error("S3_BUCKET env var is missing");
+
+  const command = new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+
+  return s3.send(command);
+}
+
 type UploadSingleFileParams = {
   file: File;
   key: string;
@@ -333,7 +347,7 @@ export async function POST(req: NextRequest) {
     // If single file upload
     if (singleFile && singleKey) {
       if (!singleKey.trim()) {
-        return response({ message: "key is required" }, STATUS.BAD_REQUEST);
+    return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
       }
 
       const uploadResult = await uploadSingleFileToS3({
@@ -387,7 +401,7 @@ export async function POST(req: NextRequest) {
       // Upload all files in parallel
       const uploadResults = await uploadMultipleToS3(uploadData, isPublic);
       if (uploadResults.some((r) => r.$metadata?.httpStatusCode !== 200)) {
-        throw new Error("Failed to upload one or more images to S3");
+        throw new Error('Failed to upload one or more images to S3');
       }
 
       // Get signed URLs for all uploaded files
@@ -412,17 +426,41 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const key = String(searchParams.get('key') || '').trim();
+
+    if (!key) {
+      return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
+    }
+
+    if (key.startsWith('public:') || key.startsWith('http://') || key.startsWith('https://')) {
+      return response(
+        { message: 'Only stored upload keys can be permanently deleted.' },
+        STATUS.BAD_REQUEST,
+      );
+    }
+
+    await deleteFromS3(key);
+
+    return response({ ok: true, key }, STATUS.OK);
+  } catch (error) {
+    return handleError('Image Upload - Delete', error as Error);
+  }
+}
+
 /**
  * Helper function to extract file extension from File object
  */
 function getFileExtension(file: File): string {
-  const name = (file.name ?? "").trim();
-  const lastDot = name.lastIndexOf(".");
+  const name = (file.name ?? '').trim();
+  const lastDot = name.lastIndexOf('.');
   if (lastDot > -1 && lastDot < name.length - 1) {
     return name.slice(lastDot + 1).toLowerCase();
   }
-  const subtype = (file.type.split("/")[1] ?? "").toLowerCase();
-  if (subtype === "jpeg") return "jpg";
+  const subtype = (file.type.split('/')[1] ?? '').toLowerCase();
+  if (subtype === 'jpeg') return 'jpg';
   if (subtype) return subtype;
-  return "";
+  return '';
 }

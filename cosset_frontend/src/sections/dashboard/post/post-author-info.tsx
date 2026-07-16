@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 
 import Avatar from '@mui/material/Avatar';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+
+import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -16,6 +19,7 @@ type PostAuthorInfoProps = {
   photoURL?: string | null;
   caption?: string;
   size?: number;
+  href?: string;
 };
 
 export function PostAuthorInfo({
@@ -24,6 +28,7 @@ export function PostAuthorInfo({
   photoURL,
   caption,
   size = 42,
+  href,
 }: PostAuthorInfoProps) {
   const [signedPhotoUrl, setSignedPhotoUrl] = useState('');
 
@@ -68,6 +73,34 @@ export function PostAuthorInfo({
   const displayName = String(name || email || 'Customer').trim() || 'Customer';
   const initials = displayName.charAt(0).toUpperCase() || 'C';
 
+  const avatar = (
+    <Avatar
+      alt={displayName}
+      src={signedPhotoUrl || undefined}
+      sx={{
+        width: size,
+        height: size,
+        border: '2px solid',
+        borderColor: 'primary.main',
+        ...(href
+          ? {
+              cursor: 'pointer',
+              transition: (theme) =>
+                theme.transitions.create(['box-shadow', 'transform'], {
+                  duration: theme.transitions.duration.shorter,
+                }),
+              '&:hover': {
+                boxShadow: (theme) => `0 0 0 3px ${theme.palette.primary.main}33`,
+                transform: 'scale(1.03)',
+              },
+            }
+          : null),
+      }}
+    >
+      {initials}
+    </Avatar>
+  );
+
   return (
     <Stack spacing={0.75}>
       {caption ? (
@@ -77,23 +110,44 @@ export function PostAuthorInfo({
       ) : null}
 
       <Stack direction="row" spacing={1} alignItems="center">
-        <Avatar
-          alt={displayName}
-          src={signedPhotoUrl || undefined}
-          sx={{
-            width: size,
-            height: size,
-            border: '2px solid',
-            borderColor: 'primary.main',
-          }}
-        >
-          {initials}
-        </Avatar>
+        {href ? (
+          <Link
+            component={RouterLink}
+            href={href}
+            color="inherit"
+            underline="none"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Open ${displayName}'s home space`}
+          >
+            {avatar}
+          </Link>
+        ) : (
+          avatar
+        )}
 
         <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-          <Typography variant="subtitle2" noWrap sx={{ color: 'primary.main' }}>
-            {displayName}
-          </Typography>
+          {href ? (
+            <Link
+              component={RouterLink}
+              href={href}
+              color="inherit"
+              underline="hover"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              sx={{ minWidth: 0 }}
+            >
+              <Typography variant="subtitle2" noWrap sx={{ color: 'primary.main' }}>
+                {displayName}
+              </Typography>
+            </Link>
+          ) : (
+            <Typography variant="subtitle2" noWrap sx={{ color: 'primary.main' }}>
+              {displayName}
+            </Typography>
+          )}
 
           {email ? (
             <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>

@@ -2,6 +2,8 @@
 
 import { paths } from 'src/routes/paths';
 
+import { CONFIG } from 'src/config-global';
+
 export type CinemaCategory = 'classic' | 'genre' | 'drama';
 
 export type CinemaCategoryMeta = {
@@ -13,7 +15,16 @@ export type CinemaCategoryMeta = {
   icon: string;
   accent: string;
   gradient: string;
+  /** Universe room intro */
+  eyebrow: string;
+  headline: string;
+  subtitle: string;
+  quote: string;
+  carouselTitle: string;
+  bannerImage: string;
 };
+
+const CINEMA_BANNER_BASE = `${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner`;
 
 export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
   {
@@ -24,7 +35,13 @@ export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
     tagline: 'Golden-age stories on timeless reels',
     icon: 'solar:clapperboard-play-bold',
     accent: '#C9A227',
-    gradient: 'linear-gradient(135deg, #2C2416 0%, #4A3B1F 52%, #14100C 100%)',
+    gradient: 'linear-gradient(180deg, #0B0705 0%, #1A100C 42%, #0B0705 100%)',
+    eyebrow: ' Enjoy life with movies ',
+    headline: 'Movies That Stay With You',
+    subtitle: 'The emotions linger – a good movie stays.',
+    quote: 'We watch not to escape life, but for life not to escape us.',
+    carouselTitle: 'Great movies showing on Sundays',
+    bannerImage: `${CINEMA_BANNER_BASE}/intro.png`,
   },
   {
     id: 'genre',
@@ -34,7 +51,13 @@ export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
     tagline: 'Pulse-pounding genre nights',
     icon: 'solar:fire-bold',
     accent: '#E53935',
-    gradient: 'linear-gradient(135deg, #1A0F14 0%, #3D1219 52%, #0D080A 100%)',
+    gradient: 'linear-gradient(180deg, #0A0507 0%, #1C0B10 42%, #0A0507 100%)',
+    eyebrow: 'Genre Nights',
+    headline: 'Stories That Grip the Edge',
+    subtitle: 'Pulse, thrill, and the dark between frames',
+    quote: 'Every genre is a different way of watching the same human heart.',
+    carouselTitle: 'Now playing in genre hall',
+    bannerImage: `${CINEMA_BANNER_BASE}/intro.png`,
   },
   {
     id: 'drama',
@@ -43,8 +66,14 @@ export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
     description: 'Social drama, feature films, and comic films that move and delight.',
     tagline: 'Heartfelt features and comic relief',
     icon: 'solar:mask-happy-bold',
-    accent: '#7E57C2',
-    gradient: 'linear-gradient(135deg, #141828 0%, #2A2440 52%, #0E1018 100%)',
+    accent: '#D4A017',
+    gradient: 'linear-gradient(180deg, #08060B 0%, #16101C 42%, #08060B 100%)',
+    eyebrow: 'Drama & Comedy',
+    headline: 'Laugh Softly, Feel Deeply',
+    subtitle: 'Features that move — and linger after the lights rise',
+    quote: 'We come for the plot. We stay for the people we become while watching.',
+    carouselTitle: 'Featured dramas & comedies',
+    bannerImage: `${CINEMA_BANNER_BASE}/intro.png`,
   },
 ];
 

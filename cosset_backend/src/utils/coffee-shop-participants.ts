@@ -1,6 +1,7 @@
-import { listCoffeeshopPresence } from 'src/models/coffee-shop-presence';
-import { getUserById, getUsersBriefByIds } from 'src/models/users';
 import type { UserBrief } from 'src/models/users';
+
+import { getUserById, getUsersBriefByIds } from 'src/models/users';
+import { listCoffeeshopPresence } from 'src/models/coffee-shop-presence';
 
 export type CoffeeShopParticipantPayload = {
   userId: string;

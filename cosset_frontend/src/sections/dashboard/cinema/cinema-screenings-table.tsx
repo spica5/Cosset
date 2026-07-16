@@ -3,7 +3,7 @@
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -19,20 +19,20 @@ import Typography from '@mui/material/Typography';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { deleteCinemaScreening, useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 import { useGetCinemaFilms } from 'src/actions/cinema-film';
+import { deleteCinemaScreening, useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
+import { CinemaScreeningFormDialog } from './cinema-screening-form-dialog';
+import type { CinemaCategoryMeta } from './cinema-categories';
 import {
-  formatScreeningSchedule,
   getScreeningShowStatus,
+  formatScreeningSchedule,
   getCinemaFilmShowStatusLabel,
 } from './cinema-film-schedule';
-import type { CinemaCategoryMeta } from './cinema-categories';
-import { CinemaScreeningFormDialog } from './cinema-screening-form-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -43,6 +43,7 @@ type Props = {
   filmsLoading?: boolean;
   compact?: boolean;
   variant?: 'default' | 'banner';
+  canManage?: boolean;
 };
 
 export function CinemaScreeningsTable({
@@ -52,6 +53,7 @@ export function CinemaScreeningsTable({
   filmsLoading: filmsLoadingProp,
   compact = false,
   variant = 'default',
+  canManage: canManageProp,
 }: Props) {
   const { films: fetchedFilms, filmsLoading: fetchedFilmsLoading } = useGetCinemaFilms(
     customerId,
@@ -64,7 +66,7 @@ export function CinemaScreeningsTable({
   const [editingScreening, setEditingScreening] = useState<ICinemaFilmScreeningWithFilm | null>(null);
   const [defaultFilmId, setDefaultFilmId] = useState<number | null>(null);
 
-  const canManage = Boolean(customerId);
+  const canManage = canManageProp ?? Boolean(customerId);
   const loading = filmsLoading || screeningsLoading;
   const isBanner = variant === 'banner';
 
@@ -81,11 +83,29 @@ export function CinemaScreeningsTable({
         borderRadius: 2,
         bgcolor: 'rgba(0,0,0,0.22)',
         border: '1px solid rgba(255,255,255,0.12)',
+        overflow: 'hidden',
+      }
+    : undefined;
+
+  const headRowSx = isBanner
+    ? {
+        bgcolor: 'rgba(12, 8, 5, 0.92)',
+        '& .MuiTableCell-head': {
+          color: 'rgba(255,248,231,0.92)',
+          bgcolor: 'rgba(12, 8, 5, 0.92)',
+          borderColor: 'rgba(255,255,255,0.12)',
+          fontWeight: 700,
+        },
       }
     : undefined;
 
   const headCellSx = isBanner
-    ? { color: 'rgba(255,255,255,0.72)', borderColor: 'rgba(255,255,255,0.08)' }
+    ? {
+        color: 'rgba(255,248,231,0.92)',
+        bgcolor: 'rgba(12, 8, 5, 0.92)',
+        borderColor: 'rgba(255,255,255,0.12)',
+        fontWeight: 700,
+      }
     : undefined;
 
   const bodyCellSx = isBanner ? { borderColor: 'rgba(255,255,255,0.08)' } : undefined;
@@ -184,7 +204,7 @@ export function CinemaScreeningsTable({
         <TableContainer sx={{ overflowX: 'auto', ...tableSx }}>
           <Table size={compact ? 'small' : 'medium'}>
             <TableHead>
-              <TableRow>
+              <TableRow sx={headRowSx}>
                 <TableCell sx={headCellSx}>Film</TableCell>
                 <TableCell sx={headCellSx}>Show time</TableCell>
                 <TableCell sx={headCellSx}>Status</TableCell>

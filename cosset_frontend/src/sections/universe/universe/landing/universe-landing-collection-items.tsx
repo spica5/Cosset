@@ -7,8 +7,8 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -20,8 +20,8 @@ import { Iconify } from 'src/components/universe/iconify';
 import {
   MySpaceSectionTitle,
 } from './myspace-section-title';
-import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 
 // ----------------------------------------------------------------------
 

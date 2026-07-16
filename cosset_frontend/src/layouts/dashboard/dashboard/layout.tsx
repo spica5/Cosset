@@ -14,6 +14,7 @@ import { useBoolean } from 'src/hooks/use-boolean';
 
 import { useGetCollections } from 'src/actions/collection';
 import { useGetMailUnreadCount } from 'src/actions/mail';
+import { useGetPostUnreadCount } from 'src/actions/post';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -83,6 +84,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const { collections } = useGetCollections(user?.id ? String(user.id) : undefined);
   const userId = user?.id ? String(user.id) : undefined;
   const { unreadCount: mailUnreadCount } = useGetMailUnreadCount(Boolean(userId));
+  const { unreadCount: postUnreadCount } = useGetPostUnreadCount(Boolean(userId));
   useMailNotifications(userId);
 
   const settings = useSettingsContext();
@@ -126,6 +128,28 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
           };
         }
 
+        if (item.title === 'Community' && item.children) {
+          const postBadge =
+            postUnreadCount > 0 ? (
+              <Label color="error" variant="inverted">
+                {postUnreadCount}
+              </Label>
+            ) : undefined;
+
+          return {
+            ...item,
+            info: postBadge,
+            children: item.children.map((child: NavItemBaseProps) =>
+              child.title === 'Posts'
+                ? {
+                    ...child,
+                    info: postBadge,
+                  }
+                : child,
+            ),
+          };
+        }
+
         if (item.title === 'Mail') {
           return {
             ...item,
@@ -141,7 +165,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
         return item;
       }),
     }));
-  }, [data?.nav, collectionSubitems, mailUnreadCount, user?.role]);
+  }, [data?.nav, collectionSubitems, mailUnreadCount, postUnreadCount, user?.role]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

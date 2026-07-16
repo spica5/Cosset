@@ -378,6 +378,48 @@ export async function incrementCommunityPostViews(id: number): Promise<number> {
 // ----------------------------------------------------------------------
 
 /**
+ * Count community posts written by others that the viewer has not marked as viewed.
+ * `viewerCustomerId` is the auth user id string; `viewerReactionCustomerId` is the
+ * hashed/numeric id used in post_reactions (same as /api/post/view).
+ */
+export async function getUnreadCommunityPostCount(
+  viewerCustomerId: string,
+  viewerReactionCustomerId: number,
+): Promise<number> {
+  try {
+    const row = await queryOne<{ count: number | string }>(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM ${TABLE_NAME} cp
+        WHERE (cp.customer_id IS NULL OR cp.customer_id <> $1)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM post_reactions pr
+            WHERE pr.target_type = 'community'
+              AND pr.target_id = cp.id
+              AND pr.customer_id = $2
+              AND pr.viewed_at IS NOT NULL
+          )
+      `,
+      [viewerCustomerId, viewerReactionCustomerId],
+    );
+
+    return normalizeBigInt(row?.count, 0);
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_UNREAD_COMMUNITY_POST_COUNT_ERROR',
+        message: `Failed to count unread community posts: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+// ----------------------------------------------------------------------
+
+/**
  * Delete a community post by ID.
  * Returns true if a row was deleted, false if not found.
  */

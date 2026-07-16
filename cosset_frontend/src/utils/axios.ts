@@ -81,6 +81,7 @@ export const endpoints = {
   upload: {
     image: '/api/upload/image',
     sign: '/api/upload/sign',
+    delete: '/api/upload/image',
   },
   album: {
     list: '/api/album/list',
@@ -225,6 +226,12 @@ export const endpoints = {
       details: (id: string | number) => `/api/cinema/screening/${id}`,
       update: (id: string | number) => `/api/cinema/screening/${id}`,
       delete: (id: string | number) => `/api/cinema/screening/${id}`,
+    },
+    reservation: {
+      list: '/api/cinema/reservation/list',
+      add: '/api/cinema/reservation/new',
+      details: (id: string | number) => `/api/cinema/reservation/${id}`,
+      delete: (id: string | number) => `/api/cinema/reservation/${id}`,
     },
   },
   post: {

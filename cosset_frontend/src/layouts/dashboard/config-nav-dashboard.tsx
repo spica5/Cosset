@@ -70,6 +70,14 @@ export const navData = [
         path: paths.dashboard.customers,
         icon: ICONS.user,
       },
+      {
+        title: 'Media',
+        path: paths.dashboard.admin.media.root,
+        icon: ICONS.video,
+        children: [
+          { title: 'Cinema', path: paths.dashboard.admin.media.cinema },
+        ],
+      },
     ],
   },
   /**

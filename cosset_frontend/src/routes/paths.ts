@@ -25,6 +25,16 @@ export const paths = {
     root: `${ROOTS.DASHBOARD}/home-space/guest-area`,
     preview: `${ROOTS.DASHBOARD}/preview`,
     customers: `${ROOTS.DASHBOARD}/customers`,
+    admin: {
+      root: `${ROOTS.DASHBOARD}/admin`,
+      media: {
+        root: `${ROOTS.DASHBOARD}/admin/media`,
+        cinema: `${ROOTS.DASHBOARD}/admin/media/cinema`,
+        cinemaClassic: `${ROOTS.DASHBOARD}/admin/media/cinema/classic`,
+        cinemaGenre: `${ROOTS.DASHBOARD}/admin/media/cinema/genre`,
+        cinemaDrama: `${ROOTS.DASHBOARD}/admin/media/cinema/drama`,
+      },
+    },
     blog: {
       root: `${ROOTS.DASHBOARD}/blog`,
       list: `${ROOTS.DASHBOARD}/blog`,

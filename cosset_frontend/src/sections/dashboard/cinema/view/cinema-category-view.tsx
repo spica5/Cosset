@@ -1,26 +1,29 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
-
-import { useAuthContext } from 'src/auth/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
-import {
-  CINEMA_CATEGORIES,
-  type CinemaCategoryMeta,
-} from '../cinema-categories';
+import { CinemaTheaterIntro } from '../cinema-theater-intro';
+import { CinemaReservationsTable } from '../cinema-reservations-table';
 import { CinemaCategoryFilmsPanel } from '../cinema-category-films-panel';
-import { CinemaScreeningsTable } from '../cinema-screenings-table';
+import {
+  type CinemaCategoryMeta,
+  getCinemaCategoryDashboardPath,
+  CINEMA_CATEGORIES,
+} from '../cinema-categories';
+import { CINEMA_CREAM, cinemaPageShellSx } from '../cinema-theater-theme';
 
 // ----------------------------------------------------------------------
 
@@ -30,15 +33,13 @@ type Props = {
 
 export function CinemaCategoryView({ category }: Props) {
   const { user } = useAuthContext();
-  const ownerId = String(user?.id || '');
+  const { id } = user || {};
+  const ownerId = String(id || '');
+  const accent = category.accent;
 
-  const handleVisitUniverse = () => {
-    const url = ownerId
-      ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(ownerId)}`
-      : paths.dashboard.community.cinema.view(category.id);
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
+  const universeUrl = ownerId
+    ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(ownerId)}`
+    : paths.dashboard.community.cinema.view(category.id);
 
   return (
     <DashboardContent>
@@ -52,10 +53,18 @@ export function CinemaCategoryView({ category }: Props) {
         ]}
         action={
           <Button
-            onClick={handleVisitUniverse}
+            component={RouterLink}
+            href={universeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             variant="contained"
             startIcon={<Iconify icon="solar:video-frame-play-vertical-bold" />}
-            sx={{ fontWeight: 700 }}
+            sx={{
+              fontWeight: 700,
+              bgcolor: accent,
+              color: '#1A1208',
+              '&:hover': { bgcolor: accent, opacity: 0.92 },
+            }}
           >
             Enter Cinema Room
           </Button>
@@ -64,73 +73,72 @@ export function CinemaCategoryView({ category }: Props) {
       />
 
       <Stack spacing={3}>
-        <Card
-          sx={{
-            p: { xs: 2.5, md: 4 },
-            borderRadius: 2.5,
-            overflow: 'hidden',
-            background: category.gradient,
-            color: 'common.white',
-          }}
-        >
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems={{ md: 'center' }}>
-            <Box
-              sx={{
-                width: 72,
-                height: 72,
-                borderRadius: 2.5,
-                display: 'grid',
-                placeItems: 'center',
-                bgcolor: 'rgba(255,255,255,0.12)',
-                color: category.accent,
-                flexShrink: 0,
-              }}
-            >
-              <Iconify icon={category.icon} width={36} />
-            </Box>
+        <Box sx={{ ...cinemaPageShellSx, p: { xs: 2, md: 3 } }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'radial-gradient(ellipse at 50% 18%, rgba(212,176,90,0.12), transparent 48%)',
+              pointerEvents: 'none',
+            }}
+          />
 
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
-                {category.title}
-              </Typography>
-              <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.82)', lineHeight: 1.8 }}>
-                {category.description}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.62)', mt: 1 }}>
-                {category.tagline}
-              </Typography>
-            </Box>
+          <Stack spacing={3} sx={{ position: 'relative', zIndex: 1 }}>
+            <CinemaTheaterIntro
+              category={category}
+              height={{ xs: 300, md: 460 }}
+              footer={
+                <Stack direction="row" justifyContent="center">
+                  <Button
+                    component={RouterLink}
+                    href={universeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="contained"
+                    endIcon={<Iconify icon="solar:play-bold" />}
+                    sx={{
+                      bgcolor: accent,
+                      color: '#1A1208',
+                      fontWeight: 800,
+                      px: 2.5,
+                      '&:hover': { bgcolor: accent, opacity: 0.92 },
+                    }}
+                  >
+                    Open Universe Screen
+                  </Button>
+                </Stack>
+              }
+            />
 
-            <Button
-              onClick={handleVisitUniverse}
-              size="large"
-              variant="contained"
-              endIcon={<Iconify icon="eva:external-link-fill" />}
-              sx={{
-                flexShrink: 0,
-                bgcolor: category.accent,
-                color: '#fff',
-                fontWeight: 700,
-                px: 3,
-                '&:hover': { bgcolor: category.accent, opacity: 0.92 },
-              }}
-            >
-              Open Universe Screen
-            </Button>
-          </Stack>
-
-          <Box sx={{ mt: 3 }}>
-            <CinemaScreeningsTable
+            <CinemaReservationsTable
               category={category}
               customerId={ownerId}
+              ownerCustomerId={ownerId}
               variant="banner"
             />
-          </Box>
-        </Card>
+          </Stack>
+        </Box>
 
-        <Card sx={{ p: { xs: 2, md: 3 } }}>
-          <CinemaCategoryFilmsPanel category={category} showScreenings={false} />
-        </Card>
+        <Box
+          sx={{
+            ...cinemaPageShellSx,
+            p: { xs: 2, md: 3 },
+          }}
+        >
+          <Box
+            sx={{
+              '& .MuiTypography-root': { color: CINEMA_CREAM },
+            }}
+          >
+            <CinemaCategoryFilmsPanel
+              category={category}
+              showScreenings={false}
+              canManage={false}
+              scheduledOnly
+            />
+          </Box>
+        </Box>
 
         <Box
           sx={{
@@ -140,27 +148,39 @@ export function CinemaCategoryView({ category }: Props) {
           }}
         >
           {CINEMA_CATEGORIES.filter((item) => item.id !== category.id).map((item) => (
-            <Card
+            <Box
               key={item.id}
+              component={RouterLink}
+              href={getCinemaCategoryDashboardPath(item.id)}
               sx={{
                 p: 2,
                 borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider',
+                textDecoration: 'none',
+                color: 'inherit',
+                border: `1px solid ${item.accent}44`,
+                background: item.gradient,
+                transition: (theme) =>
+                  theme.transitions.create(['transform', 'border-color'], {
+                    duration: theme.transitions.duration.shorter,
+                  }),
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  borderColor: item.accent,
+                },
               }}
             >
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <Iconify icon={item.icon} width={22} sx={{ color: item.accent }} />
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="subtitle2" noWrap>
+                  <Typography variant="subtitle2" noWrap sx={{ color: CINEMA_CREAM }}>
                     {item.shortTitle}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap>
+                  <Typography variant="caption" noWrap sx={{ color: 'rgba(245,230,200,0.68)' }}>
                     {item.tagline}
                   </Typography>
                 </Box>
               </Stack>
-            </Card>
+            </Box>
           ))}
         </Box>
       </Stack>

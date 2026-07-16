@@ -13,10 +13,10 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import InputBase from '@mui/material/InputBase';
+import { useTheme } from '@mui/material/styles';
 import Pagination from '@mui/material/Pagination';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
@@ -41,33 +41,35 @@ import {
   getMyspaceBookshelfDecorImageUrl,
   getMyspaceBookshelfDecorImageFallbackUrl,
 } from './myspace-section-images';
+
 import {
   type BookshelfNavCategory,
   type BookshelfLayoutTheme,
-  BOOKSHELF_NAV_ITEMS,
-  BOOKSHELF_PAGE_SIZE,
   BOOKSHELF_TITLE,
   BOOKSHELF_SUBTITLE,
-  BOOKSHELF_FOOTER_QUOTE,
-  getBookshelfSidebarQuote,
-  getBookshelfLayoutTheme,
-  filterBookshelfByNavCategory,
-  buildBookshelfShelfRows,
+  BOOKSHELF_NAV_ITEMS,
+  BOOKSHELF_PAGE_SIZE,  
   getBookshelfNavCounts,
+  BOOKSHELF_FOOTER_QUOTE,
+  getBookshelfLayoutTheme,
+  buildBookshelfShelfRows,
+  getBookshelfSidebarQuote,  
+  filterBookshelfByNavCategory,
   getBookshelfReadingCountsForEntry,
 } from './universe-landing-bookshelf-theme';
+
 import {
   type BookshelfItem,
-  PARCHMENT_SX,
   SHELF_COUNT,
+  PARCHMENT_SX,  
   padShelfEntries,
-  BOOKSHELF_GRID_TEMPLATE_COLUMNS,
-  BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT,
   BookshelfBookCover,
   BookshelfBookDetailPanel,
   BookshelfBookQuotesPanel,
   BookshelfMobileBookStrip,
   BookshelfShelfSlotPlaceholder,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS,
+  BOOKSHELF_GRID_TEMPLATE_COLUMNS_COMPACT,  
 } from './universe-landing-bookshelf-parts';
 
 import {

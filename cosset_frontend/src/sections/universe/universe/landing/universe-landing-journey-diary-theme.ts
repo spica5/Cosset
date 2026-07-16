@@ -18,9 +18,6 @@ export const JOURNEY_DIARY_SIDEBAR_TAGLINE = 'Every journey leaves a story.';
 
 export const JOURNEY_DIARY_HOME_TAGLINE = 'Every day is a new chapter of your journey.';
 
-export const JOURNEY_DIARY_HOME_THOUGHT =
-  'Be proud of how far you\'ve come and excited for how far you can go.';
-
 export const JOURNEY_DIARY_NAV_SECTIONS: JourneyDiaryNavSection[] = [
   {
     id: 'all',

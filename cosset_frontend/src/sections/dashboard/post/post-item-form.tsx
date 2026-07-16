@@ -343,6 +343,11 @@ export function PostItemForm({ post }: Props) {
                 name={getPostAuthorName(post)}
                 photoURL={post.customerPhotoURL}
                 size={44}
+                href={
+                  post.customerId
+                    ? paths.universe.view(String(post.customerId))
+                    : undefined
+                }
               />
 
               <Typography variant="h6" sx={{ minWidth: 0 }} noWrap>
