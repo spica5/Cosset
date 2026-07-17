@@ -129,6 +129,7 @@ export const paths = {
         root: `${ROOTS.DASHBOARD}/community/brands-boulevard`,
         list: `${ROOTS.DASHBOARD}/community/brands-boulevard`,
         myStore: `${ROOTS.DASHBOARD}/community/brands-boulevard/my-store`,
+        clients: `${ROOTS.DASHBOARD}/community/brands-boulevard/clients`,
         store: (id: string | number) => `${ROOTS.DASHBOARD}/community/brands-boulevard/${id}`,
       },
       cinema: {

@@ -11,7 +11,7 @@ import { JWT_SECRET } from 'src/config-global';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {

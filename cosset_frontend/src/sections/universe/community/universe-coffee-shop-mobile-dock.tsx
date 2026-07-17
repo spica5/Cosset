@@ -60,7 +60,7 @@ export function UniverseCoffeeShopMobileDock() {
         aria-pressed={activePanel === 'chat'}
         sx={{ ...coffeeShopMobileFabSx, ...activeFabSx }}
       >
-        <Iconify icon="solar:chat-round-dots-bold" width={26} />
+        <Iconify icon="solar:chat-round-dots-bold" width={22} />
       </IconButton>
     </Box>,
     portalTarget,

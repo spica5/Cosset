@@ -16,6 +16,7 @@ export type SignUpParams = {
   password: string;
   firstName: string;
   lastName: string;
+  role?: 'user' | 'business';
 };
 
 const INACTIVE_CUSTOMER_MESSAGE = "Your account isn't active and can't log in. Please contact support.";
@@ -70,12 +71,14 @@ export const signUp = async ({
   password,
   firstName,
   lastName,
+  role = 'user',
 }: SignUpParams): Promise<void> => {
   const params = {
     email,
     password,
     firstName,
     lastName,
+    role: role === 'business' ? 'business' : 'user',
   };
 
   try {

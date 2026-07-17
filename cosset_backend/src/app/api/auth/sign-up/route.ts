@@ -15,7 +15,7 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from 'src/config-global';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, firstName, lastName } = await req.json();
+    const { email, password, firstName, lastName, role, accountType } = await req.json();
     const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const requestedRole = String(role || accountType || 'user')
+      .trim()
+      .toLowerCase();
+    const signupRole =
+      requestedRole === 'business' ? ('business' as const) : ('user' as const);
+
     // Hash password before storing
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
       lastName: lastName || undefined,
       photoURL: undefined,
       plan: 'FREE' as const,
-      role: 'user' as const,
+      role: signupRole,
       phoneNumber: undefined,
       country: undefined,
       address: undefined,

@@ -32,6 +32,9 @@ export const SignUpSchema = zod
       .min(1, { message: 'Password is required!' })
       .min(6, { message: 'Password must be at least 6 characters!' }),
     confirmPassword: zod.string().min(1, { message: 'Confirm password is required!' }),
+    accountType: zod.enum(['personal', 'business'], {
+      required_error: 'Please choose an account type!',
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match!',

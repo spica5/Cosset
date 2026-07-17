@@ -155,10 +155,15 @@ export async function updateCustomerState(customerId: string | number, state: st
 export async function requestBusinessAccount() {
   try {
     const response = await axios.post(endpoints.user.businessRequest, {});
+    const updatedUser = response.data?.user || response.data;
 
-    mutate(ME_ENDPOINT);
+    await mutate(
+      ME_ENDPOINT,
+      updatedUser?.id || updatedUser?.email ? { user: updatedUser } : undefined,
+      { revalidate: true }
+    );
 
-    return response.data?.user || response.data;
+    return updatedUser;
   } catch (error) {
     const message =
       typeof error === 'string'

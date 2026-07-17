@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server';
 
-import { markUserMailAsRead } from 'src/models/user-mails';
 import { getUserPhotoURLsByIds } from 'src/models/users';
+import { markUserMailAsRead } from 'src/models/user-mails';
 import {
+  mapUserMailToApi,
   buildPhotoByEmailForRows,
   getUserIdFromMailRequest,
-  mapUserMailToApi,
 } from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
 

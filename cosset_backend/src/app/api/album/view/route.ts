@@ -2,10 +2,11 @@ import type { NextRequest } from 'next/server';
 
 import { createHash } from 'node:crypto';
 
-import { JWT_SECRET } from 'src/config-global';
-import { getViewedPostIdsByCustomer, markPostAsViewed } from 'src/models/post-reactions';
-import { getAlbumById, incrementAlbumViews } from 'src/models/albums';
 import { verify } from 'src/utils/jwt';
+
+import { JWT_SECRET } from 'src/config-global';
+import { getAlbumById, incrementAlbumViews } from 'src/models/albums';
+import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 // ----------------------------------------------------------------------

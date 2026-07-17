@@ -52,6 +52,7 @@ import { UniverseCoffeeShopChat } from 'src/sections/universe/community/universe
 import { UniverseCoffeeShopMenu } from 'src/sections/universe/community/universe-coffee-shop-menu';
 import { CoffeeShopAtmosphereLayers } from 'src/sections/universe/community/coffee-shop-atmosphere-layers';
 import { UniverseCoffeeShopMobileDock } from 'src/sections/universe/community/universe-coffee-shop-mobile-dock';
+import { coffeeShopHeaderActionSx } from 'src/sections/universe/community/coffee-shop-mobile-panels';
 import { UniverseCoffeeShopMusicPlayer } from 'src/sections/universe/community/universe-coffee-shop-music-player';
 import { UniverseCoffeeShopParticipants } from 'src/sections/universe/community/universe-coffee-shop-participants';
 import { UniverseCoffeeShopBackgroundPicker } from 'src/sections/universe/community/universe-coffee-shop-background-picker';
@@ -545,6 +546,15 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
     />
   );
 
+  const headerMusicPlayer = (
+    <UniverseCoffeeShopMusicPlayer
+      coffeeShopId={coffeeShopId}
+      musicJson={coffeeShop?.music}
+      isPresent={isPresent}
+      dockInHeader
+    />
+  );
+
   if (coffeeShopLoading) {
     return (
       <>
@@ -634,6 +644,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         <Button
           type="button"
           onClick={handleLeaveCoffeeShop}
+          aria-label="Leave coffee shop"
           startIcon={<Iconify icon="solar:logout-2-outline" width={20} />}
           sx={{
             color: 'common.white',
@@ -643,41 +654,64 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             textTransform: 'none',
             fontWeight: 600,
             flexShrink: 0,
-            minWidth: { xs: 64, sm: 80 },
-            px: { xs: 1, sm: 1.5 },
+            minWidth: { xs: coffeeShopHeaderActionSx.minWidth, sm: 88 },
+            width: { xs: coffeeShopHeaderActionSx.width, sm: 88 },
+            height: { xs: coffeeShopHeaderActionSx.height, sm: 40 },
+            minHeight: { xs: coffeeShopHeaderActionSx.height, sm: 40 },
+            px: { xs: 0, sm: 1.25 },
+            py: { xs: 0, sm: 0.5 },
+            borderRadius: { xs: coffeeShopHeaderActionSx.borderRadius, sm: 1 },
             fontSize: { xs: 12, sm: 14 },
+            '& .MuiButton-startIcon': {
+              margin: { xs: 0, sm: undefined },
+              mr: { sm: 0.75 },
+            },
             '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
           }}
           disabled={!isPresent}
         >
-          Out
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+            Out
+          </Box>
         </Button>
 
         {authenticated && (
-            <Button
-              type="button"
-              onClick={handleToggleHidden}
-              disabled={togglingHidden}
-              startIcon ={<Iconify icon={isHidden ? 'eva:eye-off-fill' : 'eva:eye-fill'} width={20} />}
-              sx={{
-                color: isHidden ? 'warning.main' : 'common.white',
-                bgcolor: 'rgba(0,0,0,0.45)',
-                border: isHidden ? '1px solid' : '1px solid transparent',
-                borderColor: isHidden ? 'warning.main' : 'rgba(255,255,255,0.4)',
-                transition: 'all 0.3s',
-                minWidth: { xs: 64, sm: 80 },
-                px: { xs: 1, sm: 1.5 },
-                fontSize: { xs: 12, sm: 14 },
-                '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
-              }}
-              title={isHidden ? 'You are hidden - Click to show' : 'Hide yourself from the list'}
-            >
+          <Button
+            type="button"
+            onClick={handleToggleHidden}
+            disabled={togglingHidden}
+            aria-label={isHidden ? 'Show yourself in the list' : 'Hide yourself from the list'}
+            startIcon={<Iconify icon={isHidden ? 'eva:eye-off-fill' : 'eva:eye-fill'} width={20} />}
+            sx={{
+              color: isHidden ? 'warning.main' : 'common.white',
+              bgcolor: 'rgba(0,0,0,0.45)',
+              border: isHidden ? '1px solid' : '1px solid rgba(255,255,255,0.4)',
+              borderColor: isHidden ? 'warning.main' : 'rgba(255,255,255,0.4)',
+              transition: 'all 0.3s',
+              minWidth: { xs: coffeeShopHeaderActionSx.minWidth, sm: 88 },
+              width: { xs: coffeeShopHeaderActionSx.width, sm: 88 },
+              height: { xs: coffeeShopHeaderActionSx.height, sm: 40 },
+              minHeight: { xs: coffeeShopHeaderActionSx.height, sm: 40 },
+              px: { xs: 0, sm: 1.25 },
+              py: { xs: 0, sm: 0.5 },
+              borderRadius: { xs: coffeeShopHeaderActionSx.borderRadius, sm: 1 },
+              fontSize: { xs: 12, sm: 14 },
+              '& .MuiButton-startIcon': {
+                margin: { xs: 0, sm: undefined },
+                mr: { sm: 0.75 },
+              },
+              '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
+            }}
+            title={isHidden ? 'You are hidden - Click to show' : 'Hide yourself from the list'}
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
               Hide
-            </Button>
-          )}
-      </Stack>
+            </Box>
+          </Button>
+        )}
 
-      {musicPlayer}
+        {headerMusicPlayer}
+      </Stack>
 
       <Stack
         sx={{

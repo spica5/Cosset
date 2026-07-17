@@ -43,13 +43,17 @@ export function AuthProvider({ children }: Props) {
         if (user && !user.displayName)
           user.displayName = `${user?.firstName} ${user?.lastName}`;
 
-        setState({ user: { ...user, accessToken }, loading: false });
-      } else {
-        setState({ user: null, loading: false });
+        const nextUser = { ...user, accessToken, role: user?.role || 'user' };
+        setState({ user: nextUser, loading: false });
+        return nextUser;
       }
+
+      setState({ user: null, loading: false });
+      return null;
     } catch (error) {
       console.error(error);
       setState({ user: null, loading: false });
+      return null;
     }
   }, [setState]);
 

@@ -109,6 +109,27 @@ const ensureUserBusinessColumns = async (): Promise<void> => {
       await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS business_account_requested_at TIMESTAMP NULL`,
       );
+
+      // Ensure the Postgres enum used by cosset_users.role includes business.
+      await executeQuery(
+        `
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_type')
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM pg_enum e
+                 JOIN pg_type t ON e.enumtypid = t.oid
+                 WHERE t.typname = 'user_role_type'
+                   AND e.enumlabel = 'business'
+               )
+            THEN
+              ALTER TYPE user_role_type ADD VALUE 'business';
+            END IF;
+          END
+          $$;
+        `,
+      );
     })().catch((error) => {
       ensureUserBusinessColumnsPromise = null;
       throw error;
@@ -514,7 +535,7 @@ export async function createUser(
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5::user_role_type, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
         RETURNING
           id,
           email,
@@ -781,21 +802,23 @@ export async function updateUserRole(id: string, role: UserRoleType): Promise<Us
       });
     }
 
+    const clearBusinessRequest = normalizedRole === 'business';
+
     const updatedUser = await queryOne<User>(
       `
         UPDATE ${TABLE_NAME}
         SET
-          role = $2,
+          role = $2::user_role_type,
           business_account_requested_at = CASE
-            WHEN $2 = 'business' THEN NULL
+            WHEN $3::boolean THEN NULL
             ELSE business_account_requested_at
           END,
           updated_at = NOW()
-        WHERE id = $1
+        WHERE id = $1::uuid
         RETURNING
           ${USER_SELECT_FIELDS}
       `,
-      [id, normalizedRole],
+      [id, normalizedRole, clearBusinessRequest],
     );
 
     if (!updatedUser) {

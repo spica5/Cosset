@@ -26,6 +26,7 @@ import { FormHead } from '../components/form-head';
 import { signInWithPassword } from '../context/jwt';
 import { FormSocials } from '../components/form-socials';
 import { FormDivider } from '../components/form-divider';
+import { getDashboardHomePath } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -65,8 +66,8 @@ export function SignInView() {
   const onSubmit = handleSubmit(async (data) => {
     try {
       await signInWithPassword({ email: data.email, password: data.password });
-      await checkUserSession?.();
-      router.push(paths.dashboard.root);
+      const sessionUser = await checkUserSession?.();
+      router.push(getDashboardHomePath(sessionUser?.role));
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Unable to sign in.');

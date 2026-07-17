@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -27,10 +27,28 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 
 // ---------------------------------------------------------------
 
+function getBusinessRequestAt(user?: Record<string, any> | null) {
+  return user?.businessAccountRequestedAt || user?.business_account_requested_at || null;
+}
+
+function formatRequestDate(value: unknown) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleString();
+}
+
 export function AccountView() {
   const theme = useTheme();
   const { user } = useGetCurrentUser();
   const [requestingBusinessAccount, setRequestingBusinessAccount] = useState(false);
+  const [localRequestAt, setLocalRequestAt] = useState<string | null>(null);
 
   // Determine account type based on user subscription status
   // This is a placeholder - adjust based on your actual user schema
@@ -39,7 +57,12 @@ export function AccountView() {
   const billingCycle = 'Monthly';
   const nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
   const hasBusinessAccount = isUserBusiness(user?.role);
-  const hasPendingBusinessRequest = Boolean(user?.businessAccountRequestedAt) && !hasBusinessAccount;
+  const requestedAt = useMemo(
+    () => localRequestAt || getBusinessRequestAt(user),
+    [localRequestAt, user]
+  );
+  const hasPendingBusinessRequest = Boolean(requestedAt) && !hasBusinessAccount;
+  const requestedAtLabel = formatRequestDate(requestedAt);
 
   const getAccountTypeColor = (type: string) => {
     switch (type) {
@@ -61,11 +84,23 @@ export function AccountView() {
 
     try {
       setRequestingBusinessAccount(true);
-      await requestBusinessAccount();
+      const updatedUser = await requestBusinessAccount();
+      const nextRequestedAt = getBusinessRequestAt(updatedUser) || new Date().toISOString();
+      setLocalRequestAt(String(nextRequestedAt));
       toast.success('Business account request submitted');
     } catch (error) {
       console.error('Failed to request business account', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to request business account');
+      const message =
+        error instanceof Error ? error.message : 'Failed to request business account';
+
+      if (message.toLowerCase().includes('already pending')) {
+        setLocalRequestAt(new Date().toISOString());
+        toast.success('Your business account request is already pending review');
+      } else if (message.toLowerCase().includes('already active')) {
+        toast.success('Business account is already active');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setRequestingBusinessAccount(false);
     }
@@ -108,8 +143,8 @@ export function AccountView() {
                     {accountType === 'Free Account'
                       ? 'Enjoy limited features with our free plan.'
                       : accountType === 'Paid Account'
-                      ? 'Unlock premium features with our paid plan.'
-                      : 'Enjoy all premium features with our extra-paid plan.'}
+                        ? 'Unlock premium features with our paid plan.'
+                        : 'Enjoy all premium features with our extra-paid plan.'}
                   </Typography>
                 </Box>
               </Box>
@@ -130,7 +165,10 @@ export function AccountView() {
                         p: 2,
                         cursor: 'pointer',
                         transition: 'all 0.3s ease',
-                        border: accountType === 'Free Account' ? `2px solid ${theme.vars.palette.primary.main}` : undefined,
+                        border:
+                          accountType === 'Free Account'
+                            ? `2px solid ${theme.vars.palette.primary.main}`
+                            : undefined,
                         bgcolor: accountType === 'Free Account' ? 'action.selected' : undefined,
                         '&:hover': {
                           borderColor: 'primary.main',
@@ -146,15 +184,24 @@ export function AccountView() {
                           Perfect for getting started
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          $0<Typography component="span" variant="body2" color="text.secondary">/mo</Typography>
+                          $0
+                          <Typography component="span" variant="body2" color="text.secondary">
+                            /mo
+                          </Typography>
                         </Typography>
                         <Stack spacing={1}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Basic features</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Limited storage</Typography>
                           </Box>
                         </Stack>
@@ -177,7 +224,10 @@ export function AccountView() {
                         p: 2,
                         cursor: 'pointer',
                         transition: 'all 0.3s ease',
-                        border: accountType === 'Paid Account' ? `2px solid ${theme.vars.palette.primary.main}` : undefined,
+                        border:
+                          accountType === 'Paid Account'
+                            ? `2px solid ${theme.vars.palette.primary.main}`
+                            : undefined,
                         bgcolor: accountType === 'Paid Account' ? 'action.selected' : undefined,
                         '&:hover': {
                           borderColor: 'primary.main',
@@ -193,19 +243,31 @@ export function AccountView() {
                           For most users
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          $9.99<Typography component="span" variant="body2" color="text.secondary">/mo</Typography>
+                          $9.99
+                          <Typography component="span" variant="body2" color="text.secondary">
+                            /mo
+                          </Typography>
                         </Typography>
                         <Stack spacing={1}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">All basic features</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Unlimited storage</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Priority support</Typography>
                           </Box>
                         </Stack>
@@ -228,8 +290,12 @@ export function AccountView() {
                         p: 2,
                         cursor: 'pointer',
                         transition: 'all 0.3s ease',
-                        border: accountType === 'Extra-paid Account' ? `2px solid ${theme.vars.palette.primary.main}` : undefined,
-                        bgcolor: accountType === 'Extra-paid Account' ? 'action.selected' : undefined,
+                        border:
+                          accountType === 'Extra-paid Account'
+                            ? `2px solid ${theme.vars.palette.primary.main}`
+                            : undefined,
+                        bgcolor:
+                          accountType === 'Extra-paid Account' ? 'action.selected' : undefined,
                         '&:hover': {
                           borderColor: 'primary.main',
                           boxShadow: 1,
@@ -237,7 +303,13 @@ export function AccountView() {
                       }}
                     >
                       <Stack spacing={2}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'start',
+                          }}
+                        >
                           <Typography variant="h6" sx={{ fontWeight: 600 }}>
                             Extra-paid Account
                           </Typography>
@@ -247,23 +319,38 @@ export function AccountView() {
                           For power users
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          $19.99<Typography component="span" variant="body2" color="text.secondary">/mo</Typography>
+                          $19.99
+                          <Typography component="span" variant="body2" color="text.secondary">
+                            /mo
+                          </Typography>
                         </Typography>
                         <Stack spacing={1}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">All paid features</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Advanced analytics</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">24/7 dedicated support</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Iconify icon="solar:check-circle-bold" sx={{ color: 'success.main', flexShrink: 0 }} />
+                            <Iconify
+                              icon="solar:check-circle-bold"
+                              sx={{ color: 'success.main', flexShrink: 0 }}
+                            />
                             <Typography variant="body2">Custom integrations</Typography>
                           </Box>
                         </Stack>
@@ -283,7 +370,17 @@ export function AccountView() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          sx={
+            hasPendingBusinessRequest
+              ? {
+                  borderColor: 'warning.main',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                }
+              : undefined
+          }
+        >
           <CardContent sx={{ p: 3 }}>
             <Stack spacing={2.5}>
               <Box>
@@ -291,8 +388,8 @@ export function AccountView() {
                   Business Account
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Business accounts unlock tools for managing media, reservations, and customer-facing
-                  experiences.
+                  Business accounts unlock tools for managing media, reservations, and
+                  customer-facing experiences.
                 </Typography>
               </Box>
 
@@ -300,11 +397,32 @@ export function AccountView() {
                 {hasBusinessAccount ? (
                   <Chip label="Business account active" color="success" variant="filled" />
                 ) : hasPendingBusinessRequest ? (
-                  <Chip label="Request pending review" color="warning" variant="outlined" />
+                  <Chip label="Request pending review" color="warning" variant="filled" />
                 ) : (
                   <Chip label="Standard account" color="default" variant="outlined" />
                 )}
               </Stack>
+
+              {hasPendingBusinessRequest ? (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 1.5,
+                    bgcolor: 'warning.lighter',
+                    border: '1px solid',
+                    borderColor: 'warning.light',
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ color: 'warning.darker', mb: 0.5 }}>
+                    Your request has been sent
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    An admin will review your business account request
+                    {requestedAtLabel ? ` (submitted ${requestedAtLabel})` : ''}. You will get
+                    access once it is approved.
+                  </Typography>
+                </Box>
+              ) : null}
 
               {!hasBusinessAccount ? (
                 <Button

@@ -9,6 +9,7 @@ import { CONFIG } from 'src/config-global';
 import { SplashScreen } from 'src/components/dashboard/loading-screen';
 
 import { useAuthContext } from '../hooks';
+import { getDashboardHomePath } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -21,11 +22,12 @@ export function GuestGuard({ children }: Props) {
 
   const searchParams = useSearchParams();
 
-  const { loading, authenticated } = useAuthContext();
+  const { loading, authenticated, user } = useAuthContext();
 
   const [isChecking, setIsChecking] = useState<boolean>(true);
 
-  const returnTo = searchParams.get('returnTo') || CONFIG.auth.redirectPath;
+  const returnTo =
+    searchParams.get('returnTo') || getDashboardHomePath(user?.role) || CONFIG.auth.redirectPath;
 
   const checkPermissions = async (): Promise<void> => {
     if (loading) {
@@ -43,7 +45,7 @@ export function GuestGuard({ children }: Props) {
   useEffect(() => {
     checkPermissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, loading]);
+  }, [authenticated, loading, user?.role]);
 
   if (isChecking) {
     return <SplashScreen />;

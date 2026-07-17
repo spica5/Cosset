@@ -169,7 +169,6 @@ export const navData = [
         children: [
           { title: 'Posts', path: paths.dashboard.community.post.list },         
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop.root },
-          { title: 'Brands Boulevard', path: paths.dashboard.community.brandsBoulevard.root },
           { title: 'Cinema', path: paths.dashboard.community.cinema.root },
           { title: 'Friends', path: paths.dashboard.community.friend },
           { title: 'Neighbors', path: paths.dashboard.community.neighbor.root },
@@ -186,6 +185,11 @@ export const navData = [
         icon: ICONS.chat,
       },
       {
+        title: 'Brands Boulevard',
+        path: paths.dashboard.community.brandsBoulevard.root,
+        icon: ICONS.product,
+      },
+      {
         title: 'Settings',
         path: paths.dashboard.settings.root,
         icon: ICONS.settings,
@@ -196,6 +200,47 @@ export const navData = [
           
         ],
       }
+    ],
+  },
+];
+
+/**
+ * Left nav for business accounts: Products, Post, Mail, Management only.
+ */
+export const businessNavData = [
+  {
+    subheader: 'Business',
+    items: [
+      {
+        title: 'Products',
+        path: paths.dashboard.community.brandsBoulevard.myStore,
+        icon: ICONS.product,
+      },
+      {
+        title: 'Clients',
+        path: paths.dashboard.community.brandsBoulevard.clients,
+        icon: ICONS.user,
+      },
+      {
+        title: 'Post',
+        path: paths.dashboard.community.post.list,
+        icon: ICONS.blog,
+      },
+      {
+        title: 'Mail',
+        path: paths.dashboard.mail,
+        icon: ICONS.mail,
+      },
+      {
+        title: 'Management',
+        path: paths.dashboard.settings.root,
+        icon: ICONS.settings,
+        children: [
+          { title: 'Profile', path: paths.dashboard.settings.profile },
+          { title: 'Appearance', path: paths.dashboard.settings.appearance },
+          { title: 'Account', path: paths.dashboard.settings.account },
+        ],
+      },
     ],
   },
 ];

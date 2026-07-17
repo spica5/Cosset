@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 
 import { JWT_SECRET } from 'src/config-global';
-import { getCollectionItemById, getCollectionItems, incrementCollectionItemViews } from 'src/models/collection-items';
-import { getViewedPostIdsByCustomer, markPostAsViewed } from 'src/models/post-reactions';
+import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
+import { getCollectionItems, getCollectionItemById, incrementCollectionItemViews } from 'src/models/collection-items';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
 

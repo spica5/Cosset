@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,7 +14,11 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
-import { useGetBrandStores, useGetMyBrandStore } from 'src/actions/brand-store';
+import {
+  useGetBrandStores,
+  useGetMyBrandStore,
+  revalidateBrandStoreList,
+} from 'src/actions/brand-store';
 
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
@@ -38,6 +42,10 @@ export function BrandsBoulevardListView() {
 
   const { stores, storesLoading } = useGetBrandStores();
   const { store: myStore } = useGetMyBrandStore(canOpenStore);
+
+  useEffect(() => {
+    revalidateBrandStoreList();
+  }, []);
 
   const filteredStores = useMemo(() => {
     const q = search.trim().toLowerCase();

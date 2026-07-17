@@ -11,6 +11,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useBoolean } from 'src/hooks/use-boolean';
@@ -25,6 +26,7 @@ import { FormHead } from '../components/form-head';
 import { FormSocials } from '../components/form-socials';
 import { FormDivider } from '../components/form-divider';
 import { SignUpTerms } from '../components/sign-up-terms';
+import { getDashboardHomePath } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -41,12 +43,16 @@ export const SignUpSchema = zod.object({
     .string()
     .min(1, { message: 'Password is required!' })
     .min(6, { message: 'Password must be at least 6 characters!' }),
+  accountType: zod.enum(['personal', 'business'], {
+    required_error: 'Please choose an account type!',
+  }),
 });
 
 // ----------------------------------------------------------------------
 
 export function SignUpView() {
   const { checkUserSession } = useAuthContext();
+  const router = useRouter();
 
   const password = useBoolean();
 
@@ -55,6 +61,7 @@ export function SignUpView() {
     lastName: '',
     email: '',
     password: '',
+    accountType: 'personal' as const,
   };
 
   const methods = useForm<SignUpSchemaType>({
@@ -69,15 +76,16 @@ export function SignUpView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const createdUser = await signUp({
+      await signUp({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
+        role: data.accountType === 'business' ? 'business' : 'user',
       });
 
-      console.info('DATA', createdUser);
-      await checkUserSession?.();
+      const sessionUser = await checkUserSession?.();
+      router.push(getDashboardHomePath(sessionUser?.role));
     } catch (error) {
       console.error(error);
     }
@@ -87,6 +95,16 @@ export function SignUpView() {
 
   const renderForm = (
     <Box gap={3} display="flex" flexDirection="column">
+      <Field.RadioGroup
+        name="accountType"
+        label="Account type"
+        row
+        options={[
+          { label: 'Personal account', value: 'personal' },
+          { label: 'Business account', value: 'business' },
+        ]}
+      />
+
       <Box display="flex" gap={{ xs: 3, sm: 2 }} flexDirection={{ xs: 'column', sm: 'row' }}>
         <Field.Text name="firstName" label="First name" InputLabelProps={{ shrink: true }} />
         <Field.Text name="lastName" label="Last name" InputLabelProps={{ shrink: true }} />

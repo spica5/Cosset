@@ -28,6 +28,16 @@ export function SignUpForm({ sx }: SignUpFormProps) {
 
   return (
     <Stack spacing={3} sx={sx}>
+      <Field.RadioGroup
+        name="accountType"
+        label="Account type"
+        row
+        options={[
+          { label: 'Personal account', value: 'personal' },
+          { label: 'Business account', value: 'business' },
+        ]}
+      />
+
       <Box display="flex" gap={{ xs: 3, sm: 2 }} flexDirection={{ xs: 'column', sm: 'row' }}>
         <Field.Text name="firstName" label="First name" InputLabelProps={{ shrink: true }} />
         <Field.Text name="lastName" label="Last name" InputLabelProps={{ shrink: true }} />

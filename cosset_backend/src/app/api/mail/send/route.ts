@@ -7,15 +7,16 @@ import {
   isValidEmail,
   displayNameFromUser,
   parseRecipientInput,
-  getUserIdFromMailRequest,
-  normalizeMailPaperStyle,
-  normalizeMailPaperBackgroundImage,
   stripMailPaperComment,
+  normalizeMailPaperStyle,
+  getUserIdFromMailRequest,
+  normalizeMailPaperBackgroundImage,
 } from 'src/utils/mail';
 
 import { createUserMail } from 'src/models/user-mails';
-import { isMailBackgroundImageKeyAllowed } from 'src/models/mail-background-images';
 import { getUserById, getUserByEmail } from 'src/models/users';
+import { isMailBackgroundImageKeyAllowed } from 'src/models/mail-background-images';
+
 import { notifyMailReceived } from 'src/utils/mail-notifications';
 
 export const dynamic = 'force-dynamic';

@@ -46,6 +46,27 @@ export type IBrandProduct = {
   categoryName?: string | null;
 };
 
+export type IBrandProductOrderStatus = 'purchased' | 'fulfilled' | 'cancelled';
+
+export type IBrandProductOrder = {
+  id: number;
+  storeId: number;
+  productId: number;
+  productName: string;
+  productImage?: string | null;
+  price?: string | null;
+  currency?: string | null;
+  quantity: number;
+  status: IBrandProductOrderStatus;
+  customerId?: string | null;
+  customerName: string;
+  customerEmail?: string | null;
+  customerPhotoURL?: string | null;
+  note?: string | null;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+};
+
 export function getBrandProductImages(product: Pick<IBrandProduct, 'images' | 'imageUrl'>): string[] {
   if (Array.isArray(product.images) && product.images.length) {
     return product.images.map((item) => String(item || '').trim()).filter(Boolean);

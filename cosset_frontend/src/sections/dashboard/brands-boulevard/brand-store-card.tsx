@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
@@ -24,45 +25,55 @@ type Props = {
   onManage?: () => void;
 };
 
+async function resolveMediaUrl(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('data:') ||
+    raw.startsWith('blob:')
+  ) {
+    return raw;
+  }
+
+  return (await getS3SignedUrl(raw.replace(/^public:/, ''))) || '';
+}
+
 export function BrandStoreCard({ store, onEnter, isOwner, onManage }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
 
   useEffect(() => {
     let mounted = true;
 
-    const resolve = async (value?: string | null, setter?: (url: string) => void) => {
-      if (!value || !setter) {
-        setter?.('');
-        return;
-      }
+    const resolve = async () => {
+      const [nextCover, nextLogo, nextAvatar] = await Promise.all([
+        resolveMediaUrl(store.coverImage),
+        resolveMediaUrl(store.logoImage),
+        resolveMediaUrl(store.ownerPhotoURL),
+      ]);
 
-      if (
-        value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        value.startsWith('data:') ||
-        value.startsWith('blob:')
-      ) {
-        if (mounted) setter(value);
-        return;
-      }
-
-      const signed = await getS3SignedUrl(value.replace(/^public:/, ''));
-      if (mounted) setter(signed || '');
+      if (!mounted) return;
+      setCoverUrl(nextCover);
+      setLogoUrl(nextLogo);
+      setOwnerAvatarUrl(nextAvatar);
     };
 
-    resolve(store.coverImage, setCoverUrl);
-    resolve(store.logoImage, setLogoUrl);
+    resolve();
 
     return () => {
       mounted = false;
     };
-  }, [store.coverImage, store.logoImage]);
+  }, [store.coverImage, store.logoImage, store.ownerPhotoURL]);
 
   const ownerName =
     `${store.ownerFirstName || ''} ${store.ownerLastName || ''}`.trim() ||
     store.ownerEmail ||
     'Brand owner';
+  const ownerInitial = ownerName.charAt(0).toUpperCase() || 'B';
 
   return (
     <Card
@@ -138,9 +149,18 @@ export function BrandStoreCard({ store, onEnter, isOwner, onManage }: Props) {
           </Typography>
         ) : null}
 
-        <Typography variant="caption" color="text.secondary">
-          by {ownerName}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Avatar
+            src={ownerAvatarUrl || undefined}
+            alt={ownerName}
+            sx={{ width: 24, height: 24, fontSize: 12 }}
+          >
+            {ownerInitial}
+          </Avatar>
+          <Typography variant="caption" color="text.secondary">
+            by {ownerName}
+          </Typography>
+        </Stack>
 
         <Stack direction="row" spacing={1} flexWrap="wrap">
           <Chip

@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
 
 import bcrypt from 'bcryptjs';
-
 import { DatabaseError } from '@/db/errors';
 
 import { createNotification } from 'src/models/notifications';
 import { createOrUpdateFriendRelation } from 'src/models/user-friends';
-import { createUser, getUserByEmail, getUserById } from 'src/models/users';
-import { STATUS, handleError, response } from 'src/utils/response';
+import { createUser, getUserById, getUserByEmail } from 'src/models/users';
+
 import { uuidv4 } from 'src/utils/uuidv4';
+import { STATUS, handleError, response } from 'src/utils/response';
 
 // ----------------------------------------------------------------------
 

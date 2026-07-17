@@ -442,6 +442,16 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
     </Paper>
   ) : null;
 
+  const menuFabSx = {
+    ...coffeeShopMobileFabSx,
+    width: 56,
+    height: 56,
+    p: 0,
+    overflow: 'hidden',
+    border: '2px solid rgba(255,255,255,0.65)',
+    boxShadow: '0 4px 18px rgba(0,0,0,0.55)',
+  } as const;
+
   const mobileMenuFab = (
     <Box sx={{ position: 'relative', flexShrink: 0 }}>
       <IconButton
@@ -449,9 +459,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         aria-label={open ? 'Hide menu' : 'Open menu'}
         aria-pressed={open}
         sx={{
-          ...coffeeShopMobileFabSx,
-          p: 0,
-          overflow: 'hidden',
+          ...menuFabSx,
           ...(open
             ? {
                 border: '2px solid',
@@ -461,7 +469,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         }}
       >
         {loading ? (
-          <CircularProgress size={24} sx={{ color: 'common.white' }} />
+          <CircularProgress size={22} sx={{ color: 'common.white' }} />
         ) : selectedItem?.resolvedImageUrl ? (
           <Box
             component="img"
@@ -478,13 +486,13 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         <Box
           sx={{
             position: 'absolute',
-            right: 3,
-            bottom: 3,
-            width: 20,
-            height: 20,
+            right: 2,
+            bottom: 2,
+            width: 18,
+            height: 18,
             borderRadius: '50%',
-            bgcolor: 'rgba(15, 20, 28, 0.92)',
-            border: '1px solid rgba(255,255,255,0.25)',
+            bgcolor: 'rgba(0,0,0,0.72)',
+            border: '1px solid rgba(255,255,255,0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -492,7 +500,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
             pointerEvents: 'none',
           }}
         >
-          <Iconify icon="solar:cup-hot-bold" width={12} sx={{ color: 'common.white' }} />
+          <Iconify icon="solar:cup-hot-bold" width={11} sx={{ color: 'common.white' }} />
         </Box>
       ) : null}
     </Box>
@@ -512,7 +520,7 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
         alignItems: 'flex-start',
         gap: { xs: COFFEE_SHOP_MOBILE_DOCK.gap, sm: 0.2 },
         pointerEvents: 'auto',
-        width: { xs: COFFEE_SHOP_MOBILE_DOCK.fabSize, sm: 'auto' },
+        width: { xs: 56, sm: 'auto' },
         maxWidth: { xs: COFFEE_SHOP_MOBILE_MENU_PANEL_WIDTH, sm: 320 },
         maxHeight: { xs: getCoffeeShopMobileMenuPanelMaxHeight(), sm: 'none' },
       }}
@@ -561,14 +569,10 @@ export function UniverseCoffeeShopMenu({ coffeeShopId, isPresent = true }: Props
           onClick={handleToggleMenu}
           aria-label="Open menu"
           aria-pressed={false}
-          sx={{
-            ...coffeeShopMobileFabSx,
-            p: 0,
-            overflow: 'hidden',
-          }}
+          sx={menuFabSx}
         >
           {loading ? (
-            <CircularProgress size={24} sx={{ color: 'common.white' }} />
+            <CircularProgress size={22} sx={{ color: 'common.white' }} />
           ) : selectedItem?.resolvedImageUrl ? (
             <Box
               component="img"

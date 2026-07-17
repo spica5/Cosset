@@ -193,6 +193,7 @@ export function BrandsMyStoreView() {
         logoImage: storeForm.logoImage.trim() || null,
       });
       toast.success('Your store is open on Brands Boulevard');
+      router.push(paths.dashboard.community.brandsBoulevard.root);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create store');
     } finally {

@@ -2,8 +2,9 @@
 
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
+import type { CinemaChatParticipant } from 'src/types/cinema-chat';
 
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -12,6 +13,9 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -22,6 +26,7 @@ import {
 } from 'src/actions/cinema-film-reservation';
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 import { useGetCinemaFilms } from 'src/actions/cinema-film';
+import { leaveCinemaPresence } from 'src/actions/cinema-chat';
 
 import { Player } from 'src/components/universe/player';
 import { Iconify } from 'src/components/universe/iconify';
@@ -46,6 +51,34 @@ import { formatCinemaSeatLabels } from 'src/sections/dashboard/cinema/cinema-sea
 import { CinemaSeatMapDialog } from 'src/sections/dashboard/cinema/cinema-seat-map-dialog';
 import { CinemaRibbonTitle } from 'src/sections/dashboard/cinema/cinema-ribbon-title';
 import { CinemaTheaterIntro } from 'src/sections/dashboard/cinema/cinema-theater-intro';
+import { UniverseCinemaChat } from 'src/sections/universe/community/universe-cinema-chat';
+import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
+
+// ----------------------------------------------------------------------
+
+function mergeParticipant(
+  list: CinemaChatParticipant[],
+  next: CinemaChatParticipant,
+): CinemaChatParticipant[] {
+  const key = next.userId.trim().toLowerCase();
+  const index = list.findIndex((p) => p.userId.trim().toLowerCase() === key);
+  if (index < 0) {
+    return [...list, next];
+  }
+
+  const existing = list[index];
+  const photoURL = next.photoURL || existing.photoURL;
+  const updated = { ...existing, ...next, photoURL };
+  if (!next.leftAt) {
+    delete (updated as CinemaChatParticipant & { leftAt?: string }).leftAt;
+  }
+  return list.map((p, i) => (i === index ? updated : p));
+}
+
+function removeParticipant(list: CinemaChatParticipant[], userId: string): CinemaChatParticipant[] {
+  const key = userId.trim().toLowerCase();
+  return list.filter((p) => p.userId.trim().toLowerCase() !== key);
+}
 
 // ----------------------------------------------------------------------
 
@@ -376,7 +409,9 @@ function CinemaFilmPosterCard({
 }
 
 export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props) {
-  const { user } = useAuthContext();
+  const router = useRouter();
+  const { user, authenticated } = useAuthContext();
+  const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
   const category = getCinemaCategory(categoryId);
   const resolvedOwnerId = ownerId || String(user?.id || '');
   const resolvedCategory = category && isCinemaCategory(categoryId) ? category.id : null;
@@ -485,6 +520,75 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const [viewingReservation, setViewingReservation] =
     useState<ICinemaFilmReservationWithScreening | null>(null);
   const [confirming, setConfirming] = useState(false);
+
+  const isPresent = useMemo(() => {
+    const uid = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+    if (!uid) return false;
+    return participants.some(
+      (p) => String(p.userId || '').trim().toLowerCase() === uid && !p.leftAt,
+    );
+  }, [participants, user?.id]);
+
+  const handleParticipantsLoaded = useCallback(
+    (loaded: CinemaChatParticipant[]) => {
+      setParticipants((prev) => {
+        let next = loaded.map((p) => {
+          const existingPhoto = String(p.photoURL || '').trim();
+          if (existingPhoto) return p;
+          const authId = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+          if (authId && authId === p.userId.trim().toLowerCase()) {
+            const authPhoto = String(user?.photoURL || '').trim();
+            if (authPhoto) return { ...p, photoURL: authPhoto };
+          }
+          return p;
+        });
+        prev.forEach((p) => {
+          next = mergeParticipant(next, p);
+        });
+        return next;
+      });
+    },
+    [user?.id, user?.photoURL],
+  );
+
+  const handleParticipantJoin = useCallback(
+    (participant: CinemaChatParticipant) => {
+      let next = participant;
+      if (!String(next.photoURL || '').trim()) {
+        const authId = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+        if (authId && authId === next.userId.trim().toLowerCase()) {
+          const authPhoto = String(user?.photoURL || '').trim();
+          if (authPhoto) next = { ...next, photoURL: authPhoto };
+        }
+      }
+      setParticipants((prev) => mergeParticipant(prev, next));
+    },
+    [user?.id, user?.photoURL],
+  );
+
+  const handleParticipantLeave = useCallback((userId: string) => {
+    setParticipants((prev) => {
+      const key = userId.trim().toLowerCase();
+      return prev.map((p) =>
+        p.userId.trim().toLowerCase() === key
+          ? { ...p, leftAt: new Date().toISOString() }
+          : p,
+      );
+    });
+  }, []);
+
+  const handleLeaveCinema = useCallback(async () => {
+    if (authenticated && user?.id && resolvedOwnerId && resolvedCategory) {
+      const uid = String(user.id);
+      setParticipants((prev) => removeParticipant(prev, uid));
+      try {
+        await leaveCinemaPresence(resolvedOwnerId, resolvedCategory);
+      } catch {
+        // still navigate away
+      }
+    }
+    router.push(paths.dashboard.community.cinema.root);
+  }, [authenticated, resolvedCategory, resolvedOwnerId, router, user?.id]);
 
   const activeReservation = useMemo(() => {
     if (!activeFilm) return null;
@@ -819,84 +923,54 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           {category.headline}
         </Typography>
 
-        {activeFilm ? (
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            ml: 'auto',
+            justifyContent: 'flex-end',
+            zIndex: 1,
+            flexShrink: 0,
+          }}
+        >
+          <Button
+            type="button"
+            onClick={handleLeaveCinema}
+            startIcon={<Iconify icon="solar:logout-2-outline" width={18} />}
             sx={{
-              ml: 'auto',
-              maxWidth: { xs: '38%', sm: '32%', md: '28%' },
-              justifyContent: 'flex-end',
-              zIndex: 1,
+              color: '#FFF8E7',
+              bgcolor: 'rgba(0,0,0,0.45)',
+              border: '1px solid rgba(212,176,90,0.28)',
+              backdropFilter: 'blur(8px)',
+              textTransform: 'none',
+              fontWeight: 600,
+              minWidth: { xs: 72, sm: 88 },
+              px: { xs: 1, sm: 1.5 },
+              fontSize: { xs: '0.72rem', sm: '0.8rem' },
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
             }}
+            disabled={authenticated ? !isPresent : false}
           >
-            <Button
-              size="small"
-              onClick={() => {
-                if (activeReservation && hasReservationSeat(activeReservation)) {
-                  handleViewReservation(activeReservation);
-                  return;
-                }
-
-                handleOpenSeatSelection(activeReservation);
-              }}
-              startIcon={
-                <Iconify
-                  icon={headerSeatLabel ? 'solar:bookmark-bold' : 'solar:ticket-bold'}
-                  width={16}
-                />
-              }
-              sx={{
-                minWidth: 0,
-                maxWidth: 1,
-                px: 1.25,
-                py: 0.75,
-                borderRadius: 1.5,
-                bgcolor: headerSeatLabel ? 'rgba(46,125,50,0.88)' : 'rgba(18,12,8,0.88)',
-                color: headerSeatLabel ? '#FFF8E7' : accent,
-                border: headerSeatLabel
-                  ? '1px solid rgba(129,199,132,0.55)'
-                  : `1px solid ${accent}66`,
-                fontWeight: 700,
-                fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                textTransform: 'none',
-                justifyContent: 'flex-start',
-                '&:hover': {
-                  bgcolor: headerSeatLabel ? 'rgba(56,142,60,0.96)' : 'rgba(30,20,12,0.95)',
-                },
-              }}
-            >
-              <Box sx={{ minWidth: 0, textAlign: 'left' }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    lineHeight: 1.1,
-                    opacity: 0.82,
-                    fontSize: '0.62rem',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  Seat
-                </Typography>
-                <Typography
-                  noWrap
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: 'inherit',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {headerSeatLabel || 'No seat'}
-                </Typography>
-              </Box>
-            </Button>
-          </Stack>
-        ) : (
-          <Box sx={{ ml: 'auto', maxWidth: { xs: '38%', sm: '32%', md: '28%' } }} />
-        )}
+            Exit
+          </Button>
+        </Stack>
       </Box>
+
+      {canFetch && authenticated && resolvedCategory ? (
+        <>
+          <UniverseCinemaParticipants participants={participants} />
+          <UniverseCinemaChat
+            ownerCustomerId={resolvedOwnerId}
+            category={resolvedCategory}
+            participants={participants}
+            onParticipantsLoaded={handleParticipantsLoaded}
+            onParticipantJoin={handleParticipantJoin}
+            onParticipantLeave={handleParticipantLeave}
+            isPresent={isPresent}
+          />
+        </>
+      ) : null}
 
       <Stack
         spacing={{ xs: 0.8, md: 1 }}
@@ -1064,8 +1138,82 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             mt: 1,
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start', px: { xs: 0.5, sm: 0 } }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+              px: { xs: 0.5, sm: 0 },
+              pr: { xs: 0.5, sm: 1 },
+            }}
+          >
             <CinemaRibbonTitle title="Film List" accent={accent} align="left" />
+
+            {activeFilm ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  if (activeReservation && hasReservationSeat(activeReservation)) {
+                    handleViewReservation(activeReservation);
+                    return;
+                  }
+
+                  handleOpenSeatSelection(activeReservation);
+                }}
+                startIcon={
+                  <Iconify
+                    icon={headerSeatLabel ? 'solar:bookmark-bold' : 'solar:ticket-bold'}
+                    width={16}
+                  />
+                }
+                sx={{
+                  flexShrink: 0,
+                  minWidth: 0,
+                  maxWidth: { xs: 140, sm: 180 },
+                  px: 1.25,
+                  py: 0.75,
+                  borderRadius: 1.5,
+                  bgcolor: headerSeatLabel ? 'rgba(46,125,50,0.88)' : 'rgba(18,12,8,0.88)',
+                  color: headerSeatLabel ? '#FFF8E7' : accent,
+                  border: headerSeatLabel
+                    ? '1px solid rgba(129,199,132,0.55)'
+                    : `1px solid ${accent}66`,
+                  fontWeight: 700,
+                  fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                  textTransform: 'none',
+                  justifyContent: 'flex-start',
+                  '&:hover': {
+                    bgcolor: headerSeatLabel ? 'rgba(56,142,60,0.96)' : 'rgba(30,20,12,0.95)',
+                  },
+                }}
+              >
+                <Box sx={{ minWidth: 0, textAlign: 'left' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      lineHeight: 1.1,
+                      opacity: 0.82,
+                      fontSize: '0.62rem',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Seat
+                  </Typography>
+                  <Typography
+                    noWrap
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: 'inherit',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {headerSeatLabel || 'No seat'}
+                  </Typography>
+                </Box>
+              </Button>
+            ) : null}
           </Box>
 
           {loading ? (

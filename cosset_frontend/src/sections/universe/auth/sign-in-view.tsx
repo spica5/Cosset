@@ -12,6 +12,7 @@ import { Form } from 'src/components/universe/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { signInWithPassword } from 'src/auth/context/jwt';
+import { getDashboardHomePath } from 'src/auth/utils/role';
 
 import { FormHead } from './components/form-head';
 import { SignInSchema } from './components/schema';
@@ -45,8 +46,8 @@ export function SignInView() {
         email: data.email,
         password: data.password,
       });
-      await checkUserSession?.();
-      router.push(paths.dashboard.root);
+      const sessionUser = await checkUserSession?.();
+      router.push(getDashboardHomePath(sessionUser?.role));
 
       reset();
     } catch (error) {

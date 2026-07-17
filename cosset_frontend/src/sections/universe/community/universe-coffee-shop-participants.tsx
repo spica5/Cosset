@@ -249,27 +249,27 @@ export function UniverseCoffeeShopParticipants({
                 : undefined),
             }}
           >
-            <Iconify icon="solar:users-group-rounded-bold" width={26} />
+            <Iconify icon="solar:users-group-rounded-bold" width={22} />
           </IconButton>
 
           {!open ? (
             <Box
               sx={{
                 position: 'absolute',
-                top: -4,
-                right: -4,
-                minWidth: 20,
-                height: 20,
+                top: -2,
+                right: -2,
+                minWidth: 18,
+                height: 18,
                 px: 0.5,
                 borderRadius: 10,
                 bgcolor: 'info.main',
                 color: 'common.white',
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid rgba(15, 20, 28, 0.88)',
+                border: '2px solid rgba(0,0,0,0.55)',
               }}
             >
               {visibleParticipants.length}

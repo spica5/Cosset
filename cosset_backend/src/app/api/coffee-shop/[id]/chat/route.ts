@@ -1,22 +1,20 @@
 import type { NextRequest } from 'next/server';
 
 import { JWT_SECRET } from 'src/config-global';
-
-import { getCoffeeShopById } from 'src/models/coffee-shops';
-import {
-  createCoffeeShopChatLog,
-  listCoffeeShopChatLogs,
-} from 'src/models/coffee-shop-chat-logs';
+import { verify } from 'src/utils/jwt';
 
 import { getUserFriends } from 'src/models/user-friends';
+import { getCoffeeShopById } from 'src/models/coffee-shops';
 import { getUserById, getUserPhotoURLsByIds } from 'src/models/users';
-
 import { touchCoffeeShopPresence } from 'src/models/coffee-shop-presence';
-import { listCoffeeShopParticipants } from 'src/utils/coffee-shop-participants';
-import { COFFEE_SHOP_CHAT_EVENT, coffeeShopChatChannel, getPusherServer } from 'src/utils/pusher';
+import {
+  listCoffeeShopChatLogs,
+  createCoffeeShopChatLog,
+} from 'src/models/coffee-shop-chat-logs';
 
-import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
+import { listCoffeeShopParticipants } from 'src/utils/coffee-shop-participants';
+import { getPusherServer, COFFEE_SHOP_CHAT_EVENT, coffeeShopChatChannel } from 'src/utils/pusher';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -3,11 +3,11 @@ export const COFFEE_SHOP_MOBILE_PANEL_EVENT = 'coffee-shop-mobile-panel-open';
 export type CoffeeShopMobilePanel = 'menu' | 'chat' | null;
 
 export const COFFEE_SHOP_MOBILE_DOCK = {
-  left: 12,
-  top: 12,
-  bottom: 12,
-  fabSize: 65,
-  gap: 1,
+  left: 16,
+  top: 16,
+  bottom: 16,
+  fabSize: 48,
+  gap: 10,
   formGap: 8,
   rightInset: 10,
 } as const;
@@ -52,11 +52,26 @@ export const coffeeShopLeftDockPanelSx = {
 export const coffeeShopMobileFabSx = {
   width: COFFEE_SHOP_MOBILE_DOCK.fabSize,
   height: COFFEE_SHOP_MOBILE_DOCK.fabSize,
-  bgcolor: 'rgba(15, 20, 28, 0.88)',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  bgcolor: 'rgba(0,0,0,0.55)',
+  backdropFilter: 'blur(8px)',
+  border: '1px solid rgba(255,255,255,0.2)',
   color: 'common.white',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+  '&:hover': { bgcolor: 'rgba(0,0,0,0.72)' },
+} as const;
+
+/** Square header actions (Out / Hide / Music) on mobile */
+export const coffeeShopHeaderActionSx = {
+  width: COFFEE_SHOP_MOBILE_DOCK.fabSize,
+  height: COFFEE_SHOP_MOBILE_DOCK.fabSize,
+  minWidth: COFFEE_SHOP_MOBILE_DOCK.fabSize,
+  p: 0,
+  borderRadius: 1.5,
+  bgcolor: 'rgba(0,0,0,0.55)',
+  backdropFilter: 'blur(8px)',
+  border: '1px solid rgba(255,255,255,0.2)',
+  color: 'common.white',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
   '&:hover': { bgcolor: 'rgba(0,0,0,0.72)' },
 } as const;
 

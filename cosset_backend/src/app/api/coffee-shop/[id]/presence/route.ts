@@ -1,28 +1,30 @@
 import type { NextRequest } from 'next/server';
 
+import { verify } from 'src/utils/jwt';
+
 import { JWT_SECRET } from 'src/config-global';
 import { getCoffeeShopById } from 'src/models/coffee-shops';
 import {
-  getCoffeeShopPresenceHidden,
-  getCoffeeShopPresenceJoinedAt,
   listUserCoffeeShops,
-  removeCoffeeShopPresence,
-  removeUserFromAllCoffeeShops,
-  setCoffeeShopPresenceHidden,
   touchCoffeeShopPresence,
   upsertCoffeeShopPresence,
+  removeCoffeeShopPresence,
+  getCoffeeShopPresenceHidden,
+  setCoffeeShopPresenceHidden,
+  removeUserFromAllCoffeeShops,
+  getCoffeeShopPresenceJoinedAt,
 } from 'src/models/coffee-shop-presence';
+
 import { STATUS, handleError, response } from 'src/utils/response';
 import {
   buildCoffeeShopParticipant,
   listCoffeeShopParticipants,
 } from 'src/utils/coffee-shop-participants';
-import { verify } from 'src/utils/jwt';
 import {
-  COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
-  COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
-  coffeeShopChatChannel,
   getPusherServer,
+  coffeeShopChatChannel,
+  COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
+  COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
 } from 'src/utils/pusher';
 
 export const dynamic = 'force-dynamic';

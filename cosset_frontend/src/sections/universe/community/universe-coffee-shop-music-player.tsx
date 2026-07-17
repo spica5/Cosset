@@ -12,6 +12,7 @@ import Collapse from '@mui/material/Collapse';
 import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { touchCoffeeShopActivity } from 'src/actions/coffee-shop';
@@ -22,7 +23,7 @@ import { getCoffeeShopMusicTracks } from 'src/utils/coffee-shop-music';
 
 import { Iconify } from 'src/components/universe/iconify';
 
-import { coffeeShopMobileFabSx } from './coffee-shop-mobile-panels';
+import { coffeeShopMobileFabSx, coffeeShopHeaderActionSx } from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------
 
@@ -30,6 +31,8 @@ type Props = {
   coffeeShopId: string;
   musicJson?: unknown;
   isPresent?: boolean;
+  /** Dock above Out/Hide on mobile; desktop still floats near the header actions */
+  dockInHeader?: boolean;
 };
 
 function formatTime(seconds: number): string {
@@ -41,8 +44,14 @@ function formatTime(seconds: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPresent = true }: Props) {
+export function UniverseCoffeeShopMusicPlayer({
+  coffeeShopId,
+  musicJson,
+  isPresent = true,
+  dockInHeader = false,
+}: Props) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const detailUrl = coffeeShopId ? endpoints.coffeeShop.details(coffeeShopId) : null;
 
   const { data: shopData } = useSWR(detailUrl, fetcher, {
@@ -299,13 +308,14 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
     };
   }, [duration, seekTo]);
 
-  if (!portalTarget) {
+  const hasTracks = sourceTracks.length > 0;
+  const dockInline = dockInHeader && isMobile;
+
+  if (!hasTracks) {
     return null;
   }
 
-  const hasTracks = sourceTracks.length > 0;
-
-  if (!hasTracks) {
+  if (!dockInline && !portalTarget) {
     return null;
   }
 
@@ -320,31 +330,20 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
       ? 'Loading…'
       : `${formatTime(currentTime)} / ${formatTime(duration)}`;
 
-  const panel = (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: { xs: 8, sm: 16 },
-        left: { xs: 100, sm: 'auto' },
-        right: { xs: 80, sm: 120 },
-        zIndex: theme.zIndex.snackbar,
-        pointerEvents: 'auto',
-        width: { xs: 'auto', sm: panelOpen ? 300 : 'auto' },
-        maxWidth: { xs: 'calc(100vw - 96px)', sm: panelOpen ? 300 : 'none' },
-      }}
-    >
+  const playerContent = (
+    <>
       {!panelOpen ? (
         <IconButton
           onClick={() => setPanelOpen(true)}
           aria-label="Open music player"
-          sx={coffeeShopMobileFabSx}
+          sx={dockInline ? coffeeShopHeaderActionSx : coffeeShopMobileFabSx}
         >
           {resolving && hasTracks ? (
-            <CircularProgress size={24} sx={{ color: 'common.white' }} />
+            <CircularProgress size={20} sx={{ color: 'common.white' }} />
           ) : (
             <Iconify
               icon={isPlaying ? 'solar:music-note-3-bold' : 'solar:music-note-2-bold'}
-              width={26}
+              width={22}
             />
           )}
         </IconButton>
@@ -574,8 +573,45 @@ export function UniverseCoffeeShopMusicPlayer({ coffeeShopId, musicJson, isPrese
           <track kind="captions" />
         </audio>
       ) : null}
-    </Box>
+    </>
   );
 
-  return createPortal(panel, portalTarget);
+  if (dockInline) {
+    return (
+      <Box
+        sx={{
+          pointerEvents: 'auto',
+          width: panelOpen ? 'min(280px, calc(100vw - 16px))' : coffeeShopHeaderActionSx.width,
+          maxWidth: 'calc(100vw - 16px)',
+          alignSelf: 'stretch',
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
+        {playerContent}
+      </Box>
+    );
+  }
+
+  if (!portalTarget) {
+    return null;
+  }
+
+  return createPortal(
+    <Box
+      sx={{
+        position: 'fixed',
+        top: { xs: 8, sm: 16 },
+        left: 'auto',
+        right: { xs: 8, sm: 120 },
+        zIndex: theme.zIndex.snackbar,
+        pointerEvents: 'auto',
+        width: { xs: 'auto', sm: panelOpen ? 300 : 'auto' },
+        maxWidth: { xs: 'calc(100vw - 16px)', sm: panelOpen ? 300 : 'none' },
+      }}
+    >
+      {playerContent}
+    </Box>,
+    portalTarget,
+  );
 }

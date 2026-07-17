@@ -7,6 +7,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
+import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
@@ -21,8 +22,10 @@ import {
   useGetBrandStore,
   useGetBrandProducts,
   useGetBrandCategories,
+  purchaseBrandProduct,
 } from 'src/actions/brand-store';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
@@ -63,6 +66,8 @@ export function BrandsStorefrontView({ storeId }: Props) {
   const [activeCategoryId, setActiveCategoryId] = useState<'all' | number>('all');
   const [coverUrl, setCoverUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
+  const [buyingProductId, setBuyingProductId] = useState<number | null>(null);
 
   const isOwner = String(store?.ownerCustomerId || '') === String(user?.id || '');
 
@@ -70,14 +75,16 @@ export function BrandsStorefrontView({ storeId }: Props) {
     let mounted = true;
 
     const resolve = async () => {
-      const [nextCover, nextLogo] = await Promise.all([
+      const [nextCover, nextLogo, nextAvatar] = await Promise.all([
         resolveImageUrl(store?.coverImage),
         resolveImageUrl(store?.logoImage),
+        resolveImageUrl(store?.ownerPhotoURL),
       ]);
 
       if (!mounted) return;
       setCoverUrl(nextCover);
       setLogoUrl(nextLogo);
+      setOwnerAvatarUrl(nextAvatar);
     };
 
     resolve();
@@ -85,7 +92,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
     return () => {
       mounted = false;
     };
-  }, [store?.coverImage, store?.logoImage]);
+  }, [store?.coverImage, store?.logoImage, store?.ownerPhotoURL]);
 
   const visibleProducts = useMemo(() => {
     const available = products.filter((product) => product.isAvailable !== false);
@@ -97,6 +104,26 @@ export function BrandsStorefrontView({ storeId }: Props) {
     `${store?.ownerFirstName || ''} ${store?.ownerLastName || ''}`.trim() ||
     store?.ownerEmail ||
     'Brand owner';
+  const ownerInitial = ownerName.charAt(0).toUpperCase() || 'B';
+
+  const handleBuy = async (productId: number, productName: string) => {
+    if (!store || buyingProductId) return;
+
+    if (!user?.id) {
+      toast.error('Please sign in to buy this product');
+      return;
+    }
+
+    try {
+      setBuyingProductId(productId);
+      await purchaseBrandProduct(store.id, productId, { quantity: 1 });
+      toast.success(`Purchased ${productName}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to purchase product');
+    } finally {
+      setBuyingProductId(null);
+    }
+  };
 
   if (storeLoading) {
     return (
@@ -184,15 +211,32 @@ export function BrandsStorefrontView({ storeId }: Props) {
         </Box>
         <CardContent sx={{ p: 3, pt: logoUrl ? 5 : 3 }}>
           <Stack spacing={1.5}>
-            <Typography variant="h4">{store.name}</Typography>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={2}
+              flexWrap="wrap"
+            >
+              <Typography variant="h4">{store.name}</Typography>
+              <Stack direction="row" alignItems="center" spacing={1.25}>
+                <Avatar
+                  src={ownerAvatarUrl || undefined}
+                  alt={ownerName}
+                  sx={{ width: 32, height: 32, fontSize: 14 }}
+                >
+                  {ownerInitial}
+                </Avatar>
+                <Typography variant="body2" color="text.secondary">
+                  by {ownerName}
+                </Typography>
+              </Stack>
+            </Stack>
             {store.tagline ? (
               <Typography variant="subtitle1" color="text.secondary">
                 {store.tagline}
               </Typography>
             ) : null}
-            <Typography variant="body2" color="text.secondary">
-              by {ownerName}
-            </Typography>
             {store.description ? (
               <Typography variant="body1" sx={{ maxWidth: 760 }}>
                 {store.description}
@@ -257,6 +301,16 @@ export function BrandsStorefrontView({ storeId }: Props) {
                         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                           {product.currency || 'USD'} {product.price}
                         </Typography>
+                      ) : null}
+                      {!isOwner ? (
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          disabled={buyingProductId === product.id}
+                          onClick={() => handleBuy(product.id, product.name)}
+                        >
+                          {buyingProductId === product.id ? 'Buying...' : 'Buy'}
+                        </Button>
                       ) : null}
                     </Stack>
                   </CardContent>

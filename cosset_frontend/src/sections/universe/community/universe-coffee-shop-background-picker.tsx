@@ -85,12 +85,12 @@ export function UniverseCoffeeShopBackgroundPicker({
           <Box
             sx={{
               position: 'absolute',
-              right: 3,
-              bottom: 3,
-              width: 20,
-              height: 20,
+              right: 2,
+              bottom: 2,
+              width: 16,
+              height: 16,
               borderRadius: '50%',
-              bgcolor: 'rgba(15, 20, 28, 0.92)',
+              bgcolor: 'rgba(0,0,0,0.72)',
               border: '1px solid rgba(255,255,255,0.25)',
               display: 'flex',
               alignItems: 'center',
@@ -99,27 +99,27 @@ export function UniverseCoffeeShopBackgroundPicker({
               pointerEvents: 'none',
             }}
           >
-            <Iconify icon="solar:gallery-bold" width={12} sx={{ color: 'common.white' }} />
+            <Iconify icon="solar:gallery-bold" width={10} sx={{ color: 'common.white' }} />
           </Box>
 
           {!open && imageUrls.length > 1 ? (
             <Box
               sx={{
                 position: 'absolute',
-                top: -4,
-                right: -4,
-                minWidth: 20,
-                height: 20,
+                top: -2,
+                right: -2,
+                minWidth: 18,
+                height: 18,
                 px: 0.5,
                 borderRadius: 10,
                 bgcolor: 'success.main',
                 color: 'common.white',
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid rgba(15, 20, 28, 0.88)',
+                border: '2px solid rgba(0,0,0,0.55)',
               }}
             >
               {imageUrls.length}

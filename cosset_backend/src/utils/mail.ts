@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
-
-import type { MailRecipient, UserMailRow } from 'src/models/user-mails';
-import { getUserByEmail } from 'src/models/users';
-
-import { JWT_SECRET } from 'src/config-global';
-import { verify } from 'src/utils/jwt';
+import type { UserMailRow, MailRecipient } from 'src/models/user-mails';
 
 import COLORS from 'src/colors.json';
+
+import { verify } from 'src/utils/jwt';
+
+import { JWT_SECRET } from 'src/config-global';
+import { getUserByEmail } from 'src/models/users';
 
 export type ApiMailLabel = {
   id: string;

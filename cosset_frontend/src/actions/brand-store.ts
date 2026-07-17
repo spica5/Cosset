@@ -1,4 +1,10 @@
-import type { IBrandStore, IBrandCategory, IBrandProduct } from 'src/types/brand-store';
+import type {
+  IBrandStore,
+  IBrandCategory,
+  IBrandProduct,
+  IBrandProductOrder,
+  IBrandProductOrderStatus,
+} from 'src/types/brand-store';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -7,6 +13,7 @@ import axios, { fetcher, endpoints } from 'src/utils/axios';
 
 const STORE_LIST_ENDPOINT = endpoints.brandStore.list;
 const STORE_MINE_ENDPOINT = endpoints.brandStore.mine;
+const STORE_ORDERS_ENDPOINT = endpoints.brandStore.orders;
 
 const swrOptions = {
   revalidateIfStale: false,
@@ -14,13 +21,31 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
+export const revalidateBrandStoreList = async () => {
+  try {
+    await Promise.all([
+      mutate(STORE_LIST_ENDPOINT, undefined, { revalidate: true }),
+      mutate(STORE_MINE_ENDPOINT, undefined, { revalidate: true }),
+      mutate(
+        (key) => typeof key === 'string' && key.startsWith('/api/brand-store'),
+        undefined,
+        { revalidate: true }
+      ),
+    ]);
+  } catch {
+    // Ignore cache refresh failures; CRUD already succeeded on the server.
+  }
+};
+
 const revalidateStoreCaches = async (storeId?: string | number) => {
-  await mutate(STORE_LIST_ENDPOINT);
-  await mutate(STORE_MINE_ENDPOINT);
+  await revalidateBrandStoreList();
+
   if (storeId !== undefined) {
-    await mutate(endpoints.brandStore.details(storeId));
-    await mutate(endpoints.brandStore.categories(storeId));
-    await mutate(endpoints.brandStore.products(storeId));
+    await Promise.all([
+      mutate(endpoints.brandStore.details(storeId), undefined, { revalidate: true }),
+      mutate(endpoints.brandStore.categories(storeId), undefined, { revalidate: true }),
+      mutate(endpoints.brandStore.products(storeId), undefined, { revalidate: true }),
+    ]);
   }
 };
 
@@ -28,6 +53,7 @@ type StoresData = { stores?: IBrandStore[]; store?: IBrandStore | null };
 type StoreData = { store?: IBrandStore };
 type CategoriesData = { categories?: IBrandCategory[] };
 type ProductsData = { products?: IBrandProduct[] };
+type OrdersData = { orders?: IBrandProductOrder[]; store?: IBrandStore | null };
 
 export function useGetBrandStores() {
   const { data, isLoading, error, isValidating } = useSWR<StoresData>(
@@ -111,6 +137,60 @@ export function useGetBrandProducts(storeId: string | number | '') {
   );
 }
 
+export function useGetMyBrandProductOrders(enabled: boolean = true) {
+  const { data, isLoading, error, isValidating } = useSWR<OrdersData>(
+    enabled ? STORE_ORDERS_ENDPOINT : null,
+    fetcher,
+    { ...swrOptions, revalidateIfStale: true },
+  );
+
+  return useMemo(
+    () => ({
+      orders: data?.orders || [],
+      store: data?.store || null,
+      ordersLoading: isLoading,
+      ordersError: error,
+      ordersValidating: isValidating,
+      ordersEmpty: !isLoading && !(data?.orders || []).length,
+    }),
+    [data?.orders, data?.store, error, isLoading, isValidating],
+  );
+}
+
+export async function purchaseBrandProduct(
+  storeId: string | number,
+  productId: string | number,
+  options?: { quantity?: number; note?: string; displayName?: string },
+) {
+  try {
+    const res = await axios.post(endpoints.brandStore.productOrder(storeId, productId), {
+      quantity: options?.quantity ?? 1,
+      note: options?.note,
+      displayName: options?.displayName,
+    });
+
+    await mutate(STORE_ORDERS_ENDPOINT, undefined, { revalidate: true });
+    return res.data?.order as IBrandProductOrder;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to purchase product')
+          : 'Failed to purchase product';
+    throw new Error(message);
+  }
+}
+
+export async function updateBrandProductOrderStatus(
+  orderId: string | number,
+  status: IBrandProductOrderStatus,
+) {
+  const res = await axios.put(STORE_ORDERS_ENDPOINT, { orderId, status });
+  await mutate(STORE_ORDERS_ENDPOINT, undefined, { revalidate: true });
+  return res.data?.order as IBrandProductOrder;
+}
+
 export async function createBrandStore(
   store: Omit<
     IBrandStore,
@@ -118,8 +198,28 @@ export async function createBrandStore(
   >,
 ) {
   const res = await axios.post(endpoints.brandStore.add, { store });
-  await revalidateStoreCaches(res.data?.store?.id);
-  return res.data?.store as IBrandStore;
+  const created = res.data?.store as IBrandStore;
+
+  if (created) {
+    await mutate(
+      STORE_LIST_ENDPOINT,
+      (current: StoresData | undefined) => {
+        const existing = current?.stores || [];
+        const withoutDuplicate = existing.filter((item) => item.id !== created.id);
+        return { stores: [created, ...withoutDuplicate] };
+      },
+      { revalidate: true }
+    );
+
+    await mutate(
+      STORE_MINE_ENDPOINT,
+      { stores: [created], store: created },
+      { revalidate: true }
+    );
+  }
+
+  await revalidateStoreCaches(created?.id);
+  return created;
 }
 
 export async function updateBrandStore(id: string | number, updates: Partial<IBrandStore>) {

@@ -1081,7 +1081,7 @@ export function UniverseCoffeeShopChat({
         }}
       >
         <IconButton onClick={() => setOpen(true)} aria-label="Open chat" sx={coffeeShopMobileFabSx}>
-          <Iconify icon="solar:chat-round-dots-bold" width={26} />
+          <Iconify icon="solar:chat-round-dots-bold" width={22} />
         </IconButton>
       </Box>,
       portalTarget,

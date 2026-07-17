@@ -149,6 +149,9 @@ export const endpoints = {
     products: (id: string | number) => `/api/brand-store/${id}/product`,
     product: (id: string | number, productId: string | number) =>
       `/api/brand-store/${id}/product/${productId}`,
+    productOrder: (id: string | number, productId: string | number) =>
+      `/api/brand-store/${id}/product/${productId}/order`,
+    orders: '/api/brand-store/orders',
   },
   journeyDiary: {
     location: {
@@ -248,6 +251,10 @@ export const endpoints = {
       details: (id: string | number) => `/api/cinema/reservation/${id}`,
       delete: (id: string | number) => `/api/cinema/reservation/${id}`,
     },
+    presence: (ownerId: string, category: string) =>
+      `/api/cinema/${encodeURIComponent(ownerId)}/${encodeURIComponent(category)}/presence`,
+    chat: (ownerId: string, category: string) =>
+      `/api/cinema/${encodeURIComponent(ownerId)}/${encodeURIComponent(category)}/chat`,
   },
   post: {
     list: '/api/post/list',

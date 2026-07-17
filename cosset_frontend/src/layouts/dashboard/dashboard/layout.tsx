@@ -3,7 +3,7 @@
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
 import type { NavSectionProps, NavItemBaseProps } from 'src/components/dashboard/nav-section';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -17,7 +17,12 @@ import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetPostUnreadCount } from 'src/actions/post';
 import { useGetNotifications } from 'src/actions/notification';
 import { useAuthContext } from 'src/auth/hooks';
-import { isUserAdmin } from 'src/auth/utils/role';
+import {
+  isUserAdmin,
+  isUserBusiness,
+  getDashboardHomePath,
+  isBusinessAllowedDashboardPath,
+} from 'src/auth/utils/role';
 import { useMailNotifications } from 'src/hooks/use-mail-notifications';
 
 import { Logo } from 'src/components/dashboard/logo';
@@ -25,7 +30,7 @@ import { Label } from 'src/components/dashboard/label';
 import { useSettingsContext } from 'src/components/dashboard/settings';
 
 import { paths } from 'src/routes/paths';
-import { usePathname } from 'src/routes/hooks';
+import { usePathname, useRouter } from 'src/routes/hooks';
 
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
@@ -39,7 +44,10 @@ import { HeaderSection } from '../core/header-section';
 import { StyledDivider, useNavColorVars } from './styles';
 import { AccountDrawer } from '../components/account-drawer';
 import { ContactsPopover } from '../components/contacts-popover';
-import { navData as dashboardNavData } from '../config-nav-dashboard';
+import {
+  navData as dashboardNavData,
+  businessNavData,
+} from '../config-nav-dashboard';
 import { NotificationsDrawer } from '../components/notifications-drawer';
 
 // ----------------------------------------------------------------------
@@ -74,7 +82,9 @@ export type DashboardLayoutProps = {
 export function DashboardLayout({ sx, children, header, data }: DashboardLayoutProps) {
   const theme = useTheme();
   const pathname = usePathname();
+  const router = useRouter();
   const { user } = useAuthContext();
+  const isBusinessAccount = isUserBusiness(user?.role) && !isUserAdmin(user?.role);
 
   const isSceneHeaderPage =
     pathname?.includes('/community/coffee-shop') ||
@@ -91,6 +101,23 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const settings = useSettingsContext();
 
+  useEffect(() => {
+    if (!isBusinessAccount || !pathname) return;
+    if (isBusinessAllowedDashboardPath(pathname)) return;
+    router.replace(getDashboardHomePath(user?.role));
+  }, [isBusinessAccount, pathname, router, user?.role]);
+
+  const accountMenuData = useMemo(
+    () =>
+      isBusinessAccount
+        ? _account.filter((item) => item.label !== 'Home').map((item) =>
+            item.label === 'Account settings'
+              ? { ...item, label: 'Management' }
+              : item
+          )
+        : _account,
+    [isBusinessAccount]
+  );
   const navColorVars = useNavColorVars(theme, settings);
 
   const layoutQuery: Breakpoint = 'lg';
@@ -115,6 +142,39 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
    [collections]);
 
   const navData = useMemo<NavSectionProps['data']>(() => {
+    if (isBusinessAccount) {
+      return businessNavData.map((group) => ({
+        ...group,
+        items: group.items.map((item) => {
+          if (item.title === 'Post') {
+            return {
+              ...item,
+              info:
+                postUnreadCount > 0 ? (
+                  <Label color="error" variant="inverted">
+                    {postUnreadCount}
+                  </Label>
+                ) : undefined,
+            };
+          }
+
+          if (item.title === 'Mail') {
+            return {
+              ...item,
+              info:
+                mailUnreadCount > 0 ? (
+                  <Label color="error" variant="inverted">
+                    {mailUnreadCount}
+                  </Label>
+                ) : undefined,
+            };
+          }
+
+          return item;
+        }),
+      }));
+    }
+
     const baseNavData = data?.nav ?? dashboardNavData;
     const visibleNavData = isUserAdmin(user?.role)
       ? baseNavData
@@ -167,7 +227,14 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
         return item;
       }),
     }));
-  }, [data?.nav, collectionSubitems, mailUnreadCount, postUnreadCount, user?.role]);
+  }, [
+    collectionSubitems,
+    data?.nav,
+    isBusinessAccount,
+    mailUnreadCount,
+    postUnreadCount,
+    user?.role,
+  ]);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';
@@ -260,9 +327,9 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
                   sx={sceneHeaderIconSx}
                 />
                 {/* -- Contacts popover -- */}
-                <ContactsPopover sx={sceneHeaderIconSx} />
+                {!isBusinessAccount ? <ContactsPopover sx={sceneHeaderIconSx} /> : null}
                 {/* -- Account drawer -- */}
-                <AccountDrawer data={_account} sx={sceneHeaderIconSx} />
+                <AccountDrawer data={accountMenuData} sx={sceneHeaderIconSx} />
               </Box>
             ),
           }}

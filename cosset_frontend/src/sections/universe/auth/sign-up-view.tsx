@@ -11,6 +11,7 @@ import { Form } from 'src/components/universe/hook-form';
 
 import { signUp } from 'src/auth/context/jwt/action';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
+import { getDashboardHomePath } from 'src/auth/utils/role';
 import { acceptFriendInviteLink } from 'src/actions/friend';
 
 import { FormHead } from './components/form-head';
@@ -36,6 +37,7 @@ export function SignUpView() {
     email: prefilledEmail,
     password: '',
     confirmPassword: '',
+    accountType: 'personal' as const,
   };
 
   const methods = useForm<SignUpSchemaType>({
@@ -52,10 +54,11 @@ export function SignUpView() {
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
+        role: data.accountType === 'business' ? 'business' : 'user',
       });
           
       reset();
-      await checkUserSession?.();
+      const sessionUser = await checkUserSession?.();
 
       // Process invite link if present
       const inviteFrom = String(searchParams.get('inviteFrom') || '').trim();
@@ -69,7 +72,7 @@ export function SignUpView() {
         }
       }
 
-      router.replace(paths.dashboard.root);
+      router.replace(getDashboardHomePath(sessionUser?.role));
     } catch (error) {
       console.error(error);
     }
