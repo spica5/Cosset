@@ -2,7 +2,6 @@ import type { IChatMessage, IChatParticipant } from 'src/types/chat';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
@@ -12,6 +11,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { ChatAvatar } from './chat-avatar';
 import { getMessage } from './utils/get-message';
 
 // ----------------------------------------------------------------------
@@ -117,7 +117,7 @@ export function ChatMessageItem({ message, participants, onOpenLightbox }: Props
 
   return (
     <Stack direction="row" justifyContent={me ? 'flex-end' : 'unset'} sx={{ mb: 5 }}>
-      {!me && <Avatar alt={firstName} src={avatarUrl} sx={{ width: 32, height: 32, mr: 2 }} />}
+      {!me && <ChatAvatar alt={firstName} src={avatarUrl} sx={{ width: 32, height: 32, mr: 2 }} />}
 
       <Stack alignItems={me ? 'flex-end' : 'flex-start'}>
         {renderInfo}

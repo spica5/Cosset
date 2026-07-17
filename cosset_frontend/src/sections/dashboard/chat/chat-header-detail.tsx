@@ -4,7 +4,6 @@ import { useCallback } from 'react';
 
 import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
-import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
@@ -19,6 +18,7 @@ import { fToNow } from 'src/utils/format-time';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
 
+import { ChatAvatar } from './chat-avatar';
 import { ChatHeaderSkeleton } from './chat-skeleton';
 
 import type { UseNavCollapseReturn } from './hooks/use-collapse-nav';
@@ -54,7 +54,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
   const renderGroup = (
     <AvatarGroup max={3} sx={{ [`& .${avatarGroupClasses.avatar}`]: { width: 32, height: 32 } }}>
       {participants.map((participant) => (
-        <Avatar key={participant.id} alt={participant.name} src={participant.avatarUrl} />
+        <ChatAvatar key={participant.id} alt={participant.name} src={participant.avatarUrl} />
       ))}
     </AvatarGroup>
   );
@@ -65,7 +65,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
         variant={singleParticipant?.status}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Avatar src={singleParticipant?.avatarUrl} alt={singleParticipant?.name} />
+        <ChatAvatar src={singleParticipant?.avatarUrl} alt={singleParticipant?.name} />
       </Badge>
 
       <ListItemText

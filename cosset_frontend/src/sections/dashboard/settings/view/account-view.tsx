@@ -1,8 +1,5 @@
 'use client';
 
-import { toast } from 'sonner';
-import { useMemo, useState } from 'react';
-
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
@@ -18,7 +15,7 @@ import { paths } from 'src/routes/paths';
 
 import { isUserBusiness } from 'src/auth/utils/role';
 
-import { useGetCurrentUser, requestBusinessAccount } from 'src/actions/user';
+import { useGetCurrentUser } from 'src/actions/user';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -47,8 +44,6 @@ function formatRequestDate(value: unknown) {
 export function AccountView() {
   const theme = useTheme();
   const { user } = useGetCurrentUser();
-  const [requestingBusinessAccount, setRequestingBusinessAccount] = useState(false);
-  const [localRequestAt, setLocalRequestAt] = useState<string | null>(null);
 
   // Determine account type based on user subscription status
   // This is a placeholder - adjust based on your actual user schema
@@ -57,10 +52,7 @@ export function AccountView() {
   const billingCycle = 'Monthly';
   const nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
   const hasBusinessAccount = isUserBusiness(user?.role);
-  const requestedAt = useMemo(
-    () => localRequestAt || getBusinessRequestAt(user),
-    [localRequestAt, user]
-  );
+  const requestedAt = getBusinessRequestAt(user);
   const hasPendingBusinessRequest = Boolean(requestedAt) && !hasBusinessAccount;
   const requestedAtLabel = formatRequestDate(requestedAt);
 
@@ -76,35 +68,6 @@ export function AccountView() {
   };
 
   const isFreeAccount = accountType === 'Free Account';
-
-  const handleRequestBusinessAccount = async () => {
-    if (requestingBusinessAccount || hasBusinessAccount || hasPendingBusinessRequest) {
-      return;
-    }
-
-    try {
-      setRequestingBusinessAccount(true);
-      const updatedUser = await requestBusinessAccount();
-      const nextRequestedAt = getBusinessRequestAt(updatedUser) || new Date().toISOString();
-      setLocalRequestAt(String(nextRequestedAt));
-      toast.success('Business account request submitted');
-    } catch (error) {
-      console.error('Failed to request business account', error);
-      const message =
-        error instanceof Error ? error.message : 'Failed to request business account';
-
-      if (message.toLowerCase().includes('already pending')) {
-        setLocalRequestAt(new Date().toISOString());
-        toast.success('Your business account request is already pending review');
-      } else if (message.toLowerCase().includes('already active')) {
-        toast.success('Business account is already active');
-      } else {
-        toast.error(message);
-      }
-    } finally {
-      setRequestingBusinessAccount(false);
-    }
-  };
 
   return (
     <DashboardContent>
@@ -385,7 +348,7 @@ export function AccountView() {
             <Stack spacing={2.5}>
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Business Account
+                  Account Role
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Business accounts unlock tools for managing media, reservations, and
@@ -422,21 +385,6 @@ export function AccountView() {
                     access once it is approved.
                   </Typography>
                 </Box>
-              ) : null}
-
-              {!hasBusinessAccount ? (
-                <Button
-                  variant="contained"
-                  disabled={hasPendingBusinessRequest || requestingBusinessAccount}
-                  onClick={handleRequestBusinessAccount}
-                  sx={{ alignSelf: 'flex-start' }}
-                >
-                  {requestingBusinessAccount
-                    ? 'Submitting request...'
-                    : hasPendingBusinessRequest
-                      ? 'Request submitted'
-                      : 'Request business account'}
-                </Button>
               ) : null}
             </Stack>
           </CardContent>

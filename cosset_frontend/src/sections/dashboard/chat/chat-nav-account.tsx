@@ -3,7 +3,6 @@ import type { SelectChangeEvent } from '@mui/material/Select';
 import { useState, useCallback } from 'react';
 
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Select from '@mui/material/Select';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
@@ -21,6 +20,8 @@ import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popov
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { ChatAvatar } from './chat-avatar';
+
 // ----------------------------------------------------------------------
 
 export function ChatNavAccount() {
@@ -37,14 +38,12 @@ export function ChatNavAccount() {
   return (
     <>
       <Badge variant={status} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Avatar
+        <ChatAvatar
           src={user?.photoURL}
           alt={user?.displayName}
           onClick={popover.onOpen}
           sx={{ cursor: 'pointer', width: 48, height: 48 }}
-        >
-          {user?.displayName?.charAt(0).toUpperCase()}
-        </Avatar>
+        />
       </Badge>
 
       <CustomPopover

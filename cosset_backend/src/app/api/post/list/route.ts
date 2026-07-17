@@ -12,12 +12,13 @@ export const runtime = 'nodejs';
 
 /** **************************************
  * GET /api/post/list
- * Query params: customerId?, limit?, offset?
+ * Query params: customerId?, authorRole?, limit?, offset?
  *************************************** */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const customerId = searchParams.get('customerId') ?? undefined;
+    const authorRole = searchParams.get('authorRole') ?? undefined;
     const limit = Number.parseInt(searchParams.get('limit') ?? '50', 10);
     const offset = Number.parseInt(searchParams.get('offset') ?? '0', 10);
 
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
       customerId,
       Number.isNaN(limit) ? 50 : limit,
       Number.isNaN(offset) ? 0 : offset,
+      authorRole,
     );
 
     return response({ posts }, STATUS.OK);

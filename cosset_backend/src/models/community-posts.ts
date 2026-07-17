@@ -40,6 +40,8 @@ export interface CommunityPost {
   customerDisplayName?: string | null;
   customerEmail?: string | null;
   customerPhotoURL?: string | null;
+  customerRole?: string | null;
+  ownerBrandStoreId?: number | null;
   title?: string | null;
   category?: number | null;
   description?: string | null;
@@ -67,6 +69,14 @@ const COLUMN_SELECT = `
   ) AS "customerDisplayName",
   cu.email AS "customerEmail",
   cu.photo_url AS "customerPhotoURL",
+  cu.role::text AS "customerRole",
+  (
+    SELECT bs.id::int
+    FROM brand_stores bs
+    WHERE bs.owner_customer_id::text = cp.customer_id::text
+    ORDER BY bs.created_at DESC, bs.id DESC
+    LIMIT 1
+  ) AS "ownerBrandStoreId",
   cp.title,
   cp.category,
   cp.description,
@@ -114,24 +124,38 @@ const normalizeBigInt = (value: unknown, fallback: number = 0): number => {
 // ----------------------------------------------------------------------
 
 /**
- * Get all community posts with optional pagination and customer filter.
+ * Get all community posts with optional pagination and customer/role filter.
  */
 export async function getAllCommunityPosts(
   customerId?: string,
   limit: number = 50,
   offset: number = 0,
+  authorRole?: string,
 ): Promise<CommunityPost[]> {
   try {
     const params: unknown[] = [];
+    const conditions: string[] = [];
     let query = `SELECT ${COLUMN_SELECT} ${FROM_WITH_AUTHOR}`;
 
-    if (customerId !== undefined && customerId !== null) {
-      query += ` WHERE cp.customer_id = $1 ORDER BY cp.created_at DESC LIMIT $2 OFFSET $3`;
-      params.push(customerId, limit, offset);
-    } else {
-      query += ` ORDER BY cp.created_at DESC LIMIT $1 OFFSET $2`;
-      params.push(limit, offset);
+    if (customerId !== undefined && customerId !== null && String(customerId).trim()) {
+      params.push(String(customerId).trim());
+      conditions.push(`cp.customer_id = $${params.length}`);
     }
+
+    const normalizedRole = String(authorRole || '')
+      .trim()
+      .toLowerCase();
+    if (normalizedRole) {
+      params.push(normalizedRole);
+      conditions.push(`LOWER(cu.role::text) = $${params.length}`);
+    }
+
+    if (conditions.length) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    params.push(limit, offset);
+    query += ` ORDER BY cp.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
     return await queryMany<CommunityPost>(query, params);
   } catch (error) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -10,6 +11,8 @@ import Typography from '@mui/material/Typography';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+
+import { Iconify } from 'src/components/dashboard/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -20,6 +23,7 @@ type PostAuthorInfoProps = {
   caption?: string;
   size?: number;
   href?: string;
+  shopHref?: string | null;
 };
 
 export function PostAuthorInfo({
@@ -29,6 +33,7 @@ export function PostAuthorInfo({
   caption,
   size = 42,
   href,
+  shopHref,
 }: PostAuthorInfoProps) {
   const [signedPhotoUrl, setSignedPhotoUrl] = useState('');
 
@@ -127,7 +132,7 @@ export function PostAuthorInfo({
           avatar
         )}
 
-        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
           {href ? (
             <Link
               component={RouterLink}
@@ -153,6 +158,26 @@ export function PostAuthorInfo({
             <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
               {email}
             </Typography>
+          ) : null}
+
+          {shopHref ? (
+            <Button
+              component={RouterLink}
+              href={shopHref}
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<Iconify icon="solar:shop-2-bold" width={16} />}
+              onClick={(event) => event.stopPropagation()}
+              sx={{
+                alignSelf: 'flex-start',
+                textTransform: 'none',
+                fontWeight: 600,
+                mt: 0.25,
+              }}
+            >
+              Visit shop
+            </Button>
           ) : null}
         </Stack>
       </Stack>

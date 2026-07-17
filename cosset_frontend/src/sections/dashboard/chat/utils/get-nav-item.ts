@@ -26,12 +26,14 @@ export function getNavItem({ currentUserId, conversation }: Props) {
 
   let displayText = '';
 
-  if (lastMessage) {
+  if (lastMessage?.body) {
     const sender = lastMessage.senderId === currentUserId ? 'You: ' : '';
 
     const message = lastMessage.contentType === 'image' ? 'Sent a photo' : lastMessage.body;
 
     displayText = `${sender}${message}`;
+  } else {
+    displayText = 'No messages yet';
   }
 
   return {
@@ -39,7 +41,7 @@ export function getNavItem({ currentUserId, conversation }: Props) {
     displayName,
     displayText,
     participants: participantsInConversation,
-    lastActivity: lastMessage.createdAt,
+    lastActivity: lastMessage?.createdAt || new Date().toISOString(),
     hasOnlineInGroup,
   };
 }

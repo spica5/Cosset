@@ -8,7 +8,6 @@ import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
@@ -38,6 +37,7 @@ import { PostAuthorInfo } from './post-author-info';
 
 type Props = {
   post: IPostItem;
+  showShopLink?: boolean;
 };
 
 const PREVIEW_LENGTH = 20;
@@ -105,10 +105,14 @@ const getPostAuthorName = (post: IPostItem) => {
   return post.customerDisplayName || fullName || post.customerEmail || post.customerId || 'Customer';
 };
 
-export function PostItemForm({ post }: Props) {
+export function PostItemForm({ post, showShopLink = false }: Props) {
   const router = useRouter();
   const { user, authenticated } = useAuthContext();
   const popover = usePopover();
+  const shopHref =
+    showShopLink && post.ownerBrandStoreId
+      ? paths.dashboard.community.brandsBoulevard.store(post.ownerBrandStoreId)
+      : null;
   const [expanded, setExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
@@ -348,9 +352,10 @@ export function PostItemForm({ post }: Props) {
                     ? paths.universe.view(String(post.customerId))
                     : undefined
                 }
+                shopHref={shopHref}
               />
 
-              <Typography variant="h6" sx={{ minWidth: 0 }} noWrap>
+              <Typography variant="h6" sx={{ minWidth: 0, flex: 1 }} noWrap>
                 {post.title || `Untitled Post #${post.id}`}
               </Typography>
             </Stack>

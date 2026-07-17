@@ -2,7 +2,7 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -16,9 +16,11 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
+import { useRouter, useSearchParams } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
 import { markPostsAsViewed, useGetPosts } from 'src/actions/post';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -32,7 +34,21 @@ import { PostItemForm } from '../post-item-form';
 // ----------------------------------------------------------------------
 
 type OrderByValue = 'newest' | 'oldest' | 'mostViewed' | 'mostFollowing';
-type ViewMode = 'all' | 'mine';
+type ViewMode = 'all' | 'mine' | 'advertise';
+
+const VIEW_MODE_VALUES: ViewMode[] = ['all', 'mine', 'advertise'];
+
+const parseViewMode = (value: string | null): ViewMode => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  return VIEW_MODE_VALUES.includes(normalized as ViewMode) ? (normalized as ViewMode) : 'all';
+};
+
+const isBusinessAuthorPost = (post: IPostItem) =>
+  String(post.customerRole || '')
+    .trim()
+    .toLowerCase() === 'business';
 
 const getCreatedAtTime = (value: IPostItem['createdAt']) => {
   if (!value) {
@@ -45,23 +61,49 @@ const getCreatedAtTime = (value: IPostItem['createdAt']) => {
   return Number.isNaN(time) ? 0 : time;
 };
 
+const viewHeading = (viewMode: ViewMode, ownPostsOnly: boolean) => {
+  if (ownPostsOnly || viewMode === 'mine') return 'My Posts';
+  if (viewMode === 'advertise') return 'Advertise Posts';
+  return 'Community Posts';
+};
+
 // ----------------------------------------------------------------------
 
 export function PostListView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthContext();
-  const { posts, postsLoading, refreshPosts } = useGetPosts();
+  const ownPostsOnly = isUserBusiness(user?.role) && !isUserAdmin(user?.role);
   const [query, setQuery] = useState('');
   const [authorQuery, setAuthorQuery] = useState('');
   const [orderBy, setOrderBy] = useState<OrderByValue>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    ownPostsOnly ? 'mine' : parseViewMode(searchParams.get('view')),
+  );
   const markedViewedIdsRef = useRef<Set<string>>(new Set());
+
+  const { posts, postsLoading, refreshPosts } = useGetPosts(
+    ownPostsOnly ? user?.id : undefined,
+    {
+      authorRole: !ownPostsOnly && viewMode === 'advertise' ? 'business' : undefined,
+      limit: 100,
+    },
+  );
+
+  useEffect(() => {
+    if (ownPostsOnly) {
+      setViewMode('mine');
+      return;
+    }
+    setViewMode(parseViewMode(searchParams.get('view')));
+  }, [ownPostsOnly, searchParams]);
 
   useEffect(() => {
     refreshPosts();
   }, [refreshPosts]);
 
   useEffect(() => {
-    if (postsLoading || !user?.id || !posts.length) {
+    if (ownPostsOnly || postsLoading || !user?.id || !posts.length) {
       return undefined;
     }
 
@@ -98,69 +140,81 @@ export function PostListView() {
     return () => {
       cancelled = true;
     };
-  }, [posts, postsLoading, user?.id]);
+  }, [ownPostsOnly, posts, postsLoading, user?.id]);
 
+  const handleViewModeChange = useCallback(
+    (_event: React.MouseEvent<HTMLElement>, value: ViewMode | null) => {
+      if (!value || ownPostsOnly) return;
+      setViewMode(value);
+      const nextPath =
+        value === 'advertise'
+          ? `${paths.dashboard.community.post.list}?view=advertise`
+          : paths.dashboard.community.post.list;
+      router.replace(nextPath);
+    },
+    [ownPostsOnly, router],
+  );
+
+  const effectiveViewMode: ViewMode = ownPostsOnly ? 'mine' : viewMode;
   const normalizedQuery = query.trim().toLowerCase();
-  const normalizedAuthorQuery = viewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();
+  const normalizedAuthorQuery = effectiveViewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();
 
   const myPosts = useMemo(
     () => posts.filter((post) => String(post.customerId || '') === String(user?.id || '')),
     [posts, user?.id],
   );
 
-  const postsToFilter = viewMode === 'mine' ? myPosts : posts;
+  const advertisePosts = useMemo(() => posts.filter(isBusinessAuthorPost), [posts]);
 
-  const filteredPosts = useMemo(
-    () => {
-      const matchedPosts = postsToFilter.filter((post) => {
-        const searchableText = [
-          post.title,
-          post.description,
-          post.content,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+  const postsToFilter = ownPostsOnly
+    ? myPosts
+    : effectiveViewMode === 'mine'
+      ? myPosts
+      : effectiveViewMode === 'advertise'
+        ? advertisePosts
+        : posts;
 
-        const authorText = [
-          post.customerFirstName,
-          post.customerLastName,
-          post.customerDisplayName,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+  const filteredPosts = useMemo(() => {
+    const matchedPosts = postsToFilter.filter((post) => {
+      const searchableText = [post.title, post.description, post.content]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-        const matchesQuery =
-          !normalizedQuery ||
-          searchableText.includes(normalizedQuery) ||
-          String(post.id).includes(normalizedQuery);
+      const authorText = [post.customerFirstName, post.customerLastName, post.customerDisplayName]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-        const matchesAuthorQuery = !normalizedAuthorQuery || authorText.includes(normalizedAuthorQuery);
+      const matchesQuery =
+        !normalizedQuery ||
+        searchableText.includes(normalizedQuery) ||
+        String(post.id).includes(normalizedQuery);
 
-        return matchesQuery && matchesAuthorQuery;
-      });
+      const matchesAuthorQuery = !normalizedAuthorQuery || authorText.includes(normalizedAuthorQuery);
 
-      const sortedPosts = [...matchedPosts].sort((a, b) => {
-        switch (orderBy) {
-          case 'oldest':
-            return getCreatedAtTime(a.createdAt) - getCreatedAtTime(b.createdAt);
-          case 'mostViewed':
-            return (b.totalViews ?? 0) - (a.totalViews ?? 0);
-          case 'mostFollowing':
-            return (b.following ?? 0) - (a.following ?? 0);
-          case 'newest':
-          default:
-            return getCreatedAtTime(b.createdAt) - getCreatedAtTime(a.createdAt);
-        }
-      });
+      return matchesQuery && matchesAuthorQuery;
+    });
 
-      return sortedPosts;
-    },
-    [postsToFilter, normalizedQuery, normalizedAuthorQuery, orderBy],
-  );
+    const sortedPosts = [...matchedPosts].sort((a, b) => {
+      switch (orderBy) {
+        case 'oldest':
+          return getCreatedAtTime(a.createdAt) - getCreatedAtTime(b.createdAt);
+        case 'mostViewed':
+          return (b.totalViews ?? 0) - (a.totalViews ?? 0);
+        case 'mostFollowing':
+          return (b.following ?? 0) - (a.following ?? 0);
+        case 'newest':
+        default:
+          return getCreatedAtTime(b.createdAt) - getCreatedAtTime(a.createdAt);
+      }
+    });
+
+    return sortedPosts;
+  }, [postsToFilter, normalizedQuery, normalizedAuthorQuery, orderBy]);
 
   const isFiltering = !!normalizedQuery || !!normalizedAuthorQuery;
+  const heading = viewHeading(effectiveViewMode, ownPostsOnly);
 
   const renderLoading = (
     <Box sx={{ py: 10, display: 'flex', justifyContent: 'center' }}>
@@ -169,7 +223,17 @@ export function PostListView() {
   );
 
   const renderEmpty = (
-    <EmptyContent title={isFiltering ? 'No matching posts' : 'No posts'} filled sx={{ py: 10 }} />
+    <EmptyContent
+      title={
+        isFiltering
+          ? 'No matching posts'
+          : effectiveViewMode === 'advertise'
+            ? 'No advertise posts yet'
+            : 'No posts'
+      }
+      filled
+      sx={{ py: 10 }}
+    />
   );
 
   const renderFilters = (
@@ -179,7 +243,7 @@ export function PostListView() {
       alignItems={{ xs: 'stretch', md: 'center' }}
       sx={{ mb: { xs: 3, md: 4 } }}
     >
-      {viewMode === 'all' && (
+      {effectiveViewMode !== 'mine' && (
         <TextField
           fullWidth
           placeholder="Search by author name..."
@@ -229,7 +293,11 @@ export function PostListView() {
   const renderList = (
     <Stack spacing={2.5}>
       {filteredPosts.map((post) => (
-        <PostItemForm key={post.id} post={post} />
+        <PostItemForm
+          key={post.id}
+          post={post}
+          showShopLink={effectiveViewMode === 'advertise'}
+        />
       ))}
     </Stack>
   );
@@ -237,28 +305,37 @@ export function PostListView() {
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading={viewMode === 'mine' ? 'My Posts' : 'Community Posts'}
-        links={[
-          { name: 'Dashboard', href: paths.dashboard.root },
-          { name: 'Community' },
-          { name: viewMode === 'mine' ? 'My Posts' : 'Posts' },
-        ]}
+        heading={heading}
+        links={
+          ownPostsOnly
+            ? [
+                { name: 'Dashboard', href: paths.dashboard.community.brandsBoulevard.myStore },
+                { name: 'Post' },
+              ]
+            : [
+                { name: 'Dashboard', href: paths.dashboard.root },
+                { name: 'Community' },
+                { name: 'Posts', href: paths.dashboard.community.post.list },
+                { name: heading },
+              ]
+        }
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={viewMode}
-              onChange={(_event, value) => {
-                if (value) setViewMode(value);
-              }}
-              color="primary"
-            >
-              <ToggleButton value="all">Community Posts</ToggleButton>
-              <ToggleButton value="mine" disabled={!user}>
-                My Posts
-              </ToggleButton>
-            </ToggleButtonGroup>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            {!ownPostsOnly ? (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={effectiveViewMode}
+                onChange={handleViewModeChange}
+                color="primary"
+              >
+                <ToggleButton value="all">Community Posts</ToggleButton>
+                <ToggleButton value="advertise">Advertise Posts</ToggleButton>
+                <ToggleButton value="mine" disabled={!user}>
+                  My Posts
+                </ToggleButton>
+              </ToggleButtonGroup>
+            ) : null}
             <Button
               component={RouterLink}
               href={paths.dashboard.community.post.new}

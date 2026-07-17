@@ -8,7 +8,7 @@ import axios, { fetcher, endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
-const enableServer = false;
+const enableServer = true;
 
 const CHART_ENDPOINT = endpoints.chat;
 
@@ -213,4 +213,85 @@ export async function clickConversation(conversationId: string) {
     },
     false
   );
+}
+
+// ----------------------------------------------------------------------
+
+const contactsUrl = [CHART_ENDPOINT, { params: { endpoint: 'contacts' } }];
+const conversationsUrl = [CHART_ENDPOINT, { params: { endpoint: 'conversations' } }];
+
+export async function addChatContact(contactUserId: string) {
+  const res = await axios.post(CHART_ENDPOINT, {
+    endpoint: 'contacts',
+    contactUserId,
+  });
+
+  const conversation: IChatConversation | undefined = res.data?.conversation;
+
+  await mutate(contactsUrl);
+
+  if (conversation?.id) {
+    mutate(
+      conversationsUrl,
+      (currentData) => {
+        const currentConversations: IChatConversation[] = currentData?.conversations || [];
+        const withoutDuplicate = currentConversations.filter((item) => item.id !== conversation.id);
+
+        return {
+          ...currentData,
+          conversations: [conversation, ...withoutDuplicate],
+        };
+      },
+      false
+    );
+
+    await mutate(conversationsUrl);
+  } else {
+    await mutate(conversationsUrl);
+  }
+
+  return res.data;
+}
+
+export async function removeChatContact(contactUserId: string, conversationId?: string) {
+  const res = await axios.delete(CHART_ENDPOINT, {
+    params: {
+      endpoint: 'contacts',
+      contactUserId,
+      ...(conversationId ? { conversationId } : {}),
+    },
+  });
+
+  const deletedConversationId =
+    String(res.data?.deletedConversationId || conversationId || '').trim() || null;
+
+  await mutate(contactsUrl);
+
+  if (deletedConversationId) {
+    mutate(
+      conversationsUrl,
+      (currentData) => {
+        if (!currentData?.conversations) {
+          return currentData;
+        }
+
+        const conversations: IChatConversation[] = currentData.conversations.filter(
+          (conversation: IChatConversation) => conversation.id !== deletedConversationId
+        );
+
+        return { ...currentData, conversations };
+      },
+      false
+    );
+
+    mutate(
+      [CHART_ENDPOINT, { params: { conversationId: deletedConversationId, endpoint: 'conversation' } }],
+      undefined,
+      false
+    );
+  }
+
+  await mutate(conversationsUrl);
+
+  return res.data;
 }

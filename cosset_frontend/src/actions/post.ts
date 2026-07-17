@@ -25,10 +25,23 @@ type PostsData = {
   posts?: IPostItem[];
 };
 
-export function useGetPosts(customerId?: string | number) {
-  const url = customerId
-    ? `${POST_LIST_ENDPOINT}?customerId=${encodeURIComponent(String(customerId))}`
-    : POST_LIST_ENDPOINT;
+export function useGetPosts(
+  customerId?: string | number,
+  options?: { authorRole?: string; limit?: number },
+) {
+  const params = new URLSearchParams();
+  if (customerId !== undefined && customerId !== null && String(customerId).trim()) {
+    params.set('customerId', String(customerId));
+  }
+  if (options?.authorRole) {
+    params.set('authorRole', options.authorRole);
+  }
+  if (options?.limit) {
+    params.set('limit', String(options.limit));
+  }
+
+  const query = params.toString();
+  const url = query ? `${POST_LIST_ENDPOINT}?${query}` : POST_LIST_ENDPOINT;
 
   const { data, isLoading, error, isValidating } = useSWR<PostsData>(url, fetcher, swrOptions);
   const refreshPosts = useCallback(() => mutate(url), [url]);

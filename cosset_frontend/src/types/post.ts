@@ -10,6 +10,8 @@ export type IPostItem = {
   customerDisplayName?: string | null;
   customerEmail?: string | null;
   customerPhotoURL?: string | null;
+  customerRole?: string | null;
+  ownerBrandStoreId?: number | null;
   title?: string | null;
   category?: number | null;
   description?: string | null;

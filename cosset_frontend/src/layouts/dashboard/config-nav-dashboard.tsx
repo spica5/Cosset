@@ -167,7 +167,10 @@ export const navData = [
         path: paths.dashboard.community.root, 
         icon: ICONS.star, 
         children: [
-          { title: 'Posts', path: paths.dashboard.community.post.list },         
+          { title: 'Posts', path: paths.dashboard.community.post.list, children: [
+            { title: 'Community Posts', path: paths.dashboard.community.post.list },
+            { title: 'Advertise Posts', path: `${paths.dashboard.community.post.list}?view=advertise` },
+          ]},         
           { title: 'Coffee Shops', path: paths.dashboard.community.coffeeShop.root },
           { title: 'Cinema', path: paths.dashboard.community.cinema.root },
           { title: 'Friends', path: paths.dashboard.community.friend },
@@ -205,7 +208,7 @@ export const navData = [
 ];
 
 /**
- * Left nav for business accounts: Products, Post, Mail, Management only.
+ * Left nav for business accounts: Products, Post, Mail, Chat, Management.
  */
 export const businessNavData = [
   {
@@ -230,6 +233,11 @@ export const businessNavData = [
         title: 'Mail',
         path: paths.dashboard.mail,
         icon: ICONS.mail,
+      },
+      {
+        title: 'Chat',
+        path: paths.dashboard.chat,
+        icon: ICONS.chat,
       },
       {
         title: 'Management',

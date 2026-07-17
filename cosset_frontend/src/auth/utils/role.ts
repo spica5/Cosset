@@ -28,6 +28,7 @@ export function isBusinessAllowedDashboardPath(pathname: string): boolean {
     paths.dashboard.community.brandsBoulevard.root,
     paths.dashboard.community.post.root,
     paths.dashboard.mail,
+    paths.dashboard.chat,
     paths.dashboard.settings.root,
     paths.dashboard.auth.signIn,
     paths.dashboard.auth.signUp,

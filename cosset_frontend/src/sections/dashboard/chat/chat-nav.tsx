@@ -29,6 +29,7 @@ import { ChatNavItem } from './chat-nav-item';
 import { ChatNavAccount } from './chat-nav-account';
 import { ChatNavItemSkeleton } from './chat-skeleton';
 import { ChatNavSearchResults } from './chat-nav-search-results';
+import { ChatManageContactsDialog } from './chat-manage-contacts-dialog';
 import { initialConversation } from './utils/initial-conversation';
 
 import type { UseNavCollapseReturn } from './hooks/use-collapse-nav';
@@ -77,6 +78,8 @@ export function ChatNav({
     results: [],
   });
 
+  const [manageContactsOpen, setManageContactsOpen] = useState(false);
+
   const myContact = useMemo(
     () => ({
       id: `${user?.id}`,
@@ -106,12 +109,13 @@ export function ChatNav({
     }
   }, [mdUp, onCloseMobile, onCollapseDesktop]);
 
-  const handleClickCompose = useCallback(() => {
-    if (!mdUp) {
-      onCloseMobile();
-    }
-    router.push(paths.dashboard.chat);
-  }, [mdUp, onCloseMobile, router]);
+  const handleOpenManageContacts = useCallback(() => {
+    setManageContactsOpen(true);
+  }, []);
+
+  const handleCloseManageContacts = useCallback(() => {
+    setManageContactsOpen(false);
+  }, []);
 
   const handleSearchContacts = useCallback(
     (inputValue: string) => {
@@ -139,40 +143,56 @@ export function ChatNav({
       const linkTo = (id: string) => router.push(`${paths.dashboard.chat}?id=${id}`);
 
       try {
-        // Check if the conversation already exists
-        if (conversations.allIds.includes(result.id)) {
-          linkTo(result.id);
+        const existingConversation = conversations.allIds
+          .map((id) => conversations.byId[id])
+          .find(
+            (conversation) =>
+              conversation?.type === 'ONE_TO_ONE' &&
+              conversation.participants.some((participant) => participant.id === result.id)
+          );
+
+        if (existingConversation) {
+          linkTo(existingConversation.id);
           return;
         }
 
-        // Find the recipient in contacts
-        const recipient = contacts.find((contact) => contact.id === result.id);
-        if (!recipient) {
-          console.error('Recipient not found');
-          return;
-        }
+        const recipient = contacts.find((contact) => contact.id === result.id) || result;
 
-        // Prepare conversation data
         const { conversationData } = initialConversation({
           recipients: [recipient],
           me: myContact,
         });
 
-        // Create a new conversation
         const res = await createConversation(conversationData);
 
         if (!res || !res.conversation) {
           console.error('Failed to create conversation');
+          return;
         }
 
-        // Navigate to the new conversation
         linkTo(res.conversation.id);
       } catch (error) {
         console.error('Error handling click result:', error);
       }
     },
-    [contacts, conversations.allIds, handleClickAwaySearch, myContact, router]
+    [contacts, conversations.allIds, conversations.byId, handleClickAwaySearch, myContact, router]
   );
+
+  const contactsWithoutConversation = useMemo(() => {
+    const currentUserId = `${user?.id}`;
+    const coveredIds = new Set<string>();
+
+    conversations.allIds.forEach((conversationId) => {
+      const conversation = conversations.byId[conversationId];
+      conversation?.participants.forEach((participant) => {
+        if (participant.id !== currentUserId) {
+          coveredIds.add(participant.id);
+        }
+      });
+    });
+
+    return contacts.filter((contact) => !coveredIds.has(contact.id));
+  }, [contacts, conversations.allIds, conversations.byId, user?.id]);
 
   const renderLoading = <ChatNavItemSkeleton />;
 
@@ -186,6 +206,23 @@ export function ChatNav({
             conversation={conversations.byId[conversationId]}
             selected={conversationId === selectedConversationId}
             onCloseMobile={onCloseMobile}
+          />
+        ))}
+
+        {contactsWithoutConversation.map((contact) => (
+          <ChatNavItem
+            key={`contact-${contact.id}`}
+            collapse={collapseDesktop}
+            conversation={{
+              id: '',
+              type: 'ONE_TO_ONE',
+              unreadCount: 0,
+              messages: [],
+              participants: [contact, myContact],
+            }}
+            selected={false}
+            onCloseMobile={onCloseMobile}
+            onOpenContact={handleClickResult}
           />
         ))}
       </Box>
@@ -236,7 +273,7 @@ export function ChatNav({
         </IconButton>
 
         {!collapseDesktop && (
-          <IconButton onClick={handleClickCompose}>
+          <IconButton onClick={handleOpenManageContacts} title="Manage contacts">
             <Iconify width={24} icon="solar:user-plus-bold" />
           </IconButton>
         )}
@@ -248,7 +285,7 @@ export function ChatNav({
         renderLoading
       ) : (
         <Scrollbar sx={{ pb: 1 }}>
-          {searchContacts.query && !!conversations.allIds.length ? renderListResults : renderList}
+          {searchContacts.query ? renderListResults : renderList}
         </Scrollbar>
       )}
     </>
@@ -285,6 +322,12 @@ export function ChatNav({
       >
         {renderContent}
       </Drawer>
+
+      <ChatManageContactsDialog
+        open={manageContactsOpen}
+        onClose={handleCloseManageContacts}
+        contacts={contacts}
+      />
     </>
   );
 }

@@ -13,9 +13,8 @@ import { Iconify } from 'src/components/universe/iconify';
 export const BRANDS_BOULEVARD_PAGE_BACKGROUND = `${CONFIG.dashboard.assetsDir}/assets/images/brands-boulevard/background.png`;
 
 const INTRO_PARAGRAPHS = [
-  'Welcome to Brands Boulevard — a shopping street for makers, boutiques, and business storytellers. Like Coffee Boulevard, it is a place to stroll, discover, and step inside unique spaces.',
-  'When you open a business account with Cosset, we help you launch your own online storefront. Your store lives as its own address on the boulevard, showing only your brand, your categories, and your products.',
-  'Create categories with our tools and designs, add products that reflect your craft, and invite the community to walk through your doors.',
+  'Welcome to Brands Boulevard — Explore a vibrant marketplace where trusted brands and unique boutiques come together.',
+  'From thoughtful gifts and stylish décor to handmade treasures and everyday essentials, everything is curated to make shopping easy, enjoyable, and inspiring.',
 ];
 
 function BrandDivider() {
@@ -95,6 +94,20 @@ export function BrandsBoulevardIntro() {
         </Stack>
 
         <Typography
+          variant="h5"
+          sx={{
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            fontWeight: 500,
+            fontSize: { xs: '1.25rem', sm: '1.45rem', md: '1.65rem' },
+            color: '#FFF4E5',
+            lineHeight: 1,
+            textShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+          }}
+        >
+          Comfortable. Convenient. Secure. 
+        </Typography>
+
+        <Typography
           variant="h6"
           sx={{
             fontFamily: '"Georgia", "Times New Roman", serif',
@@ -105,8 +118,8 @@ export function BrandsBoulevardIntro() {
             pt: 0.5,
             textShadow: '0 1px 6px rgba(0, 0, 0, 0.4)',
           }}
-        >
-          Take a walk. Choose a store. Make yourself at home.
+        >          
+          Discover your next favorite find at Brands Boulevard. ✨
         </Typography>
 
         <BrandDivider />

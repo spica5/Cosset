@@ -201,14 +201,21 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
           return {
             ...item,
             info: postBadge,
-            children: item.children.map((child: NavItemBaseProps) =>
-              child.title === 'Posts'
-                ? {
-                    ...child,
-                    info: postBadge,
-                  }
-                : child,
-            ),
+            children: item.children.map((child: NavItemBaseProps) => {
+              if (child.title !== 'Posts') {
+                return child;
+              }
+
+              return {
+                ...child,
+                info: postBadge,
+                children: child.children?.map((subChild: NavItemBaseProps) =>
+                  subChild.title === 'Community Posts' || subChild.title === 'Advertise Posts'
+                    ? { ...subChild, info: postBadge }
+                    : subChild,
+                ),
+              };
+            }),
           };
         }
 
