@@ -3,7 +3,7 @@
 import type { Slide } from 'yet-another-react-lightbox';
 import type { ILetterItem } from 'src/types/letter';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -32,6 +32,11 @@ import { Upload } from 'src/components/dashboard/upload';
 import { toast } from 'src/components/dashboard/snackbar';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+  insertTextAtSelection,
+} from 'src/components/dashboard/emoticon-picker';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -86,6 +91,7 @@ const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
 
 export function LetterForm({ currentLetter, onSaved, onClose }: Props) {
   const { user } = useAuthContext();
+  const descriptionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [form, setForm] = useState<LetterFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -143,6 +149,36 @@ export function LetterForm({ currentLetter, onSaved, onClose }: Props) {
     return () => { mounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageKeys]);
+
+  const applyDescriptionValue = useCallback((nextValue: string, nextCaret?: number) => {
+    setForm((prev) => ({ ...prev, description: nextValue }));
+
+    requestAnimationFrame(() => {
+      const input = descriptionInputRef.current;
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      const caret = typeof nextCaret === 'number' ? nextCaret : nextValue.length;
+      input.setSelectionRange(caret, caret);
+    });
+  }, []);
+
+  const handleInsertEmoticon = useCallback(
+    (emoticon: string) => {
+      const input = descriptionInputRef.current;
+      const { nextValue, nextCaret } = insertTextAtSelection(
+        form.description,
+        emoticon,
+        input?.selectionStart,
+        input?.selectionEnd
+      );
+
+      applyDescriptionValue(nextValue, nextCaret);
+    },
+    [applyDescriptionValue, form.description]
+  );
 
   const handleUpload = useCallback(async () => {
     if (!pendingFiles.length) {
@@ -240,15 +276,40 @@ export function LetterForm({ currentLetter, onSaved, onClose }: Props) {
             InputLabelProps={{ shrink: true }}
           />
 
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Description"
-            value={form.description}
-            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-            InputLabelProps={{ shrink: true }}
-          />
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Insert emoticons
+              </Typography>
+
+              <EmoticonPickerButton
+                disabled={submitting}
+                onSelect={handleInsertEmoticon}
+                menuPlacement="below"
+                icon="solar:smile-circle-bold"
+                tooltip="Insert emoticon"
+              />
+            </Stack>
+
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Description"
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              inputRef={descriptionInputRef}
+              disabled={submitting}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <InputEmoticonSuggestion
+              inputRef={descriptionInputRef}
+              value={form.description}
+              disabled={submitting}
+              onChange={applyDescriptionValue}
+            />
+          </Stack>
 
           <TextField
             fullWidth

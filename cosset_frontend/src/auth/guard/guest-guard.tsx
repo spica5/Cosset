@@ -6,10 +6,12 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { CONFIG } from 'src/config-global';
 
+import { userHasHomePage } from 'src/actions/guestarea';
+
 import { SplashScreen } from 'src/components/dashboard/loading-screen';
 
 import { useAuthContext } from '../hooks';
-import { getDashboardHomePath } from '../utils/role';
+import { getDashboardHomePath, isUserBusiness, isUserAdmin } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -26,16 +28,25 @@ export function GuestGuard({ children }: Props) {
 
   const [isChecking, setIsChecking] = useState<boolean>(true);
 
-  const returnTo =
-    searchParams.get('returnTo') || getDashboardHomePath(user?.role) || CONFIG.auth.redirectPath;
-
   const checkPermissions = async (): Promise<void> => {
     if (loading) {
       return;
     }
 
     if (authenticated) {
-      router.replace(returnTo);
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        router.replace(returnTo);
+        return;
+      }
+
+      let hasHomePage = false;
+      const role = user?.role;
+      if (!isUserBusiness(role) || isUserAdmin(role)) {
+        hasHomePage = await userHasHomePage(user?.id);
+      }
+
+      router.replace(getDashboardHomePath(role, hasHomePage) || CONFIG.auth.redirectPath);
       return;
     }
 
@@ -45,7 +56,7 @@ export function GuestGuard({ children }: Props) {
   useEffect(() => {
     checkPermissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, loading, user?.role]);
+  }, [authenticated, loading, user?.id, user?.role]);
 
   if (isChecking) {
     return <SplashScreen />;

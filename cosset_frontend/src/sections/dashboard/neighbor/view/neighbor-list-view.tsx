@@ -5,8 +5,6 @@ import type { INeighborItem } from 'src/types/neighbor';
 import { useMemo, useState, useCallback } from 'react';
 
 import Stack from '@mui/material/Stack';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
@@ -32,7 +30,6 @@ import { NeighborSearch } from '../neighbor-search';
 
 export function NeighborListView() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [category, setCategory] = useState<'all' | 'friend'>('all');
 
   const { user: currentUser } = useAuthContext();
   const currentUserId = String(currentUser?.id || '');
@@ -42,15 +39,32 @@ export function NeighborListView() {
   const { designSpaces, designSpacesLoading } = useGetDesignSpaces();
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
+  const isActiveCustomer = (user: Record<string, any>) => {
+    const role = String(user.role || '')
+      .trim()
+      .toLowerCase();
+    if (role === 'business') return false;
+
+    const state = String(user.state || user.status || 'active')
+      .trim()
+      .toLowerCase();
+
+    return state === 'active' || state === '';
+  };
+
+  const activeUsers = useMemo(() => users.filter(isActiveCustomer), [users]);
+  const activeUserIds = useMemo(
+    () => new Set(activeUsers.map((user) => String(user.id || '')).filter(Boolean)),
+    [activeUsers]
+  );
+
   const friendCountByUserId = acceptedRelations.reduce<Record<string, number>>((acc, relation) => {
     const userId1 = String(relation.userId1 || '');
     const userId2 = String(relation.userId2 || '');
 
-    if (userId1) {
+    // Only count friendships between active customers.
+    if (userId1 && userId2 && activeUserIds.has(userId1) && activeUserIds.has(userId2)) {
       acc[userId1] = (acc[userId1] || 0) + 1;
-    }
-
-    if (userId2) {
       acc[userId2] = (acc[userId2] || 0) + 1;
     }
 
@@ -65,9 +79,9 @@ export function NeighborListView() {
       return acc;
     }
 
-    if (userId1 === currentUserId) {
+    if (userId1 === currentUserId && activeUserIds.has(userId2)) {
       acc.add(userId2);
-    } else if (userId2 === currentUserId) {
+    } else if (userId2 === currentUserId && activeUserIds.has(userId1)) {
       acc.add(userId1);
     }
 
@@ -125,9 +139,7 @@ export function NeighborListView() {
     return acc;
   }, {});
 
-  const mappedNeighbors: INeighborItem[] = users
-    .filter((user) => String(user.role || '').trim().toLowerCase() !== 'business')
-    .map((user) => {
+  const mappedNeighbors: INeighborItem[] = activeUsers.map((user) => {
     const userId = String(user.id || '');
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
     const guestArea = guestAreaByCustomerId[user.id];
@@ -175,39 +187,24 @@ export function NeighborListView() {
   const neighbors = currentUser?.id
     ? [
         ...mappedNeighbors.filter((neighbor) => neighbor.id === String(currentUser.id)),
-        ...mappedNeighbors.filter((neighbor) => neighbor.id !== String(currentUser.id)),
+        ...mappedNeighbors.filter(
+          (neighbor) => neighbor.id !== String(currentUser.id) && !neighbor.isFriend
+        ),
       ]
-    : mappedNeighbors;
-
-  const categoryFiltered = useMemo(
-    () =>
-      category === 'friend'
-        ? neighbors.filter((neighbor) => neighbor.isFriend)
-        : neighbors,
-    [category, neighbors]
-  );
+    : mappedNeighbors.filter((neighbor) => !neighbor.isFriend);
 
   const searchResults = useMemo(() => {
-    if (!searchQuery) return categoryFiltered;
+    if (!searchQuery) return neighbors;
 
     const query = searchQuery.toLowerCase();
-    return categoryFiltered.filter((neighbor) => neighbor.name.toLowerCase().includes(query));
-  }, [categoryFiltered, searchQuery]);
+    return neighbors.filter((neighbor) => neighbor.name.toLowerCase().includes(query));
+  }, [neighbors, searchQuery]);
 
   const handleSearch = useCallback((inputValue: string) => {
     setSearchQuery(inputValue);
   }, []);
 
-  const handleChangeCategory = useCallback(
-    (_event: React.MouseEvent<HTMLElement>, value: 'all' | 'friend' | null) => {
-      if (value) {
-        setCategory(value);
-      }
-    },
-    []
-  );
-
-  const dataFiltered = searchQuery ? searchResults : categoryFiltered;
+  const dataFiltered = searchQuery ? searchResults : neighbors;
 
   const renderFilters = (
     <Stack
@@ -218,17 +215,6 @@ export function NeighborListView() {
       sx={{ mb: { xs: 3, md: 4 } }}
     >
       <NeighborSearch query={searchQuery} results={searchResults} onSearch={handleSearch} />
-
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={category}
-        onChange={handleChangeCategory}
-        color="primary"
-      >
-        <ToggleButton value="all">All</ToggleButton>
-        <ToggleButton value="friend">Friends</ToggleButton>
-      </ToggleButtonGroup>
     </Stack>
   );
 
@@ -256,11 +242,7 @@ export function NeighborListView() {
         <EmptyContent
           filled
           title="No neighbors found"
-          description={
-            category === 'friend'
-              ? 'No friends found in neighbors for this filter.'
-              : 'Try a different name or category.'
-          }
+          description="Try a different name."
           sx={{ py: 10 }}
         />
       )}

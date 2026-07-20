@@ -1,10 +1,10 @@
-import type { SxProps, Theme } from '@mui/material/styles';
+import type { Theme, SxProps } from '@mui/material/styles';
 
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-import { Iconify as DashboardIconify } from 'src/components/dashboard/iconify';
 import { Iconify as UniverseIconify } from 'src/components/universe/iconify';
+import { Iconify as DashboardIconify } from 'src/components/dashboard/iconify';
 
 // ----------------------------------------------------------------------
 

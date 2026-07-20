@@ -72,7 +72,7 @@ export function SignUpView() {
         }
       }
 
-      router.replace(getDashboardHomePath(sessionUser?.role));
+      router.replace(getDashboardHomePath(sessionUser?.role, false));
     } catch (error) {
       console.error(error);
     }

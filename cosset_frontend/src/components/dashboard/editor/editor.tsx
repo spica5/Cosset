@@ -4,8 +4,8 @@ import LinkExtension from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import ImageExtension from '@tiptap/extension-image';
 import TextStyle from '@tiptap/extension-text-style';
-import { FontFamily } from '@tiptap/extension-font-family';
 import StarterKitExtension from '@tiptap/starter-kit';
+import { FontFamily } from '@tiptap/extension-font-family';
 import TextAlignExtension from '@tiptap/extension-text-align';
 import PlaceholderExtension from '@tiptap/extension-placeholder';
 import { useState, useEffect, forwardRef, useCallback } from 'react';
@@ -17,6 +17,8 @@ import Portal from '@mui/material/Portal';
 import Backdrop from '@mui/material/Backdrop';
 import FormHelperText from '@mui/material/FormHelperText';
 
+import { EmoticonSuggestion } from 'src/components/dashboard/emoticon-picker';
+
 import { useMailPaperBackgroundUrl } from 'src/sections/dashboard/mail/use-mail-paper-background-url';
 
 import { Toolbar } from './toolbar';
@@ -24,7 +26,6 @@ import { StyledRoot } from './styles';
 import { editorClasses } from './classes';
 import { FontSize } from './extensions/font-size';
 import { CodeHighlightBlock } from './components/code-highlight-block';
-import { EmoticonSuggestion } from './components/emoticon-suggestion';
 
 import type { EditorProps } from './types';
 
@@ -169,7 +170,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(
               editor={editor}
               className={editorClasses.content.root}
             />
-            {typographyTools ? <EmoticonSuggestion editor={editor} /> : null}
+            <EmoticonSuggestion editor={editor} />
           </StyledRoot>
 
           {helperText && (

@@ -6,11 +6,14 @@ export function shouldUseEmbeddedPdfViewer(): boolean {
   }
 
   const ua = navigator.userAgent;
-  const isIos =
-    /iPad|iPhone|iPod/i.test(ua) ||
+
+  const isMobileOrTablet =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  return !isIos;
+  // Mobile browsers show PDF iframes as a download/open prompt instead of inline pages.
+  // Use the pdf.js canvas viewer on those devices.
+  return !isMobileOrTablet;
 }
 
 export function normalizePageNumber(value: unknown, fallback = 1): number {

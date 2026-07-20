@@ -81,6 +81,7 @@ export const endpoints = {
   },
   upload: {
     image: '/api/upload/image',
+    file: '/api/upload/file',
     sign: '/api/upload/sign',
     delete: '/api/upload/image',
   },

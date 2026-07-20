@@ -43,7 +43,10 @@ import { getS3SignedUrl } from 'src/utils/helper';
 import { useGetFriends } from 'src/actions/friend';
 import { uploadFileToS3 } from 'src/actions/upload';
 import { Iconify } from 'src/components/universe/iconify';
-import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
+import {
+  EmoticonPickerGrid,
+  InputEmoticonSuggestion,
+} from 'src/components/dashboard/emoticon-picker';
 
 import Pusher from 'pusher-js';
 
@@ -335,6 +338,7 @@ export function UniverseCoffeeShopChat({
   const [sendError, setSendError] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<'public' | 'friend' | 'private'>('public');
   const [emoticonsOpen, setEmoticonsOpen] = useState(false);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
   const [participantStatusVersion, setParticipantStatusVersion] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -673,6 +677,20 @@ export function UniverseCoffeeShopChat({
     },
     [draft],
   );
+
+  const handleSuggestionChange = useCallback((nextValue: string, nextCaret: number) => {
+    setDraft(nextValue);
+
+    window.requestAnimationFrame(() => {
+      const input = messageInputRef.current;
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(nextCaret, nextCaret);
+    });
+  }, []);
 
   useEffect(() => {
     if (authLoading || !authenticated || !user?.id) {
@@ -1037,12 +1055,6 @@ export function UniverseCoffeeShopChat({
 
   const handleDraftKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
-      if (e.key === ':' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (hasClientPusherConfig && isPresent && !isHidden) {
-          setEmoticonsOpen(true);
-        }
-      }
-
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         if (hasClientPusherConfig && isPresent && !isHidden) {
@@ -1055,10 +1067,15 @@ export function UniverseCoffeeShopChat({
         return;
       }
 
+      // Suggestion panel handles Enter for selecting an emoticon.
+      if (suggestionOpen) {
+        return;
+      }
+
       e.preventDefault();
       handleSend();
     },
-    [handleSend, hasClientPusherConfig, isHidden, isPresent],
+    [handleSend, hasClientPusherConfig, isHidden, isPresent, suggestionOpen],
   );
 
   if (!channelName || !portalTarget) {
@@ -1574,27 +1591,31 @@ export function UniverseCoffeeShopChat({
               }}
               sx={[chatTextFieldSx, { '& .MuiInputBase-root': { alignItems: 'flex-start' } }]}
             />
+            <InputEmoticonSuggestion
+              inputRef={messageInputRef}
+              value={draft}
+              disabled={!hasClientPusherConfig || !isPresent || isHidden}
+              onChange={handleSuggestionChange}
+              onOpenChange={setSuggestionOpen}
+            />
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', pt: 0.5 }}>
               {authenticated
-                ? 'Attach a file, press : or Ctrl+E for emoticons, Enter to send.'
-                : 'Press : or Ctrl+E to open emoticons, Enter to send.'}
+                ? 'Attach a file, type : for suggestions or Ctrl+E for the picker, Enter to send.'
+                : 'Type : for suggestions or Ctrl+E for the picker, Enter to send.'}
             </Typography>
             {emoticonsOpen && (
-              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ maxWidth: '100%', overflowX: 'auto', pt: 0.5 }}>
-                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
-                  <IconButton
-                    key={option.value}
-                    type="button"
-                    onClick={() => insertEmoticon(option.value)}
-                    sx={{ minWidth: 34, minHeight: 34, p: 0.5, color: 'common.white', border: '1px solid rgba(255,255,255,0.12)' }}
-                    aria-label={option.label}
-                  >
-                    <Box component="span" sx={{ fontSize: 18 }}>
-                      {option.value}
-                    </Box>
-                  </IconButton>
-                ))}
-              </Stack>
+              <Box sx={{ maxWidth: '100%', overflowX: 'auto', pt: 0.5 }}>
+                <EmoticonPickerGrid
+                  onSelect={(emoticon) => insertEmoticon(emoticon)}
+                  buttonSx={{
+                    color: 'common.white',
+                    borderColor: 'rgba(255,255,255,0.12)',
+                    minWidth: 34,
+                    minHeight: 34,
+                    p: 0.5,
+                  }}
+                />
+              </Box>
             )}
             {!isPresent && (
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>

@@ -12,13 +12,26 @@ export function isUserBusiness(role?: string | null): boolean {
     .toLowerCase() === 'business';
 }
 
-/** Default dashboard landing path after login / guest-guard redirect. */
-export function getDashboardHomePath(role?: string | null): string {
+/** My Universe setup (Welcome Guest Area) — first destination for new personal accounts. */
+export function getMyUniversePath(): string {
+  return paths.dashboard.homeSpace.guestArea;
+}
+
+/** Home Space preview — destination after the user has created their home page. */
+export function getHomeSpacePath(): string {
+  return paths.dashboard.preview;
+}
+
+/**
+ * Default dashboard landing path after login / guest-guard redirect.
+ * Personal accounts: My Universe until a home page exists, then Home Space.
+ */
+export function getDashboardHomePath(role?: string | null, hasHomePage = false): string {
   if (isUserBusiness(role) && !isUserAdmin(role)) {
     return paths.dashboard.community.brandsBoulevard.myStore;
   }
 
-  return paths.dashboard.root;
+  return hasHomePage ? getHomeSpacePath() : getMyUniversePath();
 }
 
 /** Paths a business account may use in the dashboard. */

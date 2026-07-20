@@ -419,7 +419,7 @@ export async function getCommunityDirectoryUsers(
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM ${TABLE_NAME}
-        WHERE COALESCE(LOWER(state), 'active') NOT IN ('blocked', 'deleted')
+        WHERE COALESCE(LOWER(state), 'active') NOT IN ('blocked', 'deleted', 'inactive')
         ORDER BY created_at DESC
         LIMIT $1
         OFFSET $2

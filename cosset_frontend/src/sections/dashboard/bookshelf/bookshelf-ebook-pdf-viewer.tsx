@@ -17,14 +17,19 @@ import {
 
 // ----------------------------------------------------------------------
 
-type BaseViewerProps = {
+type EmbeddedViewerProps = {
   url: string;
   page: number;
   title: string;
   onPageChange?: (page: number) => void;
 };
 
-type ViewerProps = BaseViewerProps & {
+type ViewerProps = {
+  url: string;
+  storageKey?: string;
+  page: number;
+  title: string;
+  onPageChange?: (page: number) => void;
   onPageRendered?: (page: number) => void;
 };
 
@@ -47,7 +52,7 @@ function PdfViewerPlaceholder() {
   );
 }
 
-function EmbeddedPdfViewer({ url, page, title, onPageChange }: BaseViewerProps) {
+function EmbeddedPdfViewer({ url, page, title, onPageChange }: EmbeddedViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const skipPollUntilRef = useRef(0);
   const [iframePage, setIframePage] = useState(() => normalizePageNumber(page));
@@ -120,6 +125,7 @@ function EmbeddedPdfViewer({ url, page, title, onPageChange }: BaseViewerProps) 
 
 export function BookshelfEbookPdfViewer({
   url,
+  storageKey,
   page,
   title,
   onPageChange,
@@ -149,6 +155,7 @@ export function BookshelfEbookPdfViewer({
   return (
     <BookshelfEbookPdfCanvasViewer
       url={url}
+      storageKey={storageKey}
       page={page}
       title={title}
       onPageRendered={onPageRendered ?? onPageChange}

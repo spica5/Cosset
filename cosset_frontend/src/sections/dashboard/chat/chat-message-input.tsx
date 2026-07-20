@@ -14,6 +14,11 @@ import { today } from 'src/utils/format-time';
 import { sendMessage, createConversation } from 'src/actions/chat';
 
 import { Iconify } from 'src/components/dashboard/iconify';
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+  insertTextAtSelection,
+} from 'src/components/dashboard/emoticon-picker';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -39,8 +44,10 @@ export function ChatMessageInput({
   const { user } = useAuthContext();
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [message, setMessage] = useState('');
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
 
   const myContact = useMemo(
     () => ({
@@ -69,20 +76,68 @@ export function ChatMessageInput({
     }
   }, []);
 
+  const applyMessageValue = useCallback((nextValue: string, nextCaret?: number) => {
+    setMessage(nextValue);
+
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      const caret = typeof nextCaret === 'number' ? nextCaret : nextValue.length;
+      input.setSelectionRange(caret, caret);
+    });
+  }, []);
+
   const handleChangeMessage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(event.target.value);
   }, []);
 
+  const handleInsertEmoticon = useCallback(
+    (emoticon: string) => {
+      const input = inputRef.current;
+      const { nextValue, nextCaret } = insertTextAtSelection(
+        message,
+        emoticon,
+        input?.selectionStart,
+        input?.selectionEnd
+      );
+
+      applyMessageValue(nextValue, nextCaret);
+    },
+    [applyMessageValue, message]
+  );
+
+  const handleSuggestionChange = useCallback(
+    (nextValue: string, nextCaret: number) => {
+      applyMessageValue(nextValue, nextCaret);
+    },
+    [applyMessageValue]
+  );
+
   const handleSendMessage = useCallback(
     async (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter' || !message) return;
+      if (event.key !== 'Enter' || event.shiftKey) {
+        return;
+      }
+
+      // Suggestion panel handles Enter for selecting an emoticon.
+      if (suggestionOpen) {
+        return;
+      }
+
+      if (!message.trim()) {
+        return;
+      }
+
+      event.preventDefault();
 
       try {
         if (selectedConversationId) {
-          // If the conversation already exists
           await sendMessage(selectedConversationId, messageData);
         } else {
-          // If the conversation does not exist
           const res = await createConversation(conversationData);
           router.push(`${paths.dashboard.chat}?id=${res.conversation.id}`);
 
@@ -94,7 +149,15 @@ export function ChatMessageInput({
         setMessage('');
       }
     },
-    [conversationData, message, messageData, onAddRecipients, router, selectedConversationId]
+    [
+      conversationData,
+      message,
+      messageData,
+      onAddRecipients,
+      router,
+      selectedConversationId,
+      suggestionOpen,
+    ]
   );
 
   return (
@@ -102,25 +165,28 @@ export function ChatMessageInput({
       <InputBase
         name="chat-message"
         id="chat-message-input"
+        inputRef={inputRef}
         value={message}
-        onKeyUp={handleSendMessage}
+        onKeyDown={handleSendMessage}
         onChange={handleChangeMessage}
         placeholder="Type a message"
         disabled={disabled}
         startAdornment={
-          <IconButton>
-            <Iconify icon="eva:smiling-face-fill" />
-          </IconButton>
+          <EmoticonPickerButton
+            disabled={disabled}
+            onSelect={handleInsertEmoticon}
+            tooltip="Insert emoticon"
+          />
         }
         endAdornment={
           <Stack direction="row" sx={{ flexShrink: 0 }}>
-            <IconButton onClick={handleAttach}>
+            <IconButton onClick={handleAttach} disabled={disabled}>
               <Iconify icon="solar:gallery-add-bold" />
             </IconButton>
-            <IconButton onClick={handleAttach}>
+            <IconButton onClick={handleAttach} disabled={disabled}>
               <Iconify icon="eva:attach-2-fill" />
             </IconButton>
-            <IconButton>
+            <IconButton disabled={disabled}>
               <Iconify icon="solar:microphone-bold" />
             </IconButton>
           </Stack>
@@ -131,6 +197,14 @@ export function ChatMessageInput({
           flexShrink: 0,
           borderTop: (theme) => `solid 1px ${theme.vars.palette.divider}`,
         }}
+      />
+
+      <InputEmoticonSuggestion
+        inputRef={inputRef}
+        value={message}
+        disabled={disabled}
+        onChange={handleSuggestionChange}
+        onOpenChange={setSuggestionOpen}
       />
 
       <input type="file" ref={fileRef} style={{ display: 'none' }} />

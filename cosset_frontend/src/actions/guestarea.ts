@@ -87,3 +87,29 @@ export async function updateGuestArea(
 
   return res.data;
 }
+
+/**
+ * Whether the customer has finished creating their Home Space guest area.
+ */
+export async function userHasHomePage(customerId?: string | number | null): Promise<boolean> {
+  const id = String(customerId || '').trim();
+  if (!id) {
+    return false;
+  }
+
+  try {
+    const res = await axios.get(endpoints.guestArea.root, {
+      params: { customerId: id },
+    });
+    const guestAreas = Array.isArray(res.data?.guestAreas) ? res.data.guestAreas : [];
+
+    return guestAreas.some((area: IGuestAreaItem) => {
+      const areaId = area?.id;
+      const title = String(area?.title || '').trim();
+      return Boolean(areaId) && Boolean(title);
+    });
+  } catch (error) {
+    console.error('Failed to check home page status', error);
+    return false;
+  }
+}

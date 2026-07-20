@@ -3,7 +3,7 @@
 import type { IJourneyDiaryNote } from 'src/types/journey-diary-note';
 import type { IJourneyRepresentativePicture } from 'src/types/journey-diary-representative-picture';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,8 +11,8 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
-import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -42,6 +42,11 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+  insertTextAtSelection,
+} from 'src/components/dashboard/emoticon-picker';
 
 import { MyJourneyCountryIcon } from '../my-journey-country-icon';
 import {
@@ -566,6 +571,41 @@ function JourneyNoteFormDialog({
   onClose: () => void;
   onSubmit: () => void;
 }) {
+  const contentInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const applyContentValue = useCallback(
+    (nextValue: string, nextCaret?: number) => {
+      onChange('content', nextValue);
+
+      requestAnimationFrame(() => {
+        const input = contentInputRef.current;
+        if (!input) {
+          return;
+        }
+
+        input.focus();
+        const caret = typeof nextCaret === 'number' ? nextCaret : nextValue.length;
+        input.setSelectionRange(caret, caret);
+      });
+    },
+    [onChange]
+  );
+
+  const handleInsertEmoticon = useCallback(
+    (emoticon: string) => {
+      const input = contentInputRef.current;
+      const { nextValue, nextCaret } = insertTextAtSelection(
+        values.content,
+        emoticon,
+        input?.selectionStart,
+        input?.selectionEnd
+      );
+
+      applyContentValue(nextValue, nextCaret);
+    },
+    [applyContentValue, values.content]
+  );
+
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
       <DialogTitle>{editingNote ? 'Update note' : 'Add note'}</DialogTitle>
@@ -590,15 +630,35 @@ function JourneyNoteFormDialog({
             />
           </Stack>
 
-          <TextField
-            fullWidth
-            multiline
-            minRows={5}
-            label="Story"
-            value={values.content}
-            onChange={(event) => onChange('content', event.target.value)}
-            helperText="Write what happened, what you saw, or what you want to remember."
-          />
+          <Box>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2">Story</Typography>
+              <EmoticonPickerButton
+                disabled={saving}
+                onSelect={handleInsertEmoticon}
+                tooltip="Insert emoticon"
+                icon="solar:smile-circle-bold"
+              />
+            </Stack>
+
+            <TextField
+              fullWidth
+              multiline
+              minRows={5}
+              placeholder="Write what happened, what you saw, or what you want to remember."
+              value={values.content}
+              onChange={(event) => onChange('content', event.target.value)}
+              inputRef={contentInputRef}
+              disabled={saving}
+            />
+
+            <InputEmoticonSuggestion
+              inputRef={contentInputRef}
+              value={values.content}
+              disabled={saving}
+              onChange={applyContentValue}
+            />
+          </Box>
 
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>

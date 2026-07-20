@@ -16,16 +16,18 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
-import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
-
 import { useAuthContext } from 'src/auth/hooks';
 
 import { createBlog, updateBlog, useGetBlog } from 'src/actions/blog';
+
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+} from 'src/components/dashboard/emoticon-picker';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
@@ -157,22 +159,13 @@ export function BlogCreateView({ blogId }: Props) {
   const selectedBackgroundPreset = watch('backgroundPreset');
   const contentPreview = watch('content');
   const [savingDraft, setSavingDraft] = useState(false);
-  const [emoticonAnchorEl, setEmoticonAnchorEl] = useState<HTMLElement | null>(null);
   const [templateAnchorEl, setTemplateAnchorEl] = useState<HTMLElement | null>(null);
-  const emoticonCloseTimerRef = useRef<number | null>(null);
   const templateCloseTimerRef = useRef<number | null>(null);
 
   const currentUserId = String(user?.id || '');
   const ownerId = String(blog?.customerId || '');
   const isOwner = !isEditMode || !blog ? true : !!currentUserId && ownerId === currentUserId;
   const isReadOnly = isEditMode && !isOwner;
-
-  const clearEmoticonCloseTimer = useCallback(() => {
-    if (emoticonCloseTimerRef.current !== null) {
-      window.clearTimeout(emoticonCloseTimerRef.current);
-      emoticonCloseTimerRef.current = null;
-    }
-  }, []);
 
   const clearTemplateCloseTimer = useCallback(() => {
     if (templateCloseTimerRef.current !== null) {
@@ -181,13 +174,6 @@ export function BlogCreateView({ blogId }: Props) {
     }
   }, []);
 
-  const scheduleCloseEmoticonPopover = useCallback(() => {
-    clearEmoticonCloseTimer();
-    emoticonCloseTimerRef.current = window.setTimeout(() => {
-      setEmoticonAnchorEl(null);
-    }, 260);
-  }, [clearEmoticonCloseTimer]);
-
   const scheduleCloseTemplatePopover = useCallback(() => {
     clearTemplateCloseTimer();
     templateCloseTimerRef.current = window.setTimeout(() => {
@@ -195,19 +181,9 @@ export function BlogCreateView({ blogId }: Props) {
     }, 260);
   }, [clearTemplateCloseTimer]);
 
-  const openEmoticonPopover = useCallback(
-    (anchor: HTMLElement) => {
-      clearEmoticonCloseTimer();
-      setTemplateAnchorEl(null);
-      setEmoticonAnchorEl(anchor);
-    },
-    [clearEmoticonCloseTimer],
-  );
-
   const openTemplatePopover = useCallback(
     (anchor: HTMLElement) => {
       clearTemplateCloseTimer();
-      setEmoticonAnchorEl(null);
       setTemplateAnchorEl(anchor);
     },
     [clearTemplateCloseTimer],
@@ -234,7 +210,6 @@ export function BlogCreateView({ blogId }: Props) {
       const nextCaretPosition = selectionStart + text.length;
 
       setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
-      setEmoticonAnchorEl(null);
       setTemplateAnchorEl(null);
 
       window.requestAnimationFrame(() => {
@@ -258,6 +233,27 @@ export function BlogCreateView({ blogId }: Props) {
     [insertTextIntoContent],
   );
 
+  const handleSuggestionChange = useCallback(
+    (nextValue: string, nextCaret: number) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
+
+      window.requestAnimationFrame(() => {
+        const target = contentInputRef.current;
+        if (!target) {
+          return;
+        }
+
+        target.focus();
+        target.setSelectionRange(nextCaret, nextCaret);
+      });
+    },
+    [isReadOnly, setValue],
+  );
+
   const handleInsertTemplate = useCallback(
     (template: string) => {
       insertTextIntoContent(template, '\n\n');
@@ -267,10 +263,9 @@ export function BlogCreateView({ blogId }: Props) {
 
   useEffect(
     () => () => {
-      clearEmoticonCloseTimer();
       clearTemplateCloseTimer();
     },
-    [clearEmoticonCloseTimer, clearTemplateCloseTimer],
+    [clearTemplateCloseTimer],
   );
 
   useEffect(() => {
@@ -547,16 +542,13 @@ export function BlogCreateView({ blogId }: Props) {
                 Insert emoticons or templates
               </Typography>
 
-              <IconButton
-                type="button"
-                size="small"
-                color="primary"
-                aria-label="Insert emoticon"
+              <EmoticonPickerButton
                 disabled={isReadOnly}
-                onClick={(event) => openEmoticonPopover(event.currentTarget)}
-              >
-                <InsertEmoticonRoundedIcon fontSize="small" />
-              </IconButton>
+                onSelect={handleInsertEmoticon}
+                menuPlacement="below"
+                icon="solar:smile-circle-bold"
+                tooltip="Insert emoticon"
+              />
 
               <IconButton
                 type="button"
@@ -569,36 +561,6 @@ export function BlogCreateView({ blogId }: Props) {
                 <TextSnippetRoundedIcon fontSize="small" />
               </IconButton>
             </Stack>
-
-            <Popover
-              open={Boolean(emoticonAnchorEl)}
-              anchorEl={emoticonAnchorEl}
-              onClose={() => setEmoticonAnchorEl(null)}
-              disableRestoreFocus
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-              PaperProps={{
-                onMouseEnter: clearEmoticonCloseTimer,
-                onMouseLeave: scheduleCloseEmoticonPopover,
-                sx: { p: 1, maxWidth: 240 },
-              }}
-            >
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
-                  <Button
-                    key={option.label}
-                    type="button"
-                    size="small"
-                    variant="outlined"
-                    color="inherit"
-                    onClick={() => handleInsertEmoticon(option.value)}
-                    sx={{ minWidth: 0, px: 1.1 }}
-                  >
-                    {option.value}
-                  </Button>
-                ))}
-              </Stack>
-            </Popover>
 
             <Popover
               open={Boolean(templateAnchorEl)}
@@ -649,6 +611,13 @@ export function BlogCreateView({ blogId }: Props) {
                   fontFamily: '"Trebuchet MS", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
                 },
               }}
+            />
+
+            <InputEmoticonSuggestion
+              inputRef={contentInputRef}
+              value={contentPreview || ''}
+              disabled={isReadOnly}
+              onChange={handleSuggestionChange}
             />
           </Stack>
 

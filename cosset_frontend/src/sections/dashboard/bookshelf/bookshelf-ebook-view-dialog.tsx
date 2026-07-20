@@ -23,6 +23,7 @@ import { normalizePageNumber } from './bookshelf-ebook-pdf-page';
 import { BookshelfEbookPdfViewer } from './bookshelf-ebook-pdf-viewer';
 import { BookshelfEbookReaderPanel } from './bookshelf-ebook-reader-panel';
 import {
+  getEbookStorageKey,
   getEbookFileTypeLabel,
   resolveEbookContentUrl,
 } from './bookshelf-ebook-utils';
@@ -147,6 +148,14 @@ export function BookshelfEbookViewDialog({
 
     return fileUrl.split('#')[0];
   }, [ebook?.fileType, fileUrl]);
+
+  const pdfStorageKey = useMemo(() => {
+    if (!ebook || ebook.fileType !== 'pdf') {
+      return '';
+    }
+
+    return getEbookStorageKey(ebook);
+  }, [ebook]);
 
   const applyPdfPage = useCallback((page: number) => {
     setCurrentPage(normalizePageNumber(page));
@@ -291,9 +300,10 @@ export function BookshelfEbookViewDialog({
           sx={{
             flex: 1,
             minWidth: 0,
+            minHeight: 0,
             p: { xs: 2, md: 3 },
             pt: { xs: 0, md: 0 },
-            overflow: 'auto',
+            overflow: ebook.fileType === 'pdf' ? 'hidden' : 'auto',
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -321,6 +331,7 @@ export function BookshelfEbookViewDialog({
           ) : ebook.fileType === 'pdf' && pdfBaseUrl ? (
             <BookshelfEbookPdfViewer
               url={pdfBaseUrl}
+              storageKey={pdfStorageKey}
               page={currentPage}
               title={ebook.title}
               onPageChange={handlePdfPageChange}

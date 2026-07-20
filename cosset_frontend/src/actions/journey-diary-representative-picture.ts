@@ -59,27 +59,40 @@ export function useGetJourneyRepresentativePictures(
 
 // ----------------------------------------------------------------------
 
-const revalidatePictureList = (userId?: string | number, journeyGroupKey?: string | null) => {
+const revalidatePictureList = async (
+  userId?: string | number,
+  journeyGroupKey?: string | null,
+  updater?: (pictures: IJourneyRepresentativePicture[]) => IJourneyRepresentativePicture[],
+) => {
+  const applyUpdater = (currentData?: PicturesData) => {
+    if (!updater || !currentData?.pictures) {
+      return currentData;
+    }
+
+    return {
+      ...currentData,
+      pictures: updater(currentData.pictures),
+    };
+  };
+
   const userListUrl = buildPictureListUrl(userId);
 
   if (userListUrl) {
-    mutate(userListUrl);
+    await mutate(userListUrl, applyUpdater, { revalidate: true });
   }
 
   const scopedListUrl = buildPictureListUrl(userId, journeyGroupKey);
 
-  if (scopedListUrl) {
-    mutate(scopedListUrl);
+  if (scopedListUrl && scopedListUrl !== userListUrl) {
+    await mutate(scopedListUrl, applyUpdater, { revalidate: true });
   }
-
-  mutate(PICTURE_LIST_ENDPOINT);
 };
 
 export async function createJourneyRepresentativePicture(
   picture: Omit<IJourneyRepresentativePicture, 'id' | 'createdAt' | 'updatedAt'>,
 ) {
   const res = await axios.post(endpoints.journeyDiary.picture.add, { picture });
-  revalidatePictureList(picture.userId || undefined, picture.journeyGroupKey);
+  await revalidatePictureList(picture.userId || undefined, picture.journeyGroupKey);
   return res.data;
 }
 
@@ -89,7 +102,9 @@ export async function deleteJourneyRepresentativePicture(
   journeyGroupKey?: string | null,
 ) {
   const res = await axios.delete(endpoints.journeyDiary.picture.delete(id));
-  revalidatePictureList(userId, journeyGroupKey);
+  await revalidatePictureList(userId, journeyGroupKey, (pictures) =>
+    pictures.filter((picture) => String(picture.id) !== String(id)),
+  );
   return res.data;
 }
 
@@ -100,6 +115,21 @@ export async function updateJourneyRepresentativePicture(
   journeyGroupKey?: string | null,
 ) {
   const res = await axios.put(endpoints.journeyDiary.picture.update(id), { updates });
-  revalidatePictureList(userId, journeyGroupKey);
+  const updatedPicture = res.data?.picture as IJourneyRepresentativePicture | undefined;
+
+  await revalidatePictureList(userId, journeyGroupKey, (pictures) =>
+    pictures.map((picture) => {
+      if (String(picture.id) !== String(id)) {
+        return picture;
+      }
+
+      return {
+        ...picture,
+        ...updates,
+        ...(updatedPicture || {}),
+      };
+    }),
+  );
+
   return res.data;
 }

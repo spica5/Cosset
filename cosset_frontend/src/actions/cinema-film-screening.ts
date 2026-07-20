@@ -6,7 +6,7 @@ import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
-import { buildCinemaFilmListUrl, revalidateCinemaFilms } from './cinema-film';
+import { revalidateCinemaFilms } from 'src/actions/cinema-film';
 
 // ----------------------------------------------------------------------
 

@@ -31,6 +31,9 @@ const nextConfig = {
   ...(isStaticExport === 'true' && {
     output: 'export',
   }),
+  allowedDevOrigins: [
+    '192.168.146.142',
+  ],
 };
 
 export default nextConfig;

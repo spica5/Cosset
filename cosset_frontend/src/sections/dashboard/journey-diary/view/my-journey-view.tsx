@@ -376,18 +376,34 @@ export function MyJourneyView() {
         return;
       }
 
+      const nextCaption = caption.trim();
+      if (!nextCaption) {
+        toast.error('Photo name is required.');
+        return;
+      }
+
+      const previousTitle = polaroidItems.find((item) => item.id === pictureId)?.title;
+
       setUploadingIds((prev) => ({ ...prev, [pictureId]: true }));
+      setPolaroidItems((prev) =>
+        prev.map((item) => (item.id === pictureId ? { ...item, title: nextCaption } : item)),
+      );
 
       try {
         await updateJourneyRepresentativePicture(
           pictureId,
-          { caption },
+          { caption: nextCaption },
           userId,
           selectedEntry.id,
         );
         toast.success('Photo renamed successfully.');
       } catch (error) {
         console.error('Failed to rename journey photo:', error);
+        if (previousTitle !== undefined) {
+          setPolaroidItems((prev) =>
+            prev.map((item) => (item.id === pictureId ? { ...item, title: previousTitle } : item)),
+          );
+        }
         toast.error('Failed to rename photo.');
         throw error;
       } finally {
@@ -398,7 +414,7 @@ export function MyJourneyView() {
         });
       }
     },
-    [selectedEntry, userId],
+    [polaroidItems, selectedEntry, userId],
   );
 
   const handleUpdatePhotoVisitDate = useCallback(

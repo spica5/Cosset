@@ -10,19 +10,14 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Popover from '@mui/material/Popover';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import CircularProgress from '@mui/material/CircularProgress';
-import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
-
-import { GLOBAL_EMOTICON_OPTIONS } from 'src/constants/emoticons';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
@@ -30,6 +25,10 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { useAuthContext } from 'src/auth/hooks';
 import { createPost, updatePost, useGetPost } from 'src/actions/post';
 
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+} from 'src/components/dashboard/emoticon-picker';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
 
@@ -165,7 +164,6 @@ export function PostCreateEditView({ postId }: Props) {
   const [uploadType, setUploadType] = useState<UploadFileType>('image');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [emoticonAnchorEl, setEmoticonAnchorEl] = useState<HTMLElement | null>(null);
 
   const currentUserId = String(user?.id || '');
   const ownerId = String(post?.customerId || '');
@@ -173,6 +171,7 @@ export function PostCreateEditView({ postId }: Props) {
   const isReadOnly = isEditMode && !isOwner;
 
   const filesValue = watch('files');
+  const contentValue = watch('content');
 
   useEffect(() => {
     if (!isEditMode || !post) {
@@ -298,7 +297,6 @@ export function PostCreateEditView({ postId }: Props) {
           shouldDirty: true,
           shouldTouch: true,
         });
-        setEmoticonAnchorEl(null);
         return;
       }
 
@@ -308,7 +306,6 @@ export function PostCreateEditView({ postId }: Props) {
       const nextCaretPosition = selectionStart + emoticon.length;
 
       setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
-      setEmoticonAnchorEl(null);
 
       window.requestAnimationFrame(() => {
         const target = contentInputRef.current;
@@ -318,6 +315,27 @@ export function PostCreateEditView({ postId }: Props) {
       });
     },
     [getValues, isReadOnly, setValue],
+  );
+
+  const handleSuggestionChange = useCallback(
+    (nextValue: string, nextCaret: number) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      setValue('content', nextValue, { shouldDirty: true, shouldTouch: true });
+
+      window.requestAnimationFrame(() => {
+        const target = contentInputRef.current;
+        if (!target) {
+          return;
+        }
+
+        target.focus();
+        target.setSelectionRange(nextCaret, nextCaret);
+      });
+    },
+    [isReadOnly, setValue],
   );
 
   const onSubmit = handleSubmit(async (values) => {
@@ -480,43 +498,14 @@ export function PostCreateEditView({ postId }: Props) {
                 Insert emoticons
               </Typography>
 
-              <IconButton
-                type="button"
-                size="small"
-                color="primary"
-                aria-label="Insert emoticon"
+              <EmoticonPickerButton
                 disabled={isReadOnly}
-                onClick={(event) => setEmoticonAnchorEl(event.currentTarget)}
-              >
-                <InsertEmoticonRoundedIcon fontSize="small" />
-              </IconButton>
+                onSelect={handleInsertEmoticon}
+                menuPlacement="below"
+                icon="solar:smile-circle-bold"
+                tooltip="Insert emoticon"
+              />
             </Stack>
-
-            <Popover
-              open={Boolean(emoticonAnchorEl)}
-              anchorEl={emoticonAnchorEl}
-              onClose={() => setEmoticonAnchorEl(null)}
-              disableRestoreFocus
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-              PaperProps={{ sx: { p: 1, maxWidth: 240 } }}
-            >
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                {GLOBAL_EMOTICON_OPTIONS.map((option) => (
-                  <Button
-                    key={option.label}
-                    type="button"
-                    size="small"
-                    variant="outlined"
-                    color="inherit"
-                    onClick={() => handleInsertEmoticon(option.value)}
-                    sx={{ minWidth: 0, px: 1.1 }}
-                  >
-                    {option.value}
-                  </Button>
-                ))}
-              </Stack>
-            </Popover>
 
             <TextField
               label="Content"
@@ -532,6 +521,13 @@ export function PostCreateEditView({ postId }: Props) {
                 contentInputRef.current = element;
               }}
               disabled={isReadOnly}
+            />
+
+            <InputEmoticonSuggestion
+              inputRef={contentInputRef}
+              value={contentValue || ''}
+              disabled={isReadOnly}
+              onChange={handleSuggestionChange}
             />
           </Stack>
 

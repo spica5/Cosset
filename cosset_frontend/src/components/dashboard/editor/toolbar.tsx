@@ -3,19 +3,19 @@ import Divider from '@mui/material/Divider';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
 
+import { EmoticonBlock } from 'src/components/dashboard/emoticon-picker';
+
+import type { EditorToolbarProps } from './types';
+
 import { editorClasses } from './classes';
 import { LinkBlock } from './components/link-block';
 import { ImageBlock } from './components/image-block';
 import { ToolbarItem } from './components/toolbar-item';
 import { HeadingBlock } from './components/heading-block';
+import { FontSizeBlock } from './components/font-size-block';
 import { TextColorBlock } from './components/text-color-block';
 import { FontFamilyBlock } from './components/font-family-block';
-import { FontSizeBlock } from './components/font-size-block';
-import { EmoticonBlock } from './components/emoticon-block';
 import { PaperStyleBlock } from './components/paper-style-block';
-
-import type { EditorToolbarProps } from './types';
-
 // ----------------------------------------------------------------------
 
 /**

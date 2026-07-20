@@ -2,7 +2,7 @@
 
 import type { IBookshelfIntroduce } from 'src/types/bookshelf-introduce';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';

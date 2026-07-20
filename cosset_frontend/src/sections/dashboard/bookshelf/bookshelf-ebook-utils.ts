@@ -2,7 +2,7 @@ import type { IBookshelfEbook, BookshelfEbookFileType } from 'src/types/bookshel
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
-import { getBookCategoryLabel, isBookFavorite } from './bookshelf-book-categories';
+import { isBookFavorite, getBookCategoryLabel } from './bookshelf-book-categories';
 
 // ----------------------------------------------------------------------
 
@@ -118,4 +118,13 @@ export async function openBookshelfEbookContent(
 
 export function getEbookSourceType(ebook: Pick<IBookshelfEbook, 'fileUrl' | 'refUrl'>) {
   return (ebook.refUrl || '').trim() ? 'url' : 'file';
+}
+
+/** S3 storage key for uploaded ebook files (empty when the book uses an external URL). */
+export function getEbookStorageKey(ebook: Pick<IBookshelfEbook, 'fileUrl' | 'refUrl'>) {
+  if ((ebook.refUrl || '').trim()) {
+    return '';
+  }
+
+  return (ebook.fileUrl || '').trim();
 }

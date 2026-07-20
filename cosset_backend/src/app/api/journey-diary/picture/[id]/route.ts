@@ -42,16 +42,40 @@ export async function PUT(
     const body = await req.json();
     const updates = body?.updates;
 
-    if (!updates) {
+    if (!updates || typeof updates !== 'object') {
       return response({ message: 'Updates data is required' }, STATUS.BAD_REQUEST);
     }
 
-    const updated = await updateJourneyDiaryRepresentativePicture(pictureId, {
-      caption: updates.caption ?? null,
-      sortOrder: updates.sortOrder,
-      isPublic: updates.isPublic,
-      visitedAt: updates.visitedAt,
-    });
+    const payload: {
+      caption?: string | null;
+      sortOrder?: number;
+      isPublic?: number;
+      visitedAt?: string | null;
+    } = {};
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'caption')) {
+      const caption = updates.caption;
+      payload.caption =
+        caption === null || caption === undefined ? null : String(caption).trim() || null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'sortOrder')) {
+      payload.sortOrder = updates.sortOrder;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'isPublic')) {
+      payload.isPublic = updates.isPublic;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'visitedAt')) {
+      payload.visitedAt = updates.visitedAt ?? null;
+    }
+
+    if (!Object.keys(payload).length) {
+      return response({ message: 'No valid fields to update' }, STATUS.BAD_REQUEST);
+    }
+
+    const updated = await updateJourneyDiaryRepresentativePicture(pictureId, payload);
 
     return response({ picture: updated }, STATUS.OK);
   } catch (error) {

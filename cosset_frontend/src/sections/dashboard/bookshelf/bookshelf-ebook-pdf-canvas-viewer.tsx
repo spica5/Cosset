@@ -14,14 +14,22 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import axiosInstance, { endpoints } from 'src/utils/axios';
+
 import { normalizePageNumber } from './bookshelf-ebook-pdf-page';
 
 // ----------------------------------------------------------------------
 
-GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+const LOCAL_PDF_WORKER_SRC = '/pdf/pdf.worker.min.mjs';
+const CDN_PDF_WORKER_SRC = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+const PAGE_GAP_PX = 8;
+const PAGE_ESTIMATE_RATIO = 1.414;
+
+GlobalWorkerOptions.workerSrc = LOCAL_PDF_WORKER_SRC || CDN_PDF_WORKER_SRC;
 
 type Props = {
   url: string;
+  storageKey?: string;
   page: number;
   title: string;
   onPageRendered?: (page: number) => void;
@@ -38,49 +46,138 @@ function isRenderingCancelled(error: unknown) {
   );
 }
 
-async function loadPdfDocument(url: string): Promise<PDFDocumentProxy> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF (${response.status})`);
-    }
-
-    const data = await response.arrayBuffer();
-    return await getDocument({ data }).promise;
-  } catch {
-    return getDocument({ url }).promise;
-  }
+async function loadPdfFromData(data: ArrayBuffer): Promise<PDFDocumentProxy> {
+  return getDocument({ data, disableFontFace: true }).promise;
 }
 
-export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+async function fetchPdfBytesViaProxy(storageKey: string): Promise<ArrayBuffer> {
+  const response = await axiosInstance.get(endpoints.upload.file, {
+    params: { key: storageKey },
+    responseType: 'arraybuffer',
+  });
+
+  return response.data as ArrayBuffer;
+}
+
+async function fetchPdfBytesFromUrl(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch PDF (${response.status})`);
+  }
+
+  return response.arrayBuffer();
+}
+
+async function loadPdfDocument(url: string, storageKey?: string): Promise<PDFDocumentProxy> {
+  const errors: unknown[] = [];
+
+  if (storageKey) {
+    try {
+      const data = await fetchPdfBytesViaProxy(storageKey);
+      return await loadPdfFromData(data);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  if (url) {
+    try {
+      const data = await fetchPdfBytesFromUrl(url);
+      return await loadPdfFromData(data);
+    } catch (error) {
+      errors.push(error);
+    }
+
+    try {
+      return await getDocument({ url, disableFontFace: true }).promise;
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  const lastError = errors[errors.length - 1];
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error('Could not load PDF');
+}
+
+function getVisiblePageNumber(
+  scrollContainer: HTMLElement,
+  pageElements: Map<number, HTMLElement>,
+): number | null {
+  const containerTop = scrollContainer.scrollTop;
+  const containerBottom = containerTop + scrollContainer.clientHeight;
+  const containerMid = containerTop + scrollContainer.clientHeight / 3;
+
+  let bestPage: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  pageElements.forEach((element, pageNumber) => {
+    const { offsetTop, offsetHeight } = element;
+    const offsetBottom = offsetTop + offsetHeight;
+
+    if (offsetBottom < containerTop || offsetTop > containerBottom) {
+      return;
+    }
+
+    const pageMid = offsetTop + offsetHeight / 2;
+    const distance = Math.abs(pageMid - containerMid);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestPage = pageNumber;
+    }
+  });
+
+  return bestPage;
+}
+
+export function BookshelfEbookPdfCanvasViewer({
+  url,
+  storageKey,
+  page,
+  title,
+  onPageRendered,
+}: Props) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const pagesContainerRef = useRef<HTMLDivElement | null>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
-  const renderTaskRef = useRef<RenderTask | null>(null);
-  const renderRequestIdRef = useRef(0);
+  const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map());
+  const renderTasksRef = useRef<Map<number, RenderTask>>(new Map());
+  const renderedPagesRef = useRef<Set<number>>(new Set());
+  const renderGenerationRef = useRef(0);
+  const suppressScrollSyncRef = useRef(false);
+  const scrollSyncTimerRef = useRef<number | null>(null);
+  const lastReportedPageRef = useRef(1);
   const resizeTimerRef = useRef<number | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [numPages, setNumPages] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const renderPage = useCallback(
-    async (pdf: PDFDocumentProxy, pageNumber: number, width: number) => {
-      const container = containerRef.current;
-      if (!container || width <= 0) {
+  const cancelAllRenderTasks = useCallback(() => {
+    renderTasksRef.current.forEach((task) => task.cancel());
+    renderTasksRef.current.clear();
+  }, []);
+
+  const renderPageCanvas = useCallback(
+    async (pdf: PDFDocumentProxy, pageNumber: number, width: number, container: HTMLElement) => {
+      if (renderedPagesRef.current.has(pageNumber) && container.querySelector('canvas')) {
         return;
       }
 
-      const requestId = renderRequestIdRef.current + 1;
-      renderRequestIdRef.current = requestId;
+      const generation = renderGenerationRef.current;
+      const boundedPage = Math.min(normalizePageNumber(pageNumber, 1), pdf.numPages);
 
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
-
-      const nextPage = normalizePageNumber(pageNumber, 1);
-      const boundedPage = Math.min(nextPage, pdf.numPages);
+      renderTasksRef.current.get(boundedPage)?.cancel();
 
       try {
         const pdfPage = await pdf.getPage(boundedPage);
-        if (requestId !== renderRequestIdRef.current) {
+        if (generation !== renderGenerationRef.current) {
           return;
         }
 
@@ -108,38 +205,115 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
           canvasContext: context,
           viewport,
         });
-        renderTaskRef.current = renderTask;
 
+        renderTasksRef.current.set(boundedPage, renderTask);
         await renderTask.promise;
+        renderTasksRef.current.delete(boundedPage);
 
-        if (requestId !== renderRequestIdRef.current) {
+        if (generation !== renderGenerationRef.current) {
           return;
         }
 
-        onPageRendered?.(boundedPage);
+        renderedPagesRef.current.add(boundedPage);
       } catch (renderError) {
-        if (isRenderingCancelled(renderError) || requestId !== renderRequestIdRef.current) {
+        renderTasksRef.current.delete(boundedPage);
+
+        if (isRenderingCancelled(renderError) || generation !== renderGenerationRef.current) {
           return;
         }
 
         throw renderError;
       }
     },
-    [onPageRendered, title],
+    [title],
   );
+
+  const renderVisiblePages = useCallback(async () => {
+    const pdf = pdfRef.current;
+    const scrollContainer = scrollRef.current;
+
+    if (!pdf || !scrollContainer || containerWidth <= 0) {
+      return;
+    }
+
+    const containerTop = scrollContainer.scrollTop;
+    const containerBottom = containerTop + scrollContainer.clientHeight;
+    const buffer = scrollContainer.clientHeight * 0.75;
+
+    const pagesToRender = [...pageElementsRef.current.entries()].filter(([, element]) => {
+      const top = element.offsetTop;
+      const bottom = top + element.offsetHeight;
+      return bottom >= containerTop - buffer && top <= containerBottom + buffer;
+    });
+
+    await Promise.all(
+      pagesToRender.map(async ([pageNumber, element]) => {
+        try {
+          await renderPageCanvas(pdf, pageNumber, containerWidth, element);
+        } catch (renderError) {
+          if (!isRenderingCancelled(renderError)) {
+            console.error(`Failed to render PDF page ${pageNumber}:`, renderError);
+          }
+        }
+      }),
+    );
+  }, [containerWidth, renderPageCanvas]);
+
+  const scrollToPage = useCallback((pageNumber: number, behavior: ScrollBehavior = 'smooth') => {
+    const target = pageElementsRef.current.get(normalizePageNumber(pageNumber));
+    const scrollContainer = scrollRef.current;
+
+    if (!target || !scrollContainer) {
+      return;
+    }
+
+    suppressScrollSyncRef.current = true;
+    scrollContainer.scrollTo({
+      top: target.offsetTop - PAGE_GAP_PX,
+      behavior,
+    });
+
+    window.setTimeout(() => {
+      suppressScrollSyncRef.current = false;
+    }, behavior === 'auto' ? 0 : 350);
+  }, []);
+
+  const reportVisiblePage = useCallback(() => {
+    if (suppressScrollSyncRef.current) {
+      return;
+    }
+
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) {
+      return;
+    }
+
+    const visiblePage = getVisiblePageNumber(scrollContainer, pageElementsRef.current);
+    if (!visiblePage || visiblePage === lastReportedPageRef.current) {
+      return;
+    }
+
+    lastReportedPageRef.current = visiblePage;
+    onPageRendered?.(visiblePage);
+  }, [onPageRendered]);
 
   useEffect(() => {
     let cancelled = false;
 
     setLoading(true);
     setError('');
-    renderRequestIdRef.current += 1;
-    renderTaskRef.current?.cancel();
-    renderTaskRef.current = null;
+    setNumPages(0);
+    renderGenerationRef.current += 1;
+    cancelAllRenderTasks();
+    renderedPagesRef.current.clear();
+    pageElementsRef.current.clear();
     pdfRef.current?.destroy();
     pdfRef.current = null;
 
-    loadPdfDocument(url)
+    const renderedPages = renderedPagesRef.current;
+    const pageElements = pageElementsRef.current;
+
+    loadPdfDocument(url, storageKey)
       .then((pdf) => {
         if (cancelled) {
           pdf.destroy();
@@ -147,6 +321,7 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
         }
 
         pdfRef.current = pdf;
+        setNumPages(pdf.numPages);
         setLoading(false);
       })
       .catch((loadError) => {
@@ -159,29 +334,38 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
 
     return () => {
       cancelled = true;
-      renderRequestIdRef.current += 1;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
+      renderGenerationRef.current += 1;
+      cancelAllRenderTasks();
+      renderedPages.clear();
+      pageElements.clear();
       pdfRef.current?.destroy();
       pdfRef.current = null;
     };
-  }, [url]);
+  }, [cancelAllRenderTasks, storageKey, url]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container || loading) {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer || loading) {
       return undefined;
     }
 
     const updateWidth = () => {
-      const nextWidth = Math.floor(container.clientWidth);
+      const nextWidth = Math.floor(scrollContainer.clientWidth);
       if (nextWidth <= 0) {
         return;
       }
 
-      setContainerWidth((previousWidth) =>
-        Math.abs(previousWidth - nextWidth) < 2 ? previousWidth : nextWidth,
-      );
+      setContainerWidth((previousWidth) => {
+        if (Math.abs(previousWidth - nextWidth) < 2) {
+          return previousWidth;
+        }
+
+        renderedPagesRef.current.clear();
+        pageElementsRef.current.forEach((element) => {
+          element.replaceChildren();
+        });
+        return nextWidth;
+      });
     };
 
     updateWidth();
@@ -197,7 +381,7 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
       }, 150);
     });
 
-    observer.observe(container);
+    observer.observe(scrollContainer);
 
     return () => {
       observer.disconnect();
@@ -209,32 +393,68 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
   }, [loading]);
 
   useEffect(() => {
-    const pdf = pdfRef.current;
-    if (!pdf || loading || containerWidth <= 0) {
+    if (loading || !numPages || containerWidth <= 0) {
       return undefined;
     }
 
-    let cancelled = false;
-
-    renderPage(pdf, page, containerWidth).catch((renderError) => {
-      if (cancelled || isRenderingCancelled(renderError)) {
-        return;
-      }
-
-      console.error('Failed to render PDF page:', renderError);
-      setError('Could not display this PDF page.');
+    renderVisiblePages().catch((renderError) => {
+      console.error('Failed to render visible PDF pages:', renderError);
     });
 
-    return () => {
-      cancelled = true;
-      renderRequestIdRef.current += 1;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
+    const handleScroll = () => {
+      if (scrollSyncTimerRef.current != null) {
+        window.clearTimeout(scrollSyncTimerRef.current);
+      }
+
+      scrollSyncTimerRef.current = window.setTimeout(() => {
+        scrollSyncTimerRef.current = null;
+        renderVisiblePages().catch((renderError) => {
+          console.error('Failed to render visible PDF pages:', renderError);
+        });
+        reportVisiblePage();
+      }, 80);
     };
-  }, [containerWidth, loading, page, renderPage]);
+
+    const scrollContainer = scrollRef.current;
+    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      scrollContainer?.removeEventListener('scroll', handleScroll);
+      if (scrollSyncTimerRef.current != null) {
+        window.clearTimeout(scrollSyncTimerRef.current);
+        scrollSyncTimerRef.current = null;
+      }
+    };
+  }, [containerWidth, loading, numPages, renderVisiblePages, reportVisiblePage]);
+
+  useEffect(() => {
+    if (loading || !numPages) {
+      return;
+    }
+
+    const nextPage = normalizePageNumber(page);
+    const scrollContainer = scrollRef.current;
+    const visiblePage = scrollContainer
+      ? getVisiblePageNumber(scrollContainer, pageElementsRef.current)
+      : null;
+
+    if (visiblePage === nextPage) {
+      lastReportedPageRef.current = nextPage;
+      return;
+    }
+
+    lastReportedPageRef.current = nextPage;
+    scrollToPage(nextPage);
+    renderVisiblePages().catch((renderError) => {
+      console.error('Failed to render visible PDF pages:', renderError);
+    });
+  }, [loading, numPages, page, renderVisiblePages, scrollToPage]);
+
+  const estimatedPageHeight = Math.max(Math.round(containerWidth * PAGE_ESTIMATE_RATIO), 420);
 
   return (
     <Box
+      ref={scrollRef}
       sx={{
         width: 1,
         flex: 1,
@@ -259,16 +479,42 @@ export function BookshelfEbookPdfCanvasViewer({ url, page, title, onPageRendered
         </Stack>
       ) : null}
 
-      <Box
-        ref={containerRef}
-        sx={{
-          width: 1,
-          minHeight: loading || error ? 0 : 240,
-          visibility: loading || error ? 'hidden' : 'visible',
-          position: loading || error ? 'absolute' : 'relative',
-          pointerEvents: loading || error ? 'none' : 'auto',
-        }}
-      />
+      {!loading && !error && numPages > 0 ? (
+        <Stack
+          ref={pagesContainerRef}
+          spacing={`${PAGE_GAP_PX}px`}
+          sx={{
+            width: 1,
+            py: 1,
+          }}
+        >
+          {Array.from({ length: numPages }, (_, index) => {
+            const pageNumber = index + 1;
+
+            return (
+              <Box
+                key={pageNumber}
+                data-page={pageNumber}
+                ref={(element) => {
+                  if (element instanceof HTMLElement) {
+                    pageElementsRef.current.set(pageNumber, element);
+                  } else {
+                    pageElementsRef.current.delete(pageNumber);
+                  }
+                }}
+                sx={{
+                  width: 1,
+                  minHeight: estimatedPageHeight,
+                  bgcolor: 'background.paper',
+                  borderRadius: 0.5,
+                  boxShadow: (theme) => theme.shadows[1],
+                  overflow: 'hidden',
+                }}
+              />
+            );
+          })}
+        </Stack>
+      ) : null}
     </Box>
   );
 }
