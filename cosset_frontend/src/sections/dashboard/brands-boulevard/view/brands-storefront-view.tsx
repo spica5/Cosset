@@ -27,6 +27,7 @@ import {
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
+import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -93,6 +94,12 @@ export function BrandsStorefrontView({ storeId }: Props) {
       mounted = false;
     };
   }, [store?.coverImage, store?.logoImage, store?.ownerPhotoURL]);
+
+  const storeSlides = useMemo(
+    () => [coverUrl, logoUrl].filter(Boolean).map((src) => ({ src })),
+    [coverUrl, logoUrl],
+  );
+  const storeLightbox = useLightBox(storeSlides);
 
   const visibleProducts = useMemo(() => {
     const available = products.filter((product) => product.isAvailable !== false);
@@ -181,9 +188,18 @@ export function BrandsStorefrontView({ storeId }: Props) {
 
       <Card sx={{ mb: 3, overflow: 'hidden' }}>
         <Box
+          onClick={
+            coverUrl
+              ? () =>
+                  storeLightbox.setSelected(
+                    storeSlides.findIndex((slide) => slide.src === coverUrl),
+                  )
+              : undefined
+          }
           sx={{
             position: 'relative',
             height: { xs: 160, md: 220 },
+            cursor: coverUrl ? 'zoom-in' : 'default',
             background: coverUrl
               ? `url(${coverUrl}) center / cover no-repeat`
               : 'linear-gradient(135deg, #3d2a1f 0%, #c9a66b 100%)',
@@ -194,6 +210,10 @@ export function BrandsStorefrontView({ storeId }: Props) {
               component="img"
               src={logoUrl}
               alt={`${store.name} logo`}
+              onClick={(event) => {
+                event.stopPropagation();
+                storeLightbox.setSelected(storeSlides.findIndex((slide) => slide.src === logoUrl));
+              }}
               sx={{
                 position: 'absolute',
                 left: 20,
@@ -205,6 +225,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
                 border: '3px solid',
                 borderColor: 'background.paper',
                 bgcolor: 'background.paper',
+                cursor: 'zoom-in',
               }}
             />
           ) : null}
@@ -327,6 +348,16 @@ export function BrandsStorefrontView({ storeId }: Props) {
           />
         )}
       </Stack>
+
+      <Lightbox
+        index={storeLightbox.selected}
+        slides={storeSlides}
+        open={storeLightbox.open}
+        close={storeLightbox.onClose}
+        disableCaptions
+        disableSlideshow
+        disableThumbnails
+      />
     </DashboardContent>
   );
 }

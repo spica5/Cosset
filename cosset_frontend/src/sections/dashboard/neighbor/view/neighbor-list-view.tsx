@@ -125,7 +125,9 @@ export function NeighborListView() {
     return acc;
   }, {});
 
-  const mappedNeighbors: INeighborItem[] = users.map((user) => {
+  const mappedNeighbors: INeighborItem[] = users
+    .filter((user) => String(user.role || '').trim().toLowerCase() !== 'business')
+    .map((user) => {
     const userId = String(user.id || '');
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
     const guestArea = guestAreaByCustomerId[user.id];

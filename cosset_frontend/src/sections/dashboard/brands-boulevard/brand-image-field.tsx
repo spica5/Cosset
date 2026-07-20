@@ -316,10 +316,16 @@ type GalleryProps = {
 
 export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: GalleryProps) {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const imageKeysKey = imageKeys.map((key) => String(key || '').trim()).filter(Boolean).join('|');
 
   useEffect(() => {
     let mounted = true;
-    const keys = imageKeys.map((key) => String(key || '').trim()).filter(Boolean);
+    const keys = imageKeysKey ? imageKeysKey.split('|') : [];
+
+    if (!keys.length) {
+      setPreviewUrls([]);
+      return undefined;
+    }
 
     Promise.all(keys.map((key) => resolveImageUrl(key))).then((urls) => {
       if (mounted) setPreviewUrls(urls.filter(Boolean));
@@ -328,13 +334,18 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
     return () => {
       mounted = false;
     };
-  }, [imageKeys]);
+  }, [imageKeysKey]);
 
   const slides = useMemo(
     () => previewUrls.map((src) => ({ src })),
     [previewUrls],
   );
   const lightbox = useLightBox(slides);
+
+  const handleOpen = (index: number) => {
+    if (index < 0 || index >= previewUrls.length) return;
+    lightbox.setSelected(index);
+  };
 
   if (!previewUrls.length) {
     return <Box sx={{ height, bgcolor: 'background.neutral' }} />;
@@ -346,7 +357,7 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
         component="img"
         src={previewUrls[0]}
         alt={alt}
-        onClick={() => lightbox.onOpen(previewUrls[0])}
+        onClick={() => handleOpen(0)}
         sx={{
           width: 1,
           height,
@@ -365,7 +376,7 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
               component="img"
               src={url}
               alt={`${alt} ${index + 1}`}
-              onClick={() => lightbox.onOpen(url)}
+              onClick={() => handleOpen(index)}
               sx={{
                 width: 48,
                 height: 48,
@@ -386,6 +397,8 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
         slides={slides}
         open={lightbox.open}
         close={lightbox.onClose}
+        disableCaptions
+        disableSlideshow
       />
     </>
   );
