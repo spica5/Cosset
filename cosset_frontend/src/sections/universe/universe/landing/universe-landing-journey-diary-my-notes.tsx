@@ -30,6 +30,9 @@ import type { JourneyNoteDetailItem, JourneyPictureDetailItem } from './universe
 
 // ----------------------------------------------------------------------
 
+const JOURNEY_HANDWRITING_FONT_FAMILY =
+  '"Segoe Print", "Segoe Script", "Caveat Variable", "Comic Sans MS", "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+
 type Props = {
   notes: JourneyNoteDetailItem[];
   pictures: JourneyPictureDetailItem[];
@@ -125,9 +128,11 @@ function NoteListCard({
           <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0, py: 0.25 }}>
             <Typography
               sx={{
-                fontFamily: MYSPACE_ITEM_TITLE_FONT,
+                fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
                 fontWeight: 700,
                 color: palette.ink,
+                fontSize: '1.3rem',
+                lineHeight: 1.2,
               }}
               noWrap
             >
@@ -139,13 +144,15 @@ function NoteListCard({
             <Typography
               variant="body2"
               sx={{
+                fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
                 color: palette.muted,
                 mt: 0.25,
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
-                lineHeight: 1.6,
+                lineHeight: 1.45,
+                fontSize: '1.2rem',
               }}
             >
               {excerpt}

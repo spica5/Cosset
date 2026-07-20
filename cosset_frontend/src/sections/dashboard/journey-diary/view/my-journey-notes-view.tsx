@@ -65,6 +65,8 @@ const INK_COLOR = '#1F2A44';
 const JOURNEY_CONTENT_BORDER = '1px solid rgba(31, 42, 68, 0.16)';
 const TIMELINE_MARKER_SIZE = 14;
 const TIMELINE_CONTENT_OFFSET = 22;
+const JOURNEY_HANDWRITING_FONT_FAMILY =
+  '"Segoe Print", "Segoe Script", "Caveat Variable", "Comic Sans MS", "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
 
 type PictureWithUrl = IJourneyRepresentativePicture & {
   imageUrl: string;
@@ -351,7 +353,7 @@ function NoteImagePreviewDialog({
               left: 16,
               bottom: 16,
               color: 'common.white',
-              fontFamily: '"Caveat Variable", "Pacifico", cursive',
+              fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
               fontSize: '1.5rem',
               textShadow: '0 2px 8px rgba(0,0,0,0.45)',
             }}
@@ -398,7 +400,7 @@ function NoteJournalDetail({
   deleting?: boolean;
 }) {
   const handwritingSx = {
-    fontFamily: '"Caveat Variable", "Pacifico", cursive',
+    fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
     color: INK_COLOR,
   };
 

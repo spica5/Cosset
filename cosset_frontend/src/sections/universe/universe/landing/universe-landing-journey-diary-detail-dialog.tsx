@@ -4,7 +4,7 @@ import type { IJourneyDiaryNote } from 'src/types/journey-diary-note';
 import type { IJourneyMemorialThing } from 'src/types/journey-diary-memorial-thing';
 import type { IJourneyRepresentativePicture } from 'src/types/journey-diary-representative-picture';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -86,6 +86,8 @@ const formatDate = (value: unknown) => {
 };
 
 const stripHtml = (value: string) => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const JOURNEY_HANDWRITING_FONT_FAMILY =
+  '"Segoe Print", "Segoe Script", "Caveat Variable", "Comic Sans MS", "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
 
 const parseDetailDate = (value: unknown) => {
   if (!value) {
@@ -175,6 +177,252 @@ function DetailNavButton({
   );
 }
 
+function ZoomableImageStage({
+  src,
+  alt,
+  maxHeight = { xs: 320, md: 520 },
+  fullHeight = false,
+}: {
+  src?: string;
+  alt: string;
+  maxHeight?: { xs: number; md: number };
+  fullHeight?: boolean;
+}) {
+  const [zoom, setZoom] = useState(1);
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const zoomPercent = `${Math.round(zoom * 100)}%`;
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setZoom(1);
+  }, [src]);
+
+  useEffect(() => {
+    if (!src) {
+      setNaturalSize({ width: 0, height: 0 });
+      return undefined;
+    }
+
+    const image = new window.Image();
+    image.onload = () => {
+      setNaturalSize({
+        width: image.naturalWidth || 0,
+        height: image.naturalHeight || 0,
+      });
+    };
+    image.src = src;
+
+    return () => {
+      image.onload = null;
+    };
+  }, [src]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return undefined;
+    }
+
+    const updateViewportSize = () => {
+      setViewportSize({
+        width: viewport.clientWidth,
+        height: viewport.clientHeight,
+      });
+    };
+
+    updateViewportSize();
+
+    const observer = new ResizeObserver(() => {
+      updateViewportSize();
+    });
+
+    observer.observe(viewport);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const fittedScale =
+    naturalSize.width > 0 &&
+    naturalSize.height > 0 &&
+    viewportSize.width > 0 &&
+    viewportSize.height > 0
+      ? Math.min(viewportSize.width / naturalSize.width, viewportSize.height / naturalSize.height)
+      : 1;
+
+  const fittedWidth = naturalSize.width > 0 ? Math.max(1, naturalSize.width * fittedScale) : 0;
+  const fittedHeight = naturalSize.height > 0 ? Math.max(1, naturalSize.height * fittedScale) : 0;
+  const scaledWidth = fittedWidth > 0 ? fittedWidth * zoom : 0;
+  const scaledHeight = fittedHeight > 0 ? fittedHeight * zoom : 0;
+  const stageWidth =
+    scaledWidth > 0 && viewportSize.width > 0
+      ? Math.max(viewportSize.width, scaledWidth)
+      : '100%';
+  const stageHeight =
+    scaledHeight > 0 && viewportSize.height > 0
+      ? Math.max(viewportSize.height, scaledHeight)
+      : fullHeight
+        ? '100%'
+        : 'auto';
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || scaledWidth <= 0 || scaledHeight <= 0) {
+      return undefined;
+    }
+
+    const centerScroll = () => {
+      viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+      viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+    };
+
+    centerScroll();
+    const frame = requestAnimationFrame(centerScroll);
+
+    return () => cancelAnimationFrame(frame);
+  }, [zoom, scaledWidth, scaledHeight, src, viewportSize.width, viewportSize.height]);
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: 1,
+        height: fullHeight ? 1 : 'auto',
+        minHeight: fullHeight ? 0 : 220,
+        borderRadius: 2,
+        bgcolor: 'rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+      }}
+    >
+      {src ? (
+        <Box
+          ref={viewportRef}
+          sx={{
+            width: 1,
+            height: fullHeight ? 1 : 'auto',
+            minHeight: fullHeight ? 0 : 220,
+            maxHeight: fullHeight ? 'none' : maxHeight,
+            overflowX: 'scroll',
+            overflowY: 'scroll',
+            scrollbarWidth: 'thin',
+            '&::-webkit-scrollbar': {
+              width: 12,
+              height: 12,
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(255,255,255,0.28)',
+              borderRadius: 999,
+              border: '2px solid rgba(16,24,43,0.95)',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderRadius: 999,
+            },
+            scrollbarColor: 'rgba(255,255,255,0.28) rgba(255,255,255,0.08)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: stageWidth,
+              height: stageHeight,
+              minWidth: '100%',
+              minHeight: fullHeight ? '100%' : scaledHeight > 0 ? scaledHeight : 220,
+            }}
+          >
+            <Box
+              component="img"
+              src={src}
+              alt={alt}
+              sx={{
+                width: scaledWidth > 0 ? scaledWidth : 'auto',
+                height: scaledHeight > 0 ? scaledHeight : 'auto',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                objectFit: 'contain',
+                display: 'block',
+                flexShrink: 0,
+              }}
+            />
+          </Box>
+        </Box>
+      ) : (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          sx={{
+            minHeight: fullHeight ? 0 : 220,
+            height: 1,
+            color: 'rgba(255,255,255,0.45)',
+          }}
+        >
+          <Iconify icon="solar:gallery-bold-duotone" width={42} />
+        </Stack>
+      )}
+
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 1,
+        }}
+      >
+        <IconButton
+          onClick={() => setZoom((current) => Math.max(1, Number((current - 0.1).toFixed(2))))}
+          disabled={zoom <= 1}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.12)',
+            color: 'common.white',
+            border: '1px solid rgba(255,255,255,0.18)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
+            '&.Mui-disabled': { color: 'rgba(255,255,255,0.28)' },
+          }}
+          aria-label="Zoom out"
+        >
+          <Iconify icon="solar:minus-circle-bold" width={20} />
+        </IconButton>
+        <Box
+          sx={{
+            minWidth: 54,
+            px: 1,
+            height: 40,
+            borderRadius: 1.25,
+            border: '1px solid rgba(255,255,255,0.18)',
+            bgcolor: 'rgba(255,255,255,0.12)',
+            color: 'common.white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+          }}
+        >
+          {zoomPercent}
+        </Box>
+        <IconButton
+          onClick={() => setZoom((current) => Math.min(3, Number((current + 0.1).toFixed(2))))}
+          disabled={zoom >= 3}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.12)',
+            color: 'common.white',
+            border: '1px solid rgba(255,255,255,0.18)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
+            '&.Mui-disabled': { color: 'rgba(255,255,255,0.28)' },
+          }}
+          aria-label="Zoom in"
+        >
+          <Iconify icon="solar:add-circle-bold" width={20} />
+        </IconButton>
+      </Stack>
+    </Box>
+  );
+}
+
 function MemorialGallery({
   urls,
   alt,
@@ -195,30 +443,19 @@ function MemorialGallery({
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <Box
-        component="img"
-        src={currentUrl}
-        alt={alt}
-        sx={{
-          width: 1,
-          maxHeight: { xs: 320, md: 460 },
-          objectFit: 'contain',
-          borderRadius: 2,
-          bgcolor: 'rgba(0,0,0,0.2)',
-        }}
-      />
+    <Box sx={{ position: 'relative', width: 1, height: 1, minHeight: 0 }}>
+      <ZoomableImageStage src={currentUrl} alt={alt} fullHeight />
 
       {hasMultiple ? (
         <>
-          <Box sx={{ position: 'absolute', top: '50%', left: 12, transform: 'translateY(-50%)' }}>
+          <Box sx={{ position: 'absolute', top: '50%', left: { xs: 8, md: 24 }, transform: 'translateY(-50%)', zIndex: 2 }}>
             <DetailNavButton
               direction="prev"
               disabled={index <= 0}
               onClick={() => setIndex((prev) => Math.max(0, prev - 1))}
             />
           </Box>
-          <Box sx={{ position: 'absolute', top: '50%', right: 12, transform: 'translateY(-50%)' }}>
+          <Box sx={{ position: 'absolute', top: '50%', right: { xs: 8, md: 24 }, transform: 'translateY(-50%)', zIndex: 2 }}>
             <DetailNavButton
               direction="next"
               disabled={index >= urls.length - 1}
@@ -228,7 +465,7 @@ function MemorialGallery({
           <Typography
             sx={{
               position: 'absolute',
-              top: 12,
+              bottom: 16,
               left: '50%',
               transform: 'translateX(-50%)',
               color: 'common.white',
@@ -237,9 +474,10 @@ function MemorialGallery({
               py: 0.5,
               borderRadius: 99,
               bgcolor: 'rgba(0,0,0,0.45)',
+              zIndex: 2,
             }}
           >
-            {index + 1} / {urls.length}
+            Photo {index + 1} / {urls.length}
           </Typography>
         </>
       ) : null}
@@ -265,7 +503,6 @@ export function UniverseLandingJourneyDiaryDetailDialog({
   let subtitle = '';
   let body: string | null = null;
   let imageUrl = '';
-  let imageUrls: string[] = [];
 
   if (detail.type === 'picture') {
     const picture = currentItem as JourneyPictureDetailItem;
@@ -344,18 +581,7 @@ export function UniverseLandingJourneyDiaryDetailDialog({
             }}
           >
             {imageUrl ? (
-              <Box
-                component="img"
-                src={imageUrl}
-                alt={title}
-                sx={{
-                  width: 1,
-                  height: 1,
-                  maxWidth: 1,
-                  maxHeight: 1,
-                  objectFit: 'contain',
-                }}
-              />
+              <ZoomableImageStage src={imageUrl} alt={title} fullHeight />
             ) : (
               <Stack
                 alignItems="center"
@@ -383,22 +609,135 @@ export function UniverseLandingJourneyDiaryDetailDialog({
     );
   }
 
-  if (detail.type === 'note') {
-    const note = currentItem as JourneyNoteDetailItem;
-    title = (note.title || '').trim() || `Note #${note.id}`;
-    subtitle = `${formatDate(note.noteDate || note.createdAt)} · ${formatJourneyLabel(note)}`;
-    body = stripHtml((note.content || '').trim()) || 'No content yet.';
-    imageUrl = note.signedImageUrl || '';
-  }
-
   if (detail.type === 'memorial') {
     const memorial = currentItem as JourneyMemorialDetailItem;
     title = memorial.title;
     subtitle = `${getMemorialThingCategoryLabel(memorial.category)} · ${formatJourneyLabel(memorial)}`;
     body = (memorial.description || '').trim() || null;
-    imageUrls =
+    const imageUrls =
       memorial.signedImageUrls?.filter(Boolean) ||
       (memorial.signedImageUrl ? [memorial.signedImageUrl] : []);
+    const memorialDateLabel = formatDate(memorial.memorialDate || memorial.createdAt);
+
+    return (
+      <Dialog
+        open
+        onClose={onClose}
+        fullScreen
+        PaperProps={{
+          sx: {
+            bgcolor: '#000',
+            color: 'common.white',
+          },
+        }}
+      >
+        <Stack sx={{ height: 1, minHeight: 0 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.5,
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              bgcolor: 'rgba(0,0,0,0.72)',
+              backdropFilter: 'blur(8px)',
+              flexShrink: 0,
+            }}
+          >
+            <Stack spacing={0.25} sx={{ minWidth: 0, pr: 2 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.62)', letterSpacing: '0.16em' }}>
+                {getDetailSectionLabel('memorial')}
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>
+                {title}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }} noWrap>
+                {subtitle}
+              </Typography>
+              {memorialDateLabel && memorialDateLabel !== '-' ? (
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.62)' }} noWrap>
+                  {memorialDateLabel}
+                </Typography>
+              ) : null}
+              {body ? (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255,255,255,0.72)',
+                    fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {body}
+                </Typography>
+              ) : null}
+            </Stack>
+
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+              <DetailNavButton direction="prev" disabled={!hasPrev} onClick={onPrev} />
+              <Typography
+                variant="caption"
+                sx={{ color: 'rgba(255,255,255,0.72)', minWidth: 56, textAlign: 'center' }}
+              >
+                {detail.index + 1} / {detail.items.length}
+              </Typography>
+              <DetailNavButton direction="next" disabled={!hasNext} onClick={onNext} />
+              <IconButton onClick={onClose} sx={{ color: 'common.white' }} aria-label="Close detail">
+                <Iconify icon="mingcute:close-line" width={20} />
+              </IconButton>
+            </Stack>
+          </Stack>
+
+          <Box
+            sx={{
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: '#000',
+            }}
+          >
+            {imageUrls.length > 0 ? (
+              <MemorialGallery urls={imageUrls} alt={title} />
+            ) : (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                sx={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                <Iconify icon="solar:gallery-bold-duotone" width={42} />
+              </Stack>
+            )}
+
+            {hasPrev && imageUrls.length <= 1 ? (
+              <Box sx={{ position: 'absolute', top: '50%', left: { xs: 8, md: 24 }, transform: 'translateY(-50%)', zIndex: 2 }}>
+                <DetailNavButton direction="prev" onClick={onPrev} />
+              </Box>
+            ) : null}
+
+            {hasNext && imageUrls.length <= 1 ? (
+              <Box sx={{ position: 'absolute', top: '50%', right: { xs: 8, md: 24 }, transform: 'translateY(-50%)', zIndex: 2 }}>
+                <DetailNavButton direction="next" onClick={onNext} />
+              </Box>
+            ) : null}
+          </Box>
+        </Stack>
+      </Dialog>
+    );
+  }
+
+  if (detail.type === 'note') {
+    const note = currentItem as JourneyNoteDetailItem;
+    title = (note.title || '').trim() || `Note #${note.id}`;
+    subtitle = `${formatDate(note.noteDate || note.createdAt)} · ${formatJourneyLabel(note)}`;
+    body = (note.content || '').trim() || 'No content yet.';
+    imageUrl = note.signedImageUrl || '';
   }
 
   return (
@@ -451,21 +790,8 @@ export function UniverseLandingJourneyDiaryDetailDialog({
         </Stack>
 
         <Box sx={{ p: { xs: 2, md: 3 } }}>
-          {detail.type === 'memorial' ? (
-            <MemorialGallery urls={imageUrls} alt={title} />
-          ) : imageUrl ? (
-            <Box
-              component="img"
-              src={imageUrl}
-              alt={title}
-              sx={{
-                width: 1,
-                maxHeight: { xs: 320, md: 520 },
-                objectFit: 'contain',
-                borderRadius: 2,
-                bgcolor: 'rgba(0,0,0,0.2)',
-              }}
-            />
+          {imageUrl ? (
+            <ZoomableImageStage src={imageUrl} alt={title} />
           ) : (
             <Stack
               alignItems="center"
@@ -486,8 +812,10 @@ export function UniverseLandingJourneyDiaryDetailDialog({
               sx={{
                 mt: 3,
                 color: 'rgba(255,255,255,0.86)',
-                lineHeight: 1.8,
-                fontSize: '1rem',
+                fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
+                lineHeight: 1.45,
+                fontSize: { xs: '1.2rem', md: '1.35rem' },
+                letterSpacing: '0.01em',
                 whiteSpace: 'pre-wrap',
               }}
             >
