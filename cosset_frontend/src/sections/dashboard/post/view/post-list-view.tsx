@@ -61,8 +61,8 @@ const getCreatedAtTime = (value: IPostItem['createdAt']) => {
   return Number.isNaN(time) ? 0 : time;
 };
 
-const viewHeading = (viewMode: ViewMode, ownPostsOnly: boolean) => {
-  if (ownPostsOnly || viewMode === 'mine') return 'My Posts';
+const viewHeading = (viewMode: ViewMode) => {
+  if (viewMode === 'mine') return 'My Posts';
   if (viewMode === 'advertise') return 'Advertise Posts';
   return 'Community Posts';
 };
@@ -73,37 +73,28 @@ export function PostListView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
-  const ownPostsOnly = isUserBusiness(user?.role) && !isUserAdmin(user?.role);
+  const isBusinessAccount = isUserBusiness(user?.role) && !isUserAdmin(user?.role);
   const [query, setQuery] = useState('');
   const [authorQuery, setAuthorQuery] = useState('');
   const [orderBy, setOrderBy] = useState<OrderByValue>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>(() =>
-    ownPostsOnly ? 'mine' : parseViewMode(searchParams.get('view')),
-  );
+  const [viewMode, setViewMode] = useState<ViewMode>(() => parseViewMode(searchParams.get('view')));
   const markedViewedIdsRef = useRef<Set<string>>(new Set());
 
-  const { posts, postsLoading, refreshPosts } = useGetPosts(
-    ownPostsOnly ? user?.id : undefined,
-    {
-      authorRole: !ownPostsOnly && viewMode === 'advertise' ? 'business' : undefined,
-      limit: 100,
-    },
-  );
+  const { posts, postsLoading, refreshPosts } = useGetPosts(undefined, {
+    authorRole: viewMode === 'advertise' ? 'business' : undefined,
+    limit: 100,
+  });
 
   useEffect(() => {
-    if (ownPostsOnly) {
-      setViewMode('mine');
-      return;
-    }
     setViewMode(parseViewMode(searchParams.get('view')));
-  }, [ownPostsOnly, searchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     refreshPosts();
   }, [refreshPosts]);
 
   useEffect(() => {
-    if (ownPostsOnly || postsLoading || !user?.id || !posts.length) {
+    if (postsLoading || !user?.id || !posts.length) {
       return undefined;
     }
 
@@ -140,11 +131,11 @@ export function PostListView() {
     return () => {
       cancelled = true;
     };
-  }, [ownPostsOnly, posts, postsLoading, user?.id]);
+  }, [posts, postsLoading, user?.id]);
 
   const handleViewModeChange = useCallback(
     (_event: React.MouseEvent<HTMLElement>, value: ViewMode | null) => {
-      if (!value || ownPostsOnly) return;
+      if (!value) return;
       setViewMode(value);
       const nextPath =
         value === 'advertise'
@@ -152,10 +143,10 @@ export function PostListView() {
           : paths.dashboard.community.post.list;
       router.replace(nextPath);
     },
-    [ownPostsOnly, router],
+    [router],
   );
 
-  const effectiveViewMode: ViewMode = ownPostsOnly ? 'mine' : viewMode;
+  const effectiveViewMode: ViewMode = viewMode;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedAuthorQuery = effectiveViewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();
 
@@ -166,9 +157,8 @@ export function PostListView() {
 
   const advertisePosts = useMemo(() => posts.filter(isBusinessAuthorPost), [posts]);
 
-  const postsToFilter = ownPostsOnly
-    ? myPosts
-    : effectiveViewMode === 'mine'
+  const postsToFilter =
+    effectiveViewMode === 'mine'
       ? myPosts
       : effectiveViewMode === 'advertise'
         ? advertisePosts
@@ -214,7 +204,7 @@ export function PostListView() {
   }, [postsToFilter, normalizedQuery, normalizedAuthorQuery, orderBy]);
 
   const isFiltering = !!normalizedQuery || !!normalizedAuthorQuery;
-  const heading = viewHeading(effectiveViewMode, ownPostsOnly);
+  const heading = viewHeading(effectiveViewMode);
 
   const renderLoading = (
     <Box sx={{ py: 10, display: 'flex', justifyContent: 'center' }}>
@@ -307,7 +297,7 @@ export function PostListView() {
       <CustomBreadcrumbs
         heading={heading}
         links={
-          ownPostsOnly
+          isBusinessAccount
             ? [
                 { name: 'Dashboard', href: paths.dashboard.community.brandsBoulevard.myStore },
                 { name: 'Post' },
@@ -321,21 +311,19 @@ export function PostListView() {
         }
         action={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            {!ownPostsOnly ? (
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={effectiveViewMode}
-                onChange={handleViewModeChange}
-                color="primary"
-              >
-                <ToggleButton value="all">Community Posts</ToggleButton>
-                <ToggleButton value="advertise">Advertise Posts</ToggleButton>
-                <ToggleButton value="mine" disabled={!user}>
-                  My Posts
-                </ToggleButton>
-              </ToggleButtonGroup>
-            ) : null}
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={effectiveViewMode}
+              onChange={handleViewModeChange}
+              color="primary"
+            >
+              <ToggleButton value="all">Community Posts</ToggleButton>
+              <ToggleButton value="advertise">Advertise Posts</ToggleButton>
+              <ToggleButton value="mine" disabled={!user}>
+                My Posts
+              </ToggleButton>
+            </ToggleButtonGroup>
             <Button
               component={RouterLink}
               href={paths.dashboard.community.post.new}

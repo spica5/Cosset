@@ -84,7 +84,7 @@ export function FriendCard({
   const [signedCoverUrl, setSignedCoverUrl] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
   const [openRemoveConfirm, setOpenRemoveConfirm] = useState(false);
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`;
   const coverKey = (friend.coverUrl || '').trim();
   const coverSrc = coverKey ? signedCoverUrl : defaultCoverImage;
 

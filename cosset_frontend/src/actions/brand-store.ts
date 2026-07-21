@@ -191,6 +191,76 @@ export async function updateBrandProductOrderStatus(
   return res.data?.order as IBrandProductOrder;
 }
 
+export async function createBrandClientOrder(payload: {
+  productId: string | number;
+  quantity?: number;
+  note?: string;
+  customerId?: string | number;
+  customerName?: string;
+  customerEmail?: string;
+  price?: string;
+  currency?: string;
+}) {
+  try {
+    const res = await axios.post(STORE_ORDERS_ENDPOINT, payload);
+    await mutate(STORE_ORDERS_ENDPOINT, undefined, { revalidate: true });
+    return res.data?.order as IBrandProductOrder;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to add client')
+          : 'Failed to add client';
+    throw new Error(message);
+  }
+}
+
+export async function updateBrandClientOrder(
+  orderId: string | number,
+  payload: {
+    productId: string | number;
+    quantity?: number;
+    note?: string;
+    status?: IBrandProductOrderStatus;
+    customerId?: string | number;
+    customerName?: string;
+    customerEmail?: string;
+    price?: string;
+    currency?: string;
+  },
+) {
+  try {
+    const res = await axios.put(STORE_ORDERS_ENDPOINT, { orderId, ...payload });
+    await mutate(STORE_ORDERS_ENDPOINT, undefined, { revalidate: true });
+    return res.data?.order as IBrandProductOrder;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to update client')
+          : 'Failed to update client';
+    throw new Error(message);
+  }
+}
+
+export async function deleteBrandClientOrder(orderId: string | number) {
+  try {
+    const res = await axios.delete(STORE_ORDERS_ENDPOINT, { data: { orderId } });
+    await mutate(STORE_ORDERS_ENDPOINT, undefined, { revalidate: true });
+    return res.data?.order as IBrandProductOrder;
+  } catch (error) {
+    const message =
+      typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || 'Failed to remove client')
+          : 'Failed to remove client';
+    throw new Error(message);
+  }
+}
+
 export async function createBrandStore(
   store: Omit<
     IBrandStore,

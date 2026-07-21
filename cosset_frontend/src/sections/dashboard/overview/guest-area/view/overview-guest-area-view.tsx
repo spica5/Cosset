@@ -25,7 +25,7 @@ export function OverviewGuestAreaView() {
 
   const { guestarea, guestAreaLoading } = useGetGuestArea(user?.id || '');
 
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`;
 
   useEffect(() => {
     let isMounted = true;

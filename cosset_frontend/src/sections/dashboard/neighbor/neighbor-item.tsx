@@ -46,7 +46,7 @@ const getMoodAvatar = (mood?: string) => _moodIcons[mood || ''] || getMoodDispla
 export function NeighborItem({ neighbor, onView }: Props) {
   const universeHref = paths.universe.view(neighbor.id);
 
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`;
   const coverKey = (neighbor.images?.[0] || '').trim();
   const image1Key = (neighbor.images?.[1] || '').trim();
   const image2Key = (neighbor.images?.[2] || '').trim();

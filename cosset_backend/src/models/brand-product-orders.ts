@@ -176,7 +176,10 @@ export async function getBrandProductOrdersByStore(
           o.store_id::int as "storeId",
           o.product_id::int as "productId",
           o.product_name as "productName",
-          o.product_image as "productImage",
+          COALESCE(
+            NULLIF(TRIM(o.product_image), ''),
+            NULLIF(TRIM(p.image_url), '')
+          ) as "productImage",
           o.price,
           o.currency,
           o.quantity,
@@ -190,6 +193,7 @@ export async function getBrandProductOrdersByStore(
           o.updated_at as "updatedAt"
         FROM ${TABLE_NAME} o
         LEFT JOIN cosset_users u ON u.id::text = o.customer_id::text
+        LEFT JOIN brand_products p ON p.id = o.product_id
         WHERE o.store_id = $1
         ORDER BY o.created_at DESC, o.id DESC
         LIMIT $2 OFFSET $3
@@ -248,6 +252,130 @@ export async function updateBrandProductOrderStatus(
     throw new DatabaseError({
       code: 'UPDATE_BRAND_PRODUCT_ORDER_ERROR',
       message: `Failed to update order: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export type BrandProductOrderUpdate = {
+  productId: number;
+  productName: string;
+  productImage?: string | null;
+  price?: string | null;
+  currency?: string | null;
+  quantity: number;
+  status?: BrandProductOrderStatus;
+  customerId: string | null;
+  customerName: string;
+  customerEmail?: string | null;
+  note?: string | null;
+};
+
+export async function updateBrandProductOrder(
+  orderId: number,
+  storeId: number,
+  row: BrandProductOrderUpdate,
+): Promise<BrandProductOrder | null> {
+  try {
+    await ensureBrandProductOrdersTable();
+
+    return await queryOne<BrandProductOrder>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET
+          product_id = $3,
+          product_name = $4,
+          product_image = $5,
+          price = $6,
+          currency = $7,
+          quantity = $8,
+          status = COALESCE($9, status),
+          customer_id = $10,
+          customer_name = $11,
+          customer_email = $12,
+          note = $13,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND store_id = $2
+        RETURNING
+          id::int as "id",
+          store_id::int as "storeId",
+          product_id::int as "productId",
+          product_name as "productName",
+          product_image as "productImage",
+          price,
+          currency,
+          quantity,
+          status,
+          customer_id as "customerId",
+          customer_name as "customerName",
+          customer_email as "customerEmail",
+          note,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `,
+      [
+        orderId,
+        storeId,
+        row.productId,
+        row.productName.slice(0, 160),
+        row.productImage?.slice(0, 2000) ?? null,
+        row.price?.slice(0, 40) ?? null,
+        row.currency?.slice(0, 12) ?? null,
+        Math.max(1, Math.min(99, row.quantity)),
+        row.status ?? null,
+        row.customerId,
+        row.customerName.slice(0, 120),
+        row.customerEmail?.slice(0, 255) ?? null,
+        row.note?.slice(0, 1000) ?? null,
+      ],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'UPDATE_BRAND_PRODUCT_ORDER_ERROR',
+      message: `Failed to update order: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+export async function deleteBrandProductOrder(
+  orderId: number,
+  storeId: number,
+): Promise<BrandProductOrder | null> {
+  try {
+    await ensureBrandProductOrdersTable();
+
+    return await queryOne<BrandProductOrder>(
+      `
+        DELETE FROM ${TABLE_NAME}
+        WHERE id = $1 AND store_id = $2
+        RETURNING
+          id::int as "id",
+          store_id::int as "storeId",
+          product_id::int as "productId",
+          product_name as "productName",
+          product_image as "productImage",
+          price,
+          currency,
+          quantity,
+          status,
+          customer_id as "customerId",
+          customer_name as "customerName",
+          customer_email as "customerEmail",
+          note,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `,
+      [orderId, storeId],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'DELETE_BRAND_PRODUCT_ORDER_ERROR',
+      message: `Failed to delete order: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }
