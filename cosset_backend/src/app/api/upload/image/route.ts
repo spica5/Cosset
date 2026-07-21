@@ -59,8 +59,8 @@ const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac'
 
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
   image: 10 * 1024 * 1024,
-  // Keep this in sync with frontend collection upload validation.
-  video: 1500 * 1024 * 1024,
+  // Cinema and collection videos can exceed 500MB via direct/multipart S3 upload.
+  video: 5 * 1024 * 1024 * 1024,
   audio: 250 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
   txt: 5 * 1024 * 1024,

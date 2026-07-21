@@ -9,8 +9,6 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 
-import { CONFIG } from 'src/config-global';
-
 import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestAreas } from 'src/actions/guestarea';
@@ -37,7 +35,6 @@ export function NeighborListView() {
   const { friends: acceptedRelations, friendsLoading } = useGetFriends(undefined, 'accepted', true);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
   const { designSpaces, designSpacesLoading } = useGetDesignSpaces();
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
   const isActiveCustomer = (user: Record<string, any>) => {
     const role = String(user.role || '')
@@ -116,9 +113,10 @@ export function NeighborListView() {
   const guestAreaByCustomerId = guestAreas.reduce<
     Record<string, { coverUrl: string; title: string; motif: string; mood: string }>
   >((acc, item) => {
-    if (item?.customerId && !acc[item.customerId]) {
-      acc[item.customerId] = {
-        coverUrl: item.coverUrl || defaultCoverImage,
+    const customerId = String(item?.customerId || '');
+    if (customerId && !acc[customerId]) {
+      acc[customerId] = {
+        coverUrl: item.coverUrl || '',
         title: item.title || '',
         motif: item.motif || '',
         mood: item.mood || '',
@@ -130,8 +128,9 @@ export function NeighborListView() {
   const designSpaceByCustomerId = designSpaces.reduce<
     Record<string, { background: string | null; rooms: string | null }>
   >((acc, item) => {
-    if (item?.customerId && !acc[item.customerId]) {
-      acc[item.customerId] = {
+    const customerId = String(item?.customerId || '');
+    if (customerId && !acc[customerId]) {
+      acc[customerId] = {
         background: item.background || null,
         rooms: item.rooms || null,
       };
@@ -142,15 +141,16 @@ export function NeighborListView() {
   const mappedNeighbors: INeighborItem[] = activeUsers.map((user) => {
     const userId = String(user.id || '');
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
-    const guestArea = guestAreaByCustomerId[user.id];
-    const coverUrl = guestArea?.coverUrl || defaultCoverImage;
+    const guestArea = guestAreaByCustomerId[userId];
     const createdAt = user?.createdAt || new Date().toISOString();
-    const designSpace = designSpaceByCustomerId[user.id];
+    const designSpace = designSpaceByCustomerId[userId];
     const backgroundImages = parseImageList(designSpace?.background);
     const roomImages = parseImageList(designSpace?.rooms);
 
-    const image1 = backgroundImages[0] || roomImages[0];
-    const image2 = backgroundImages[1] || roomImages[1];
+    const guestCover = (guestArea?.coverUrl || '').trim();
+    const image1 = backgroundImages[0] || roomImages[0] || '';
+    const image2 = backgroundImages[1] || roomImages[1] || '';
+
     const friendCount = friendCountByUserId[userId] || 0;
     const isFriend = currentUserId ? currentUserFriendIds.has(userId) : false;
 
@@ -172,7 +172,7 @@ export function NeighborListView() {
       totalViews: 0,
       content: '',
       publish: 'published',
-      images: [coverUrl, image1, image2],
+      images: [guestCover, image1, image2],
       ratingNumber: friendCount,
       email: user.email || '',
       avatarUrl: user.photoURL || user.avatarUrl || '',

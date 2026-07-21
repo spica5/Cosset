@@ -47,9 +47,13 @@ export function NeighborItem({ neighbor, onView }: Props) {
   const universeHref = paths.universe.view(neighbor.id);
 
   const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
-  const [signedCoverUrl, setSignedCoverUrl] = useState(defaultCoverImage);
-  const [signedImage1, setSignedImage1] = useState(defaultCoverImage);
-  const [signedImage2, setSignedImage2] = useState(defaultCoverImage);
+  const coverKey = (neighbor.images?.[0] || '').trim();
+  const image1Key = (neighbor.images?.[1] || '').trim();
+  const image2Key = (neighbor.images?.[2] || '').trim();
+
+  const [signedCoverUrl, setSignedCoverUrl] = useState('');
+  const [signedImage1, setSignedImage1] = useState('');
+  const [signedImage2, setSignedImage2] = useState('');
   const [signedAvatarUrl, setSignedAvatarUrl] = useState('');
 
   useEffect(() => {
@@ -58,31 +62,43 @@ export function NeighborItem({ neighbor, onView }: Props) {
     const resolveImage = async (
       key: string,
       setter: (url: string) => void,
-      fallback = ''
+      emptyFallback = ''
     ) => {
-      if (!key) {
-        if (mounted) setter(fallback);
+      const imageKey = (key || '').trim();
+
+      // Default image only when the source slot is empty.
+      if (!imageKey) {
+        if (mounted) setter(emptyFallback);
         return;
       }
 
-      if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) {
-        if (mounted) setter(key);
+      if (
+        imageKey.startsWith('http://') ||
+        imageKey.startsWith('https://') ||
+        imageKey.startsWith('/')
+      ) {
+        if (mounted) setter(imageKey);
         return;
       }
 
-      const signed = await getS3SignedUrl(key);
-      if (mounted) setter(signed || fallback);
+      const signed = await getS3SignedUrl(imageKey);
+      // Keep the real image; never replace a non-empty source with the default.
+      if (mounted) setter(signed || '');
     };
 
-    resolveImage(neighbor.images?.[0] || '', setSignedCoverUrl, defaultCoverImage);
-    resolveImage(neighbor.images?.[1] || '', setSignedImage1, defaultCoverImage);
-    resolveImage(neighbor.images?.[2] || '', setSignedImage2, defaultCoverImage);
+    resolveImage(coverKey, setSignedCoverUrl, defaultCoverImage);
+    resolveImage(image1Key, setSignedImage1, defaultCoverImage);
+    resolveImage(image2Key, setSignedImage2, defaultCoverImage);
     resolveImage(neighbor.avatarUrl || '', setSignedAvatarUrl);
 
     return () => {
       mounted = false;
     };
-  }, [neighbor.images, neighbor.avatarUrl]);
+  }, [coverKey, image1Key, image2Key, neighbor.avatarUrl, defaultCoverImage]);
+
+  const coverSrc = coverKey ? signedCoverUrl : defaultCoverImage;
+  const image1Src = image1Key ? signedImage1 : defaultCoverImage;
+  const image2Src = image2Key ? signedImage2 : defaultCoverImage;
 
   const renderRating = (
     <Stack
@@ -144,7 +160,7 @@ export function NeighborItem({ neighbor, onView }: Props) {
         {(neighbor.isCurrentUser || neighbor.isFriend) ? renderRating : null}
         <Image
           alt={neighbor.universeName}
-          src={signedCoverUrl}
+          src={coverSrc}
           sx={{ width: 1, height: 164, borderRadius: 1 }}
         />
       </Box>
@@ -152,13 +168,13 @@ export function NeighborItem({ neighbor, onView }: Props) {
       <Box gap={0.5} display="flex" flexDirection="column">
         <Image
           alt={neighbor.universeName}
-          src={signedImage1}
+          src={image1Src}
           ratio="1/1"
           sx={{ borderRadius: 1, width: 80, height: 80 }}
         />
         <Image
           alt={neighbor.universeName}
-          src={signedImage2}
+          src={image2Src}
           ratio="1/1"
           sx={{ borderRadius: 1, width: 80, height: 80 }}
         />

@@ -70,18 +70,12 @@ export function handleDatabaseError(error: unknown): DatabaseError {
   }
 
   if (error instanceof Error) {
-    // Log fetch failures with context
-    if (error.message.includes('fetch failed') || error.message.includes('TypeError')) {
-      console.error('Database connection error detected:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack?.split('\n').slice(0, 3).join('\n'),
-      });
-    }
     return new DatabaseError(error);
   }
 
-  return new DatabaseError(
-    new Error(`Unknown database error: ${JSON.stringify(error)}`),
-  );
+  if (error && typeof error === 'object' && 'message' in error) {
+    return new DatabaseError(new Error(String((error as { message: unknown }).message)));
+  }
+
+  return new DatabaseError(new Error(`Unknown database error: ${JSON.stringify(error)}`));
 }

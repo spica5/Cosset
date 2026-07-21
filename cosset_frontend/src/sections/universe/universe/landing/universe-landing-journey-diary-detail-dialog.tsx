@@ -16,7 +16,10 @@ import { Iconify } from 'src/components/universe/iconify';
 
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
+import { useDesignSpaceTheme } from './design-space-theme-context';
+import { MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
 import { formatTripDateRange } from './universe-landing-journey-diary-my-journey-utils';
+import { getJourneyPalette, type JourneyPalette } from './universe-landing-journey-diary-my-trips-panel';
 
 // ----------------------------------------------------------------------
 
@@ -423,6 +426,377 @@ function ZoomableImageStage({
   );
 }
 
+function NoteDetailImageThumbnail({
+  src,
+  alt,
+  onExpand,
+}: {
+  src: string;
+  alt: string;
+  onExpand: () => void;
+}) {
+  return (
+    <Box
+      onClick={onExpand}
+      role="button"
+      tabIndex={0}
+      aria-label="View full image"
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onExpand();
+        }
+      }}
+      sx={{
+        position: 'relative',
+        width: 1,
+        maxWidth: { xs: 280, sm: 320, md: 340 },
+        mx: 'auto',
+        transform: 'rotate(-4deg)',
+        cursor: 'zoom-in',
+        '&:hover .note-image-expand-hint': {
+          opacity: 1,
+        },
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: -10,
+          left: '50%',
+          transform: 'translateX(-50%) rotate(-3deg)',
+          width: 58,
+          height: 18,
+          bgcolor: 'rgba(214, 198, 164, 0.92)',
+          border: '1px solid rgba(160, 140, 108, 0.45)',
+          borderRadius: 0.5,
+          zIndex: 2,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+        }}
+      />
+
+      <Box
+        sx={{
+          bgcolor: '#fff',
+          p: 1.25,
+          pb: 2.5,
+          boxShadow: '0 12px 28px rgba(0,0,0,0.35)',
+        }}
+      >
+        <Box
+          component="img"
+          src={src}
+          alt={alt}
+          sx={{
+            width: 1,
+            aspectRatio: '4 / 3',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      </Box>
+
+      <Stack
+        className="note-image-expand-hint"
+        direction="row"
+        spacing={0.5}
+        alignItems="center"
+        sx={{
+          position: 'absolute',
+          right: 14,
+          bottom: 18,
+          px: 1,
+          py: 0.5,
+          borderRadius: 1,
+          bgcolor: 'rgba(0,0,0,0.55)',
+          color: 'common.white',
+          opacity: { xs: 1, md: 0.82 },
+          transition: 'opacity 0.15s ease',
+          pointerEvents: 'none',
+          zIndex: 3,
+        }}
+      >
+        <Iconify icon="solar:maximize-square-minimalistic-bold" width={16} />
+        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+          View full
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+function NoteDetailNavButton({
+  direction,
+  disabled,
+  onClick,
+  palette,
+}: {
+  direction: 'prev' | 'next';
+  disabled?: boolean;
+  onClick: () => void;
+  palette: JourneyPalette;
+}) {
+  return (
+    <IconButton
+      onClick={onClick}
+      disabled={disabled}
+      sx={{
+        bgcolor: palette.accentSoft,
+        color: palette.accent,
+        border: palette.border,
+        '&:hover': { bgcolor: palette.panelActive },
+        '&.Mui-disabled': { color: palette.muted, opacity: 0.5 },
+      }}
+      aria-label={direction === 'prev' ? 'Previous item' : 'Next item'}
+    >
+      <Iconify icon={direction === 'prev' ? 'eva:arrow-back-fill' : 'eva:arrow-forward-fill'} width={20} />
+    </IconButton>
+  );
+}
+
+function NoteDetailDialog({
+  detail,
+  title,
+  subtitle,
+  body,
+  imageUrl,
+  hasPrev,
+  hasNext,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  detail: Extract<JourneyDiaryDetailState, { type: 'note' }>;
+  title: string;
+  subtitle: string;
+  body: string;
+  imageUrl: string;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const { theme: spaceTheme } = useDesignSpaceTheme();
+  const palette = getJourneyPalette(spaceTheme);
+  const [fullImageOpen, setFullImageOpen] = useState(false);
+  const titleFont = spaceTheme.decorativeFont || MYSPACE_ITEM_TITLE_FONT;
+
+  useEffect(() => {
+    setFullImageOpen(false);
+  }, [detail.index, imageUrl]);
+
+  return (
+    <>
+      <Dialog
+        open
+        onClose={onClose}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            bgcolor: palette.paper,
+            color: palette.ink,
+            borderRadius: 3,
+            overflow: 'hidden',
+            border: palette.border,
+            backgroundImage: `
+              repeating-linear-gradient(
+                transparent,
+                transparent 31px,
+                ${palette.gridLine} 31px,
+                ${palette.gridLine} 32px
+              )
+            `,
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        <Stack spacing={0} sx={{ minHeight: 0, flex: 1, overflow: 'hidden' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{
+              px: { xs: 2, md: 3 },
+              py: 2,
+              borderBottom: palette.border,
+              bgcolor: spaceTheme.surfaceBg,
+              flexShrink: 0,
+            }}
+          >
+            <Stack spacing={0.5} sx={{ minWidth: 0, pr: 2 }}>
+              <Typography
+                variant="overline"
+                sx={{ color: palette.accent, letterSpacing: '0.16em', fontWeight: 700 }}
+              >
+                {getDetailSectionLabel('note')}
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: titleFont,
+                  fontWeight: spaceTheme.decorativeFont ? 500 : 700,
+                  color: palette.ink,
+                  fontSize: { xs: '1.5rem', md: '1.75rem' },
+                  lineHeight: 1.2,
+                }}
+                noWrap
+              >
+                {title}
+              </Typography>
+              <Typography variant="body2" sx={{ color: palette.muted }} noWrap>
+                {subtitle}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+              <NoteDetailNavButton
+                direction="prev"
+                disabled={!hasPrev}
+                onClick={onPrev}
+                palette={palette}
+              />
+              <Typography
+                variant="caption"
+                sx={{ color: palette.muted, minWidth: 56, textAlign: 'center', fontWeight: 600 }}
+              >
+                {detail.index + 1} / {detail.items.length}
+              </Typography>
+              <NoteDetailNavButton
+                direction="next"
+                disabled={!hasNext}
+                onClick={onNext}
+                palette={palette}
+              />
+              <IconButton
+                onClick={onClose}
+                sx={{
+                  color: palette.ink,
+                  bgcolor: palette.accentSoft,
+                  border: palette.border,
+                  '&:hover': { bgcolor: palette.panelActive },
+                }}
+                aria-label="Close detail"
+              >
+                <Iconify icon="mingcute:close-line" width={20} />
+              </IconButton>
+            </Stack>
+          </Stack>
+
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              p: { xs: 2, md: 3 },
+            }}
+          >
+            <Stack spacing={{ xs: 3, md: 3.5 }} alignItems="center" sx={{ pt: { xs: 1.5, md: 2 } }}>
+              {imageUrl ? (
+                <Box sx={{ width: 1, maxWidth: { xs: 280, sm: 320, md: 340 } }}>
+                  <NoteDetailImageThumbnail
+                    src={imageUrl}
+                    alt={title}
+                    onExpand={() => setFullImageOpen(true)}
+                  />
+                </Box>
+              ) : (
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{
+                    width: 1,
+                    maxWidth: 280,
+                    minHeight: 160,
+                    borderRadius: 1,
+                    border: `1px dashed ${spaceTheme.border}`,
+                    bgcolor: palette.panel,
+                    color: palette.muted,
+                  }}
+                >
+                  <Iconify icon="solar:gallery-bold-duotone" width={42} />
+                </Stack>
+              )}
+
+              {body ? (
+                <Typography
+                  sx={{
+                    width: 1,
+                    color: palette.ink,
+                    fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
+                    lineHeight: 1.45,
+                    fontSize: { xs: '1.2rem', md: '1.35rem' },
+                    letterSpacing: '0.01em',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {body}
+                </Typography>
+              ) : null}
+            </Stack>
+          </Box>
+        </Stack>
+      </Dialog>
+
+      <Dialog
+        open={fullImageOpen}
+        onClose={() => setFullImageOpen(false)}
+        fullWidth
+        maxWidth="lg"
+        PaperProps={{
+          sx: {
+            bgcolor: spaceTheme.isDark ? spaceTheme.pageBg : '#10182B',
+            color: 'common.white',
+            borderRadius: 3,
+            overflow: 'hidden',
+            border: `1px solid ${spaceTheme.border}`,
+            maxHeight: '92vh',
+          },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: `1px solid ${spaceTheme.border}`,
+            bgcolor: spaceTheme.surfaceBg,
+            color: palette.ink,
+            flexShrink: 0,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 700, fontFamily: titleFont, color: palette.ink }}
+          >
+            {title}
+          </Typography>
+          <IconButton
+            onClick={() => setFullImageOpen(false)}
+            sx={{
+              color: palette.ink,
+              bgcolor: palette.accentSoft,
+              border: palette.border,
+              '&:hover': { bgcolor: palette.panelActive },
+            }}
+            aria-label="Close image"
+          >
+            <Iconify icon="mingcute:close-line" width={20} />
+          </IconButton>
+        </Stack>
+
+        <Box sx={{ p: { xs: 1.5, md: 2 }, height: 'calc(92vh - 120px)', minHeight: 280 }}>
+          <ZoomableImageStage src={imageUrl} alt={title} fullHeight />
+        </Box>
+      </Dialog>
+    </>
+  );
+}
+
 function MemorialGallery({
   urls,
   alt,
@@ -734,96 +1108,22 @@ export function UniverseLandingJourneyDiaryDetailDialog({
 
   if (detail.type === 'note') {
     const note = currentItem as JourneyNoteDetailItem;
-    title = (note.title || '').trim() || `Note #${note.id}`;
-    subtitle = `${formatDate(note.noteDate || note.createdAt)} · ${formatJourneyLabel(note)}`;
-    body = (note.content || '').trim() || 'No content yet.';
-    imageUrl = note.signedImageUrl || '';
+
+    return (
+      <NoteDetailDialog
+        detail={detail}
+        title={(note.title || '').trim() || `Note #${note.id}`}
+        subtitle={`${formatDate(note.noteDate || note.createdAt)} · ${formatJourneyLabel(note)}`}
+        body={(note.content || '').trim() || 'No content yet.'}
+        imageUrl={note.signedImageUrl || ''}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        onClose={onClose}
+        onPrev={onPrev}
+        onNext={onNext}
+      />
+    );
   }
 
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      fullWidth
-      maxWidth="md"
-      PaperProps={{
-        sx: {
-          bgcolor: '#10182B',
-          color: 'common.white',
-          borderRadius: 3,
-          overflow: 'hidden',
-          border: '1px solid rgba(255,255,255,0.08)',
-          backgroundImage:
-            'radial-gradient(circle at top right, rgba(255,255,255,0.06), transparent 42%)',
-        },
-      }}
-    >
-      <Stack spacing={0}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ px: { xs: 2, md: 3 }, py: 2, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <Stack spacing={0.5} sx={{ minWidth: 0, pr: 2 }}>
-            <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.62)', letterSpacing: '0.16em' }}>
-              {getDetailSectionLabel(detail.type)}
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700 }} noWrap>
-              {title}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }} noWrap>
-              {subtitle}
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-            <DetailNavButton direction="prev" disabled={!hasPrev} onClick={onPrev} />
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)', minWidth: 56, textAlign: 'center' }}>
-              {detail.index + 1} / {detail.items.length}
-            </Typography>
-            <DetailNavButton direction="next" disabled={!hasNext} onClick={onNext} />
-            <IconButton onClick={onClose} sx={{ color: 'common.white' }} aria-label="Close detail">
-              <Iconify icon="mingcute:close-line" width={20} />
-            </IconButton>
-          </Stack>
-        </Stack>
-
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
-          {imageUrl ? (
-            <ZoomableImageStage src={imageUrl} alt={title} />
-          ) : (
-            <Stack
-              alignItems="center"
-              justifyContent="center"
-              sx={{
-                minHeight: 220,
-                borderRadius: 2,
-                bgcolor: 'rgba(255,255,255,0.04)',
-                color: 'rgba(255,255,255,0.45)',
-              }}
-            >
-              <Iconify icon="solar:gallery-bold-duotone" width={42} />
-            </Stack>
-          )}
-
-          {body ? (
-            <Typography
-              sx={{
-                mt: 3,
-                color: 'rgba(255,255,255,0.86)',
-                fontFamily: JOURNEY_HANDWRITING_FONT_FAMILY,
-                lineHeight: 1.45,
-                fontSize: { xs: '1.2rem', md: '1.35rem' },
-                letterSpacing: '0.01em',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {body}
-            </Typography>
-          ) : null}
-        </Box>
-      </Stack>
-    </Dialog>
-  );
+  return null;
 }

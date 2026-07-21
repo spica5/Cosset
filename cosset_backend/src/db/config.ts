@@ -7,6 +7,23 @@
  * @module db/config
  */
 
+function resolveNeonConnectionString(raw: string): string {
+  const poolerOverride = process.env.DATABASE_URL_POOLER?.trim();
+  if (poolerOverride) {
+    return poolerOverride;
+  }
+
+  if (!raw || raw.includes('-pooler.')) {
+    return raw;
+  }
+
+  return raw.replace(
+    /@([a-z0-9-]+)(\.[^/?]+\.neon\.tech)/i,
+    (_match, host: string, rest: string) =>
+      host.endsWith('-pooler') ? `@${host}${rest}` : `@${host}-pooler${rest}`,
+  );
+}
+
 /**
  * Database configuration constants for Neon serverless
  *
@@ -15,10 +32,10 @@
  */
 export const DB_CONFIG = {
   /**
-   * Neon database connection string from environment
-   * Must be set in Vercel Environment Variables
+   * Neon database connection string from environment.
+   * Automatically prefers the Neon pooler host when available.
    */
-  CONNECTION_STRING: process.env.DATABASE_URL || '',
+  CONNECTION_STRING: resolveNeonConnectionString(process.env.DATABASE_URL || ''),
 
   /**
    * Pool configuration optimized for Vercel serverless
@@ -36,14 +53,6 @@ export const DB_CONFIG = {
  * Call this during application initialization to fail fast.
  *
  * @throws {Error} If DATABASE_URL is not configured
- *
- * @example
- * ```ts
- * import { validateDatabaseConfig } from '@/db/config';
- *
- * // Call during app startup
- * validateDatabaseConfig();
- * ```
  */
 export function validateDatabaseConfig(): void {
   if (!DB_CONFIG.CONNECTION_STRING) {

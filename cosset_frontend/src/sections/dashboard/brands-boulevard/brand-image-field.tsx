@@ -361,7 +361,8 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
         sx={{
           width: 1,
           height,
-          objectFit: 'cover',
+          objectFit: 'contain',
+          objectPosition: 'center',
           display: 'block',
           cursor: 'zoom-in',
           bgcolor: 'background.neutral',

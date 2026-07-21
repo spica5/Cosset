@@ -6,8 +6,6 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 
-import { CONFIG } from 'src/config-global';
-
 import { useGetCommunityUsers } from 'src/actions/user';
 import {
   useGetFriends,
@@ -48,7 +46,6 @@ export function FriendCardsView() {
   );
   const { users, usersLoading } = useGetCommunityUsers(200, 0, canLoadFriends);
   const { guestAreas, guestAreasLoading } = useGetGuestAreas();
-  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
 
   const acceptedFriendUserIds = useMemo(() => {
     if (!canLoadFriends) return new Set<string>();
@@ -93,9 +90,10 @@ export function FriendCardsView() {
   const guestAreaByCustomerId = guestAreas.reduce<
     Record<string, { coverUrl: string; title: string; motif: string; mood: string }>
   >((acc, item) => {
-    if (item?.customerId && !acc[item.customerId]) {
-      acc[item.customerId] = {
-        coverUrl: item.coverUrl || defaultCoverImage,
+    const customerId = String(item?.customerId || '');
+    if (customerId && !acc[customerId]) {
+      acc[customerId] = {
+        coverUrl: item.coverUrl || '',
         title: item.title || '',
         motif: item.motif || '',
         mood: item.mood || '',
@@ -108,7 +106,7 @@ export function FriendCardsView() {
     .filter((user) => acceptedFriendUserIds.has(String(user.id)))
     .map((user) => {
     const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
-    const guestArea = guestAreaByCustomerId[user.id];
+    const guestArea = guestAreaByCustomerId[String(user.id)];
 
     return {
       id: user.id,
@@ -124,7 +122,7 @@ export function FriendCardsView() {
       mood: guestArea?.mood || 'No guest area mood',
       motif: guestArea?.motif || 'No guest area motif',
       role: user.role || 'user',
-      coverUrl: guestArea?.coverUrl || defaultCoverImage,
+      coverUrl: guestArea?.coverUrl || '',
       avatarUrl: user.photoURL || '',
       connections: 0,
       ratingNumber: 0,
@@ -136,7 +134,7 @@ export function FriendCardsView() {
     .filter((user) => pendingUserIds.has(String(user.id)))
     .map((user) => {
       const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
-      const guestArea = guestAreaByCustomerId[user.id];
+      const guestArea = guestAreaByCustomerId[String(user.id)];
       const relation = pendingRelationsByOtherUserId.get(String(user.id));
 
       return {
@@ -158,7 +156,7 @@ export function FriendCardsView() {
         mood: guestArea?.mood || 'No guest area mood',
         motif: guestArea?.motif || 'No guest area motif',
         role: user.role || 'user',
-        coverUrl: guestArea?.coverUrl || defaultCoverImage,
+        coverUrl: guestArea?.coverUrl || '',
         avatarUrl: user.photoURL || '',
         connections: 0,
         ratingNumber: 0,

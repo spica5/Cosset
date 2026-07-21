@@ -26,6 +26,7 @@ import { RouterLink } from 'src/routes/components';
 import { fShortenNumber } from 'src/utils/format-number';
 import { getS3SignedUrl } from 'src/utils/helper';
 
+import { CONFIG } from 'src/config-global';
 import { _moodIcons } from 'src/_mock/assets';
 import { getMoodDisplayIcon } from 'src/utils/mood-templates';
 
@@ -83,6 +84,9 @@ export function FriendCard({
   const [signedCoverUrl, setSignedCoverUrl] = useState('');
   const [openAvatarPreview, setOpenAvatarPreview] = useState(false);
   const [openRemoveConfirm, setOpenRemoveConfirm] = useState(false);
+  const defaultCoverImage = `${CONFIG.dashboard.assetsDir}/assets/images/guest-area/cosset_default.png`;
+  const coverKey = (friend.coverUrl || '').trim();
+  const coverSrc = coverKey ? signedCoverUrl : defaultCoverImage;
 
   useEffect(() => {
     let mounted = true;
@@ -117,8 +121,7 @@ export function FriendCard({
     let mounted = true;
 
     const resolveCoverUrl = async () => {
-      const coverKey = friend.coverUrl;
-
+      // Default image only when cover is empty.
       if (!coverKey) {
         if (mounted) setSignedCoverUrl('');
         return;
@@ -144,7 +147,7 @@ export function FriendCard({
     return () => {
       mounted = false;
     };
-  }, [friend.coverUrl]);
+  }, [coverKey]);
 
   return (
     <Card sx={{ textAlign: 'center', ...sx }} {...other}>
@@ -185,7 +188,7 @@ export function FriendCard({
           />
 
           <Image
-            src={signedCoverUrl}
+            src={coverSrc}
             alt={friend.name}
             ratio="16/9"
             slotProps={{

@@ -4,108 +4,213 @@
  * Provides a high-level interface to execute SQL queries against a Neon PostgreSQL database.
  * Handles connection management, error handling, and result transformation.
  *
- * Features:
- * - Automatic connection caching
- * - Support for both string-based and tagged-template queries
- * - Type-safe query results
- * - Comprehensive error handling
- * - Built-in health checks
- *
  * @module db/neon
  */
 
 import type { FullQueryResults, NeonQueryFunction } from '@neondatabase/serverless';
 
-import { neon } from '@neondatabase/serverless';
+import { Pool, neon, neonConfig } from '@neondatabase/serverless';
 
 import { handleDatabaseError } from './errors';
 import { DB_CONFIG, validateDatabaseConfig } from './config';
 
 import type { QueryResult } from './types';
 
-/**
- * Neon query function with object results and full metadata
- * - ArrayMode = false: rows are returned as objects
- * - FullResults = true: includes rows, rowCount, and command metadata
- */
-type Db = NeonQueryFunction<false, true>;
+type DbHttp = NeonQueryFunction<false, true>;
 type DbFullResult = FullQueryResults<false>;
 
-let dbConnection: Db | null = null;
+const QUERY_RETRY_ATTEMPTS = 5;
+const QUERY_RETRY_BASE_DELAY_MS = 500;
 
-/**
- * Initialize or retrieve cached database connection
- *
- * Creates a Neon database connection on first call and caches it for reuse.
- * Validates configuration before initialization.
- *
- * @returns Neon query function instance
- * @throws {Error} If DATABASE_URL is not configured
- *
- * @internal
- */
-function initializeDb(): Db {
+let poolConnection: Pool | null = null;
+let httpConnection: DbHttp | null = null;
+let neonConfigured = false;
+
+function configureNeonClient() {
+  if (neonConfigured) {
+    return;
+  }
+
+  neonConfigured = true;
+
+  if (typeof globalThis.WebSocket !== 'undefined') {
+    neonConfig.webSocketConstructor = globalThis.WebSocket;
+  }
+
+  // Prefer HTTP fetch for pool queries; more reliable than WebSocket on local dev networks.
+  neonConfig.poolQueryViaFetch = true;
+}
+
+function shouldUsePoolConnection(): boolean {
+  if (process.env.NEON_USE_HTTP === 'true') {
+    return false;
+  }
+
+  // Pool/WebSocket connections to Neon are unreliable on local dev networks.
+  if (process.env.NODE_ENV === 'development') {
+    return false;
+  }
+
+  return typeof globalThis.WebSocket !== 'undefined';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function getErrorCauseMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return '';
+  }
+
+  const { cause } = error as Error & { cause?: unknown };
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  if (typeof cause === 'string') {
+    return cause;
+  }
+
+  return '';
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name} ${error.message} ${getErrorCauseMessage(error)}`;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+
+  return String(error);
+}
+
+function isTransientDatabaseError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+
+  return (
+    message.includes('neondberror') ||
+    message.includes('fetch failed') ||
+    message.includes('aborterror') ||
+    message.includes('other side closed') ||
+    message.includes('econnreset') ||
+    message.includes('econnrefused') ||
+    message.includes('etimedout') ||
+    message.includes('network') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('connection terminated') ||
+    message.includes('error connecting to database') ||
+    message.includes('socket')
+  );
+}
+
+async function withDatabaseRetry<T>(
+  operation: () => Promise<T>,
+  attempt = 1,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isTransientDatabaseError(error) || attempt >= QUERY_RETRY_ATTEMPTS) {
+      throw error;
+    }
+
+    closeDb();
+
+    const delayMs = QUERY_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
+    console.warn('Transient database connection error, retrying query:', {
+      attempt,
+      maxAttempts: QUERY_RETRY_ATTEMPTS,
+      delayMs,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+
+    await sleep(delayMs);
+    return withDatabaseRetry(operation, attempt + 1);
+  }
+}
+
+function initializePool(): Pool {
+  validateDatabaseConfig();
+  configureNeonClient();
+
+  if (!poolConnection) {
+    const maxConnections = Number.parseInt(process.env.NEON_POOL_MAX || '10', 10);
+
+    poolConnection = new Pool({
+      connectionString: DB_CONFIG.CONNECTION_STRING,
+      max: Number.isFinite(maxConnections) && maxConnections > 0 ? maxConnections : 5,
+    });
+
+    poolConnection.on('error', (error: Error) => {
+      console.error('Neon pool connection error:', error);
+      poolConnection = null;
+    });
+  }
+
+  return poolConnection;
+}
+
+function initializeHttp(): DbHttp {
   validateDatabaseConfig();
 
-  if (!dbConnection) {
-    const connectionString = DB_CONFIG.CONNECTION_STRING;
+  if (!httpConnection) {
+    httpConnection = neon<false, true>(DB_CONFIG.CONNECTION_STRING, {
+      fullResults: true,
+    });
+  }
+
+  return httpConnection;
+}
+
+export function getDb(): DbHttp {
+  return initializeHttp();
+}
+
+async function runHttpQuery(queryText: string, params: unknown[] = []): Promise<DbFullResult> {
+  const db = initializeHttp();
+  return db.query(queryText, params, {
+    fullResults: true,
+  });
+}
+
+async function runQuery(queryText: string, params: unknown[] = []): Promise<DbFullResult> {
+  if (shouldUsePoolConnection()) {
     try {
-      dbConnection = neon<false, true>(connectionString, {
-        fullResults: true,
-      });
+      const pool = initializePool();
+      const result = await pool.query(queryText, params);
+
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount ?? result.rows.length,
+        command: result.command ?? '',
+      } as DbFullResult;
     } catch (error) {
-      console.error('Failed to initialize database connection:', {
-        error,
-        hasConnectionString: !!connectionString,
-        connectionStringLength: connectionString?.length || 0,
+      console.warn('Neon pool query failed, falling back to HTTP driver.', {
+        errorMessage: getErrorMessage(error),
       });
-      throw new Error(
-        `Failed to initialize database connection: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      closeDb();
+      return runHttpQuery(queryText, params);
     }
   }
 
-  return dbConnection;
+  return runHttpQuery(queryText, params);
 }
 
-/**
- * Execute a parameterized SQL query with explicit parameters
- *
- * Use this function when you have a query string and separate parameters array.
- * Parameters should use $1, $2, etc. placeholders for proper parameterization.
- *
- * @template T - Type of rows returned by the query
- * @param queryText - SQL query string with $1, $2, ... placeholders
- * @param params - Array of parameter values (optional)
- * @returns Query result containing rows and metadata
- * @throws {DatabaseError} If query execution fails
- *
- * @example
- * ```ts
- * import { executeQuery } from '@/db/neon';
- *
- * interface User { id: string; name: string; }
- *
- * const result = await executeQuery<User>(
- *   'SELECT id, name FROM users WHERE id = $1',
- *   ['user-123']
- * );
- *
- * console.log(result.rows); // User[]
- * console.log(result.rowCount); // number
- * ```
- */
 export async function executeQuery<T = Record<string, unknown>>(
   queryText: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
   try {
-    const db = initializeDb();
-
-    // For manually parameterized queries, use .query()
-    const result: DbFullResult = await db.query(queryText, params, {
-      fullResults: true,
-    });
+    const result: DbFullResult = await withDatabaseRetry(async () => runQuery(queryText, params));
 
     return {
       rows: result.rows as T[],
@@ -123,36 +228,11 @@ export async function executeQuery<T = Record<string, unknown>>(
   }
 }
 
-/**
- * Execute a query using Neon's tagged template syntax
- *
- * This is the recommended approach. The Neon client automatically handles
- * parameterization using template literals with ${...} placeholders.
- *
- * @template T - Type of rows returned by the query
- * @param queryPromise - Promise from a tagged template query
- * @returns Query result containing rows and metadata
- * @throws {DatabaseError} If query execution fails
- *
- * @example
- * ```ts
- * import { getDb, executeTagged } from '@/db/neon';
- *
- * interface User { id: string; name: string; }
- *
- * const db = getDb();
- * const result = await executeTagged<User>(
- *   db`SELECT id, name FROM users WHERE id = ${userId}`
- * );
- *
- * console.log(result.rows); // User[]
- * ```
- */
 export async function executeTagged<T = Record<string, unknown>>(
-  queryPromise: Promise<DbFullResult>,
+  queryFactory: () => Promise<DbFullResult>,
 ): Promise<QueryResult<T>> {
   try {
-    const result = await queryPromise;
+    const result = await withDatabaseRetry(queryFactory);
 
     return {
       rows: result.rows as T[],
@@ -172,18 +252,6 @@ export async function queryOne<T = Record<string, unknown>>(
   return result.rows[0] ?? null;
 }
 
-/**
- * Execute a query and return all rows
- *
- * Convenience function that executes a query and returns all rows.
- * Returns an empty array if no rows are found.
- *
- * @template T - Type of rows
- * @param queryText - SQL query string with $1, $2, ... placeholders
- * @param params - Array of parameter values (optional)
- * @returns Array of rows (empty array if none found)
- * @throws {DatabaseError} If query execution fails
- */
 export async function queryMany<T = Record<string, unknown>>(
   queryText: string,
   params: unknown[] = [],
@@ -192,41 +260,21 @@ export async function queryMany<T = Record<string, unknown>>(
   return result.rows;
 }
 
-/**
- * Get the raw Neon database client instance
- *
- * Use this to execute queries directly with Neon's tagged template syntax.
- *
- * @returns Neon query function instance
- */
-export function getDb(): Db {
-  return initializeDb();
-}
-
-/**
- * Check database connection health
- *
- * Performs a simple query to verify the database connection is working.
- * Useful for health checks in monitoring endpoints.
- *
- * @returns true if connection is healthy, false otherwise (never throws)
- */
 export async function isDatabaseHealthy(): Promise<boolean> {
   try {
-    const db = getDb();
-    const result = await executeTagged(db`SELECT 1 as healthy`);
+    const result = await executeQuery<{ healthy: number }>('SELECT 1 as healthy');
     return result.rows.length > 0;
   } catch {
     return false;
   }
 }
 
-/**
- * Close database connection
- *
- * Clears the cached connection. Rarely needed in serverless environments
- * but useful for cleanup during testing or graceful shutdown.
- */
 export function closeDb(): void {
-  dbConnection = null;
+  if (poolConnection) {
+    const endingPool = poolConnection;
+    poolConnection = null;
+    endingPool.end().catch(() => undefined);
+  }
+
+  httpConnection = null;
 }

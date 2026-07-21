@@ -2,13 +2,13 @@ import type { NextRequest } from 'next/server';
 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
+  S3Client,
   GetObjectCommand,
   PutObjectCommand,
-  S3Client,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
 
-import { STATUS, handleError, response } from 'src/utils/response';
+import { STATUS, response, handleError } from 'src/utils/response';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -75,7 +75,7 @@ async function getSignedUploadUrl(
   key: string,
   contentType: string,
   isPublic: boolean,
-  expiresInSeconds = 60 * 10,
+  expiresInSeconds = 60 * 60 * 2,
 ) {
   const bucket = requireEnv('S3_BUCKET');
 

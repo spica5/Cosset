@@ -81,7 +81,7 @@ export function NeighborSearch({ query, results, onSearch }: Props) {
             <Avatar
               key={neighbor.id}
               alt={neighbor.name}
-              src={neighbor.images[0]}
+              src={neighbor.avatarUrl || undefined}
               variant="rounded"
               sx={{
                 mr: 1.5,

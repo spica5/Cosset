@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import TextField from '@mui/material/TextField';
@@ -15,8 +16,8 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
 
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
@@ -67,6 +68,39 @@ const isExternalVideoUrl = (value: string) =>
 const isEmbeddedVideoUrl = (value: string) =>
   /youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com/i.test(value);
 
+const MAX_CINEMA_VIDEO_BYTES = 5 * 1024 * 1024 * 1024;
+
+const formatFileSize = (bytes: number) => {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+
+const getActionErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
+
 const parseNullableInteger = (value: string): number | null => {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -90,6 +124,8 @@ export function CinemaFilmFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPoster, setUploadingPoster] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoUploadPhase, setVideoUploadPhase] = useState<'preparing' | 'uploading' | 'finishing'>('preparing');
   const [deletingVideo, setDeletingVideo] = useState(false);
   const [posterPreviewUrl, setPosterPreviewUrl] = useState('');
   const [videoPreviewUrl, setVideoPreviewUrl] = useState('');
@@ -105,6 +141,8 @@ export function CinemaFilmFormDialog({
     setSelectedVideoFile(null);
     setDeletingVideo(false);
     setRemovedStoredVideo(false);
+    setVideoUploadProgress(0);
+    setVideoUploadPhase('preparing');
   }, []);
 
   useEffect(() => {
@@ -277,6 +315,11 @@ export function CinemaFilmFormDialog({
       return;
     }
 
+    if (file.size > MAX_CINEMA_VIDEO_BYTES) {
+      toast.error('Video must be 5GB or smaller.');
+      return;
+    }
+
     setSelectedVideoFile(file);
     setRemovedStoredVideo(false);
     event.target.value = '';
@@ -288,12 +331,32 @@ export function CinemaFilmFormDialog({
       const key = `cinema/films/videos/${uuidv4()}.${extension}`;
 
       setUploadingVideo(true);
+      setVideoUploadProgress(0);
+      setVideoUploadPhase('preparing');
+
+      const handleUploadProgress = (percent: number) => {
+        setVideoUploadProgress(percent);
+        if (percent >= 100) {
+          setVideoUploadPhase('finishing');
+        } else if (percent > 0) {
+          setVideoUploadPhase('uploading');
+        }
+      };
 
       try {
-        const result = await uploadFileToS3({ file: selectedVideoFile, key });
+        const result = await uploadFileToS3({
+          file: selectedVideoFile,
+          key,
+          onProgress: handleUploadProgress,
+        });
         return result.key;
+      } catch (error) {
+        toast.error(getActionErrorMessage(error, 'Failed to upload video.'));
+        throw error;
       } finally {
         setUploadingVideo(false);
+        setVideoUploadProgress(0);
+        setVideoUploadPhase('preparing');
       }
     }
 
@@ -386,7 +449,7 @@ export function CinemaFilmFormDialog({
       resetForm();
     } catch (error) {
       console.error('Failed to save film:', error);
-      toast.error('Failed to save film.');
+      toast.error(getActionErrorMessage(error, 'Failed to save film.'));
     } finally {
       setSubmitting(false);
     }
@@ -423,11 +486,34 @@ export function CinemaFilmFormDialog({
     !!selectedVideoFile;
   const hasVideoUrl = !!form.videoUrl.trim() && isExternalVideoUrl(form.videoUrl.trim());
 
+  const videoUploadMessage = (() => {
+    if (!selectedVideoFile) {
+      return 'Uploading video...';
+    }
+
+    const totalBytes = selectedVideoFile.size;
+    const totalLabel = formatFileSize(totalBytes);
+    const uploadedBytes = Math.round((videoUploadProgress / 100) * totalBytes);
+    const uploadedLabel = formatFileSize(uploadedBytes);
+    const progressDetail = `${uploadedLabel} / ${totalLabel}`;
+
+    if (videoUploadPhase === 'preparing') {
+      return `Preparing upload (${totalLabel})...`;
+    }
+
+    if (videoUploadPhase === 'finishing') {
+      return `Finishing upload (${progressDetail})...`;
+    }
+
+    return `Uploading video (${progressDetail})...`;
+  })();
+
   return (
     <>
       <UploadingOverlay
         isOpen={uploadingPoster || uploadingVideo}
-        message={uploadingVideo ? 'Uploading video...' : 'Uploading poster image...'}
+        progress={uploadingVideo ? videoUploadProgress : undefined}
+        message={uploadingVideo ? videoUploadMessage : 'Uploading poster image...'}
       />
 
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
@@ -519,9 +605,19 @@ export function CinemaFilmFormDialog({
                 </Stack>
 
                 {selectedVideoFile ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Selected file: {selectedVideoFile.name}
-                  </Typography>
+                  <Stack spacing={0.75}>
+                    <Typography variant="caption" color="text.secondary">
+                      Selected file: {selectedVideoFile.name} ({formatFileSize(selectedVideoFile.size)})
+                    </Typography>
+                    {uploadingVideo ? (
+                      <Stack spacing={0.5}>
+                        <LinearProgress variant="determinate" value={videoUploadProgress} />
+                        <Typography variant="caption" color="text.secondary">
+                          {videoUploadMessage} {videoUploadProgress}%
+                        </Typography>
+                      </Stack>
+                    ) : null}
+                  </Stack>
                 ) : hasStoredVideo ? (
                   <Typography variant="caption" color="text.secondary">
                     Current video: uploaded file
