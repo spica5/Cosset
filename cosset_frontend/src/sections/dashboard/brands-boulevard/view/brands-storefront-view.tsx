@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -24,8 +24,10 @@ import {
   useGetBrandCategories,
   purchaseBrandProduct,
 } from 'src/actions/brand-store';
+import { addChatContact } from 'src/actions/chat';
 
 import { toast } from 'src/components/dashboard/snackbar';
+import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
@@ -69,6 +71,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
   const [logoUrl, setLogoUrl] = useState('');
   const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
   const [buyingProductId, setBuyingProductId] = useState<number | null>(null);
+  const [contactingOwner, setContactingOwner] = useState(false);
 
   const isOwner = String(store?.ownerCustomerId || '') === String(user?.id || '');
 
@@ -132,6 +135,32 @@ export function BrandsStorefrontView({ storeId }: Props) {
     }
   };
 
+  const handleContactOwner = useCallback(async () => {
+    if (!store?.ownerCustomerId || contactingOwner || isOwner) return;
+
+    if (!user?.id) {
+      toast.error('Please sign in to contact this shop');
+      return;
+    }
+
+    try {
+      setContactingOwner(true);
+      const result = await addChatContact(store.ownerCustomerId);
+      const conversationId = String(result?.conversation?.id || '').trim();
+
+      if (!conversationId) {
+        toast.error('Unable to start a conversation with this shop');
+        return;
+      }
+
+      router.push(`${paths.dashboard.chat}?id=${conversationId}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to contact this shop');
+    } finally {
+      setContactingOwner(false);
+    }
+  }, [contactingOwner, isOwner, router, store?.ownerCustomerId, user?.id]);
+
   if (storeLoading) {
     return (
       <DashboardContent>
@@ -174,14 +203,27 @@ export function BrandsStorefrontView({ storeId }: Props) {
           { name: store.name },
         ]}
         action={
-          isOwner ? (
-            <Button
-              variant="contained"
-              onClick={() => router.push(paths.dashboard.community.brandsBoulevard.myStore)}
-            >
-              Manage my store
-            </Button>
-          ) : undefined
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {!isOwner ? (
+              <Button
+                variant="outlined"
+                color="inherit"
+                disabled={contactingOwner}
+                startIcon={<Iconify icon="solar:chat-round-dots-bold" />}
+                onClick={handleContactOwner}
+              >
+                {contactingOwner ? 'Opening chat...' : 'Contact'}
+              </Button>
+            ) : null}
+            {isOwner ? (
+              <Button
+                variant="contained"
+                onClick={() => router.push(paths.dashboard.community.brandsBoulevard.myStore)}
+              >
+                Manage my store
+              </Button>
+            ) : null}
+          </Stack>
         }
         sx={{ mb: { xs: 3, md: 5 } }}
       />
@@ -198,7 +240,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
           }
           sx={{
             position: 'relative',
-            height: { xs: 160, md: 220 },
+            height: { xs: 280, md: 360 },
             cursor: coverUrl ? 'zoom-in' : 'default',
             background: coverUrl
               ? `url(${coverUrl}) center / cover no-repeat`
@@ -263,12 +305,24 @@ export function BrandsStorefrontView({ storeId }: Props) {
                 {store.description}
               </Typography>
             ) : null}
-            <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
               <Chip size="small" label={`${categories.length} categories`} />
               <Chip
                 size="small"
                 label={`${products.filter((p) => p.isAvailable !== false).length} products`}
               />
+              {!isOwner ? (
+                <Button
+                  size="small"
+                  variant="soft"
+                  color="primary"
+                  disabled={contactingOwner}
+                  startIcon={<Iconify icon="solar:chat-round-dots-bold" width={16} />}
+                  onClick={handleContactOwner}
+                >
+                  {contactingOwner ? 'Opening chat...' : 'Contact shop'}
+                </Button>
+              ) : null}
             </Stack>
           </Stack>
         </CardContent>

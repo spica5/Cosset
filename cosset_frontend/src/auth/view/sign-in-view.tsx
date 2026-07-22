@@ -17,8 +17,6 @@ import { RouterLink } from 'src/routes/components';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
-import { userHasHomePage } from 'src/actions/guestarea';
-
 import { Iconify } from 'src/components/dashboard/iconify';
 import { AnimateLogo2 } from 'src/components/dashboard/animate';
 import { Form, Field } from 'src/components/dashboard/hook-form';
@@ -28,7 +26,7 @@ import { FormHead } from '../components/form-head';
 import { signInWithPassword } from '../context/jwt';
 import { FormSocials } from '../components/form-socials';
 import { FormDivider } from '../components/form-divider';
-import { getDashboardHomePath, isUserAdmin, isUserBusiness } from '../utils/role';
+import { getDashboardHomePath } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -69,12 +67,7 @@ export function SignInView() {
     try {
       await signInWithPassword({ email: data.email, password: data.password });
       const sessionUser = await checkUserSession?.();
-      const role = sessionUser?.role;
-      const hasHomePage =
-        isUserBusiness(role) && !isUserAdmin(role)
-          ? false
-          : await userHasHomePage(sessionUser?.id);
-      router.push(getDashboardHomePath(role, hasHomePage));
+      router.push(getDashboardHomePath(sessionUser?.role));
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Unable to sign in.');

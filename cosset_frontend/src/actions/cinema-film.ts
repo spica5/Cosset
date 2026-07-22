@@ -21,14 +21,18 @@ type FilmData = {
 };
 
 export function buildCinemaFilmListUrl(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaCategory,
   options?: { publicOnly?: boolean },
 ) {
   const params = new URLSearchParams({
-    customerId,
     category,
   });
+
+  const normalizedCustomerId = String(customerId || '').trim();
+  if (normalizedCustomerId) {
+    params.set('customerId', normalizedCustomerId);
+  }
 
   if (options?.publicOnly) {
     params.set('publicOnly', '1');
@@ -42,10 +46,13 @@ export function useGetCinemaFilms(
   category?: CinemaCategory | null,
   options?: { publicOnly?: boolean },
 ) {
-  const listUrl =
-    customerId && category
-      ? buildCinemaFilmListUrl(String(customerId), category, options)
-      : null;
+  const normalizedCustomerId =
+    customerId !== undefined && customerId !== null ? String(customerId).trim() : '';
+  const canFetch = Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly);
+
+  const listUrl = canFetch
+    ? buildCinemaFilmListUrl(normalizedCustomerId || null, category!, options)
+    : null;
 
   const { data, isLoading, error, isValidating } = useSWR<FilmsData>(
     listUrl,
@@ -66,11 +73,18 @@ export function useGetCinemaFilms(
 }
 
 export async function revalidateCinemaFilms(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaCategory,
   options?: { publicOnly?: boolean },
 ) {
   await mutate(buildCinemaFilmListUrl(customerId, category, options));
+}
+
+async function refreshCinemaFilmLists(customerId: string, category: CinemaCategory) {
+  await revalidateCinemaFilms(customerId, category);
+  await revalidateCinemaFilms(customerId, category, { publicOnly: true });
+  // Community catalog (all public films in category)
+  await revalidateCinemaFilms(null, category, { publicOnly: true });
 }
 
 export async function createCinemaFilm(
@@ -80,8 +94,7 @@ export async function createCinemaFilm(
   const createdFilm = res.data?.film as ICinemaFilm | undefined;
 
   if (createdFilm?.customerId && createdFilm.category) {
-    await revalidateCinemaFilms(createdFilm.customerId, createdFilm.category);
-    await revalidateCinemaFilms(createdFilm.customerId, createdFilm.category, { publicOnly: true });
+    await refreshCinemaFilmLists(createdFilm.customerId, createdFilm.category);
   }
 
   return res.data;
@@ -99,8 +112,7 @@ export async function updateCinemaFilm(
   const category = updatedFilm?.category || context?.category;
 
   if (customerId && category) {
-    await revalidateCinemaFilms(customerId, category);
-    await revalidateCinemaFilms(customerId, category, { publicOnly: true });
+    await refreshCinemaFilmLists(customerId, category);
   }
 
   mutate<FilmData>(endpoints.cinema.film.details(id));
@@ -113,8 +125,7 @@ export async function deleteCinemaFilm(
 ) {
   const res = await axios.delete(endpoints.cinema.film.delete(id));
 
-  await revalidateCinemaFilms(context.customerId, context.category);
-  await revalidateCinemaFilms(context.customerId, context.category, { publicOnly: true });
+  await refreshCinemaFilmLists(context.customerId, context.category);
 
   return res.data;
 }

@@ -212,22 +212,16 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
 };
 
 export async function getCinemaFilmScreeningsByCategory(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaFilmCategory,
   options?: { publicOnly?: boolean },
 ): Promise<CinemaFilmScreeningWithFilm[]> {
   try {
     await ensureCinemaFilmScreeningsTable();
 
-    const normalizedCustomerId = customerId.trim();
+    const normalizedCustomerId = String(customerId || '').trim();
     const normalizedCategory = normalizeCinemaCategory(category);
-
-    if (!normalizedCustomerId) {
-      throw new DatabaseError({
-        code: 'INVALID_CINEMA_SCREENING_CUSTOMER_ID',
-        message: 'customerId is required',
-      });
-    }
+    const publicOnly = options?.publicOnly === true;
 
     if (!normalizedCategory) {
       throw new DatabaseError({
@@ -236,7 +230,28 @@ export async function getCinemaFilmScreeningsByCategory(
       });
     }
 
-    const publicOnly = options?.publicOnly === true;
+    // Community catalog: all public screenings in the category for every customer.
+    if (!normalizedCustomerId) {
+      if (!publicOnly) {
+        throw new DatabaseError({
+          code: 'INVALID_CINEMA_SCREENING_CUSTOMER_ID',
+          message: 'customerId is required',
+        });
+      }
+
+      return await queryMany<CinemaFilmScreeningWithFilm>(
+        `
+          SELECT ${SELECT_WITH_FILM_COLUMNS}
+          FROM ${TABLE_NAME} s
+          INNER JOIN cinema_films f ON f.id = s.film_id
+          WHERE f.category = $1
+            AND s.is_public = 1
+            AND f.is_public = 1
+          ORDER BY s.show_at ASC, COALESCE(s."order", 2147483647) ASC, s.id ASC
+        `,
+        [normalizedCategory],
+      );
+    }
 
     return await queryMany<CinemaFilmScreeningWithFilm>(
       `

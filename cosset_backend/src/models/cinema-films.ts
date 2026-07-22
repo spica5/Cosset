@@ -133,22 +133,16 @@ const ensureTable = async (): Promise<void> => {
 export const ensureCinemaFilmsTable = ensureTable;
 
 export async function getCinemaFilms(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaFilmCategory,
   options?: { publicOnly?: boolean },
 ): Promise<CinemaFilm[]> {
   try {
     await ensureTable();
 
-    const normalizedCustomerId = customerId.trim();
+    const normalizedCustomerId = String(customerId || '').trim();
     const normalizedCategory = normalizeCinemaCategory(category);
-
-    if (!normalizedCustomerId) {
-      throw new DatabaseError({
-        code: 'INVALID_CINEMA_FILM_CUSTOMER_ID',
-        message: 'customerId is required',
-      });
-    }
+    const publicOnly = options?.publicOnly === true;
 
     if (!normalizedCategory) {
       throw new DatabaseError({
@@ -157,7 +151,26 @@ export async function getCinemaFilms(
       });
     }
 
-    const publicOnly = options?.publicOnly === true;
+    // Community catalog: all public films in the category for every customer.
+    if (!normalizedCustomerId) {
+      if (!publicOnly) {
+        throw new DatabaseError({
+          code: 'INVALID_CINEMA_FILM_CUSTOMER_ID',
+          message: 'customerId is required',
+        });
+      }
+
+      return await queryMany<CinemaFilm>(
+        `
+          SELECT ${SELECT_COLUMNS}
+          FROM ${TABLE_NAME}
+          WHERE category = $1
+            AND is_public = 1
+          ORDER BY COALESCE("order", 2147483647) ASC, created_at DESC, id DESC
+        `,
+        [normalizedCategory],
+      );
+    }
 
     return await queryMany<CinemaFilm>(
       `

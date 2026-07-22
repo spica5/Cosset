@@ -42,6 +42,8 @@ type Props = {
   canManage?: boolean;
   /** When true, only films with at least one screening are listed. */
   scheduledOnly?: boolean;
+  /** When true, load the shared public catalog (all customers). */
+  publicCatalog?: boolean;
 };
 
 export function CinemaCategoryFilmsPanel({
@@ -50,18 +52,25 @@ export function CinemaCategoryFilmsPanel({
   showScreenings = true,
   canManage: canManageProp,
   scheduledOnly = false,
+  publicCatalog = false,
 }: Props) {
   const { user } = useAuthContext();
   const customerId = String(user?.id || '');
   const canManage = canManageProp ?? Boolean(customerId);
+  const filmOwnerId = publicCatalog ? null : customerId;
 
-  const { films, filmsLoading } = useGetCinemaFilms(customerId, category.id);
+  const { films, filmsLoading } = useGetCinemaFilms(
+    filmOwnerId,
+    category.id,
+    publicCatalog ? { publicOnly: true } : undefined,
+  );
   const { screenings, screeningsLoading } = useGetCinemaScreenings(
-    scheduledOnly || showScreenings ? customerId : null,
+    scheduledOnly || showScreenings ? filmOwnerId : null,
     scheduledOnly || showScreenings ? category.id : null,
+    publicCatalog ? { publicOnly: true } : undefined,
   );
   const { reservations } = useGetCinemaReservations(scheduledOnly ? customerId : null, {
-    ownerCustomerId: customerId,
+    ownerCustomerId: publicCatalog ? undefined : customerId,
     category: category.id,
     status: 'reserved',
   });
@@ -155,7 +164,10 @@ export function CinemaCategoryFilmsPanel({
       }
 
       try {
-        await deleteCinemaFilm(film.id, { customerId, category: category.id });
+        await deleteCinemaFilm(film.id, {
+          customerId: String(film.customerId || customerId),
+          category: category.id,
+        });
         toast.success('Film deleted successfully.');
       } catch (error) {
         console.error('Failed to delete film:', error);
@@ -210,15 +222,17 @@ export function CinemaCategoryFilmsPanel({
     const screening = reservingFilm ? getNextFilmScreening(reservingFilm) : null;
     const seatId = selectedSeatIds[0];
 
-    if (!reservingFilm || !screening?.id || !seatId) {
+    if (!customerId || !reservingFilm || !screening?.id || !seatId) {
       return;
     }
+
+    const ownerCustomerId = String(reservingFilm.customerId || customerId);
 
     try {
       setConfirming(true);
       await createCinemaReservation(
         { screeningId: screening.id, customerId, seatIds: [seatId] },
-        { ownerCustomerId: customerId, category: category.id },
+        { ownerCustomerId, category: category.id },
       );
       toast.success(`Reserved "${reservingFilm.title}" · seat ${seatId}.`);
       setSeatMapOpen(false);

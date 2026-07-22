@@ -12,8 +12,7 @@ import { Form } from 'src/components/universe/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { signInWithPassword } from 'src/auth/context/jwt';
-import { getDashboardHomePath, isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
-import { userHasHomePage } from 'src/actions/guestarea';
+import { getDashboardHomePath } from 'src/auth/utils/role';
 
 import { FormHead } from './components/form-head';
 import { SignInSchema } from './components/schema';
@@ -48,12 +47,7 @@ export function SignInView() {
         password: data.password,
       });
       const sessionUser = await checkUserSession?.();
-      const role = sessionUser?.role;
-      const hasHomePage =
-        isUserBusiness(role) && !isUserAdmin(role)
-          ? false
-          : await userHasHomePage(sessionUser?.id);
-      router.push(getDashboardHomePath(role, hasHomePage));
+      router.push(getDashboardHomePath(sessionUser?.role));
 
       reset();
     } catch (error) {

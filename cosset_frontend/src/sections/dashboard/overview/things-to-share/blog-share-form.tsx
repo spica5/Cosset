@@ -2,7 +2,7 @@
 
 import type { IBlogItem } from 'src/types/blog';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -24,7 +24,6 @@ import { RouterLink } from 'src/routes/components';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { useGetBlogs, updateBlog } from 'src/actions/blog';
-import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
@@ -74,20 +73,10 @@ const isPublicBlog = (isPublic: unknown): boolean => {
 export function BlogShareForm() {
   const { user } = useAuthContext();
   const { blogs, blogsLoading, refreshBlogs } = useGetBlogs(user?.id);
-  const { guestarea } = useGetGuestArea(user?.id || '');
-  const [showBlogs, setShowBlogs] = useState(false);
   const [blogUpdates, setBlogUpdates] = useState<Record<BlogIdKey, BlogVisibility>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    setShowBlogs(Boolean(guestarea?.blog));
-  }, [guestarea?.blog]);
-
-  const currentBlogSetting = Boolean(guestarea?.blog);
-
-  const hasVisibilityChanges = Object.keys(blogUpdates).length > 0;
-  const hasGuestAreaChange = showBlogs !== currentBlogSetting;
-  const hasChanges = hasVisibilityChanges || hasGuestAreaChange;
+  const hasChanges = Object.keys(blogUpdates).length > 0;
 
   const handleBulkVisibility = (nextVisibility: BlogVisibility) => {
     const next: Record<BlogIdKey, BlogVisibility> = {};
@@ -122,35 +111,24 @@ export function BlogShareForm() {
       return;
     }
 
-    if (hasGuestAreaChange && !guestarea) {
-      toast.error('Guest area not found');
-      return;
-    }
-
     setIsSaving(true);
 
     try {
-      if (hasGuestAreaChange && guestarea) {
-        await updateGuestArea({ id: guestarea.id, blog: showBlogs });
-      }
-
       const visibilityUpdates = Object.entries(blogUpdates);
 
-      if (visibilityUpdates.length > 0) {
-        await Promise.all(
-          visibilityUpdates.map(async ([blogId, isPublic]) => {
-            const matchedBlog = blogs.find((blog) => toBlogIdKey(blog.id) === blogId);
+      await Promise.all(
+        visibilityUpdates.map(async ([blogId, isPublic]) => {
+          const matchedBlog = blogs.find((blog) => toBlogIdKey(blog.id) === blogId);
 
-            await updateBlog(blogId, {
-              isPublic,
-              customerId: matchedBlog?.customerId ?? (user?.id ? String(user.id) : undefined),
-            });
-          })
-        );
+          await updateBlog(blogId, {
+            isPublic,
+            customerId: matchedBlog?.customerId ?? (user?.id ? String(user.id) : undefined),
+          });
+        })
+      );
 
-        await refreshBlogs();
-        setBlogUpdates({});
-      }
+      await refreshBlogs();
+      setBlogUpdates({});
 
       toast.success('Blog sharing settings updated successfully!');
     } catch (error) {
@@ -173,18 +151,7 @@ export function BlogShareForm() {
           justifyContent="space-between"
           sx={{ mb: 2 }}
         >
-
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-            <Typography variant="h6">Blogs</Typography>
-
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Switch
-                checked={showBlogs}
-                onChange={(event) => setShowBlogs(event.target.checked)}
-              />
-              <Typography variant="body2">Show on Home Space</Typography>
-            </Stack>
-          </Stack>
+          <Typography variant="h6">Blogs</Typography>
 
           <Stack direction="row" spacing={1} alignItems="center">
             <Button size="small" variant="outlined" color="success" onClick={() => handleBulkVisibility(1)} disabled={isSaving || !blogs.length}>

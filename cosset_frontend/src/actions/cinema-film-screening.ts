@@ -25,14 +25,18 @@ type ScreeningData = {
 };
 
 export function buildCinemaScreeningListUrl(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaCategory,
   options?: { publicOnly?: boolean },
 ) {
   const params = new URLSearchParams({
-    customerId,
     category,
   });
+
+  const normalizedCustomerId = String(customerId || '').trim();
+  if (normalizedCustomerId) {
+    params.set('customerId', normalizedCustomerId);
+  }
 
   if (options?.publicOnly) {
     params.set('publicOnly', '1');
@@ -46,10 +50,13 @@ export function useGetCinemaScreenings(
   category?: CinemaCategory | null,
   options?: { publicOnly?: boolean },
 ) {
-  const listUrl =
-    customerId && category
-      ? buildCinemaScreeningListUrl(String(customerId), category, options)
-      : null;
+  const normalizedCustomerId =
+    customerId !== undefined && customerId !== null ? String(customerId).trim() : '';
+  const canFetch = Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly);
+
+  const listUrl = canFetch
+    ? buildCinemaScreeningListUrl(normalizedCustomerId || null, category!, options)
+    : null;
 
   const { data, isLoading, error, isValidating } = useSWR<ScreeningsData>(
     listUrl,
@@ -70,7 +77,7 @@ export function useGetCinemaScreenings(
 }
 
 export async function revalidateCinemaScreenings(
-  customerId: string,
+  customerId: string | null | undefined,
   category: CinemaCategory,
   options?: { publicOnly?: boolean },
 ) {
@@ -83,8 +90,10 @@ async function refreshCinemaCategoryData(
 ) {
   await revalidateCinemaScreenings(customerId, category);
   await revalidateCinemaScreenings(customerId, category, { publicOnly: true });
+  await revalidateCinemaScreenings(null, category, { publicOnly: true });
   await revalidateCinemaFilms(customerId, category);
   await revalidateCinemaFilms(customerId, category, { publicOnly: true });
+  await revalidateCinemaFilms(null, category, { publicOnly: true });
 }
 
 export async function createCinemaScreening(

@@ -42,15 +42,16 @@ import { CINEMA_CREAM, CINEMA_SERIF, cinemaPageShellSx } from '../cinema-theater
 
 function CinemaCategoryRoom({
   category,
-  ownerId,
+  viewerId,
 }: {
   category: CinemaCategoryMeta;
-  ownerId: string;
+  viewerId: string;
 }) {
-  const { films, filmsLoading } = useGetCinemaFilms(ownerId, category.id);
-  const { screenings, screeningsLoading } = useGetCinemaScreenings(ownerId, category.id);
-  const { reservations } = useGetCinemaReservations(ownerId, {
-    ownerCustomerId: ownerId,
+  const { films, filmsLoading } = useGetCinemaFilms(null, category.id, { publicOnly: true });
+  const { screenings, screeningsLoading } = useGetCinemaScreenings(null, category.id, {
+    publicOnly: true,
+  });
+  const { reservations } = useGetCinemaReservations(viewerId || null, {
     category: category.id,
     status: 'reserved',
   });
@@ -62,6 +63,11 @@ function CinemaCategoryRoom({
     useState<ICinemaFilmReservationWithScreening | null>(null);
   const [confirming, setConfirming] = useState(false);
   const accent = category.accent;
+
+  const catalogOwnerId = useMemo(() => {
+    const fromFilm = films.find((film) => film.customerId)?.customerId;
+    return fromFilm ? String(fromFilm) : '';
+  }, [films]);
 
   const reservationsByScreeningId = useMemo(() => {
     const map = new Map<number, ICinemaFilmReservationWithScreening>();
@@ -93,8 +99,8 @@ function CinemaCategoryRoom({
     });
   }, [films, screenings]);
 
-  const universeUrl = ownerId
-    ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(ownerId)}`
+  const universeUrl = catalogOwnerId
+    ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(catalogOwnerId)}`
     : paths.dashboard.community.cinema.view(category.id);
 
   const loading = filmsLoading || screeningsLoading;
@@ -165,15 +171,17 @@ function CinemaCategoryRoom({
     const screening = reservingFilm ? getNextFilmScreening(reservingFilm) : null;
     const seatId = selectedSeatIds[0];
 
-    if (!reservingFilm || !screening?.id || !seatId) {
+    if (!viewerId || !reservingFilm || !screening?.id || !seatId) {
       return;
     }
+
+    const ownerCustomerId = String(reservingFilm.customerId || catalogOwnerId || '');
 
     try {
       setConfirming(true);
       await createCinemaReservation(
-        { screeningId: screening.id, customerId: ownerId, seatIds: [seatId] },
-        { ownerCustomerId: ownerId, category: category.id },
+        { screeningId: screening.id, customerId: viewerId, seatIds: [seatId] },
+        { ownerCustomerId: ownerCustomerId || undefined, category: category.id },
       );
       toast.success(`Reserved "${reservingFilm.title}" · seat ${seatId}.`);
       setSeatMapOpen(false);
@@ -188,7 +196,7 @@ function CinemaCategoryRoom({
     } finally {
       setConfirming(false);
     }
-  }, [category.id, ownerId, reservingFilm, selectedSeatIds]);
+  }, [catalogOwnerId, category.id, reservingFilm, selectedSeatIds, viewerId]);
 
   return (
     <Box
@@ -269,8 +277,8 @@ function CinemaCategoryRoom({
 
         <CinemaReservationsTable
           category={category}
-          customerId={ownerId}
-          ownerCustomerId={ownerId}
+          customerId={viewerId}
+          ownerCustomerId={catalogOwnerId || undefined}
           compact
           variant="banner"
         />
@@ -360,7 +368,7 @@ function CinemaCategoryRoom({
 
 export function CinemaHubView() {
   const { user } = useAuthContext();
-  const ownerId = String(user?.id || '');
+  const viewerId = String(user?.id || '');
   const classicCategory = CINEMA_CATEGORIES[0];
 
   return (
@@ -411,7 +419,7 @@ export function CinemaHubView() {
 
         <Stack spacing={3}>
           {CINEMA_CATEGORIES.map((category) => (
-            <CinemaCategoryRoom key={category.id} category={category} ownerId={ownerId} />
+            <CinemaCategoryRoom key={category.id} category={category} viewerId={viewerId} />
           ))}
         </Stack>
       </Stack>

@@ -85,8 +85,7 @@ export function SignUpView() {
       });
 
       const sessionUser = await checkUserSession?.();
-      // New accounts always start in My Universe to create their home page.
-      router.push(getDashboardHomePath(sessionUser?.role, false));
+      router.push(getDashboardHomePath(sessionUser?.role));
     } catch (error) {
       console.error(error);
     }

@@ -6,12 +6,10 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { CONFIG } from 'src/config-global';
 
-import { userHasHomePage } from 'src/actions/guestarea';
-
 import { SplashScreen } from 'src/components/dashboard/loading-screen';
 
 import { useAuthContext } from '../hooks';
-import { getDashboardHomePath, isUserBusiness, isUserAdmin } from '../utils/role';
+import { getDashboardHomePath } from '../utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -40,13 +38,7 @@ export function GuestGuard({ children }: Props) {
         return;
       }
 
-      let hasHomePage = false;
-      const role = user?.role;
-      if (!isUserBusiness(role) || isUserAdmin(role)) {
-        hasHomePage = await userHasHomePage(user?.id);
-      }
-
-      router.replace(getDashboardHomePath(role, hasHomePage) || CONFIG.auth.redirectPath);
+      router.replace(getDashboardHomePath(user?.role) || CONFIG.auth.redirectPath);
       return;
     }
 

@@ -413,26 +413,31 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const { user, authenticated } = useAuthContext();
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
   const category = getCinemaCategory(categoryId);
-  const resolvedOwnerId = ownerId || String(user?.id || '');
   const resolvedCategory = category && isCinemaCategory(categoryId) ? category.id : null;
-  const canFetch = Boolean(resolvedOwnerId && resolvedCategory);
+  const canFetch = Boolean(resolvedCategory);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   const { films, filmsLoading } = useGetCinemaFilms(
-    canFetch ? resolvedOwnerId : null,
+    canFetch ? null : undefined,
     canFetch ? resolvedCategory : null,
     { publicOnly: true },
   );
 
   const { screenings, screeningsLoading } = useGetCinemaScreenings(
-    canFetch ? resolvedOwnerId : null,
+    canFetch ? null : undefined,
     canFetch ? resolvedCategory : null,
     { publicOnly: true },
   );
 
+  const catalogOwnerId = useMemo(() => {
+    if (ownerId) return String(ownerId);
+    const fromFilm = films.find((film) => film.customerId)?.customerId;
+    return fromFilm ? String(fromFilm) : '';
+  }, [films, ownerId]);
+
   const viewerCustomerId = String(user?.id || '');
   const { reservations, reservationsLoading } = useGetCinemaReservations(viewerCustomerId || null, {
-    ownerCustomerId: resolvedOwnerId || undefined,
+    ...(catalogOwnerId ? { ownerCustomerId: catalogOwnerId } : {}),
     category: resolvedCategory,
     status: 'reserved',
   });
@@ -578,17 +583,17 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   }, []);
 
   const handleLeaveCinema = useCallback(async () => {
-    if (authenticated && user?.id && resolvedOwnerId && resolvedCategory) {
+    if (authenticated && user?.id && catalogOwnerId && resolvedCategory) {
       const uid = String(user.id);
       setParticipants((prev) => removeParticipant(prev, uid));
       try {
-        await leaveCinemaPresence(resolvedOwnerId, resolvedCategory);
+        await leaveCinemaPresence(catalogOwnerId, resolvedCategory);
       } catch {
         // still navigate away
       }
     }
     router.push(paths.dashboard.community.cinema.root);
-  }, [authenticated, resolvedCategory, resolvedOwnerId, router, user?.id]);
+  }, [authenticated, catalogOwnerId, resolvedCategory, router, user?.id]);
 
   const activeReservation = useMemo(() => {
     if (!activeFilm) return null;
@@ -747,7 +752,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             activeReservation.id,
             { customerId: viewerCustomerId, seatIds: [seatId] },
             {
-              ownerCustomerId: resolvedOwnerId || undefined,
+              ownerCustomerId: String(activeFilm.customerId || catalogOwnerId || '') || undefined,
               category: resolvedCategory || undefined,
             },
           );
@@ -759,7 +764,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
               seatIds: [seatId],
             },
             {
-              ownerCustomerId: resolvedOwnerId || undefined,
+              ownerCustomerId: String(activeFilm.customerId || catalogOwnerId || '') || undefined,
               category: resolvedCategory || undefined,
             },
           );
@@ -957,11 +962,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         </Stack>
       </Box>
 
-      {canFetch && authenticated && resolvedCategory ? (
+      {canFetch && authenticated && resolvedCategory && catalogOwnerId ? (
         <>
           <UniverseCinemaParticipants participants={participants} />
           <UniverseCinemaChat
-            ownerCustomerId={resolvedOwnerId}
+            ownerCustomerId={catalogOwnerId}
             category={resolvedCategory}
             participants={participants}
             onParticipantsLoaded={handleParticipantsLoaded}

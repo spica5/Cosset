@@ -4,7 +4,7 @@ import type { IJourneyDiaryNote } from 'src/types/journey-diary-note';
 import type { IJourneyMemorialThing } from 'src/types/journey-diary-memorial-thing';
 import type { IJourneyRepresentativePicture } from 'src/types/journey-diary-representative-picture';
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -25,7 +25,6 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useAuthContext } from 'src/auth/hooks';
-import { useGetGuestArea, updateGuestArea } from 'src/actions/guestarea';
 import { useGetJourneyDiaryNotes, updateJourneyDiaryNote } from 'src/actions/journey-diary-note';
 import {
   useGetJourneyRepresentativePictures,
@@ -42,13 +41,6 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
 // ---------------------------------------------------------------
-
-type DrawerSettings = {
-  myJourney?: boolean;
-  myNotes?: boolean;
-  memorialThings?: boolean;
-  [key: string]: unknown;
-};
 
 type Visibility = 0 | 1;
 type ItemIdKey = string;
@@ -70,18 +62,6 @@ const isPublicItem = (isPublic: unknown): boolean => {
   }
 
   return false;
-};
-
-const parseDrawerSettings = (drawer?: string | null): DrawerSettings => {
-  if (!drawer) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(drawer) as DrawerSettings;
-  } catch {
-    return {};
-  }
 };
 
 const formatDate = (value: unknown) => {
@@ -111,8 +91,6 @@ type ShareableJourneyItem = {
 type ShareSectionProps<T extends ShareableJourneyItem> = {
   title: string;
   manageHref: string;
-  showSection: boolean;
-  onShowSectionChange: (checked: boolean) => void;
   items: T[];
   itemsLoading: boolean;
   itemUpdates: Record<ItemIdKey, Visibility>;
@@ -126,8 +104,6 @@ type ShareSectionProps<T extends ShareableJourneyItem> = {
 function ShareSection<T extends ShareableJourneyItem>({
   title,
   manageHref,
-  showSection,
-  onShowSectionChange,
   items,
   itemsLoading,
   itemUpdates,
@@ -146,13 +122,7 @@ function ShareSection<T extends ShareableJourneyItem>({
         justifyContent="space-between"
         sx={{ mb: 2 }}
       >
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-          <Typography variant="subtitle1">{title}</Typography>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Switch checked={showSection} onChange={(event) => onShowSectionChange(event.target.checked)} />
-            <Typography variant="body2">Show on Home Space</Typography>
-          </Stack>
-        </Stack>
+        <Typography variant="subtitle1">{title}</Typography>
 
         <Stack direction="row" spacing={1}>
           <Button
@@ -268,42 +238,23 @@ export function JourneyDiaryShareForm() {
   const { user } = useAuthContext();
   const userId = user?.id ? String(user.id) : undefined;
 
-  const { guestarea } = useGetGuestArea(userId || '');
   const { pictures, picturesLoading } = useGetJourneyRepresentativePictures(userId);
   const { notes, notesLoading } = useGetJourneyDiaryNotes(userId);
   const { memorialThings, memorialThingsLoading } = useGetJourneyMemorialThings(userId);
 
-  const drawerSettings = useMemo(() => parseDrawerSettings(guestarea?.drawer), [guestarea?.drawer]);
-
-  const [showMyJourney, setShowMyJourney] = useState(false);
-  const [showMyNotes, setShowMyNotes] = useState(false);
-  const [showMemorialThings, setShowMemorialThings] = useState(false);
   const [pictureUpdates, setPictureUpdates] = useState<Record<ItemIdKey, Visibility>>({});
   const [noteUpdates, setNoteUpdates] = useState<Record<ItemIdKey, Visibility>>({});
   const [memorialUpdates, setMemorialUpdates] = useState<Record<ItemIdKey, Visibility>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    setShowMyJourney(Boolean(drawerSettings.myJourney));
-    setShowMyNotes(Boolean(drawerSettings.myNotes));
-    setShowMemorialThings(Boolean(drawerSettings.memorialThings));
-  }, [drawerSettings.memorialThings, drawerSettings.myJourney, drawerSettings.myNotes]);
-
   const pictureHandlers = useVisibilityUpdates(pictures, setPictureUpdates);
   const noteHandlers = useVisibilityUpdates(notes, setNoteUpdates);
   const memorialHandlers = useVisibilityUpdates(memorialThings, setMemorialUpdates);
 
-  const hasDrawerChanges =
-    showMyJourney !== Boolean(drawerSettings.myJourney) ||
-    showMyNotes !== Boolean(drawerSettings.myNotes) ||
-    showMemorialThings !== Boolean(drawerSettings.memorialThings);
-
-  const hasItemChanges =
+  const hasChanges =
     Object.keys(pictureUpdates).length > 0 ||
     Object.keys(noteUpdates).length > 0 ||
     Object.keys(memorialUpdates).length > 0;
-
-  const hasChanges = hasDrawerChanges || hasItemChanges;
 
   const handleSave = async () => {
     if (!hasChanges) {
@@ -311,27 +262,9 @@ export function JourneyDiaryShareForm() {
       return;
     }
 
-    if (hasDrawerChanges && !guestarea) {
-      toast.error('Guest area not found');
-      return;
-    }
-
     setIsSaving(true);
 
     try {
-      if (hasDrawerChanges && guestarea) {
-        const currentDrawer = parseDrawerSettings(guestarea.drawer);
-        await updateGuestArea({
-          id: guestarea.id,
-          drawer: JSON.stringify({
-            ...currentDrawer,
-            myJourney: showMyJourney,
-            myNotes: showMyNotes,
-            memorialThings: showMemorialThings,
-          }),
-        });
-      }
-
       await Promise.all([
         ...Object.entries(pictureUpdates).map(([id, isPublic]) =>
           updateJourneyRepresentativePicture(id, { isPublic }, userId),
@@ -372,7 +305,7 @@ export function JourneyDiaryShareForm() {
           <Box>
             <Typography variant="h6">Journey Diary</Typography>
             <Typography variant="body2" color="text.secondary">
-              Share My Journey photos, My Notes, and Memorial Things on your Home Space.
+              Choose which My Journey photos, My Notes, and Memorial Things are public.
             </Typography>
           </Box>
 
@@ -385,8 +318,6 @@ export function JourneyDiaryShareForm() {
           <ShareSection<IJourneyRepresentativePicture>
             title="My Journey"
             manageHref={paths.dashboard.journeyDiary.myJourney}
-            showSection={showMyJourney}
-            onShowSectionChange={setShowMyJourney}
             items={pictures}
             itemsLoading={picturesLoading}
             itemUpdates={pictureUpdates}
@@ -400,8 +331,6 @@ export function JourneyDiaryShareForm() {
           <ShareSection<IJourneyDiaryNote>
             title="My Notes"
             manageHref={paths.dashboard.journeyDiary.myNotes}
-            showSection={showMyNotes}
-            onShowSectionChange={setShowMyNotes}
             items={notes}
             itemsLoading={notesLoading}
             itemUpdates={noteUpdates}
@@ -415,8 +344,6 @@ export function JourneyDiaryShareForm() {
           <ShareSection<IJourneyMemorialThing>
             title="Memorial Things"
             manageHref={paths.dashboard.journeyDiary.memorialThings}
-            showSection={showMemorialThings}
-            onShowSectionChange={setShowMemorialThings}
             items={memorialThings}
             itemsLoading={memorialThingsLoading}
             itemUpdates={memorialUpdates}

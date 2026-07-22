@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const category = normalizeCinemaCategory(searchParams.get('category'));
     const publicOnly = searchParams.get('publicOnly') === '1';
 
-    if (!customerId) {
+    if (!customerId && !publicOnly) {
       return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
     }
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       return response({ message: 'category must be classic, genre, or drama' }, STATUS.BAD_REQUEST);
     }
 
-    const films = await getCinemaFilms(customerId, category, { publicOnly });
+    const films = await getCinemaFilms(customerId || null, category, { publicOnly });
     const screenings = await getCinemaFilmScreeningsByFilmIds(
       films.map((film) => film.id),
       { publicOnly },

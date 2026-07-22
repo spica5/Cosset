@@ -105,6 +105,10 @@ export async function createCinemaReservation(
       category: context?.category,
       status: 'reserved',
     });
+    await revalidateCinemaReservations(payload.customerId, {
+      category: context?.category,
+      status: 'reserved',
+    });
     await revalidateCinemaReservations(payload.customerId, { status: 'reserved' });
   }
 
@@ -128,6 +132,10 @@ export async function updateCinemaReservationSeats(
       category: context?.category,
       status: 'reserved',
     });
+    await revalidateCinemaReservations(payload.customerId, {
+      category: context?.category,
+      status: 'reserved',
+    });
     await revalidateCinemaReservations(payload.customerId, { status: 'reserved' });
   }
 
@@ -148,6 +156,10 @@ export async function cancelCinemaReservation(
 
   await revalidateCinemaReservations(customerId, {
     ownerCustomerId: context?.ownerCustomerId,
+    category: context?.category,
+    status: 'reserved',
+  });
+  await revalidateCinemaReservations(customerId, {
     category: context?.category,
     status: 'reserved',
   });

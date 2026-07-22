@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       return response({ screenings }, STATUS.OK);
     }
 
-    if (!customerId) {
+    if (!customerId && !publicOnly) {
       return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
     }
 
@@ -40,7 +40,11 @@ export async function GET(req: NextRequest) {
       return response({ message: 'category must be classic, genre, or drama' }, STATUS.BAD_REQUEST);
     }
 
-    const screenings = await getCinemaFilmScreeningsByCategory(customerId, category, { publicOnly });
+    const screenings = await getCinemaFilmScreeningsByCategory(
+      customerId || null,
+      category,
+      { publicOnly },
+    );
 
     return response({ screenings }, STATUS.OK);
   } catch (error) {

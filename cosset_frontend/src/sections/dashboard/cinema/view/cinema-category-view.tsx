@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -14,6 +16,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
+
+import { useGetCinemaFilms } from 'src/actions/cinema-film';
 
 import { CinemaTheaterIntro } from '../cinema-theater-intro';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
@@ -34,11 +38,17 @@ type Props = {
 export function CinemaCategoryView({ category }: Props) {
   const { user } = useAuthContext();
   const { id } = user || {};
-  const ownerId = String(id || '');
+  const viewerId = String(id || '');
   const accent = category.accent;
 
-  const universeUrl = ownerId
-    ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(ownerId)}`
+  const { films } = useGetCinemaFilms(null, category.id, { publicOnly: true });
+  const catalogOwnerId = useMemo(() => {
+    const fromFilm = films.find((film) => film.customerId)?.customerId;
+    return fromFilm ? String(fromFilm) : '';
+  }, [films]);
+
+  const universeUrl = catalogOwnerId
+    ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(catalogOwnerId)}`
     : paths.dashboard.community.cinema.view(category.id);
 
   return (
@@ -113,8 +123,8 @@ export function CinemaCategoryView({ category }: Props) {
 
             <CinemaReservationsTable
               category={category}
-              customerId={ownerId}
-              ownerCustomerId={ownerId}
+              customerId={viewerId}
+              ownerCustomerId={catalogOwnerId || undefined}
               variant="banner"
             />
           </Stack>
@@ -136,6 +146,7 @@ export function CinemaCategoryView({ category }: Props) {
               showScreenings={false}
               canManage={false}
               scheduledOnly
+              publicCatalog
             />
           </Box>
         </Box>

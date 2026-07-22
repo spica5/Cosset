@@ -619,87 +619,19 @@ export function UniverseLandingView({
     };
   }, [customerId, guestarea, resolvedDesignGalleryUrls, resolvedHeroUrl]);
 
-  const drawerSettings = useMemo(() => {
-    if (!guestarea?.drawer) {
-      return {
-        gift: false,
-        letter: false,
-        goodMemo: false,
-        sadMemo: false,
-        ebooks: false,
-        audiobooks: false,
-        myJourney: false,
-        myNotes: false,
-        memorialThings: false,
-        collectionItems: {} as Record<string, boolean>,
-      };
-    }
-
-    try {
-      const parsed = JSON.parse(guestarea.drawer) as {
-        gift?: boolean;
-        letter?: boolean;
-        goodMemo?: boolean;
-        sadMemo?: boolean;
-        ebooks?: boolean;
-        audiobooks?: boolean;
-        myJourney?: boolean;
-        myNotes?: boolean;
-        memorialThings?: boolean;
-        collectionItems?: Record<string, unknown>;
-      };
-
-      const collectionItems = Object.entries(parsed.collectionItems || {}).reduce<Record<string, boolean>>(
-        (acc, [key, value]) => {
-          acc[String(key)] = !!value;
-          return acc;
-        },
-        {},
-      );
-
-      return {
-        gift: !!parsed.gift,
-        letter: !!parsed.letter,
-        goodMemo: !!parsed.goodMemo,
-        sadMemo: !!parsed.sadMemo,
-        ebooks: !!parsed.ebooks,
-        audiobooks: !!parsed.audiobooks,
-        myJourney: !!parsed.myJourney,
-        myNotes: !!parsed.myNotes,
-        memorialThings: !!parsed.memorialThings,
-        collectionItems,
-      };
-    } catch {
-      return {
-        gift: false,
-        letter: false,
-        goodMemo: false,
-        sadMemo: false,
-        ebooks: false,
-        audiobooks: false,
-        myJourney: false,
-        myNotes: false,
-        memorialThings: false,
-        collectionItems: {} as Record<string, boolean>,
-      };
-    }
-  }, [guestarea?.drawer]);
-
   const sharedCollections = useMemo(
     () =>
-      [...collections]
-        .filter((collection) => !!drawerSettings.collectionItems[String(collection.id)])
-        .sort((a, b) => {
-          const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
-          const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+      [...collections].sort((a, b) => {
+        const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
 
-          if (aOrder !== bOrder) {
-            return aOrder - bOrder;
-          }
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
 
-          return (a.name || '').localeCompare(b.name || '');
-        }),
-    [collections, drawerSettings.collectionItems],
+        return (a.name || '').localeCompare(b.name || '');
+      }),
+    [collections],
   );
 
   const sharedBlogs = useMemo(
@@ -759,7 +691,7 @@ export function UniverseLandingView({
         key: 'gift',
         label: 'Gifts and Souvenirs',
         icon: 'solar:gift-bold',
-        enabled: drawerSettings.gift || giftCountData.count > 0,
+        enabled: true,
         count: giftCountData.count,
         viewedCount: viewedGiftData.viewedGiftIds.length,
         unreadCount: Math.max(0, giftCountData.count - viewedGiftData.viewedGiftIds.length),
@@ -769,7 +701,7 @@ export function UniverseLandingView({
         key: 'letter',
         label: 'Letters',
         icon: 'solar:file-text-bold',
-        enabled: drawerSettings.letter || letterDrawerStats.count > 0,
+        enabled: true,
         count: letterDrawerStats.count,
         viewedCount: letterDrawerStats.viewedCount,
         unreadCount: letterDrawerStats.unreadCount,
@@ -779,7 +711,7 @@ export function UniverseLandingView({
         key: 'goodMemo',
         label: 'Good Memories',
         icon: 'solar:sun-bold',
-        enabled: drawerSettings.goodMemo || goodMemoDrawerStats.count > 0,
+        enabled: true,
         count: goodMemoDrawerStats.count,
         viewedCount: goodMemoDrawerStats.viewedCount,
         unreadCount: goodMemoDrawerStats.unreadCount,
@@ -789,7 +721,7 @@ export function UniverseLandingView({
         key: 'sadMemo',
         label: 'Sad Memories',
         icon: 'solar:cloud-bold',
-        enabled: drawerSettings.sadMemo || sadMemoDrawerStats.count > 0,
+        enabled: true,
         count: sadMemoDrawerStats.count,
         viewedCount: sadMemoDrawerStats.viewedCount,
         unreadCount: sadMemoDrawerStats.unreadCount,
@@ -798,10 +730,6 @@ export function UniverseLandingView({
     ],
     [
       customerId,
-      drawerSettings.gift,
-      drawerSettings.letter,
-      drawerSettings.goodMemo,
-      drawerSettings.sadMemo,
       giftCountData.count,
       viewedGiftData.viewedGiftIds.length,
       letterDrawerStats.count,
@@ -817,29 +745,11 @@ export function UniverseLandingView({
   );
 
   const sharedDrawerItems = drawerItems.filter((item) => item.enabled);
-  const showDrawersSection =
-    drawerSettings.gift ||
-    drawerSettings.letter ||
-    drawerSettings.goodMemo ||
-    drawerSettings.sadMemo ||
-    giftCountData.count > 0 ||
-    letterDrawerStats.count > 0 ||
-    goodMemoDrawerStats.count > 0 ||
-    sadMemoDrawerStats.count > 0;
   const allowVisitorSections = !isAccessLoading && !isVisitorHomeSpaceOnly;
-  const sharedBlogViewItems = allowVisitorSections && guestarea?.blog ? sharedBlogs : [];
-  const showBookshelfEbooks = drawerSettings.ebooks || visibleEbooks.length > 0;
-  const showBookshelfAudiobooks = drawerSettings.audiobooks || visibleAudiobooks.length > 0;
-  const showBookshelfSection =
-    allowVisitorSections && (showBookshelfEbooks || showBookshelfAudiobooks);
-  const showMyJourneySection =
-    !!drawerSettings.myJourney && sharedJourneyPictures.length > 0;
-  const showMyNotesSection = !!drawerSettings.myNotes && sharedJourneyNotes.length > 0;
-  const showMemorialThingsSection =
-    !!drawerSettings.memorialThings && sharedJourneyMemorialThings.length > 0;
-  const showJourneyDiarySection =
-    allowVisitorSections &&
-    (showMyJourneySection || showMyNotesSection || showMemorialThingsSection);
+  // Always show Things To Share categories on Home Space (item public/private still applies).
+  const sharedBlogViewItems = allowVisitorSections ? sharedBlogs : [];
+  const showBookshelfSection = allowVisitorSections;
+  const showJourneyDiarySection = allowVisitorSections;
   const journeyDiaryLoading =
     journeyPicturesLoading ||
     journeyNotesLoading ||
@@ -848,27 +758,21 @@ export function UniverseLandingView({
 
   const mySpaceSectionCounts = useMemo(
     () => ({
-      ...(guestarea?.blog ? { 'blogs-section': sharedBlogViewItems.length } : {}),
       ...(allowVisitorSections
         ? {
+            'blogs-section': sharedBlogViewItems.length,
             'albums-section': sharedAlbums.length,
-            ...(showDrawersSection
-              ? {
-                  'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
-                }
-              : {}),
+            'drawers-section': sharedDrawerItems.reduce((sum, item) => sum + item.count, 0),
             'collection-items-section': sharedCollections.length,
           }
         : {}),
     }),
     [
       allowVisitorSections,
-      guestarea?.blog,
       sharedAlbums.length,
       sharedBlogViewItems.length,
       sharedCollections.length,
       sharedDrawerItems,
-      showDrawersSection,
     ],
   );
 
@@ -1015,7 +919,7 @@ export function UniverseLandingView({
         designType={designSpaceType}
         sectionCounts={mySpaceSectionCounts}
         sections={{
-          ...(guestarea?.blog
+          ...(allowVisitorSections
             ? {
                 'blogs-section': (
                   <UniverseLandingBlogs
@@ -1026,10 +930,6 @@ export function UniverseLandingView({
                     getBlogHref={(blog) => paths.universe.blog(customerId, blog.id)}
                   />
                 ),
-              }
-            : {}),
-          ...(allowVisitorSections
-            ? {
                 'albums-section': (
                   <UniverseLandingAlbums
                     albums={sharedAlbums}
@@ -1039,19 +939,15 @@ export function UniverseLandingView({
                     getAlbumHref={(album) => paths.universe.album(album.id)}
                   />
                 ),
-                ...(showDrawersSection
-                  ? {
-                      'drawers-section': (
-                        <UniverseLandingDrawer
-                          items={sharedDrawerItems}
-                          loading={drawerLoading}
-                          viewAllHref={
-                            isCurrentCustomer ? paths.dashboard.drawer.root : undefined
-                          }
-                        />
-                      ),
+                'drawers-section': (
+                  <UniverseLandingDrawer
+                    items={sharedDrawerItems}
+                    loading={drawerLoading}
+                    viewAllHref={
+                      isCurrentCustomer ? paths.dashboard.drawer.root : undefined
                     }
-                  : {}),
+                  />
+                ),
                 'collection-items-section': (
                   <UniverseLandingCollectionItems
                     customerId={customerId}
@@ -1071,10 +967,10 @@ export function UniverseLandingView({
           <UniverseLandingSectionSplitBar designType={designSpaceType} />
           <UniverseLandingBookshelfPage designType={designSpaceType}>
             <UniverseLandingBookshelf
-              ebooks={showBookshelfEbooks ? visibleEbooks : []}
-              audiobooks={showBookshelfAudiobooks ? visibleAudiobooks : []}
-              showEbooks={showBookshelfEbooks}
-              showAudiobooks={showBookshelfAudiobooks}
+              ebooks={visibleEbooks}
+              audiobooks={visibleAudiobooks}
+              showEbooks
+              showAudiobooks
               loading={ebooksLoading || audiobooksLoading}
               isOwner={isCurrentCustomer}
               ownerCustomerId={customerId}
@@ -1100,9 +996,9 @@ export function UniverseLandingView({
               customerAvatarUrl={customerAvatarUrl}
               communityUsers={users}
               loading={journeyDiaryLoading}
-              showMyJourney={showMyJourneySection}
-              showMyNotes={showMyNotesSection}
-              showMemorialThings={showMemorialThingsSection}
+              showMyJourney
+              showMyNotes
+              showMemorialThings
               isOwner={isCurrentCustomer}
             />
           </UniverseLandingJourneyDiaryPage>

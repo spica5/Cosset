@@ -61,7 +61,7 @@ export function CinemaReservationsTable({
   variant = 'default',
 }: Props) {
   const { reservations, reservationsLoading } = useGetCinemaReservations(customerId, {
-    ownerCustomerId: ownerCustomerId ?? customerId,
+    ...(ownerCustomerId ? { ownerCustomerId } : {}),
     category: category.id,
     status: 'reserved',
   });
