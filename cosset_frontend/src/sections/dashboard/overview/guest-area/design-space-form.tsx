@@ -25,6 +25,7 @@ import axiosInstance, { endpoints } from 'src/utils/axios';
 import { Image } from 'src/components/dashboard/image';
 import { Upload } from 'src/components/dashboard/upload';
 import { toast } from 'src/components/dashboard/snackbar';
+import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { Form, Field, schemaHelper } from 'src/components/dashboard/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -69,14 +70,15 @@ type Props = {
 
 // Template images for design space
 const templateImages = [
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`, name: 'default1' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default4.png`, name: 'default2' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template1.jpg`, name: 'Modern Living Room1' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template4.jpg`, name: 'Modern Living Room2' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template3.jpg`, name: 'Classical Living Room' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template2.jpg`, name: 'Cozy Bedroom' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template6.jpg`, name: 'Kitchen Design' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/template5.jpg`, name: 'Office Space' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`, name: 'Default1' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default4.png`, name: 'Default2' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template1.png`, name: 'Template1' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template2.png`, name: 'Template2' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template3.png`, name: 'Template3' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template4.png`, name: 'Template4' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template5.png`, name: 'Template5' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/scenery1.jpg`, name: 'Template6' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/scenery2.jpg`, name: 'Template7' },
 ];
 
 const reorderArray = <T,>(array: T[], fromIndex: number, toIndex: number) => {
@@ -119,6 +121,12 @@ export function DesignSpaceForm({ currentArea }: Props) {
 
   const values = watch();
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
+  const templateSlides = useMemo(
+    () => templateImages.map((template) => ({ src: template.url, alt: template.name })),
+    [],
+  );
+  const templateLightbox = useLightBox(templateSlides);
 
   // Helper function to add uploaded images to the gallery
   const addUploadedImages = useCallback(
@@ -462,14 +470,31 @@ export function DesignSpaceForm({ currentArea }: Props) {
 
             <Box sx={{ width: { xs: 1, md: '55%' }, spacing: 1.5, ml: { xs: 0, md: 1 } }}>
               <Typography variant="subtitle1">Template Images</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  p:2 }}>
-                {templateImages.map((template) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, p: 2 }}>
+                {templateImages.map((template, index) => (
                   <Box key={template.url} sx={{ textAlign: 'center', width: { xs: 100, sm: 120 } }}>
-                    <Image 
-                      alt={template.name}
-                      src={template.url}
-                      style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 8, boxSizing: 'border-box', cursor: 'pointer' }}
-                    />
+                    <Box
+                      onClick={() => templateLightbox.setSelected(index)}
+                      sx={{
+                        cursor: 'zoom-in',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': { opacity: 0.92 },
+                      }}
+                    >
+                      <Image
+                        alt={template.name}
+                        src={template.url}
+                        sx={{
+                          width: 1,
+                          height: 90,
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    </Box>
                     <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
                       {template.name}
                     </Typography>
@@ -639,6 +664,17 @@ export function DesignSpaceForm({ currentArea }: Props) {
           </LoadingButton>
         </Box>
       </Stack>
+
+      <Lightbox
+        index={templateLightbox.selected}
+        slides={templateSlides}
+        open={templateLightbox.open}
+        close={templateLightbox.onClose}
+        disableCaptions
+        disableSlideshow
+        disableThumbnails
+        disableFullscreen
+      />
     </Form>
   );
 }
