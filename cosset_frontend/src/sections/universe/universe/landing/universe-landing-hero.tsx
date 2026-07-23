@@ -31,6 +31,8 @@ import {
 } from 'src/utils/design-space-type';
 import { getGuestAreaMotifIcon, isGuestAreaHomeSpaceOnlyMotif } from 'src/utils/guest-area-status';
 
+import { MAIL_WRITING_FONTS_STYLESHEET } from 'src/constants/mail-writing-fonts';
+
 import { varAlpha, getThemeCommonVars } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify/iconify';
@@ -41,6 +43,11 @@ import { UniverseLandingMoodMarquee } from './universe-landing-mood-marquee';
 
 const BACKGROUND_ROTATE_MS = 5 * 60 * 1000;
 const BACKGROUND_FADE_MS = 900;
+
+const SETUP_COMMENT_HANDWRITING_FONT =
+  '"Caveat", "Caveat Variable", "Segoe Print", "Segoe Script", "Patrick Hand", cursive';
+
+const SETUP_COMMENT_FONTS_LINK_ID = 'home-space-setup-comment-fonts';
 
 type Props = BoxProps & {
   universe: IUniverseProps;
@@ -332,8 +339,26 @@ export function UniverseLandingHero({
     !hasVisibleBackground
       ? 'Upload Design Space images to set your Home Space background.'
       : null,
-    '(You can set them on the My Universe/Design Space page.)'
+    '(You can set them on the My Universe/Design Space page.)',
   ].filter(Boolean) as string[];
+
+  useEffect(() => {
+    if (!showOwnerSetupComments || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    if (document.getElementById(SETUP_COMMENT_FONTS_LINK_ID)) {
+      return undefined;
+    }
+
+    const link = document.createElement('link');
+    link.id = SETUP_COMMENT_FONTS_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href = MAIL_WRITING_FONTS_STYLESHEET;
+    document.head.appendChild(link);
+
+    return undefined;
+  }, [showOwnerSetupComments]);
 
   if (!universe) {
     return null;
@@ -623,19 +648,20 @@ export function UniverseLandingHero({
             sx={{
               flex: 1,
               minWidth: 0,
-              maxWidth: { xs: 1, md: 380 },
-              px: { xs: 1.25, md: 2 },
-              py: { xs: 1, md: 1.5 },
+              maxWidth: { xs: 1, md: 400 },
+              px: { xs: 1.5, md: 2.25 },
+              py: { xs: 1.25, md: 1.75 },
               display: 'flex',
-              bgcolor: varAlpha(commonVars.blackChannel, 0.5),
-              border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
+              bgcolor: 'rgba(10, 10, 10, 0.32)',
+              border: `1px solid rgba(255, 248, 240, 0.28)`,
+              boxShadow: '0 8px 28px rgba(0, 0, 0, 0.18)',
               color: 'common.white',
-              backdropFilter: 'blur(4px)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: 2.5,
             }}
           >
-            <Stack spacing={1} justifyContent="center" sx={{ width: 1, minWidth: 0 }}>
+            <Stack spacing={1.1} justifyContent="center" sx={{ width: 1, minWidth: 0 }}>
               <Typography
-                variant="caption"
                 sx={{
                   color: 'info.light',
                   fontWeight: 700,
@@ -649,11 +675,14 @@ export function UniverseLandingHero({
               {ownerSetupComments.map((comment) => (
                 <Typography
                   key={comment}
-                  variant="body2"
                   sx={{
-                    color: varAlpha(commonVars.whiteChannel, 0.88),
-                    lineHeight: 1.5,
-                    fontStyle: 'italic',
+                    fontFamily: SETUP_COMMENT_HANDWRITING_FONT,
+                    fontSize: { xs: '1.05rem', md: '1.22rem' },
+                    fontWeight: 400,
+                    color: 'rgba(255, 248, 240, 0.88)',
+                    lineHeight: 1.35,
+                    letterSpacing: 0.15,
+                    textShadow: '0 1px 8px rgba(0, 0, 0, 0.25)',
                   }}
                 >
                   {comment}
