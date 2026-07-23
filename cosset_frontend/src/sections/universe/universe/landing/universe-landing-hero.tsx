@@ -87,6 +87,8 @@ type Props = BoxProps & {
   }[];
   designType?: DesignSpaceType;
   isOwner?: boolean;
+  /** Guest area + design space data finished loading (avoid setup-tip flash). */
+  contentReady?: boolean;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
 };
@@ -101,6 +103,7 @@ export function UniverseLandingHero({
   visitors = [],
   designType = DEFAULT_DESIGN_SPACE_TYPE,
   isOwner = false,
+  contentReady = false,
   isFullScreen = false,
   onToggleFullScreen,
   sx,
@@ -120,6 +123,7 @@ export function UniverseLandingHero({
     b: '',
     active: 'a' as 'a' | 'b',
   });
+  const [pageFullyLoaded, setPageFullyLoaded] = useState(false);
 
   const galleryImages = useMemo(() => {
     const gallery = (universe?.gallery || []).filter(Boolean);
@@ -346,9 +350,54 @@ export function UniverseLandingHero({
   const showMoodBar = Boolean(universe.mood?.trim());
   const showBackgroundControls = backgroundImages.length > 1;
   const showBottomMoodRow = showMoodBar || showBackgroundControls;
+
+  const backgroundsSettled =
+    backgroundImages.length === 0 ||
+    hasVisibleBackground ||
+    backgroundImages.every(
+      (url) => loadedBackgroundUrls.includes(url) || failedBackgroundUrls.includes(url),
+    );
+
+  const needsHomeSpaceSetup =
+    !universe.motif?.trim() || !universe.mood?.trim() || !hasVisibleBackground;
+
   const showOwnerSetupComments =
     isOwner &&
-    (!universe.motif?.trim() || !universe.mood?.trim() || !hasVisibleBackground);
+    contentReady &&
+    pageFullyLoaded &&
+    backgroundsSettled &&
+    needsHomeSpaceSetup;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timeoutId = 0;
+
+    const markPageFullyLoaded = () => {
+      if (cancelled) return;
+      // Wait a beat after load so hero layout/paint can settle.
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled) {
+          setPageFullyLoaded(true);
+        }
+      }, 300);
+    };
+
+    if (document.readyState === 'complete') {
+      markPageFullyLoaded();
+    } else {
+      window.addEventListener('load', markPageFullyLoaded);
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('load', markPageFullyLoaded);
+    };
+  }, []);
 
   useEffect(() => {
     if (!showOwnerSetupComments || typeof document === 'undefined') {

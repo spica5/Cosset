@@ -128,7 +128,7 @@ export function UniverseLandingView({
   isFullScreen = false,
   onToggleFullScreen,
 }: Props) {
-  const { guestarea } = useGetGuestArea(customerId);
+  const { guestarea, guestAreaLoading } = useGetGuestArea(customerId);
   const { user, loading: userLoading, authenticated } = useAuthContext();
   const viewerId = String(user?.id || '').trim();
   const isCurrentCustomer = !!viewerId && viewerId === String(customerId || '').trim();
@@ -893,6 +893,12 @@ export function UniverseLandingView({
     }
   };
 
+  const homeSpaceContentReady =
+    !userLoading &&
+    !guestAreaLoading &&
+    designGalleryLoaded &&
+    heroUrlResolved;
+
   return (
     <>
       <UniverseLandingHero
@@ -905,6 +911,7 @@ export function UniverseLandingView({
         requestingFriend={requestingFriend}
         onRequestFriend={handleRequestFriend}
         isOwner={isCurrentCustomer}
+        contentReady={homeSpaceContentReady}
         customer={{
           id: customerId,
           name: customerName,
