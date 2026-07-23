@@ -109,9 +109,16 @@ export const coffeeShopMobileChatFormBoxSx = {
 let activePanel: CoffeeShopMobilePanel = null;
 const listeners = new Set<(panel: CoffeeShopMobilePanel) => void>();
 
+let chatUnreadCount = 0;
+const unreadListeners = new Set<(count: number) => void>();
+
 function notify(panel: CoffeeShopMobilePanel) {
   listeners.forEach((listener) => listener(panel));
   window.dispatchEvent(new CustomEvent(COFFEE_SHOP_MOBILE_PANEL_EVENT, { detail: panel }));
+}
+
+function notifyUnread(count: number) {
+  unreadListeners.forEach((listener) => listener(count));
 }
 
 export function subscribeCoffeeShopMobilePanel(listener: (panel: CoffeeShopMobilePanel) => void) {
@@ -121,6 +128,37 @@ export function subscribeCoffeeShopMobilePanel(listener: (panel: CoffeeShopMobil
   return () => {
     listeners.delete(listener);
   };
+}
+
+export function subscribeCoffeeShopChatUnread(listener: (count: number) => void) {
+  unreadListeners.add(listener);
+  listener(chatUnreadCount);
+
+  return () => {
+    unreadListeners.delete(listener);
+  };
+}
+
+export function getCoffeeShopChatUnreadCount() {
+  return chatUnreadCount;
+}
+
+export function setCoffeeShopChatUnreadCount(count: number) {
+  const next = Math.max(0, Math.floor(count));
+  if (next === chatUnreadCount) {
+    return;
+  }
+
+  chatUnreadCount = next;
+  notifyUnread(chatUnreadCount);
+}
+
+export function bumpCoffeeShopChatUnread(by = 1) {
+  setCoffeeShopChatUnreadCount(chatUnreadCount + Math.max(1, by));
+}
+
+export function clearCoffeeShopChatUnread() {
+  setCoffeeShopChatUnreadCount(0);
 }
 
 export function openCoffeeShopMobilePanel(panel: 'menu' | 'chat') {

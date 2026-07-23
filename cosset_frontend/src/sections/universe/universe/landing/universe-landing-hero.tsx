@@ -13,7 +13,7 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import { Typography } from '@mui/material';
 import CardMedia from '@mui/material/CardMedia';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, keyframes } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -48,6 +48,26 @@ const SETUP_COMMENT_HANDWRITING_FONT =
   '"Caveat", "Caveat Variable", "Segoe Print", "Segoe Script", "Patrick Hand", cursive';
 
 const SETUP_COMMENT_FONTS_LINK_ID = 'home-space-setup-comment-fonts';
+
+const SETUP_COMMENT_TEXT = 'Customize your Home space with easy tools at My Universe';
+
+const setupCommentSwing = keyframes`
+  0% {
+    transform: rotate(-2.6deg) translate3d(0, 0, 0);
+  }
+  20% {
+    transform: rotate(2.4deg) translate3d(3px, -4px, 0);
+  }
+  45% {
+    transform: rotate(-1.8deg) translate3d(-2px, 2px, 0);
+  }
+  70% {
+    transform: rotate(2.2deg) translate3d(2px, -3px, 0);
+  }
+  100% {
+    transform: rotate(-2.6deg) translate3d(0, 0, 0);
+  }
+`;
 
 type Props = BoxProps & {
   universe: IUniverseProps;
@@ -329,18 +349,6 @@ export function UniverseLandingHero({
   const showOwnerSetupComments =
     isOwner &&
     (!universe.motif?.trim() || !universe.mood?.trim() || !hasVisibleBackground);
-  const ownerSetupComments = [
-    !universe.motif?.trim()
-      ? 'Add a motif in Welcome Guest Area to greet visitors.'
-      : null,
-    !universe.mood?.trim()
-      ? 'Set your mood in Welcome Guest Area so it appears on this page.'
-      : null,
-    !hasVisibleBackground
-      ? 'Upload Design Space images to set your Home Space background.'
-      : null,
-    '(You can set them on the My Universe/Design Space page.)',
-  ].filter(Boolean) as string[];
 
   useEffect(() => {
     if (!showOwnerSetupComments || typeof document === 'undefined') {
@@ -644,62 +652,98 @@ export function UniverseLandingHero({
         </Card>
 
         {showOwnerSetupComments ? (
-          <Card
+          <Box
             sx={{
-              flex: 1,
+              flex: '0 1 auto',
               minWidth: 0,
-              maxWidth: { xs: 1, md: 400 },
-              px: { xs: 1.5, md: 2.25 },
-              py: { xs: 1.25, md: 1.75 },
-              display: 'flex',
-              bgcolor: 'rgba(10, 10, 10, 0.32)',
-              border: `1px solid rgba(255, 248, 240, 0.28)`,
-              boxShadow: '0 8px 28px rgba(0, 0, 0, 0.18)',
-              color: 'common.white',
-              backdropFilter: 'blur(10px)',
-              borderRadius: 2.5,
+              width: 1,
+              maxWidth: 360,
+              position: 'relative',
+              ml: '18px',
+              transformOrigin: 'top center',
+              animation: `${setupCommentSwing} 4.8s ease-in-out infinite`,
+              '@media (prefers-reduced-motion: reduce)': {
+                animation: 'none',
+              },
             }}
           >
-            <Stack spacing={1.1} justifyContent="center" sx={{ width: 1, minWidth: 0 }}>
+            <Box
+              aria-hidden
+              component="svg"
+              viewBox="0 0 360 200"
+              preserveAspectRatio="none"
+              sx={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: -20,
+                width: 'calc(100% + 20px)',
+                height: 1,
+                pointerEvents: 'none',
+                filter: 'drop-shadow(0 10px 22px rgba(0, 0, 0, 0.2))',
+              }}
+            >
+              <path
+                d="M 68 8
+                   H 336
+                   Q 356 8 356 28
+                   V 172
+                   Q 356 192 336 192
+                   H 68
+                   Q 48 192 48 172
+                   V 78
+                   L 8 54
+                   L 48 30
+                   V 28
+                   Q 48 8 68 8
+                   Z"
+                fill="rgba(10, 10, 10, 0.34)"
+                stroke="rgba(255, 248, 240, 0.75)"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </Box>
+
+            <Stack
+              spacing={1.25}
+              justifyContent="center"
+              sx={{
+                position: 'relative',
+                zIndex: 1,
+                width: 1,
+                minWidth: 0,
+                // Keep content inside the rectangle body (clear of the left tip)
+                pl: { xs: 5.5, md: 6 },
+                pr: { xs: 1.95, md: 2.5 },
+                py: { xs: 2.75, md: 3.2 },
+              }}
+            >
               <Typography
                 sx={{
-                  color: 'info.light',
-                  fontWeight: 700,
-                  letterSpacing: 0.4,
-                  textTransform: 'uppercase',
+                  fontFamily: SETUP_COMMENT_HANDWRITING_FONT,
+                  fontSize: { xs: '1.12rem', md: '1.28rem' },
+                  fontWeight: 500,
+                  color: 'rgba(255, 248, 240, 0.92)',
+                  lineHeight: 1.35,
+                  letterSpacing: 0.2,
+                  textShadow: '0 1px 8px rgba(0, 0, 0, 0.25)',
                 }}
               >
-                Getting started
+                {SETUP_COMMENT_TEXT}
               </Typography>
-
-              {ownerSetupComments.map((comment) => (
-                <Typography
-                  key={comment}
-                  sx={{
-                    fontFamily: SETUP_COMMENT_HANDWRITING_FONT,
-                    fontSize: { xs: '1.05rem', md: '1.22rem' },
-                    fontWeight: 400,
-                    color: 'rgba(255, 248, 240, 0.88)',
-                    lineHeight: 1.35,
-                    letterSpacing: 0.15,
-                    textShadow: '0 1px 8px rgba(0, 0, 0, 0.25)',
-                  }}
-                >
-                  {comment}
-                </Typography>
-              ))}
 
               <Button
                 component={RouterLink}
                 href={paths.dashboard.homeSpace.guestArea}
                 size="small"
                 variant="contained"
-                sx={{ alignSelf: 'flex-start', borderRadius: 99, mt: 0.25 }}
+                sx={{ alignSelf: 'flex-end', borderRadius: 99 }}
               >
-                Set up Welcome Guest Area
+                Go to My Universe
               </Button>
             </Stack>
-          </Card>
+          </Box>
         ) : null}
         </Stack>
 

@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { useRef, useMemo, useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 
 import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
@@ -61,9 +62,10 @@ import {
 
 import {
   COFFEE_SHOP_MOBILE_PANEL_EVENT,
+  bumpCoffeeShopChatUnread,
+  clearCoffeeShopChatUnread,
   closeCoffeeShopMobilePanel,
   coffeeShopMobileChatFormBoxSx,
-  coffeeShopMobileFabSx,
   type CoffeeShopMobilePanel,
 } from './coffee-shop-mobile-panels';
 
@@ -332,6 +334,7 @@ export function UniverseCoffeeShopChat({
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<CoffeeShopChatMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [draft, setDraft] = useState('');
   const [guestName, setGuestName] = useState('');
   const [sending, setSending] = useState(false);
@@ -350,6 +353,8 @@ export function UniverseCoffeeShopChat({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const seenIds = useRef<Set<string>>(new Set());
   const sendInFlightRef = useRef(false);
+  const openRef = useRef(open);
+  openRef.current = open;
   const onParticipantJoinRef = useRef(onParticipantJoin);
   onParticipantJoinRef.current = onParticipantJoin;
   const participantsRef = useRef<CoffeeShopChatParticipant[]>([]);
@@ -407,6 +412,12 @@ export function UniverseCoffeeShopChat({
       setOpen(false);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!open) return;
+    setUnreadCount(0);
+    clearCoffeeShopChatUnread();
+  }, [open]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -600,6 +611,10 @@ export function UniverseCoffeeShopChat({
       const isOwnMessage = Boolean(authorId && currentUserId && authorId === currentUserId);
       if (!isOwnMessage) {
         playChatNotificationSound();
+        if (!openRef.current) {
+          setUnreadCount((prev) => prev + 1);
+          bumpCoffeeShopChatUnread();
+        }
       }
 
       if (authorId) {
@@ -1086,25 +1101,6 @@ export function UniverseCoffeeShopChat({
     return null;
   }
 
-  if (!isMobile && !open) {
-    return createPortal(
-      <Box
-        sx={{
-          position: 'fixed',
-          right: 24,
-          bottom: 24,
-          zIndex: (tm) => tm.zIndex.snackbar,
-          pointerEvents: 'auto',
-        }}
-      >
-        <IconButton onClick={() => setOpen(true)} aria-label="Open chat" sx={coffeeShopMobileFabSx}>
-          <Iconify icon="solar:chat-round-dots-bold" width={22} />
-        </IconButton>
-      </Box>,
-      portalTarget,
-    );
-  }
-
   const panel = (
     <Box
       sx={{
@@ -1149,7 +1145,24 @@ export function UniverseCoffeeShopChat({
             onClick={isMobile ? undefined : () => setOpen((v) => !v)}
             sx={{ minWidth: 0, flex: 1 }}
           >
-            <Iconify icon="solar:chat-round-dots-bold" width={22} sx={{ color: 'common.white', flexShrink: 0 }} />
+            <Badge
+              color="error"
+              badgeContent={unreadCount}
+              max={99}
+              invisible={unreadCount <= 0 || open}
+              overlap="circular"
+              sx={{
+                flexShrink: 0,
+                '& .MuiBadge-badge': {
+                  fontWeight: 700,
+                  minWidth: 18,
+                  height: 18,
+                  fontSize: '0.7rem',
+                },
+              }}
+            >
+              <Iconify icon="solar:chat-round-dots-bold" width={22} sx={{ color: 'common.white' }} />
+            </Badge>
             <Typography variant="subtitle2" noWrap sx={{ color: 'common.white', minWidth: 0 }}>
               {chatModeTitle}
             </Typography>

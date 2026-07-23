@@ -6,6 +6,7 @@ import Pusher from 'pusher-js';
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -17,6 +18,7 @@ import { useTheme } from '@mui/material/styles';
 
 import { CONFIG } from 'src/config-global';
 import { formatCoffeeShopChatSentAt } from 'src/utils/format-time';
+import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
 
 import {
   fetchCinemaChat,
@@ -163,12 +165,15 @@ export function UniverseCinemaChat({
 
   const [open, setOpen] = useState(!isMobile);
   const [messages, setMessages] = useState<CinemaChatMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const seenIds = useRef<Set<string>>(new Set());
+  const openRef = useRef(open);
+  openRef.current = open;
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
 
@@ -186,6 +191,12 @@ export function UniverseCinemaChat({
   useEffect(() => {
     setOpen(!isMobile);
   }, [isMobile]);
+
+  useEffect(() => {
+    if (open) {
+      setUnreadCount(0);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!authenticated || !ownerCustomerId || !category) {
@@ -269,6 +280,16 @@ export function UniverseCinemaChat({
       seenIds.current.add(payload.id);
       const authorAvatar = resolveMessageAvatar(payload, participantsRef.current, user);
       setMessages((prev) => [...prev, { ...payload, authorAvatar }]);
+
+      const authorId = payload.userId?.trim().toLowerCase();
+      const currentUserId = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+      const isOwnMessage = Boolean(authorId && currentUserId && authorId === currentUserId);
+      if (!isOwnMessage) {
+        playChatNotificationSound();
+        if (!openRef.current) {
+          setUnreadCount((prev) => prev + 1);
+        }
+      }
     });
 
     channel.bind(CINEMA_PARTICIPANT_JOINED_EVENT, (payload: CinemaChatParticipant) => {
@@ -514,7 +535,15 @@ export function UniverseCinemaChat({
               : undefined),
           }}
         >
-          <Iconify icon="solar:chat-round-dots-bold" width={22} />
+          <Badge
+            color="error"
+            badgeContent={unreadCount}
+            max={99}
+            invisible={unreadCount <= 0 || open}
+            overlap="circular"
+          >
+            <Iconify icon="solar:chat-round-dots-bold" width={22} />
+          </Badge>
         </IconButton>
       </Stack>
     </Box>
