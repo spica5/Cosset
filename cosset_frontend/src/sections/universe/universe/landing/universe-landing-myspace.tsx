@@ -14,6 +14,8 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
+import { paths } from 'src/routes/paths';
+
 import { Iconify } from 'src/components/universe/iconify';
 
 import {
@@ -25,6 +27,7 @@ import {
 
 import { MySpaceCountBadge } from './myspace-section-title';
 import { DesignSpaceThemeProvider, useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 import {
   getMyspaceSectionImageFallbackUrl,
   getMyspaceSectionImageUrl,
@@ -110,6 +113,7 @@ type Props = {
   customerName: string;
   customerAvatarUrl?: string;
   designType?: DesignSpaceType;
+  isOwner?: boolean;
   sections: Partial<Record<MySpaceSectionId, ReactNode>>;
   sectionCounts?: Partial<Record<MySpaceSectionId, number>>;
 };
@@ -431,6 +435,7 @@ export function UniverseLandingMySpace({
   customerAvatarUrl,
   designType = DEFAULT_DESIGN_SPACE_TYPE,
   sectionCounts,
+  isOwner = false,
 }: Props) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
@@ -444,6 +449,7 @@ export function UniverseLandingMySpace({
         customerName={customerName}
         customerAvatarUrl={customerAvatarUrl}
         sectionCounts={sectionCounts}
+        isOwner={isOwner}
         isDesktop={isDesktop}
         mobileNavOpen={mobileNavOpen}
         setMobileNavOpen={setMobileNavOpen}
@@ -458,6 +464,7 @@ function UniverseLandingMySpaceContent({
   customerName,
   customerAvatarUrl,
   sectionCounts,
+  isOwner = false,
   isDesktop,
   mobileNavOpen,
   setMobileNavOpen,
@@ -625,9 +632,18 @@ function UniverseLandingMySpaceContent({
 
           <Box key={activeSection} sx={{ pt: header ? 0 : { xs: 0, lg: 1 } }}>
             {activeContent ?? (
-              <Typography color="text.secondary" sx={{ py: 4 }}>
-                No content available for this section.
-              </Typography>
+              <UniverseLandingSectionEmpty
+                icon="solar:widget-bold"
+                title={isOwner ? 'This section is ready for content' : 'No content available'}
+                comment={
+                  isOwner
+                    ? 'Add and share items for this section from My Universe and Things to Share so guests can see them here.'
+                    : 'This Cosset guest has not shared content for this section yet.'
+                }
+                actionHref={isOwner ? paths.dashboard.homeSpace.thingsToShare : undefined}
+                actionLabel={isOwner ? 'Manage sharing' : undefined}
+                accentColor={spaceTheme.accent}
+              />
             )}
           </Box>
         </Box>

@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -17,6 +18,7 @@ import {
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 
 // ----------------------------------------------------------------------
 
@@ -34,6 +36,7 @@ type Props = BoxProps & {
   items?: DrawerSharedItem[];
   loading?: boolean;
   viewAllHref?: string;
+  isOwner?: boolean;
 };
 
 const DRAWER_CARD_THEMES: Record<
@@ -200,6 +203,7 @@ export function UniverseLandingDrawer({
   items = [],
   loading = false,
   viewAllHref,
+  isOwner = false,
   sx,
   ...other
 }: Props) {
@@ -255,7 +259,18 @@ export function UniverseLandingDrawer({
         {loading ? (
           <Typography color="text.secondary">Loading drawer items...</Typography>
         ) : items.length === 0 ? (
-          <Typography color="text.secondary">No shared drawer items found.</Typography>
+          <UniverseLandingSectionEmpty
+            icon="solar:box-bold"
+            title={isOwner ? 'Your drawer space is ready' : 'No shared drawer items yet'}
+            comment={
+              isOwner
+                ? 'Add gifts, letters, and memos in Drawer, then share them from Things to Share so they appear here.'
+                : 'This Cosset guest has not shared any drawer items yet. Check back soon.'
+            }
+            actionHref={isOwner ? paths.dashboard.homeSpace.thingsToShare : undefined}
+            actionLabel={isOwner ? 'Manage sharing' : undefined}
+            accentColor={spaceTheme.accent}
+          />
         ) : (
           <Box sx={myspaceItemGridSx}>
             {items.map((item) => (

@@ -22,6 +22,7 @@ import {
 } from './myspace-section-title';
 import { useDesignSpaceTheme } from './design-space-theme-context';
 import { myspaceItemCardSx, myspaceItemGridSx } from './myspace-item-layout';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 
 // ----------------------------------------------------------------------
 
@@ -29,6 +30,7 @@ type Props = BoxProps & {
   customerId: string;
   collections: ICollectionItem[];
   viewAllHref?: string;
+  isOwner?: boolean;
 };
 
 const COLLECTION_CARD_THEMES = [
@@ -172,7 +174,7 @@ function UniverseCollectionItemsCard({
           <Stack direction="row" spacing={0.75} alignItems="center">
             <Iconify icon="solar:forbidden-circle-linear" width={14} sx={{ color: 'text.secondary' }} />
             <Typography variant="body2" color="text.secondary">
-              No public items in this collection.
+              No public items in this collection yet. Mark items as public so they show on Home Space.
             </Typography>
           </Stack>
         ) : null}
@@ -271,6 +273,7 @@ export function UniverseLandingCollectionItems({
   customerId,
   collections,
   viewAllHref,
+  isOwner = false,
   sx,
   ...other
 }: Props) {
@@ -326,7 +329,18 @@ export function UniverseLandingCollectionItems({
         </Stack>
 
         {collections.length === 0 ? (
-          <Typography color="text.secondary">No shared collections found.</Typography>
+          <UniverseLandingSectionEmpty
+            icon="solar:widget-4-bold"
+            title={isOwner ? 'Your collections space is ready' : 'No shared collections yet'}
+            comment={
+              isOwner
+                ? 'Create collections and add public items so guests can explore your favorites here on Home Space.'
+                : 'This Cosset guest has not shared any collections yet. Check back soon.'
+            }
+            actionHref={isOwner ? paths.dashboard.collections.manage : undefined}
+            actionLabel={isOwner ? 'Manage collections' : undefined}
+            accentColor={spaceTheme.accent}
+          />
         ) : (
           <Box sx={myspaceItemGridSx}>
             {collections.map((collection) => (

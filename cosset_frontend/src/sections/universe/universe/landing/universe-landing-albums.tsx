@@ -28,6 +28,7 @@ import {
 } from './myspace-section-title';
 import { myspaceItemCardSx, myspaceItemGridSx, getMyspacePaginationSx } from './myspace-item-layout';
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 
 // ----------------------------------------------------------------------
 
@@ -427,9 +428,22 @@ export function UniverseLandingAlbums({
         {albumsLoading ? (
           <Typography color="text.secondary">Loading albums...</Typography>
         ) : filteredAlbums.length === 0 ? (
-          <Typography color="text.secondary">
-            {searchQuery.trim() ? 'No albums match your search.' : 'No shared albums found.'}
-          </Typography>
+          searchQuery.trim() ? (
+            <Typography color="text.secondary">No albums match your search.</Typography>
+          ) : (
+            <UniverseLandingSectionEmpty
+              icon="solar:album-bold"
+              title={isOwner ? 'Your album space is ready' : 'No shared albums yet'}
+              comment={
+                isOwner
+                  ? 'Create albums with photos, then share them from Things to Share so they appear here on your Home Space.'
+                  : 'This Cosset guest has not shared any albums yet. Check back soon.'
+              }
+              actionHref={isOwner ? paths.dashboard.album.new : undefined}
+              actionLabel={isOwner ? 'Create an album' : undefined}
+              accentColor={spaceTheme.accent}
+            />
+          )
         ) : (
           <>
             <Box sx={myspaceItemGridSx}>

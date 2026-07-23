@@ -39,6 +39,7 @@ import {
 } from './myspace-section-title';
 
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 
 import {
   MYSPACE_BLOG_GRID_COLUMNS,
@@ -538,9 +539,22 @@ export function UniverseLandingBlogs({
         {blogsLoading ? (
           <Typography color="text.secondary">Loading blogs...</Typography>
         ) : filteredBlogs.length === 0 ? (
-          <Typography color="text.secondary">
-            {searchQuery.trim() ? 'No blog posts match your search.' : 'No shared blog posts found.'}
-          </Typography>
+          searchQuery.trim() ? (
+            <Typography color="text.secondary">No blog posts match your search.</Typography>
+          ) : (
+            <UniverseLandingSectionEmpty
+              icon="solar:document-text-bold"
+              title={isOwner ? 'Your blog space is ready' : 'No shared blog posts yet'}
+              comment={
+                isOwner
+                  ? 'Write posts in Blog, then share them from Things to Share so they appear here on your Home Space.'
+                  : 'This Cosset guest has not shared any blog posts yet. Check back soon.'
+              }
+              actionHref={isOwner ? paths.dashboard.blog.new : undefined}
+              actionLabel={isOwner ? 'Write a post' : undefined}
+              accentColor={spaceTheme.accent}
+            />
+          )
         ) : (
           <>
             <Box

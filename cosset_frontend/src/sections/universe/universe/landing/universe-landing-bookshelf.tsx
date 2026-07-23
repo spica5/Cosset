@@ -814,19 +814,34 @@ export function UniverseLandingBookshelf({
               </Typography>
             </Stack>
           ) : filteredItems.length === 0 ? (
-            <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ py: 10, flex: 1 }}>
+            <Stack alignItems="center" justifyContent="center" spacing={1.25} sx={{ py: 10, flex: 1 }}>
               <Iconify icon="solar:book-2-bold" width={40} sx={{ color: layoutTheme.emptyIconColor }} />
               <Typography variant="subtitle1" sx={{ color: layoutTheme.emptyTitleColor, fontWeight: 700 }}>
-                {isSearching ? 'No books match your search' : 'No books in this shelf yet'}
+                {isSearching ? 'No books match your search' : 'Your bookshelf is ready'}
               </Typography>
               <Typography
                 variant="body2"
-                sx={{ color: layoutTheme.emptyBodyColor, maxWidth: 320, textAlign: 'center' }}
+                sx={{ color: layoutTheme.emptyBodyColor, maxWidth: 360, textAlign: 'center', lineHeight: 1.6 }}
               >
-                {isOwner
-                  ? 'Add a book with a cover image from your bookshelf dashboard.'
-                  : 'Check back soon for shared books.'}
+                {isSearching
+                  ? 'Try another title or author.'
+                  : isOwner
+                    ? 'Add ebooks or audiobooks with cover images in Bookshelf, then share them from Things to Share so they appear here on Home Space.'
+                    : 'This Cosset guest has not shared any books yet. Check back soon.'}
               </Typography>
+              {isOwner && !isSearching ? (
+                <Button
+                  component={RouterLink}
+                  href={paths.dashboard.bookshelf.root}
+                  size="small"
+                  variant="soft"
+                  color="primary"
+                  startIcon={<Iconify icon="mingcute:add-line" width={16} />}
+                  sx={{ mt: 0.5, borderRadius: 99 }}
+                >
+                  Open bookshelf
+                </Button>
+              ) : null}
             </Stack>
           ) : (
             <Stack

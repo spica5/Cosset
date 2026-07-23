@@ -31,6 +31,7 @@ import { Iconify } from 'src/components/universe/iconify';
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
 import { useDesignSpaceTheme } from './design-space-theme-context';
+import { UniverseLandingSectionEmpty } from './universe-landing-section-empty';
 import { UniverseLandingJourneyDiaryHome } from './universe-landing-journey-diary-home';
 import {
   MySpaceSectionTitle,
@@ -813,11 +814,22 @@ export function UniverseLandingJourneyDiary({
               {loading || isResolving ? (
                 <Typography color="text.secondary">Loading journey diary...</Typography>
               ) : filteredEntries.length === 0 ? (
-                <Typography color="text.secondary">
-                  {searchQuery.trim()
-                    ? 'No entries match your search.'
-                    : 'No shared journey diary items found.'}
-                </Typography>
+                searchQuery.trim() ? (
+                  <Typography color="text.secondary">No entries match your search.</Typography>
+                ) : (
+                  <UniverseLandingSectionEmpty
+                    icon="solar:map-point-wave-bold"
+                    title={isOwner ? 'Your journey diary is ready' : 'No shared journey items yet'}
+                    comment={
+                      isOwner
+                        ? 'Add trips, notes, and memorial things in Journey Diary, then share them from Things to Share so they appear here.'
+                        : 'This Cosset guest has not shared any journey diary items yet. Check back soon.'
+                    }
+                    actionHref={isOwner ? paths.dashboard.homeSpace.thingsToShare : undefined}
+                    actionLabel={isOwner ? 'Manage sharing' : undefined}
+                    accentColor={spaceTheme.accent}
+                  />
+                )
               ) : (
                 <>
                   <Box

@@ -22,6 +22,9 @@ import DialogContent from '@mui/material/DialogContent';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
+
 import {
   type DesignSpaceType,
   DEFAULT_DESIGN_SPACE_TYPE,
@@ -56,6 +59,7 @@ type Props = BoxProps & {
     avatarUrl: string;
   }[];
   designType?: DesignSpaceType;
+  isOwner?: boolean;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
 };
@@ -69,6 +73,7 @@ export function UniverseLandingHero({
   onRequestFriend,
   visitors = [],
   designType = DEFAULT_DESIGN_SPACE_TYPE,
+  isOwner = false,
   isFullScreen = false,
   onToggleFullScreen,
   sx,
@@ -314,6 +319,21 @@ export function UniverseLandingHero({
   const showMoodBar = Boolean(universe.mood?.trim());
   const showBackgroundControls = backgroundImages.length > 1;
   const showBottomMoodRow = showMoodBar || showBackgroundControls;
+  const showOwnerSetupComments =
+    isOwner &&
+    (!universe.motif?.trim() || !universe.mood?.trim() || !hasVisibleBackground);
+  const ownerSetupComments = [
+    !universe.motif?.trim()
+      ? 'Add a motif in Welcome Guest Area to greet visitors.'
+      : null,
+    !universe.mood?.trim()
+      ? 'Set your mood in Welcome Guest Area so it appears on this page.'
+      : null,
+    !hasVisibleBackground
+      ? 'Upload Design Space images to set your Home Space background.'
+      : null,
+    '(You can set them on the My Universe/Design Space page.)'
+  ].filter(Boolean) as string[];
 
   if (!universe) {
     return null;
@@ -403,21 +423,31 @@ export function UniverseLandingHero({
           </Box>
         ) : null}
 
-        <Card
+        <Stack
+          direction="row"
+          spacing={{ xs: 1, md: 1.5 }}
+          alignItems="stretch"
           sx={{
+            position: 'absolute',
             top: {
               xs: showTopMenu ? 12 : 12,
               md: showTopMenu ? 25 : 25,
             },
             left: { xs: 12, md: 30 },
-            right: { xs: 'auto', md: 'auto' },
+            right: { xs: 12, md: 'auto' },
             zIndex: 10,
+            maxWidth: { xs: 'calc(100% - 24px)', md: 'min(720px, calc(100% - 60px))' },
+          }}
+        >
+        <Card
+          sx={{
             px: { xs: 0.5, md: 1.5 },
             py: { xs: 0.5, md: 1.25 },
             width: { xs: 'auto', md: 'auto' },
             minWidth: { xs: 0, md: 220 },
-            maxWidth: { xs: 'none', md: 260 },
-            position: 'absolute',
+            maxWidth: { xs: showOwnerSetupComments ? 180 : 'none', md: 260 },
+            flexShrink: 0,
+            position: 'relative',
             bgcolor: varAlpha(commonVars.blackChannel, 0.5),
             border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
             color: 'common.white',
@@ -587,6 +617,62 @@ export function UniverseLandingHero({
             </Stack>
           </Stack>
         </Card>
+
+        {showOwnerSetupComments ? (
+          <Card
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: { xs: 1, md: 380 },
+              px: { xs: 1.25, md: 2 },
+              py: { xs: 1, md: 1.5 },
+              display: 'flex',
+              bgcolor: varAlpha(commonVars.blackChannel, 0.5),
+              border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.2)}`,
+              color: 'common.white',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <Stack spacing={1} justifyContent="center" sx={{ width: 1, minWidth: 0 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'info.light',
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Getting started
+              </Typography>
+
+              {ownerSetupComments.map((comment) => (
+                <Typography
+                  key={comment}
+                  variant="body2"
+                  sx={{
+                    color: varAlpha(commonVars.whiteChannel, 0.88),
+                    lineHeight: 1.5,
+                    fontStyle: 'italic',
+                  }}
+                >
+                  {comment}
+                </Typography>
+              ))}
+
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.homeSpace.guestArea}
+                size="small"
+                variant="contained"
+                sx={{ alignSelf: 'flex-start', borderRadius: 99, mt: 0.25 }}
+              >
+                Set up Welcome Guest Area
+              </Button>
+            </Stack>
+          </Card>
+        ) : null}
+        </Stack>
 
         {showBottomMoodRow ? (
           <Box

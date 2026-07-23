@@ -904,6 +904,7 @@ export function UniverseLandingView({
         canRequestFriend={canRequestFriend}
         requestingFriend={requestingFriend}
         onRequestFriend={handleRequestFriend}
+        isOwner={isCurrentCustomer}
         customer={{
           id: customerId,
           name: customerName,
@@ -917,6 +918,7 @@ export function UniverseLandingView({
         customerName={customerName}
         customerAvatarUrl={customerAvatarUrl}
         designType={designSpaceType}
+        isOwner={isCurrentCustomer}
         sectionCounts={mySpaceSectionCounts}
         sections={{
           ...(allowVisitorSections
@@ -943,6 +945,7 @@ export function UniverseLandingView({
                   <UniverseLandingDrawer
                     items={sharedDrawerItems}
                     loading={drawerLoading}
+                    isOwner={isCurrentCustomer}
                     viewAllHref={
                       isCurrentCustomer ? paths.dashboard.drawer.root : undefined
                     }
@@ -952,6 +955,7 @@ export function UniverseLandingView({
                   <UniverseLandingCollectionItems
                     customerId={customerId}
                     collections={sharedCollections}
+                    isOwner={isCurrentCustomer}
                     viewAllHref={
                       isCurrentCustomer ? paths.dashboard.collections.root : undefined
                     }
