@@ -20,6 +20,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import { IMAGE_VIDEO_ACCEPT, isImageOrVideoFile, isVideoFile, isVideoMediaPath } from 'src/utils/media-file';
+
 import { MEMORIAL_THING_CATEGORIES } from './memorial-things-categories';
 
 import type { JourneyTimelineEntry } from './my-journey-utils';
@@ -81,10 +83,10 @@ export function JourneyDiaryMemorialThingFormDialog({
       return;
     }
 
-    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    const mediaFiles = files.filter((file) => isImageOrVideoFile(file));
 
-    if (imageFiles.length) {
-      onImagesSelect(imageFiles);
+    if (mediaFiles.length) {
+      onImagesSelect(mediaFiles);
     }
   };
 
@@ -144,13 +146,13 @@ export function JourneyDiaryMemorialThingFormDialog({
 
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Upload images
+              Upload images or videos
             </Typography>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={IMAGE_VIDEO_ACCEPT}
               multiple
               hidden
               onChange={handleFileChange}
@@ -162,7 +164,7 @@ export function JourneyDiaryMemorialThingFormDialog({
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
             >
-              Choose images
+              Choose files
             </Button>
 
             {formImages.length ? (
@@ -177,7 +179,12 @@ export function JourneyDiaryMemorialThingFormDialog({
                   gap: 1.25,
                 }}
               >
-                {formImages.map((image) => (
+                {formImages.map((image) => {
+                  const isVideo =
+                    (image.file ? isVideoFile(image.file) : false) ||
+                    isVideoMediaPath(image.imageKey || image.previewUrl);
+
+                  return (
                   <Box
                     key={image.clientId}
                     sx={{
@@ -187,17 +194,34 @@ export function JourneyDiaryMemorialThingFormDialog({
                       border: JOURNEY_CONTENT_BORDER,
                     }}
                   >
-                    <Box
-                      component="img"
-                      src={image.previewUrl}
-                      alt="Memorial thing preview"
-                      sx={{
-                        width: 1,
-                        height: 120,
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                    />
+                    {isVideo ? (
+                      <Box
+                        component="video"
+                        src={image.previewUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        sx={{
+                          width: 1,
+                          height: 120,
+                          objectFit: 'cover',
+                          display: 'block',
+                          bgcolor: 'common.black',
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        component="img"
+                        src={image.previewUrl}
+                        alt="Memorial thing preview"
+                        sx={{
+                          width: 1,
+                          height: 120,
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    )}
                     <IconButton
                       size="small"
                       onClick={() => onRemoveImage(image.clientId)}
@@ -210,16 +234,17 @@ export function JourneyDiaryMemorialThingFormDialog({
                         boxShadow: 1,
                         '&:hover': { bgcolor: 'common.white' },
                       }}
-                      aria-label="Remove image"
+                      aria-label="Remove media"
                     >
                       <Iconify icon="mingcute:close-line" width={16} />
                     </IconButton>
                   </Box>
-                ))}
+                  );
+                })}
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Upload one or more photos for this memorial item.
+                Upload one or more photos or videos for this memorial item.
               </Typography>
             )}
 
@@ -227,7 +252,7 @@ export function JourneyDiaryMemorialThingFormDialog({
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
                 <CircularProgress size={18} />
                 <Typography variant="body2" color="text.secondary">
-                  Uploading images...
+                  Uploading media...
                 </Typography>
               </Stack>
             ) : null}

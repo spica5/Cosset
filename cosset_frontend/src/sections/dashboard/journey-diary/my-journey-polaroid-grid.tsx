@@ -16,6 +16,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/dashboard/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import {
   JourneyDiaryPublicControl,
 } from './journey-diary-public-toggle';
@@ -140,20 +142,39 @@ function PolaroidCard({
           }}
         >
           {showImage ? (
-            <Box
-              component="img"
-              src={item.imageUrl}
-              alt={item.title}
-              loading="lazy"
-              onClick={() => onPreview?.(item)}
-              sx={{
-                width: 1,
-                height: 1,
-                objectFit: 'cover',
-                display: 'block',
-                cursor: 'zoom-in',
-              }}
-            />
+            isVideoMediaPath(item.imageUrl) ? (
+              <Box
+                component="video"
+                src={item.imageUrl}
+                muted
+                playsInline
+                preload="metadata"
+                controls
+                onClick={() => onPreview?.(item)}
+                sx={{
+                  width: 1,
+                  height: 1,
+                  objectFit: 'cover',
+                  display: 'block',
+                  bgcolor: 'common.black',
+                }}
+              />
+            ) : (
+              <Box
+                component="img"
+                src={item.imageUrl}
+                alt={item.title}
+                loading="lazy"
+                onClick={() => onPreview?.(item)}
+                sx={{
+                  width: 1,
+                  height: 1,
+                  objectFit: 'cover',
+                  display: 'block',
+                  cursor: 'zoom-in',
+                }}
+              />
+            )
           ) : (
             <Stack
               alignItems="center"
@@ -344,7 +365,7 @@ function AddPhotoCard({ onClick, loading }: { onClick?: () => void; loading?: bo
             <>
               <Iconify icon="mingcute:add-line" width={32} sx={{ color: '#1F2A44', mb: 0.75 }} />
               <Typography variant="caption" sx={{ color: '#1F2A44', fontWeight: 600 }}>
-                Add photo
+                Add photo or video
               </Typography>
             </>
           )}
@@ -548,19 +569,35 @@ export function MyJourneyPolaroidGrid({
       >
         {previewItem ? (
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-            <Box
-              component="img"
-              src={previewItem.imageUrl}
-              alt={previewItem.title}
-              onClick={() => setPreviewItem(null)}
-              sx={{
-                maxWidth: '90vw',
-                maxHeight: '90vh',
-                objectFit: 'contain',
-                borderRadius: 1,
-                cursor: 'zoom-out',
-              }}
-            />
+            {isVideoMediaPath(previewItem.imageUrl) ? (
+              <Box
+                component="video"
+                src={previewItem.imageUrl}
+                controls
+                playsInline
+                sx={{
+                  maxWidth: '90vw',
+                  maxHeight: '90vh',
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  bgcolor: 'common.black',
+                }}
+              />
+            ) : (
+              <Box
+                component="img"
+                src={previewItem.imageUrl}
+                alt={previewItem.title}
+                onClick={() => setPreviewItem(null)}
+                sx={{
+                  maxWidth: '90vw',
+                  maxHeight: '90vh',
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  cursor: 'zoom-out',
+                }}
+              />
+            )}
             <IconButton
               onClick={() => setPreviewItem(null)}
               sx={{

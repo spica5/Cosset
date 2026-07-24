@@ -21,6 +21,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import { isImageOrVideoFile, isVideoFile, isVideoMediaPath } from 'src/utils/media-file';
 
 import { uploadFileToS3 } from 'src/actions/upload';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -221,19 +222,35 @@ function MemorialThingImagePreviewDialog({
     >
       {preview && currentUrl ? (
         <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-          <Box
-            component="img"
-            src={currentUrl}
-            alt={preview.alt}
-            onClick={onClose}
-            sx={{
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              objectFit: 'contain',
-              borderRadius: 1,
-              cursor: 'zoom-out',
-            }}
-          />
+          {isVideoMediaPath(currentUrl) ? (
+            <Box
+              component="video"
+              src={currentUrl}
+              controls
+              playsInline
+              sx={{
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+                borderRadius: 1,
+                bgcolor: 'common.black',
+              }}
+            />
+          ) : (
+            <Box
+              component="img"
+              src={currentUrl}
+              alt={preview.alt}
+              onClick={onClose}
+              sx={{
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+                borderRadius: 1,
+                cursor: 'zoom-out',
+              }}
+            />
+          )}
 
           <IconButton
             onClick={onClose}
@@ -545,14 +562,14 @@ export function MemorialThingsView() {
   }, []);
 
   const handleImagesSelect = useCallback((files: File[]) => {
-    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    const mediaFiles = files.filter((file) => isImageOrVideoFile(file));
 
-    if (!imageFiles.length) {
-      toast.error('Please choose image files.');
+    if (!mediaFiles.length) {
+      toast.error('Please choose image or video files.');
       return;
     }
 
-    const drafts = imageFiles.map((file) => ({
+    const drafts = mediaFiles.map((file) => ({
       clientId: createImageDraftId(),
       previewUrl: URL.createObjectURL(file),
       file,
@@ -588,8 +605,10 @@ export function MemorialThingsView() {
         await Promise.all(
           formImages.map(async (image) => {
             if (image.file) {
-              const extension = image.file.name.split('.').pop() || 'jpg';
-              const key = `dashboard/journey-diary/${userId}/memorial-things/${selectedEntry.id}/${Date.now()}-${image.clientId}.${extension}`;
+              const extension =
+                image.file.name.split('.').pop() || (isVideoFile(image.file) ? 'mp4' : 'jpg');
+              const folder = isVideoFile(image.file) ? 'videos' : 'images';
+              const key = `dashboard/journey-diary/${userId}/memorial-things/${selectedEntry.id}/${folder}/${Date.now()}-${image.clientId}.${extension}`;
               const result = await uploadFileToS3({ file: image.file, key });
               return result.key;
             }
@@ -962,8 +981,11 @@ export function MemorialThingsView() {
                             {imageUrls.map((imageUrl, index) => (
                               <Box
                                 key={`${item.id}-${index}`}
-                                component="img"
+                                component={isVideoMediaPath(imageUrl) ? 'video' : 'img'}
                                 src={imageUrl}
+                                muted={isVideoMediaPath(imageUrl) ? true : undefined}
+                                playsInline={isVideoMediaPath(imageUrl) ? true : undefined}
+                                preload={isVideoMediaPath(imageUrl) ? 'metadata' : undefined}
                                 alt={`${item.title} ${index + 1}`}
                                 onClick={() =>
                                   setPreviewImage({
@@ -977,8 +999,8 @@ export function MemorialThingsView() {
                                   width: imageUrls.length === 1 ? 1 : 140,
                                   height: 1,
                                   objectFit: 'cover',
-                                  display: 'block',
                                   cursor: 'zoom-in',
+                                  bgcolor: 'common.black',
                                 }}
                               />
                             ))}

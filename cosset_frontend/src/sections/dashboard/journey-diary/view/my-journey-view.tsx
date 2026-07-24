@@ -17,6 +17,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import { IMAGE_VIDEO_ACCEPT, isImageOrVideoFile, isVideoFile } from 'src/utils/media-file';
 
 import { uploadFileToS3 } from 'src/actions/upload';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -306,16 +307,17 @@ export function MyJourneyView() {
         return;
       }
 
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please choose an image file.');
+      if (!isImageOrVideoFile(file)) {
+        toast.error('Please choose an image or video file.');
         return;
       }
 
       setAddingPhoto(true);
 
       try {
-        const extension = file.name.split('.').pop() || 'jpg';
-        const key = `dashboard/journey-diary/${userId}/pictures/${selectedEntry.id}/${Date.now()}.${extension}`;
+        const extension = file.name.split('.').pop() || (isVideoFile(file) ? 'mp4' : 'jpg');
+        const folder = isVideoFile(file) ? 'videos' : 'pictures';
+        const key = `dashboard/journey-diary/${userId}/${folder}/${selectedEntry.id}/${Date.now()}.${extension}`;
         const result = await uploadFileToS3({ file, key });
 
         const captionBase = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
@@ -332,10 +334,10 @@ export function MyJourneyView() {
           visitedAt: toVisitedAtIso(toDateInputValue(new Date())),
         });
 
-        toast.success('Photo added successfully.');
+        toast.success(isVideoFile(file) ? 'Video added successfully.' : 'Photo added successfully.');
       } catch (error) {
-        console.error('Failed to upload journey photo:', error);
-        toast.error('Failed to upload photo.');
+        console.error('Failed to upload journey media:', error);
+        toast.error('Failed to upload media.');
       } finally {
         setAddingPhoto(false);
       }
@@ -480,7 +482,13 @@ export function MyJourneyView() {
 
   return (
     <DashboardContent maxWidth={false} disablePadding>
-      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAddPhoto} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={IMAGE_VIDEO_ACCEPT}
+        hidden
+        onChange={handleAddPhoto}
+      />
 
       <Box
         sx={{

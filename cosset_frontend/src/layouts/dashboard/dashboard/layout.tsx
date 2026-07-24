@@ -16,6 +16,7 @@ import { useGetCollections } from 'src/actions/collection';
 import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetPostUnreadCount } from 'src/actions/post';
 import { useGetNotifications } from 'src/actions/notification';
+import { useGetMyBrandStore } from 'src/actions/brand-store';
 import { useAuthContext } from 'src/auth/hooks';
 import {
   isUserAdmin,
@@ -85,6 +86,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const router = useRouter();
   const { user } = useAuthContext();
   const isBusinessAccount = isUserBusiness(user?.role) && !isUserAdmin(user?.role);
+  const { store: myBrandStore } = useGetMyBrandStore(isBusinessAccount);
 
   const isSceneHeaderPage =
     pathname?.includes('/community/coffee-shop') ||
@@ -143,9 +145,20 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
   const navData = useMemo<NavSectionProps['data']>(() => {
     if (isBusinessAccount) {
+      const shopHomePath = myBrandStore?.id
+        ? paths.dashboard.community.brandsBoulevard.store(myBrandStore.id)
+        : paths.dashboard.community.brandsBoulevard.myStore;
+
       return businessNavData.map((group) => ({
         ...group,
         items: group.items.map((item) => {
+          if (item.title === 'Home page') {
+            return {
+              ...item,
+              path: shopHomePath,
+            };
+          }
+
           if (item.title === 'Post') {
             return {
               ...item,
@@ -239,6 +252,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
     data?.nav,
     isBusinessAccount,
     mailUnreadCount,
+    myBrandStore?.id,
     postUnreadCount,
     user?.role,
   ]);

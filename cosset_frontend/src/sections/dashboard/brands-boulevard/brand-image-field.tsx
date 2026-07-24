@@ -1,5 +1,7 @@
 'use client';
 
+import type { Slide } from 'yet-another-react-lightbox';
+
 import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
@@ -9,6 +11,12 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import {
+  IMAGE_VIDEO_ACCEPT,
+  getVideoMimeType,
+  isImageOrVideoFile,
+  isVideoMediaPath,
+} from 'src/utils/media-file';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
@@ -24,7 +32,7 @@ function isDirectUrl(value: string) {
   );
 }
 
-async function resolveImageUrl(value?: string | null) {
+async function resolveMediaUrl(value?: string | null) {
   const raw = String(value || '').trim();
   if (!raw) return '';
 
@@ -33,6 +41,81 @@ async function resolveImageUrl(value?: string | null) {
   }
 
   return (await getS3SignedUrl(raw.replace(/^public:/, ''))) || '';
+}
+
+function MediaPreview({
+  url,
+  alt,
+  height,
+  onClick,
+  objectFit = 'cover',
+}: {
+  url: string;
+  alt: string;
+  height: number | string;
+  onClick?: () => void;
+  objectFit?: 'cover' | 'contain';
+}) {
+  const isVideo = isVideoMediaPath(url);
+
+  if (isVideo) {
+    return (
+      <Box
+        component="video"
+        src={url}
+        muted
+        playsInline
+        preload="metadata"
+        controls
+        onClick={onClick}
+        sx={{
+          width: 1,
+          height,
+          objectFit,
+          display: 'block',
+          bgcolor: 'common.black',
+          cursor: onClick ? 'pointer' : 'default',
+        }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      component="img"
+      src={url}
+      alt={alt}
+      onClick={onClick}
+      sx={{
+        width: 1,
+        height,
+        objectFit,
+        display: 'block',
+        cursor: onClick ? 'zoom-in' : 'default',
+      }}
+    />
+  );
+}
+
+function buildLightboxSlides(values: string[], urls: string[]): Slide[] {
+  return urls
+    .map((url, index) => {
+      if (!url) return null;
+      const key = values[index] || url;
+
+      if (isVideoMediaPath(key) || isVideoMediaPath(url)) {
+        return {
+          type: 'video' as const,
+          width: 1280,
+          height: 720,
+          poster: url,
+          sources: [{ src: url, type: getVideoMimeType(key) }],
+        };
+      }
+
+      return { src: url };
+    })
+    .filter(Boolean) as Slide[];
 }
 
 type SingleProps = {
@@ -61,7 +144,7 @@ export function BrandImageField({
   useEffect(() => {
     let mounted = true;
 
-    resolveImageUrl(value).then((url) => {
+    resolveMediaUrl(value).then((url) => {
       if (mounted) setPreviewUrl(url);
     });
 
@@ -76,14 +159,18 @@ export function BrandImageField({
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
         <Button variant="outlined" component="label" disabled={disabled || uploading}>
-          {uploading ? 'Uploading…' : value ? 'Replace image' : 'Upload image'}
+          {uploading ? 'Uploading…' : value ? 'Replace media' : 'Upload image or video'}
           <input
             hidden
             type="file"
-            accept="image/*"
+            accept={IMAGE_VIDEO_ACCEPT}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
+                if (!isImageOrVideoFile(file)) {
+                  event.target.value = '';
+                  return;
+                }
                 Promise.resolve(onUpload(file)).catch(() => undefined);
               }
               event.target.value = '';
@@ -112,20 +199,19 @@ export function BrandImageField({
 
       {previewUrl ? (
         <Box
-          component="img"
-          src={previewUrl}
-          alt={label}
           sx={{
             width: 1,
             maxWidth: 280,
             height: previewHeight,
-            objectFit: 'cover',
             borderRadius: 1.5,
+            overflow: 'hidden',
             border: '1px solid',
             borderColor: 'divider',
             bgcolor: 'background.neutral',
           }}
-        />
+        >
+          <MediaPreview url={previewUrl} alt={label} height={previewHeight} />
+        </Box>
       ) : null}
     </Stack>
   );
@@ -155,7 +241,7 @@ export function BrandMultiImageField({
   useEffect(() => {
     let mounted = true;
 
-    Promise.all(values.map((value) => resolveImageUrl(value))).then((urls) => {
+    Promise.all(values.map((value) => resolveMediaUrl(value))).then((urls) => {
       if (mounted) setPreviewUrls(urls);
     });
 
@@ -164,10 +250,16 @@ export function BrandMultiImageField({
     };
   }, [values]);
 
-  const slides = useMemo(
-    () => previewUrls.filter(Boolean).map((src) => ({ src })),
-    [previewUrls],
-  );
+  const slides = useMemo(() => {
+    const pairs = values
+      .map((value, index) => ({ value, url: previewUrls[index] || '' }))
+      .filter((item) => Boolean(item.url));
+
+    return buildLightboxSlides(
+      pairs.map((item) => item.value),
+      pairs.map((item) => item.url),
+    );
+  }, [previewUrls, values]);
   const lightbox = useLightBox(slides);
 
   return (
@@ -176,14 +268,16 @@ export function BrandMultiImageField({
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
         <Button variant="outlined" component="label" disabled={disabled || uploading}>
-          {uploading ? 'Uploading…' : 'Upload images'}
+          {uploading ? 'Uploading…' : 'Upload images or videos'}
           <input
             hidden
             type="file"
-            accept="image/*"
+            accept={IMAGE_VIDEO_ACCEPT}
             multiple
             onChange={(event) => {
-              const files = event.target.files ? Array.from(event.target.files) : [];
+              const files = event.target.files
+                ? Array.from(event.target.files).filter((file) => isImageOrVideoFile(file))
+                : [];
               if (files.length) {
                 Promise.resolve(onUpload(files)).catch(() => undefined);
               }
@@ -220,18 +314,11 @@ export function BrandMultiImageField({
                   bgcolor: 'background.neutral',
                 }}
               >
-                <Box
-                  component="img"
-                  src={url}
+                <MediaPreview
+                  url={url}
                   alt={`${label} ${index + 1}`}
+                  height={96}
                   onClick={() => lightbox.onOpen(url)}
-                  sx={{
-                    width: 1,
-                    height: 96,
-                    objectFit: 'cover',
-                    display: 'block',
-                    cursor: 'zoom-in',
-                  }}
                 />
                 <IconButton
                   size="small"
@@ -277,7 +364,7 @@ export function BrandImageThumbnail({ imageKey, alt, height = 140, onClick }: Th
   useEffect(() => {
     let mounted = true;
 
-    resolveImageUrl(imageKey).then((resolved) => {
+    resolveMediaUrl(imageKey).then((resolved) => {
       if (mounted) setUrl(resolved);
     });
 
@@ -292,19 +379,16 @@ export function BrandImageThumbnail({ imageKey, alt, height = 140, onClick }: Th
 
   return (
     <Box
-      component="img"
-      src={url}
-      alt={alt}
-      onClick={onClick}
       sx={{
         width: 1,
         height,
-        objectFit: 'cover',
         borderRadius: 1,
+        overflow: 'hidden',
         bgcolor: 'background.neutral',
-        cursor: onClick ? 'zoom-in' : 'default',
       }}
-    />
+    >
+      <MediaPreview url={url} alt={alt} height={height} onClick={onClick} />
+    </Box>
   );
 }
 
@@ -317,29 +401,29 @@ type GalleryProps = {
 export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: GalleryProps) {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const imageKeysKey = imageKeys.map((key) => String(key || '').trim()).filter(Boolean).join('|');
+  const keys = useMemo(
+    () => (imageKeysKey ? imageKeysKey.split('|') : []),
+    [imageKeysKey],
+  );
 
   useEffect(() => {
     let mounted = true;
-    const keys = imageKeysKey ? imageKeysKey.split('|') : [];
 
     if (!keys.length) {
       setPreviewUrls([]);
       return undefined;
     }
 
-    Promise.all(keys.map((key) => resolveImageUrl(key))).then((urls) => {
+    Promise.all(keys.map((key) => resolveMediaUrl(key))).then((urls) => {
       if (mounted) setPreviewUrls(urls.filter(Boolean));
     });
 
     return () => {
       mounted = false;
     };
-  }, [imageKeysKey]);
+  }, [keys]);
 
-  const slides = useMemo(
-    () => previewUrls.map((src) => ({ src })),
-    [previewUrls],
-  );
+  const slides = useMemo(() => buildLightboxSlides(keys, previewUrls), [keys, previewUrls]);
   const lightbox = useLightBox(slides);
 
   const handleOpen = (index: number) => {
@@ -353,20 +437,12 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
 
   return (
     <>
-      <Box
-        component="img"
-        src={previewUrls[0]}
+      <MediaPreview
+        url={previewUrls[0]}
         alt={alt}
+        height={height}
+        objectFit="contain"
         onClick={() => handleOpen(0)}
-        sx={{
-          width: 1,
-          height,
-          objectFit: 'contain',
-          objectPosition: 'center',
-          display: 'block',
-          cursor: 'zoom-in',
-          bgcolor: 'background.neutral',
-        }}
       />
 
       {previewUrls.length > 1 ? (
@@ -374,21 +450,18 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
           {previewUrls.map((url, index) => (
             <Box
               key={`${url}-${index}`}
-              component="img"
-              src={url}
-              alt={`${alt} ${index + 1}`}
-              onClick={() => handleOpen(index)}
               sx={{
                 width: 48,
                 height: 48,
                 borderRadius: 1,
-                objectFit: 'cover',
-                cursor: 'zoom-in',
+                overflow: 'hidden',
                 border: '1px solid',
                 borderColor: 'divider',
                 flexShrink: 0,
               }}
-            />
+            >
+              <MediaPreview url={url} alt={`${alt} ${index + 1}`} height={48} onClick={() => handleOpen(index)} />
+            </Box>
           ))}
         </Stack>
       ) : null}
@@ -398,8 +471,6 @@ export function BrandProductImageGallery({ imageKeys, alt, height = 180 }: Galle
         slides={slides}
         open={lightbox.open}
         close={lightbox.onClose}
-        disableCaptions
-        disableSlideshow
       />
     </>
   );

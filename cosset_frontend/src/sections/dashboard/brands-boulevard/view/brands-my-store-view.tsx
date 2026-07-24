@@ -823,7 +823,7 @@ export function BrandsMyStoreView() {
               values={productForm.images}
               uploading={uploadingProductImage}
               disabled={savingProduct}
-              helperText="Upload one or more photos. Click a photo to open the gallery."
+              helperText="Upload photos or videos. Click a thumbnail to open the gallery."
               onUpload={handleProductImagesUpload}
               onRemove={(index) =>
                 setProductForm((prev) => ({

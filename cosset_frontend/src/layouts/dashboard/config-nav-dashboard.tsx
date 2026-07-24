@@ -208,14 +208,19 @@ export const navData = [
 ];
 
 /**
- * Left nav for business accounts: Products, Post, Mail, Chat, Management.
+ * Left nav for business accounts: Home page (shop), Products, Post, Mail, Chat, Management.
  */
 export const businessNavData = [
   {
     subheader: 'Business',
     items: [
       {
-        title: 'Products',
+        title: 'Home page',
+        path: paths.dashboard.community.brandsBoulevard.myStore,
+        icon: ICONS.home,
+      },
+      {
+        title: 'My Store',
         path: paths.dashboard.community.brandsBoulevard.myStore,
         icon: ICONS.product,
       },
