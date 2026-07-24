@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -14,16 +14,14 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { Iconify } from 'src/components/dashboard/iconify';
-
 import { isVideoMediaPath } from 'src/utils/media-file';
 
-import {
-  JourneyDiaryPublicControl,
-} from './journey-diary-public-toggle';
+import { Iconify } from 'src/components/dashboard/iconify';
+
+import { JourneyDiaryPublicControl } from './journey-diary-public-toggle';
+import type { JourneyVisibility } from './journey-diary-public-utils';
 import type { JourneyPolaroidItem } from './my-journey-utils';
 import { toDateInputValue } from './my-journey-utils';
-import type { JourneyVisibility } from './journey-diary-public-utils';
 
 // ----------------------------------------------------------------------
 

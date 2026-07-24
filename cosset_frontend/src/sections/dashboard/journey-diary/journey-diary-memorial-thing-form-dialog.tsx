@@ -18,9 +18,9 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { Iconify } from 'src/components/dashboard/iconify';
+import { isVideoFile, isVideoMediaPath, isImageOrVideoFile, IMAGE_VIDEO_ACCEPT } from 'src/utils/media-file';
 
-import { IMAGE_VIDEO_ACCEPT, isImageOrVideoFile, isVideoFile, isVideoMediaPath } from 'src/utils/media-file';
+import { Iconify } from 'src/components/dashboard/iconify';
 
 import { MEMORIAL_THING_CATEGORIES } from './memorial-things-categories';
 

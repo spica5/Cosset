@@ -22,6 +22,8 @@ type Position = {
   lng: number;
 };
 
+/* Map props stay on the public API so callers keep working while Google Map is temporarily hidden. */
+/* eslint-disable react/no-unused-prop-types */
 type Props = {
   markers?: JourneyDiaryMapMarker[];
   selectedPosition?: Position | null;
@@ -32,15 +34,12 @@ type Props = {
   sx?: SxProps<Theme>;
   height?: number;
 };
+/* eslint-enable react/no-unused-prop-types */
 
 /** Temporary static banner while Google Map is hidden. */
 const JOURNEY_DIARY_MAP_PLACEHOLDER = `${CONFIG.dashboard.assetsDir}/assets/images/journey-diary/journy_banner.png`;
 
-export function JourneyDiaryWorldMap({
-  pickerMode = false,
-  sx,
-  height = 450,
-}: Props) {
+export function JourneyDiaryWorldMap({ pickerMode = false, sx, height = 450 }: Props) {
   return (
     <Box
       sx={{

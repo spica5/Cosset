@@ -17,7 +17,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { getS3SignedUrl } from 'src/utils/helper';
-import { IMAGE_VIDEO_ACCEPT, isImageOrVideoFile, isVideoFile } from 'src/utils/media-file';
+import { IMAGE_VIDEO_ACCEPT, isVideoFile, isImageOrVideoFile } from 'src/utils/media-file';
 
 import { uploadFileToS3 } from 'src/actions/upload';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
