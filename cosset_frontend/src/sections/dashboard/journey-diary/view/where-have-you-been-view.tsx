@@ -171,8 +171,8 @@ export function WhereHaveYouBeenView() {
             <Typography variant="h6">Journey map</Typography>
             <Typography variant="body2" color="text.secondary">
               {mapMarkers.length
-                ? `${mapMarkers.length} visited position${mapMarkers.length === 1 ? '' : 's'} on the map.`
-                : 'Add a location and click the map to mark where you have been.'}
+                ? `${mapMarkers.length} visited position${mapMarkers.length === 1 ? '' : 's'} recorded.`
+                : 'Add a location to start marking where you have been.'}
             </Typography>
           </Box>
 
@@ -180,7 +180,7 @@ export function WhereHaveYouBeenView() {
             markers={mapMarkers}
             activeMarkerId={activeMarkerId}
             onMarkerClick={setActiveMarkerId}
-            height={360}
+            height={450}
           />
         </Stack>
       </Card>

@@ -245,7 +245,7 @@ export function JourneyDiaryLocationFormDialog({
               <Box>
                 <Typography variant="subtitle2">Visited position</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Click the map to place the visited location.
+                  Enter the visited location coordinates below. Map picker is temporarily hidden.
                 </Typography>
               </Box>
               {form.latitude || form.longitude ? (
@@ -259,7 +259,7 @@ export function JourneyDiaryLocationFormDialog({
               pickerMode
               selectedPosition={selectedPosition}
               onPositionChange={handlePositionChange}
-              height={280}
+              height={340}
             />
           </Box>
 
