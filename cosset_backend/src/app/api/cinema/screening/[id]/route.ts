@@ -73,7 +73,7 @@ export async function PUT(
     const screening = await updateCinemaFilmScreening(screeningId, {
       filmId: updates.filmId,
       showAt: updates.showAt,
-      showEndAt: updates.showEndAt,
+      showAt2: updates.showAt2,
       order: updates.order,
       isPublic: updates.isPublic,
     });

@@ -23,7 +23,7 @@ type FilmData = {
 export function buildCinemaFilmListUrl(
   customerId: string | null | undefined,
   category: CinemaCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   const params = new URLSearchParams({
     category,
@@ -38,17 +38,22 @@ export function buildCinemaFilmListUrl(
     params.set('publicOnly', '1');
   }
 
+  if (options?.allCatalog) {
+    params.set('allCatalog', '1');
+  }
+
   return `${endpoints.cinema.film.list}?${params.toString()}`;
 }
 
 export function useGetCinemaFilms(
   customerId?: string | number | null,
   category?: CinemaCategory | null,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   const normalizedCustomerId =
     customerId !== undefined && customerId !== null ? String(customerId).trim() : '';
-  const canFetch = Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly);
+  const canFetch =
+    Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly || options?.allCatalog);
 
   const listUrl = canFetch
     ? buildCinemaFilmListUrl(normalizedCustomerId || null, category!, options)
@@ -75,7 +80,7 @@ export function useGetCinemaFilms(
 export async function revalidateCinemaFilms(
   customerId: string | null | undefined,
   category: CinemaCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   await mutate(buildCinemaFilmListUrl(customerId, category, options));
 }
@@ -83,8 +88,11 @@ export async function revalidateCinemaFilms(
 async function refreshCinemaFilmLists(customerId: string, category: CinemaCategory) {
   await revalidateCinemaFilms(customerId, category);
   await revalidateCinemaFilms(customerId, category, { publicOnly: true });
+  await revalidateCinemaFilms(customerId, category, { allCatalog: true });
   // Community catalog (all public films in category)
   await revalidateCinemaFilms(null, category, { publicOnly: true });
+  // Admin catalog (all films in category across all customers)
+  await revalidateCinemaFilms(null, category, { allCatalog: true });
 }
 
 export async function createCinemaFilm(

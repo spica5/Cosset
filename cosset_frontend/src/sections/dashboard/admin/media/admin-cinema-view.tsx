@@ -2,19 +2,16 @@
 
 import { useEffect } from 'react';
 
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
-
-import { useAuthContext } from 'src/auth/hooks';
-import { isUserAdmin } from 'src/auth/utils/role';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -23,6 +20,9 @@ import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { CINEMA_CATEGORIES } from 'src/sections/dashboard/cinema/cinema-categories';
 import { CinemaCategoryFilmsPanel } from 'src/sections/dashboard/cinema/cinema-category-films-panel';
+
+import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -143,6 +143,7 @@ export function AdminCinemaView() {
                 category={category}
                 showScreenings
                 canManage
+                allCatalog
               />
             </Stack>
           </Card>

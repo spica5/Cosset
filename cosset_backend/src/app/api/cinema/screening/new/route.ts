@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       filmId,
       customerId,
       showAt: screening.showAt,
-      showEndAt: screening.showEndAt ?? null,
+      showAt2: screening.showAt2 ?? null,
       order: screening.order ?? null,
       isPublic: screening.isPublic ?? 1,
     });

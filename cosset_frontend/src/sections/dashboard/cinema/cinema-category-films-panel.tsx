@@ -11,27 +11,26 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { useAuthContext } from 'src/auth/hooks';
-
-import { Iconify } from 'src/components/dashboard/iconify';
-import { EmptyContent } from 'src/components/dashboard/empty-content';
-
-import { deleteCinemaFilm, useGetCinemaFilms } from 'src/actions/cinema-film';
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
+import { deleteCinemaFilm, useGetCinemaFilms } from 'src/actions/cinema-film';
 import {
   createCinemaReservation,
   useGetCinemaReservations,
 } from 'src/actions/cinema-film-reservation';
 
 import { toast } from 'src/components/dashboard/snackbar';
+import { Iconify } from 'src/components/dashboard/iconify';
+import { EmptyContent } from 'src/components/dashboard/empty-content';
 
-import type { CinemaCategoryMeta } from './cinema-categories';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { CinemaFilmCard } from './cinema-film-card';
+import { CinemaSeatMapDialog } from './cinema-seat-map-dialog';
 import { CinemaFilmFormDialog } from './cinema-film-form-dialog';
 import { CinemaScreeningsTable } from './cinema-screenings-table';
-import { formatScreeningSchedule, getNextFilmScreening } from './cinema-film-schedule';
-import { CinemaSeatMapDialog } from './cinema-seat-map-dialog';
+import { getNextFilmScreening, formatScreeningSchedule } from './cinema-film-schedule';
+
+import type { CinemaCategoryMeta } from './cinema-categories';
 
 // ----------------------------------------------------------------------
 
@@ -40,6 +39,7 @@ type Props = {
   compact?: boolean;
   showScreenings?: boolean;
   canManage?: boolean;
+  allCatalog?: boolean;
   /** When true, only films with at least one screening are listed. */
   scheduledOnly?: boolean;
   /** When true, load the shared public catalog (all customers). */
@@ -51,23 +51,29 @@ export function CinemaCategoryFilmsPanel({
   compact = false,
   showScreenings = true,
   canManage: canManageProp,
+  allCatalog = false,
   scheduledOnly = false,
   publicCatalog = false,
 }: Props) {
   const { user } = useAuthContext();
   const customerId = String(user?.id || '');
   const canManage = canManageProp ?? Boolean(customerId);
-  const filmOwnerId = publicCatalog ? null : customerId;
+  const filmOwnerId = publicCatalog || allCatalog ? null : customerId;
+  const listOptions = publicCatalog
+    ? { publicOnly: true }
+    : allCatalog
+      ? { allCatalog: true }
+      : undefined;
 
   const { films, filmsLoading } = useGetCinemaFilms(
     filmOwnerId,
     category.id,
-    publicCatalog ? { publicOnly: true } : undefined,
+    listOptions,
   );
   const { screenings, screeningsLoading } = useGetCinemaScreenings(
     scheduledOnly || showScreenings ? filmOwnerId : null,
     scheduledOnly || showScreenings ? category.id : null,
-    publicCatalog ? { publicOnly: true } : undefined,
+    listOptions,
   );
   const { reservations } = useGetCinemaReservations(scheduledOnly ? customerId : null, {
     ownerCustomerId: publicCatalog ? undefined : customerId,
@@ -329,15 +335,17 @@ export function CinemaCategoryFilmsPanel({
       {showScreenings ? (
         <Box sx={{ mt: compact ? 3 : 4 }}>
           <CinemaScreeningsTable
-            category={category}
-            customerId={customerId}
-            films={films}
-            filmsLoading={filmsLoading}
-            compact={compact}
-            canManage={canManage}
-          />
-        </Box>
-      ) : null}
+              category={category}
+              customerId={customerId}
+              films={films}
+              filmsLoading={filmsLoading}
+              screenings={screenings}
+              screeningsLoading={screeningsLoading}
+              compact={compact}
+              canManage={canManage}
+            />
+          </Box>
+        ) : null}
 
       {canManage ? (
         <CinemaFilmFormDialog

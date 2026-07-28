@@ -3,7 +3,7 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
 import { m } from 'framer-motion';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Badge from '@mui/material/Badge';
@@ -18,15 +18,16 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
-import { useGetCommunityUsers } from 'src/actions/user';
-import { useGetFriends } from 'src/actions/friend';
-import { useAuthContext } from 'src/auth/hooks';
-
 import { getS3SignedUrl } from 'src/utils/helper';
+
+import { useGetFriends } from 'src/actions/friend';
+import { useGetCommunityUsers } from 'src/actions/user';
 
 import { varHover } from 'src/components/dashboard/animate';
 import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 

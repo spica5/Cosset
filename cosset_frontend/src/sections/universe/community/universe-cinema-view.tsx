@@ -1,10 +1,11 @@
 'use client';
 
+import type ReactPlayer from 'react-player';
 import type { ICinemaFilm } from 'src/types/cinema-film';
-import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 import type { CinemaChatParticipant } from 'src/types/cinema-chat';
+import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -18,41 +19,46 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import { fDateTimeFromUtc } from 'src/utils/format-time';
 
+import { useGetCinemaFilms } from 'src/actions/cinema-film';
+import { leaveCinemaPresence } from 'src/actions/cinema-chat';
+import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 import {
   createCinemaReservation,
   useGetCinemaReservations,
   updateCinemaReservationSeats,  
 } from 'src/actions/cinema-film-reservation';
-import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
-import { useGetCinemaFilms } from 'src/actions/cinema-film';
-import { leaveCinemaPresence } from 'src/actions/cinema-chat';
 
 import { Player } from 'src/components/universe/player';
 import { Iconify } from 'src/components/universe/iconify';
-
-import { useAuthContext } from 'src/auth/hooks';
-
 import { toast } from 'src/components/dashboard/snackbar';
+
+import { CinemaRibbonTitle } from 'src/sections/dashboard/cinema/cinema-ribbon-title';
+import { formatCinemaSeatLabels } from 'src/sections/dashboard/cinema/cinema-seat-map';
+import { CinemaTheaterIntro } from 'src/sections/dashboard/cinema/cinema-theater-intro';
+import { UniverseCinemaChat } from 'src/sections/universe/community/universe-cinema-chat';
+import { CinemaSeatMapDialog } from 'src/sections/dashboard/cinema/cinema-seat-map-dialog';
+import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/dashboard/cinema/cinema-theater-theme';
+import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
 import {
   isCinemaCategory,
   getCinemaCategory,
   type CinemaCategory,
 } from 'src/sections/dashboard/cinema/cinema-categories';
-import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/dashboard/cinema/cinema-theater-theme';
 import {
   getDefaultScreening,
   getNextFilmScreening,
+  isFixedTimeScreening,
+  getNextScreeningStart,
   getScreeningShowStatus,
   formatScreeningSchedule,
-  getCinemaFilmShowStatusLabel,  
+  getSyncedPlaybackSeconds,
+  getCinemaFilmShowStatusLabel,
+  getScreeningScheduleLabels,
 } from 'src/sections/dashboard/cinema/cinema-film-schedule';
-import { formatCinemaSeatLabels } from 'src/sections/dashboard/cinema/cinema-seat-map';
-import { CinemaSeatMapDialog } from 'src/sections/dashboard/cinema/cinema-seat-map-dialog';
-import { CinemaRibbonTitle } from 'src/sections/dashboard/cinema/cinema-ribbon-title';
-import { CinemaTheaterIntro } from 'src/sections/dashboard/cinema/cinema-theater-intro';
-import { UniverseCinemaChat } from 'src/sections/universe/community/universe-cinema-chat';
-import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -164,7 +170,7 @@ function CinemaFilmPosterCard({
   const tags = getFilmTags(film, categoryId);
   const nextScreening = getNextFilmScreening(film);
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
-  const scheduleLabel = nextScreening ? formatScreeningSchedule(nextScreening) : null;
+  const scheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
   const isToday = nextScreening ? isSameCalendarDay(nextScreening.showAt) : false;
   const statusLabel = isToday
     ? showStatus === 'now'
@@ -184,11 +190,19 @@ function CinemaFilmPosterCard({
     };
   }, [film.posterImage]);
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect();
+    }
+  };
+
   return (
     <Box
-      component="button"
-      type="button"
       onClick={onSelect}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
       sx={{
         width: { xs: 136, sm: 146, md: 154 },
         flexShrink: 0,
@@ -198,6 +212,7 @@ function CinemaFilmPosterCard({
         cursor: 'pointer',
         textAlign: 'left',
         color: 'inherit',
+        outline: 'none',
         scrollSnapAlign: 'start',
         transition: (theme) =>
           theme.transitions.create(['transform', 'opacity', 'box-shadow'], {
@@ -206,6 +221,10 @@ function CinemaFilmPosterCard({
         transform: selected ? 'translateY(-4px)' : 'none',
         opacity: selected ? 1 : 0.88,
         '&:hover': { opacity: 1, transform: selected ? 'translateY(-4px)' : 'translateY(-2px)' },
+        '&:focus-visible': {
+          boxShadow: `0 0 0 2px ${accent}88`,
+          borderRadius: 2,
+        },
       }}
     >
       <Box
@@ -325,7 +344,7 @@ function CinemaFilmPosterCard({
             </Box>
           ) : null}
 
-          {scheduleLabel ? (
+          {scheduleLabels.length ? (
             <Box
               sx={{
                 position: 'absolute',
@@ -339,18 +358,23 @@ function CinemaFilmPosterCard({
                 background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 72%)',
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  color: isToday || isReserved ? accent : '#F5E6C8',
-                  fontWeight: 700,
-                  lineHeight: 1.3,
-                  fontSize: '0.62rem',
-                }}
-              >
-                {scheduleLabel}
-              </Typography>
+              <Stack spacing={0.1}>
+                {scheduleLabels.map((label) => (
+                  <Typography
+                    key={label}
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      color: isToday || isReserved ? accent : '#F5E6C8',
+                      fontWeight: 700,
+                      lineHeight: 1.25,
+                      fontSize: '0.62rem',
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                ))}
+              </Stack>
             </Box>
           ) : null}
         </Box>
@@ -412,10 +436,19 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const router = useRouter();
   const { user, authenticated } = useAuthContext();
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const category = getCinemaCategory(categoryId);
   const resolvedCategory = category && isCinemaCategory(categoryId) ? category.id : null;
   const canFetch = Boolean(resolvedCategory);
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const { films, filmsLoading } = useGetCinemaFilms(
     canFetch ? null : undefined,
@@ -516,6 +549,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const loading = filmsLoading || screeningsLoading;
   const accent = category?.accent || CINEMA_GOLD;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const embedPlayerRef = useRef<ReactPlayer | null>(null);
+  const syncingRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState('');
   const [videoLoading, setVideoLoading] = useState(false);
@@ -617,6 +652,83 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const headerSeatLabel = formatCinemaSeatLabels(headerSeatIds);
 
   const useEmbedPlayer = Boolean(resolvedVideoUrl && isStreamEmbedUrl(resolvedVideoUrl));
+  const isSyncedScreening = isFixedTimeScreening(activeScreening);
+  const scheduleNow = useMemo(() => new Date(nowMs), [nowMs]);
+  const activeShowStatus = activeScreening
+    ? getScreeningShowStatus(activeScreening, scheduleNow)
+    : 'unscheduled';
+  const activeScheduleLabels = activeScreening
+    ? getScreeningScheduleLabels(activeScreening)
+    : [];
+
+  const syncNativePlayback = useCallback(() => {
+    if (!isSyncedScreening || !activeScreening || useEmbedPlayer) {
+      return false;
+    }
+
+    const node = videoRef.current;
+    if (!node) {
+      return false;
+    }
+
+    const target = getSyncedPlaybackSeconds(
+      activeScreening,
+      Number.isFinite(node.duration) ? node.duration : null,
+      scheduleNow,
+    );
+
+    if (target == null) {
+      node.pause();
+      setIsPlaying(false);
+      const nextStart = getNextScreeningStart(activeScreening, scheduleNow);
+      if (nextStart) {
+        toast.info(
+          `This showtime has ended. Next screening starts at ${fDateTimeFromUtc(nextStart)}.`,
+        );
+      } else if (activeShowStatus === 'upcoming') {
+        toast.info('This screening has not started yet.');
+      } else {
+        toast.info('This screening has ended.');
+      }
+      return false;
+    }
+
+    if (Math.abs(node.currentTime - target) > 1.25) {
+      syncingRef.current = true;
+      node.currentTime = target;
+      window.setTimeout(() => {
+        syncingRef.current = false;
+      }, 400);
+    }
+
+    return true;
+  }, [activeScreening, activeShowStatus, isSyncedScreening, scheduleNow, useEmbedPlayer]);
+
+  const syncEmbedPlayback = useCallback(() => {
+    if (!isSyncedScreening || !activeScreening || !useEmbedPlayer) {
+      return false;
+    }
+
+    const target = getSyncedPlaybackSeconds(activeScreening, null, scheduleNow);
+
+    if (target == null) {
+      setIsPlaying(false);
+      const nextStart = getNextScreeningStart(activeScreening, scheduleNow);
+      if (nextStart) {
+        toast.info(
+          `This showtime has ended. Next screening starts at ${fDateTimeFromUtc(nextStart)}.`,
+        );
+      } else if (activeShowStatus === 'upcoming') {
+        toast.info('This screening has not started yet.');
+      } else {
+        toast.info('This screening has ended.');
+      }
+      return false;
+    }
+
+    embedPlayerRef.current?.seekTo(target, 'seconds');
+    return true;
+  }, [activeScreening, activeShowStatus, isSyncedScreening, scheduleNow, useEmbedPlayer]);
 
   const seatSession = useMemo(() => {
     if (seatMapMode === 'view' && viewingReservation) {
@@ -696,18 +808,72 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   ]);
 
   useEffect(() => {
-    if (!isPlaying || useEmbedPlayer) return;
-    const node = videoRef.current;
-    if (!node || !resolvedVideoUrl) return;
+    if (!isPlaying || useEmbedPlayer) return undefined;
 
-    node.load();
-    const playPromise = node.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {
-        // Autoplay may be blocked until user gesture — Watch now already is a gesture.
-      });
+    const node = videoRef.current;
+    if (!node || !resolvedVideoUrl) return undefined;
+
+    const startPlayback = () => {
+      if (isSyncedScreening && !syncNativePlayback()) {
+        return;
+      }
+
+      const playPromise = node.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          // Autoplay may be blocked until user gesture — Watch now already is a gesture.
+        });
+      }
+    };
+
+    if (node.readyState >= 1) {
+      startPlayback();
+    } else {
+      node.addEventListener('loadedmetadata', startPlayback, { once: true });
     }
-  }, [isPlaying, resolvedVideoUrl, useEmbedPlayer, activeFilm?.id]);
+
+    const handleSeeking = () => {
+      if (!isSyncedScreening || syncingRef.current) return;
+      syncNativePlayback();
+    };
+
+    node.addEventListener('seeking', handleSeeking);
+
+    return () => {
+      node.removeEventListener('loadedmetadata', startPlayback);
+      node.removeEventListener('seeking', handleSeeking);
+    };
+  }, [
+    isPlaying,
+    resolvedVideoUrl,
+    useEmbedPlayer,
+    activeFilm?.id,
+    isSyncedScreening,
+    syncNativePlayback,
+  ]);
+
+  useEffect(() => {
+    if (!isPlaying || !isSyncedScreening) {
+      return undefined;
+    }
+
+    const tick = () => {
+      if (useEmbedPlayer) {
+        syncEmbedPlayback();
+      } else {
+        syncNativePlayback();
+      }
+    };
+
+    const intervalId = window.setInterval(tick, 4000);
+    return () => window.clearInterval(intervalId);
+  }, [
+    isPlaying,
+    isSyncedScreening,
+    useEmbedPlayer,
+    syncNativePlayback,
+    syncEmbedPlayback,
+  ]);
 
   const handleOpenSeatSelection = (
     reservation?: ICinemaFilmReservationWithScreening | null,
@@ -742,6 +908,27 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const handleStartPlayback = async () => {
     const seatId = selectedSeatIds[0] || activeReservation?.seatIds?.[0];
     if (!activeFilm?.videoUrl || !seatId) return;
+
+    if (isSyncedScreening && activeScreening) {
+      const status = getScreeningShowStatus(activeScreening, scheduleNow);
+      if (status === 'upcoming') {
+        const nextStart = getNextScreeningStart(activeScreening, scheduleNow);
+        toast.info(
+          `Screening starts at ${fDateTimeFromUtc(nextStart || activeScreening.showAt) || 'the scheduled time'}.`,
+        );
+        return;
+      }
+      if (status === 'past') {
+        toast.info('This screening has ended.');
+        return;
+      }
+
+      const target = getSyncedPlaybackSeconds(activeScreening, null, scheduleNow);
+      if (target == null) {
+        toast.info('This screening is not available to watch right now.');
+        return;
+      }
+    }
 
     if (viewerCustomerId && activeScreening?.id) {
       try {
@@ -1002,7 +1189,24 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             >
               {useEmbedPlayer ? (
                 <Box sx={{ position: 'absolute', inset: 0 }}>
-                  <Player url={resolvedVideoUrl} playing controls width="100%" height="100%" />
+                  <Player
+                    ref={embedPlayerRef}
+                    url={resolvedVideoUrl}
+                    playing
+                    controls={!isSyncedScreening}
+                    width="100%"
+                    height="100%"
+                    onReady={() => {
+                      if (isSyncedScreening) {
+                        syncEmbedPlayback();
+                      }
+                    }}
+                    onSeek={() => {
+                      if (isSyncedScreening) {
+                        syncEmbedPlayback();
+                      }
+                    }}
+                  />
                 </Box>
               ) : (
                 <Box
@@ -1011,6 +1215,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   key={resolvedVideoUrl}
                   src={resolvedVideoUrl}
                   controls
+                  controlsList={isSyncedScreening ? 'nodownload noplaybackrate' : undefined}
                   autoPlay
                   playsInline
                   preload="metadata"
@@ -1067,10 +1272,26 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       {activeFilm.title}
                     </Typography>
 
-                    {activeScreening && formatScreeningSchedule(activeScreening) ? (
-                      <Typography variant="caption" sx={{ color: 'rgba(245,230,200,0.75)' }}>
-                        {formatScreeningSchedule(activeScreening)}
-                      </Typography>
+                    {activeScheduleLabels.length ? (
+                      <Stack spacing={0.15} alignItems="center">
+                        {activeScheduleLabels.map((label) => (
+                          <Typography
+                            key={label}
+                            variant="caption"
+                            sx={{ color: 'rgba(245,230,200,0.75)' }}
+                          >
+                            {label}
+                          </Typography>
+                        ))}
+                        {isSyncedScreening && activeShowStatus === 'now' ? (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'rgba(245,230,200,0.75)' }}
+                          >
+                            Live synced screening
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     ) : null}
 
                     {activeFilm.description ? (
@@ -1095,6 +1316,20 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     {activeFilm.videoUrl ? (
                       <Button
                         onClick={() => {
+                          if (isSyncedScreening && activeShowStatus === 'upcoming') {
+                            const nextStart = activeScreening
+                              ? getNextScreeningStart(activeScreening, scheduleNow)
+                              : null;
+                            toast.info(
+                              `Screening starts at ${fDateTimeFromUtc(nextStart || activeScreening?.showAt) || 'the scheduled time'}.`,
+                            );
+                            return;
+                          }
+                          if (isSyncedScreening && activeShowStatus === 'past') {
+                            toast.info('This screening has ended.');
+                            return;
+                          }
+
                           if (activeReservation?.seatIds?.[0]) {
                             handleStartPlayback();
                             return;
@@ -1103,6 +1338,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           handleOpenSeatSelection(activeReservation);
                         }}
                         variant="contained"
+                        disabled={isSyncedScreening && activeShowStatus === 'past'}
                         endIcon={<Iconify icon="solar:play-bold" />}
                         sx={{
                           mt: 0.5,
@@ -1113,7 +1349,21 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           '&:hover': { bgcolor: accent, opacity: 0.92 },
                         }}
                       >
-                        {headerSeatLabel ? `Watch now · ${headerSeatLabel}` : 'Watch now'}
+                        {isSyncedScreening && activeShowStatus === 'upcoming'
+                          ? `Starts ${fDateTimeFromUtc(
+                              (activeScreening &&
+                                getNextScreeningStart(activeScreening, scheduleNow)) ||
+                                activeScreening?.showAt,
+                            ) || 'soon'}`
+                          : isSyncedScreening && activeShowStatus === 'past'
+                            ? 'Screening ended'
+                            : isSyncedScreening && activeShowStatus === 'now'
+                              ? headerSeatLabel
+                                ? `Join screening · ${headerSeatLabel}`
+                                : 'Join screening'
+                              : headerSeatLabel
+                                ? `Watch now · ${headerSeatLabel}`
+                                : 'Watch now'}
                       </Button>
                     ) : null}
                   </Stack>

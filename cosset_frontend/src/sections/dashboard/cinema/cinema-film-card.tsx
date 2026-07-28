@@ -19,10 +19,10 @@ import { getS3SignedUrl } from 'src/utils/helper';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import {
-  formatScreeningSchedule,
   getNextFilmScreening,
   getScreeningShowStatus,
   getCinemaFilmShowStatusLabel,
+  getScreeningScheduleLabels,
 } from './cinema-film-schedule';
 
 // ----------------------------------------------------------------------
@@ -64,7 +64,7 @@ export function CinemaFilmCard({
   const nextScreening = getNextFilmScreening(film);
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
   const showStatusLabel = getCinemaFilmShowStatusLabel(showStatus);
-  const showScheduleLabel = nextScreening ? formatScreeningSchedule(nextScreening) : null;
+  const showScheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
 
   useEffect(() => {
     let mounted = true;
@@ -149,7 +149,7 @@ export function CinemaFilmCard({
           />
         ) : null}
 
-        {showScheduleLabel ? (
+        {showScheduleLabels.length ? (
           <Box
             sx={{
               position: 'absolute',
@@ -163,12 +163,17 @@ export function CinemaFilmCard({
               background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.88) 68%)',
             }}
           >
-            <Typography
-              variant="caption"
-              sx={{ display: 'block', color: '#FFF8E7', fontWeight: 600, lineHeight: 1.4 }}
-            >
-              {showScheduleLabel}
-            </Typography>
+            <Stack spacing={0.15}>
+              {showScheduleLabels.map((label) => (
+                <Typography
+                  key={label}
+                  variant="caption"
+                  sx={{ display: 'block', color: '#FFF8E7', fontWeight: 600, lineHeight: 1.35 }}
+                >
+                  {label}
+                </Typography>
+              ))}
+            </Stack>
           </Box>
         ) : null}
 

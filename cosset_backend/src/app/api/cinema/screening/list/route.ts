@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const category = normalizeCinemaCategory(searchParams.get('category'));
     const filmId = searchParams.get('filmId');
     const publicOnly = searchParams.get('publicOnly') === '1';
+    const allCatalog = searchParams.get('allCatalog') === '1';
 
     if (filmId) {
       const parsedFilmId = Number.parseInt(filmId, 10);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
       return response({ screenings }, STATUS.OK);
     }
 
-    if (!customerId && !publicOnly) {
+    if (!customerId && !publicOnly && !allCatalog) {
       return response({ message: 'customerId is required' }, STATUS.BAD_REQUEST);
     }
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     const screenings = await getCinemaFilmScreeningsByCategory(
       customerId || null,
       category,
-      { publicOnly },
+      { publicOnly, allCatalog },
     );
 
     return response({ screenings }, STATUS.OK);

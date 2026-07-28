@@ -1,14 +1,15 @@
 'use client';
 
+import { mutate } from 'swr';
+import Pusher from 'pusher-js';
 import { useEffect } from 'react';
 
-import Pusher from 'pusher-js';
-import { mutate } from 'swr';
+import { endpoints } from 'src/utils/axios';
+import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
 
 import { CONFIG } from 'src/config-global';
 import { refreshMailCaches } from 'src/actions/mail';
-import { endpoints } from 'src/utils/axios';
-import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
+
 import { toast } from 'src/components/dashboard/snackbar';
 
 // ----------------------------------------------------------------------

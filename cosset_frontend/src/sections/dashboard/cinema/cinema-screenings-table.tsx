@@ -3,7 +3,7 @@
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
-import { useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -27,12 +27,13 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import { CinemaScreeningFormDialog } from './cinema-screening-form-dialog';
-import type { CinemaCategoryMeta } from './cinema-categories';
 import {
   getScreeningShowStatus,
-  formatScreeningSchedule,
   getCinemaFilmShowStatusLabel,
+  getScreeningScheduleLabels,
 } from './cinema-film-schedule';
+
+import type { CinemaCategoryMeta } from './cinema-categories';
 
 // ----------------------------------------------------------------------
 
@@ -41,6 +42,8 @@ type Props = {
   customerId: string;
   films?: ICinemaFilm[];
   filmsLoading?: boolean;
+  screenings?: ICinemaFilmScreeningWithFilm[];
+  screeningsLoading?: boolean;
   compact?: boolean;
   variant?: 'default' | 'banner';
   canManage?: boolean;
@@ -51,6 +54,8 @@ export function CinemaScreeningsTable({
   customerId,
   films: filmsProp,
   filmsLoading: filmsLoadingProp,
+  screenings: screeningsProp,
+  screeningsLoading: screeningsLoadingProp,
   compact = false,
   variant = 'default',
   canManage: canManageProp,
@@ -61,7 +66,10 @@ export function CinemaScreeningsTable({
   );
   const films = filmsProp ?? fetchedFilms;
   const filmsLoading = filmsLoadingProp ?? fetchedFilmsLoading;
-  const { screenings, screeningsLoading } = useGetCinemaScreenings(customerId, category.id);
+  const { screenings: fetchedScreenings, screeningsLoading: fetchedScreeningsLoading } =
+    useGetCinemaScreenings(customerId, category.id);
+  const screenings = screeningsProp ?? fetchedScreenings;
+  const screeningsLoading = screeningsLoadingProp ?? fetchedScreeningsLoading;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScreening, setEditingScreening] = useState<ICinemaFilmScreeningWithFilm | null>(null);
   const [defaultFilmId, setDefaultFilmId] = useState<number | null>(null);
@@ -220,6 +228,7 @@ export function CinemaScreeningsTable({
               {screenings.map((screening) => {
                 const status = getScreeningShowStatus(screening);
                 const statusLabel = getCinemaFilmShowStatusLabel(status);
+                const showTimeLabels = getScreeningScheduleLabels(screening);
 
                 return (
                   <TableRow
@@ -239,9 +248,19 @@ export function CinemaScreeningsTable({
                     </TableCell>
 
                     <TableCell sx={bodyCellSx}>
-                      <Typography variant="body2" sx={showTimeSx}>
-                        {formatScreeningSchedule(screening) || '—'}
-                      </Typography>
+                      {showTimeLabels.length ? (
+                        <Stack spacing={0.25}>
+                          {showTimeLabels.map((label) => (
+                            <Typography key={label} variant="body2" sx={showTimeSx}>
+                              {label}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" sx={showTimeSx}>
+                          —
+                        </Typography>
+                      )}
                     </TableCell>
 
                     <TableCell sx={bodyCellSx}>

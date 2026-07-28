@@ -20,7 +20,6 @@ import { useRouter, usePathname } from 'src/routes/hooks';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { useGetCurrentUser } from 'src/actions/user';
-
 import { varAlpha } from 'src/theme/dashboard/styles';
 
 import { Label } from 'src/components/dashboard/label';

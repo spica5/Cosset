@@ -89,19 +89,19 @@ export function fDateTime(date: DatePickerFormat, format?: string) {
       : null;
 }
 
-/** Format a UTC database timestamp in the viewer's local timezone. */
+/** Format a UTC database timestamp as UTC wall-clock (matches cinema admin entry). */
 export function fDateTimeFromUtc(date: DatePickerFormat, format?: string) {
   const utcValue = normalizeUtcTimestamp(date);
   if (!utcValue) {
     return null;
   }
 
-  const instant = new Date(utcValue);
-  if (Number.isNaN(instant.getTime())) {
+  const instant = dayjs.utc(utcValue);
+  if (!instant.isValid()) {
     return 'Invalid time value';
   }
 
-  return dayjs(instant).format(format ?? `${formatStr.dateTime}`);
+  return instant.format(format ?? `${formatStr.dateTime}`);
 }
 
 /** Coffee-shop chat: UTC DB value -> viewer local time (e.g. "09 Jun 11:53 am PDT"). */

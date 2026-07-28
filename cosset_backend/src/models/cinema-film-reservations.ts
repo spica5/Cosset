@@ -28,7 +28,7 @@ export interface CinemaFilmReservation {
 
 export interface CinemaFilmReservationWithScreening extends CinemaFilmReservation {
   showAt: Date | string;
-  showEndAt?: Date | string | null;
+  showAt2?: Date | string | null;
   filmId: number;
   filmTitle: string;
   filmDirector?: string | null;
@@ -59,8 +59,8 @@ const SELECT_WITH_SCREENING_COLUMNS = `
   COALESCE(r.seat_ids, '[]'::jsonb) as "seatIds",
   r.created_at as "createdAt",
   r.updated_at as "updatedAt",
-  s.show_at as "showAt",
-  s.show_end_at as "showEndAt",
+  (s.show_at AT TIME ZONE 'UTC') as "showAt",
+  (s.show_at2 AT TIME ZONE 'UTC') as "showAt2",
   s.film_id as "filmId",
   f.title as "filmTitle",
   f.director as "filmDirector",
@@ -492,4 +492,3 @@ export async function cancelCinemaFilmReservation(
     });
   }
 }
-

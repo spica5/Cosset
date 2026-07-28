@@ -13,7 +13,7 @@ export type ICinemaFilmReservation = {
 
 export type ICinemaFilmReservationWithScreening = ICinemaFilmReservation & {
   showAt: string | Date;
-  showEndAt?: string | Date | null;
+  showAt2?: string | Date | null;
   filmId: number;
   filmTitle: string;
   filmDirector?: string | null;

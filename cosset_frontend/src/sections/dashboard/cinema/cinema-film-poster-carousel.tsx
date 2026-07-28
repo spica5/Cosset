@@ -18,10 +18,10 @@ import { Iconify } from 'src/components/dashboard/iconify';
 
 import { CinemaRibbonTitle } from './cinema-ribbon-title';
 import {
-  formatScreeningSchedule,
-  getCinemaFilmShowStatusLabel,
   getNextFilmScreening,
   getScreeningShowStatus,
+  getCinemaFilmShowStatusLabel,
+  getScreeningScheduleLabels,
 } from './cinema-film-schedule';
 import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF } from './cinema-theater-theme';
 
@@ -63,7 +63,7 @@ export function CinemaPosterCard({
   const nextScreening = screening ?? getNextFilmScreening(film);
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
   const showStatusLabel = getCinemaFilmShowStatusLabel(showStatus);
-  const showScheduleLabel = nextScreening ? formatScreeningSchedule(nextScreening) : null;
+  const showScheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
 
   useEffect(() => {
     let mounted = true;
@@ -166,7 +166,7 @@ export function CinemaPosterCard({
             />
           ) : null}
 
-          {showScheduleOverlay && showScheduleLabel ? (
+          {showScheduleOverlay && showScheduleLabels.length ? (
             <Box
               sx={{
                 position: 'absolute',
@@ -180,18 +180,23 @@ export function CinemaPosterCard({
                 background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.88) 70%)',
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  color: CINEMA_CREAM,
-                  fontWeight: 600,
-                  lineHeight: 1.35,
-                  fontSize: '0.68rem',
-                }}
-              >
-                {showScheduleLabel}
-              </Typography>
+              <Stack spacing={0.1}>
+                {showScheduleLabels.map((label) => (
+                  <Typography
+                    key={label}
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      color: CINEMA_CREAM,
+                      fontWeight: 600,
+                      lineHeight: 1.3,
+                      fontSize: '0.68rem',
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                ))}
+              </Stack>
             </Box>
           ) : null}
         </Box>

@@ -30,14 +30,14 @@ import { toIsoOrNull, toDatetimeLocalValue } from './cinema-film-schedule';
 type FormState = {
   filmId: string;
   showAt: string;
-  showEndAt: string;
+  showAt2: string;
   order: string;
 };
 
 const emptyForm: FormState = {
   filmId: '',
   showAt: '',
-  showEndAt: '',
+  showAt2: '',
   order: '',
 };
 
@@ -96,7 +96,7 @@ export function CinemaScreeningFormDialog({
     setForm({
       filmId: String(screening.filmId),
       showAt: toDatetimeLocalValue(screening.showAt),
-      showEndAt: toDatetimeLocalValue(screening.showEndAt),
+      showAt2: toDatetimeLocalValue(screening.showAt2),
       order: screening.order != null ? String(screening.order) : '',
     });
   }, [defaultFilmId, open, screening]);
@@ -134,7 +134,7 @@ export function CinemaScreeningFormDialog({
       const payload = {
         filmId,
         showAt,
-        showEndAt: toIsoOrNull(form.showEndAt),
+        showAt2: toIsoOrNull(form.showAt2),
         order: parseNullableInteger(form.order),
         isPublic: 1,
       };
@@ -197,21 +197,23 @@ export function CinemaScreeningFormDialog({
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
-              label="Show starts"
+              label="Show starts (UTC)"
               type="datetime-local"
               value={form.showAt}
               onChange={handleFieldChange('showAt')}
               required
               fullWidth
+              helperText="Enter time in UTC"
               InputLabelProps={{ shrink: true }}
             />
 
             <TextField
-              label="Show ends"
+              label="Show starts 2 (UTC)"
               type="datetime-local"
-              value={form.showEndAt}
-              onChange={handleFieldChange('showEndAt')}
+              value={form.showAt2}
+              onChange={handleFieldChange('showAt2')}
               fullWidth
+              helperText="Enter time in UTC"
               InputLabelProps={{ shrink: true }}
             />
           </Stack>

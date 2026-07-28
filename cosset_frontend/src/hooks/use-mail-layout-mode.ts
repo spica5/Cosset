@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import {
+  type MailLayoutMode,
   getStoredMailLayoutMode,
   setStoredMailLayoutMode,
-  type MailLayoutMode,
 } from 'src/sections/dashboard/mail/mail-layout-mode';
 
 export function useMailLayoutMode() {

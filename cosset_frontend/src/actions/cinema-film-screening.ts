@@ -1,5 +1,5 @@
-import type { ICinemaFilmScreening, ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 import type { CinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
+import type { ICinemaFilmScreening, ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -27,7 +27,7 @@ type ScreeningData = {
 export function buildCinemaScreeningListUrl(
   customerId: string | null | undefined,
   category: CinemaCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   const params = new URLSearchParams({
     category,
@@ -42,17 +42,22 @@ export function buildCinemaScreeningListUrl(
     params.set('publicOnly', '1');
   }
 
+  if (options?.allCatalog) {
+    params.set('allCatalog', '1');
+  }
+
   return `${endpoints.cinema.screening.list}?${params.toString()}`;
 }
 
 export function useGetCinemaScreenings(
   customerId?: string | number | null,
   category?: CinemaCategory | null,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   const normalizedCustomerId =
     customerId !== undefined && customerId !== null ? String(customerId).trim() : '';
-  const canFetch = Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly);
+  const canFetch =
+    Boolean(category) && (Boolean(normalizedCustomerId) || options?.publicOnly || options?.allCatalog);
 
   const listUrl = canFetch
     ? buildCinemaScreeningListUrl(normalizedCustomerId || null, category!, options)
@@ -79,7 +84,7 @@ export function useGetCinemaScreenings(
 export async function revalidateCinemaScreenings(
   customerId: string | null | undefined,
   category: CinemaCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ) {
   await mutate(buildCinemaScreeningListUrl(customerId, category, options));
 }
@@ -90,10 +95,14 @@ async function refreshCinemaCategoryData(
 ) {
   await revalidateCinemaScreenings(customerId, category);
   await revalidateCinemaScreenings(customerId, category, { publicOnly: true });
+  await revalidateCinemaScreenings(customerId, category, { allCatalog: true });
   await revalidateCinemaScreenings(null, category, { publicOnly: true });
+  await revalidateCinemaScreenings(null, category, { allCatalog: true });
   await revalidateCinemaFilms(customerId, category);
   await revalidateCinemaFilms(customerId, category, { publicOnly: true });
+  await revalidateCinemaFilms(customerId, category, { allCatalog: true });
   await revalidateCinemaFilms(null, category, { publicOnly: true });
+  await revalidateCinemaFilms(null, category, { allCatalog: true });
 }
 
 export async function createCinemaScreening(

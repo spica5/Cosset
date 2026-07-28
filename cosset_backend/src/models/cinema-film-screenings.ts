@@ -10,7 +10,7 @@ export interface CinemaFilmScreening {
   filmId: number;
   customerId: string;
   showAt: Date | string;
-  showEndAt?: Date | string | null;
+  showAt2?: Date | string | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: Date | null;
@@ -27,12 +27,14 @@ export interface CinemaFilmScreeningWithFilm extends CinemaFilmScreening {
   filmDescription?: string | null;
 }
 
+// show_at / show_at2 are TIMESTAMP WITHOUT TIME ZONE storing UTC wall-clock.
+// AT TIME ZONE 'UTC' returns timestamptz so drivers/JSON keep the correct instant.
 const SELECT_COLUMNS = `
   id,
   film_id as "filmId",
   customer_id as "customerId",
-  show_at as "showAt",
-  show_end_at as "showEndAt",
+  (show_at AT TIME ZONE 'UTC') as "showAt",
+  (show_at2 AT TIME ZONE 'UTC') as "showAt2",
   "order",
   is_public as "isPublic",
   created_at as "createdAt",
@@ -43,8 +45,8 @@ const SELECT_WITH_FILM_COLUMNS = `
   s.id,
   s.film_id as "filmId",
   s.customer_id as "customerId",
-  s.show_at as "showAt",
-  s.show_end_at as "showEndAt",
+  (s.show_at AT TIME ZONE 'UTC') as "showAt",
+  (s.show_at2 AT TIME ZONE 'UTC') as "showAt2",
   s."order",
   s.is_public as "isPublic",
   s.created_at as "createdAt",
@@ -81,6 +83,7 @@ const normalizeNullableInteger = (value: unknown): number | null => {
   return parseInteger(value);
 };
 
+/** Persist UTC wall-clock into TIMESTAMP WITHOUT TIME ZONE (no local shift). */
 const normalizeTimestamp = (value: unknown, required = false): string | null => {
   if (value === undefined || value === null || value === '') {
     if (required) {
@@ -93,18 +96,16 @@ const normalizeTimestamp = (value: unknown, required = false): string | null => 
     return null;
   }
 
+  let parsed: Date;
+
   if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      throw new DatabaseError({
-        code: 'INVALID_CINEMA_SCREENING_TIME',
-        message: 'showAt must be a valid datetime',
-      });
-    }
-
-    return value.toISOString();
+    parsed = value;
+  } else {
+    const raw = String(value).trim().replace(' ', 'T');
+    const hasTimezone = raw.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(raw);
+    // Timezone-less values from the admin form are UTC.
+    parsed = new Date(hasTimezone ? raw : `${raw}Z`);
   }
-
-  const parsed = new Date(String(value));
 
   if (Number.isNaN(parsed.getTime())) {
     throw new DatabaseError({
@@ -113,7 +114,7 @@ const normalizeTimestamp = (value: unknown, required = false): string | null => 
     });
   }
 
-  return parsed.toISOString();
+  return parsed.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
 };
 
 const normalizeIsPublic = (value: unknown): 0 | 1 => {
@@ -140,7 +141,7 @@ const migrateLegacyFilmSchedules = async (): Promise<void> => {
         film_id,
         customer_id,
         show_at,
-        show_end_at,
+        show_at2,
         "order",
         is_public,
         created_at,
@@ -150,7 +151,7 @@ const migrateLegacyFilmSchedules = async (): Promise<void> => {
         f.id,
         f.customer_id,
         f.show_at,
-        f.show_end_at,
+        f.show_at2,
         f."order",
         f.is_public,
         NOW(),
@@ -162,6 +163,29 @@ const migrateLegacyFilmSchedules = async (): Promise<void> => {
           FROM ${TABLE_NAME} s
           WHERE s.film_id = f.id
         )
+    `,
+  );
+};
+
+const backfillLegacyShowAt2 = async (): Promise<void> => {
+  await executeQuery(
+    `
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = '${TABLE_NAME}'
+            AND column_name = 'show_end_at'
+        ) THEN
+          EXECUTE '
+            UPDATE ${TABLE_NAME}
+            SET show_at2 = COALESCE(show_at2, show_end_at)
+            WHERE show_at2 IS NULL
+              AND show_end_at IS NOT NULL
+          ';
+        END IF;
+      END $$;
     `,
   );
 };
@@ -178,7 +202,7 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
             film_id BIGINT NOT NULL,
             customer_id VARCHAR(255) NOT NULL,
             show_at TIMESTAMP NOT NULL,
-            show_end_at TIMESTAMP,
+            show_at2 TIMESTAMP,
             "order" INTEGER,
             is_public INT DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -201,6 +225,14 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
         `,
       );
 
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_at2 TIMESTAMP
+        `,
+      );
+
+      await backfillLegacyShowAt2();
       await migrateLegacyFilmSchedules();
     })().catch((error) => {
       ensureTablePromise = null;
@@ -214,7 +246,7 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
 export async function getCinemaFilmScreeningsByCategory(
   customerId: string | null | undefined,
   category: CinemaFilmCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ): Promise<CinemaFilmScreeningWithFilm[]> {
   try {
     await ensureCinemaFilmScreeningsTable();
@@ -222,6 +254,7 @@ export async function getCinemaFilmScreeningsByCategory(
     const normalizedCustomerId = String(customerId || '').trim();
     const normalizedCategory = normalizeCinemaCategory(category);
     const publicOnly = options?.publicOnly === true;
+    const allCatalog = options?.allCatalog === true;
 
     if (!normalizedCategory) {
       throw new DatabaseError({
@@ -230,7 +263,19 @@ export async function getCinemaFilmScreeningsByCategory(
       });
     }
 
-    // Community catalog: all public screenings in the category for every customer.
+    if (!normalizedCustomerId && allCatalog) {
+      return await queryMany<CinemaFilmScreeningWithFilm>(
+        `
+          SELECT ${SELECT_WITH_FILM_COLUMNS}
+          FROM ${TABLE_NAME} s
+          INNER JOIN cinema_films f ON f.id = s.film_id
+          WHERE f.category = $1
+          ORDER BY s.show_at ASC, COALESCE(s."order", 2147483647) ASC, s.id ASC
+        `,
+        [normalizedCategory],
+      );
+    }
+
     if (!normalizedCustomerId) {
       if (!publicOnly) {
         throw new DatabaseError({
@@ -382,7 +427,7 @@ export async function createCinemaFilmScreening(
           film_id,
           customer_id,
           show_at,
-          show_end_at,
+          show_at2,
           "order",
           is_public,
           created_at,
@@ -395,7 +440,7 @@ export async function createCinemaFilmScreening(
         normalizedFilmId,
         normalizedCustomerId,
         normalizeTimestamp(screening.showAt, true),
-        normalizeTimestamp(screening.showEndAt),
+        normalizeTimestamp(screening.showAt2),
         normalizeNullableInteger(screening.order),
         normalizeIsPublic(screening.isPublic),
       ],
@@ -463,9 +508,9 @@ export async function updateCinemaFilmScreening(
       paramIndex += 1;
     }
 
-    if (updates.showEndAt !== undefined) {
-      fields.push(`show_end_at = $${paramIndex}`);
-      values.push(normalizeTimestamp(updates.showEndAt));
+    if (updates.showAt2 !== undefined) {
+      fields.push(`show_at2 = $${paramIndex}`);
+      values.push(normalizeTimestamp(updates.showAt2));
       paramIndex += 1;
     }
 

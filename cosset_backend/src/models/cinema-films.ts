@@ -120,7 +120,27 @@ const ensureTable = async (): Promise<void> => {
       );
 
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS show_at TIMESTAMP`);
-      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS show_end_at TIMESTAMP`);
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS show_at2 TIMESTAMP`);
+      await executeQuery(
+        `
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = '${TABLE_NAME}'
+                AND column_name = 'show_end_at'
+            ) THEN
+              EXECUTE '
+                UPDATE ${TABLE_NAME}
+                SET show_at2 = COALESCE(show_at2, show_end_at)
+                WHERE show_at2 IS NULL
+                  AND show_end_at IS NOT NULL
+              ';
+            END IF;
+          END $$;
+        `,
+      );
     })().catch((error) => {
       ensureTablePromise = null;
       throw error;
@@ -135,7 +155,7 @@ export const ensureCinemaFilmsTable = ensureTable;
 export async function getCinemaFilms(
   customerId: string | null | undefined,
   category: CinemaFilmCategory,
-  options?: { publicOnly?: boolean },
+  options?: { publicOnly?: boolean; allCatalog?: boolean },
 ): Promise<CinemaFilm[]> {
   try {
     await ensureTable();
@@ -143,12 +163,26 @@ export async function getCinemaFilms(
     const normalizedCustomerId = String(customerId || '').trim();
     const normalizedCategory = normalizeCinemaCategory(category);
     const publicOnly = options?.publicOnly === true;
+    const allCatalog = options?.allCatalog === true;
 
     if (!normalizedCategory) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_FILM_CATEGORY',
         message: 'category must be classic, genre, or drama',
       });
+    }
+
+    // Admin catalog: every film in the category across all customers.
+    if (!normalizedCustomerId && allCatalog) {
+      return await queryMany<CinemaFilm>(
+        `
+          SELECT ${SELECT_COLUMNS}
+          FROM ${TABLE_NAME}
+          WHERE category = $1
+          ORDER BY COALESCE("order", 2147483647) ASC, created_at DESC, id DESC
+        `,
+        [normalizedCategory],
+      );
     }
 
     // Community catalog: all public films in the category for every customer.
