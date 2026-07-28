@@ -384,32 +384,31 @@ export function UniverseLandingJourneyDiaryHome({
             </Typography>
           </Stack>
 
+          <JourneyDiaryWorldMap markers={mapMarkers} height={180} />
+
           {mapMarkers.length ? (
-            <>
-              <JourneyDiaryWorldMap markers={mapMarkers} height={180} />
-              <Stack direction="row" spacing={2} sx={{ mt: 1.5 }}>
-                <Box>
-                  <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.countries}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Countries
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.cities}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Cities
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.photos}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Photos
-                  </Typography>
-                </Box>
-              </Stack>
-            </>
+            <Stack direction="row" spacing={2} sx={{ mt: 1.5 }}>
+              <Box>
+                <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.countries}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Countries
+                </Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.cities}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Cities
+                </Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 800, color: spaceTheme.accent }}>{visitStats.photos}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Photos
+                </Typography>
+              </Box>
+            </Stack>
           ) : (
-            <Typography variant="body2" sx={{ color: spaceTheme.textSecondary, lineHeight: 1.7 }}>
+            <Typography variant="body2" sx={{ color: spaceTheme.textSecondary, lineHeight: 1.7, mt: 1.5 }}>
               No visited places shared yet.
             </Typography>
           )}
