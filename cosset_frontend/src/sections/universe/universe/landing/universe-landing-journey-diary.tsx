@@ -893,6 +893,7 @@ export function UniverseLandingJourneyDiary({
         onClose={() => setDetail(null)}
         onPrev={handlePrevDetail}
         onNext={handleNextDetail}
+        isOwner={isOwner}
       />
     </Box>
   );

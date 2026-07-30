@@ -29,6 +29,7 @@ import {
   getJourneyPalette,
   JourneyDiaryMyTripsPanel,
 } from './universe-landing-journey-diary-my-trips-panel';
+import { JourneyDiaryEngagementCounts } from './universe-landing-journey-diary-engagement';
 
 import type {
   JourneyMemorialDetailItem,
@@ -146,6 +147,13 @@ function MemorialListCard({
             >
               {excerpt}
             </Typography>
+            <JourneyDiaryEngagementCounts
+              kind="memorial"
+              targetId={item.id}
+              accentColor={palette.accent}
+              mutedColor={palette.muted}
+              sx={{ pt: 0.25 }}
+            />
           </Stack>
         </Stack>
       </CardActionArea>

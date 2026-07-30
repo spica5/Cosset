@@ -27,6 +27,7 @@ import {
   getJourneyPalette,
   JourneyDiaryMyTripsPanel,
 } from './universe-landing-journey-diary-my-trips-panel';
+import { JourneyDiaryEngagementCounts } from './universe-landing-journey-diary-engagement';
 
 import type { JourneyNoteDetailItem, JourneyPictureDetailItem } from './universe-landing-journey-diary-detail-dialog';
 
@@ -159,6 +160,13 @@ function NoteListCard({
             >
               {excerpt}
             </Typography>
+            <JourneyDiaryEngagementCounts
+              kind="note"
+              targetId={note.id}
+              accentColor={palette.accent}
+              mutedColor={palette.muted}
+              sx={{ pt: 0.5 }}
+            />
           </Stack>
 
           <Box

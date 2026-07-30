@@ -32,6 +32,7 @@ import {
   buildUniverseJourneyTrips,
   formatPictureVisitDateLabel,
 } from './universe-landing-journey-diary-my-journey-utils';
+import { JourneyDiaryEngagementCounts } from './universe-landing-journey-diary-engagement';
 
 import type { JourneyPictureDetailItem } from './universe-landing-journey-diary-detail-dialog';
 
@@ -439,6 +440,13 @@ function TimelineEntry({
               >
                 {title}
               </Typography>
+              <JourneyDiaryEngagementCounts
+                kind="picture"
+                targetId={picture.id}
+                accentColor={palette.accent}
+                mutedColor={palette.muted}
+                sx={{ pt: 0.25 }}
+              />
             </Stack>
           </Stack>
         </Box>

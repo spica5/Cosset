@@ -3,7 +3,16 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'post_reactions';
 
-export const POST_REACTION_TARGET_TYPES = ['blog', 'album', 'collection', 'drawer', 'community'] as const;
+export const POST_REACTION_TARGET_TYPES = [
+  'blog',
+  'album',
+  'collection',
+  'drawer',
+  'community',
+  'journey-picture',
+  'journey-note',
+  'journey-memorial',
+] as const;
 export const POST_REACTION_TYPES = ['like', 'love', 'haha', 'wow', 'sad', 'angry'] as const;
 
 export type PostReactionTargetType = (typeof POST_REACTION_TARGET_TYPES)[number];
@@ -83,7 +92,7 @@ const ensurePostReactionsTable = async (): Promise<void> => {
             id BIGSERIAL PRIMARY KEY,
             target_id BIGINT NOT NULL,
             customer_id BIGINT NOT NULL,
-            target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('blog', 'album', 'collection', 'drawer', 'community')),
+            target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('blog', 'album', 'collection', 'drawer', 'community', 'journey-picture', 'journey-note', 'journey-memorial')),
             reaction_type VARCHAR(20) CHECK (reaction_type IN ('like', 'love', 'haha', 'wow', 'sad', 'angry')),
             viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -110,7 +119,7 @@ const ensurePostReactionsTable = async (): Promise<void> => {
               EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', '${TABLE_NAME}', current_constraint_name);
             END LOOP;
 
-            EXECUTE 'ALTER TABLE ${TABLE_NAME} ADD CONSTRAINT ck_post_reactions_target_type CHECK (target_type IN (''blog'', ''album'', ''collection'', ''drawer'', ''community''))';
+            EXECUTE 'ALTER TABLE ${TABLE_NAME} ADD CONSTRAINT ck_post_reactions_target_type CHECK (target_type IN (''blog'', ''album'', ''collection'', ''drawer'', ''community'', ''journey-picture'', ''journey-note'', ''journey-memorial''))';
           END
           $$;
         `,

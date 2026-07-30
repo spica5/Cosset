@@ -2,7 +2,7 @@
 
 import type { IJourneyDiaryLocation } from 'src/types/journey-diary-location';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -38,6 +38,7 @@ import {
   journeyDiaryCategoryBadgeSx,
   JOURNEY_ENTRY_IMAGE_GRADIENT,
 } from './universe-landing-journey-diary-utils';
+import { JourneyDiaryEngagementCounts } from './universe-landing-journey-diary-engagement';
 
 import type { JourneyPictureDetailItem } from './universe-landing-journey-diary-detail-dialog';
 
@@ -261,18 +262,12 @@ function JourneyDiaryHomeRecentCard({
             {excerpt}
           </Typography>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pt: 0.5 }}>
-            <Stack direction="row" spacing={0.35} alignItems="center">
-              <Iconify icon="solar:heart-bold" width={14} sx={{ color: spaceTheme.accent }} />
-              <Typography variant="caption" color="text.secondary">
-                0
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={0.35} alignItems="center">
-              <Iconify icon="solar:chat-round-dots-bold" width={14} sx={{ color: spaceTheme.textSecondary }} />
-              <Typography variant="caption" color="text.secondary">
-                0
-              </Typography>
-            </Stack>
+            <JourneyDiaryEngagementCounts
+              kind={entry.kind}
+              targetId={entry.id}
+              accentColor={spaceTheme.accent}
+              mutedColor={spaceTheme.textSecondary}
+            />
             <Box sx={{ flex: 1 }} />
             <Iconify icon="eva:more-horizontal-fill" width={16} sx={{ color: spaceTheme.textSecondary }} />
           </Stack>
@@ -294,7 +289,6 @@ export function UniverseLandingJourneyDiaryHome({
   onSelectCategory,
 }: Props) {
   const { theme: spaceTheme } = useDesignSpaceTheme();
-  const [showAllEntries, setShowAllEntries] = useState(false);
   const firstName = (customerName || 'Friend').trim().split(/\s+/)[0] || 'Friend';
 
   const trips = useMemo(() => buildUniverseJourneyTrips(pictures, locations), [locations, pictures]);
@@ -317,8 +311,8 @@ export function UniverseLandingJourneyDiaryHome({
     () =>
       [...entries]
         .sort((a, b) => getEntryTimestamp(b) - getEntryTimestamp(a))
-        .slice(0, showAllEntries ? entries.length : JOURNEY_HOME_RECENT_SIZE),
-    [entries, showAllEntries],
+        .slice(0, JOURNEY_HOME_RECENT_SIZE),
+    [entries],
   );
 
   const monthStats = useMemo(() => ({
@@ -464,27 +458,16 @@ export function UniverseLandingJourneyDiaryHome({
         </Box>
       </Stack>
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-        <Typography
-          variant="h5"
-          sx={{
-            fontFamily: spaceTheme.decorativeFont || MYSPACE_ITEM_TITLE_FONT,
-            fontWeight: 700,
-            color: spaceTheme.textPrimary,
-          }}
-        >
-          Recent Entries
-        </Typography>
-        {entries.length > JOURNEY_HOME_RECENT_SIZE ? (
-          <Button
-            onClick={() => setShowAllEntries((prev) => !prev)}
-            endIcon={<Iconify icon="eva:arrow-forward-fill" />}
-            sx={{ color: spaceTheme.accent, fontWeight: 700 }}
-          >
-            {showAllEntries ? 'Show less' : 'View all'}
-          </Button>
-        ) : null}
-      </Stack>
+      <Typography
+        variant="h5"
+        sx={{
+          fontFamily: spaceTheme.decorativeFont || MYSPACE_ITEM_TITLE_FONT,
+          fontWeight: 700,
+          color: spaceTheme.textPrimary,
+        }}
+      >
+        Recent Entries
+      </Typography>
 
       {entries.length === 0 ? (
         <Typography color="text.secondary">No shared journey diary items found.</Typography>

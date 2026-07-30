@@ -25,6 +25,7 @@ import {
   journeyDiaryDateBadgeSx,
   JOURNEY_ENTRY_IMAGE_GRADIENT,
 } from './universe-landing-journey-diary-utils';
+import { JourneyDiaryEngagementCounts } from './universe-landing-journey-diary-engagement';
 import {
   getJourneyDiaryRepresentativeImageUrl,
   getJourneyDiaryRepresentativeImageFallbackUrl,
@@ -490,6 +491,14 @@ export function JourneyDiaryEntryCard({ entry, onClick }: EntryCardProps) {
               {entry.excerpt}
             </Typography>
           ) : null}
+
+          <JourneyDiaryEngagementCounts
+            kind={entry.kind}
+            targetId={entry.id}
+            accentColor={spaceTheme.accent}
+            mutedColor={spaceTheme.textSecondary}
+            sx={{ pt: 0.5, mt: 'auto' }}
+          />
         </Stack>
       </CardActionArea>
     </Card>

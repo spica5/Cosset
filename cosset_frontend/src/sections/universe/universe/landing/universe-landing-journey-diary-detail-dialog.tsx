@@ -22,6 +22,10 @@ import { useDesignSpaceTheme } from './design-space-theme-context';
 import { MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
 import { formatTripDateRange } from './universe-landing-journey-diary-my-journey-utils';
 import { getJourneyPalette, type JourneyPalette } from './universe-landing-journey-diary-my-trips-panel';
+import {
+  JourneyDiaryEngagement,
+  getJourneyDiarySocialTargetType,
+} from './universe-landing-journey-diary-engagement';
 
 // ----------------------------------------------------------------------
 
@@ -56,6 +60,7 @@ type Props = {
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  isOwner?: boolean;
 };
 
 const formatJourneyLabel = (item: {
@@ -613,6 +618,7 @@ function NoteDetailDialog({
   mediaKey,
   hasPrev,
   hasNext,
+  isOwner = false,
   onClose,
   onPrev,
   onNext,
@@ -625,6 +631,7 @@ function NoteDetailDialog({
   mediaKey?: string | null;
   hasPrev: boolean;
   hasNext: boolean;
+  isOwner?: boolean;
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -788,6 +795,15 @@ function NoteDetailDialog({
                   {body}
                 </Typography>
               ) : null}
+
+              <Box sx={{ width: 1, pt: 1 }}>
+                <JourneyDiaryEngagement
+                  targetType={getJourneyDiarySocialTargetType('note')}
+                  targetId={detail.items[detail.index]?.id}
+                  isOwner={isOwner}
+                  variant="light"
+                />
+              </Box>
             </Stack>
           </Box>
         </Stack>
@@ -917,6 +933,7 @@ export function UniverseLandingJourneyDiaryDetailDialog({
   onClose,
   onPrev,
   onNext,
+  isOwner = false,
 }: Props) {
   if (!detail) {
     return null;
@@ -1035,6 +1052,23 @@ export function UniverseLandingJourneyDiaryDetailDialog({
                 <DetailNavButton direction="next" onClick={onNext} />
               </Box>
             ) : null}
+          </Box>
+
+          <Box
+            sx={{
+              flexShrink: 0,
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              bgcolor: 'rgba(0,0,0,0.88)',
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.25,
+            }}
+          >
+            <JourneyDiaryEngagement
+              targetType={getJourneyDiarySocialTargetType('picture')}
+              targetId={picture.id}
+              isOwner={isOwner}
+              variant="dark"
+            />
           </Box>
         </Stack>
       </Dialog>
@@ -1159,6 +1193,23 @@ export function UniverseLandingJourneyDiaryDetailDialog({
               </Box>
             ) : null}
           </Box>
+
+          <Box
+            sx={{
+              flexShrink: 0,
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              bgcolor: 'rgba(0,0,0,0.88)',
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.25,
+            }}
+          >
+            <JourneyDiaryEngagement
+              targetType={getJourneyDiarySocialTargetType('memorial')}
+              targetId={memorial.id}
+              isOwner={isOwner}
+              variant="dark"
+            />
+          </Box>
         </Stack>
       </Dialog>
     );
@@ -1177,6 +1228,7 @@ export function UniverseLandingJourneyDiaryDetailDialog({
         mediaKey={note.imageKey}
         hasPrev={hasPrev}
         hasNext={hasNext}
+        isOwner={isOwner}
         onClose={onClose}
         onPrev={onPrev}
         onNext={onNext}

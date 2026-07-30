@@ -3,7 +3,17 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'post_comments';
 const USERS_TABLE_NAME = 'cosset_users';
-const ALLOWED_TARGET_TYPES = ['blog', 'album', 'collection', 'collection-item', 'drawer', 'community'] as const;
+const ALLOWED_TARGET_TYPES = [
+  'blog',
+  'album',
+  'collection',
+  'collection-item',
+  'drawer',
+  'community',
+  'journey-picture',
+  'journey-note',
+  'journey-memorial',
+] as const;
 
 type PostCommentTargetType = (typeof ALLOWED_TARGET_TYPES)[number];
 

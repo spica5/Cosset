@@ -14,6 +14,9 @@ import { getBlogById } from 'src/models/blogs';
 import { getAlbumById } from 'src/models/albums';
 import { getCommunityPostById } from 'src/models/community-posts';
 import { getCollectionItemById } from 'src/models/collection-items';
+import { getJourneyDiaryNoteById } from 'src/models/journey-diary-notes';
+import { getJourneyDiaryMemorialThingById } from 'src/models/journey-diary-memorial-things';
+import { getJourneyDiaryRepresentativePictureById } from 'src/models/journey-diary-representative-pictures';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
@@ -22,7 +25,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
-const TARGET_TYPES = ['blog', 'album', 'collection', 'collection-item', 'drawer', 'community'] as const;
+const TARGET_TYPES = [
+  'blog',
+  'album',
+  'collection',
+  'collection-item',
+  'drawer',
+  'community',
+  'journey-picture',
+  'journey-note',
+  'journey-memorial',
+] as const;
 
 type TargetType = (typeof TARGET_TYPES)[number];
 
@@ -100,6 +113,21 @@ const isRequesterTargetOwner = async (
   if (targetType === 'collection' || targetType === 'collection-item') {
     const item = await getCollectionItemById(targetId);
     return !!item?.customerId && String(item.customerId) === requesterCustomerId;
+  }
+
+  if (targetType === 'journey-picture') {
+    const picture = await getJourneyDiaryRepresentativePictureById(targetId);
+    return !!picture?.userId && String(picture.userId) === requesterCustomerId;
+  }
+
+  if (targetType === 'journey-note') {
+    const note = await getJourneyDiaryNoteById(targetId);
+    return !!note?.userId && String(note.userId) === requesterCustomerId;
+  }
+
+  if (targetType === 'journey-memorial') {
+    const memorial = await getJourneyDiaryMemorialThingById(targetId);
+    return !!memorial?.userId && String(memorial.userId) === requesterCustomerId;
   }
 
   return false;

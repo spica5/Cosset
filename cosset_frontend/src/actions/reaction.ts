@@ -3,7 +3,15 @@ import useSWR, { mutate } from 'swr';
 
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
-export type ReactionTargetType = 'blog' | 'album' | 'collection' | 'drawer' | 'community';
+export type ReactionTargetType =
+  | 'blog'
+  | 'album'
+  | 'collection'
+  | 'drawer'
+  | 'community'
+  | 'journey-picture'
+  | 'journey-note'
+  | 'journey-memorial';
 export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
 export type PostReaction = {

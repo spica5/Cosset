@@ -242,6 +242,8 @@ type CommentsSectionProps = {
   commentsHidden?: boolean;
   togglingCommentVisibility?: boolean;
   cardSx?: SxProps<Theme>;
+  defaultExpanded?: boolean;
+  showHeader?: boolean;
 };
 
 export function CommentsSection({
@@ -261,8 +263,10 @@ export function CommentsSection({
   commentsHidden = false,
   togglingCommentVisibility = false,
   cardSx,
+  defaultExpanded = false,
+  showHeader = true,
 }: CommentsSectionProps) {
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(defaultExpanded);
   const [commentInput, setCommentInput] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | number | null>(null);
@@ -360,29 +364,35 @@ export function CommentsSection({
       {!commentsHidden ? (
         <Card sx={{ p: { xs: 2, md: 2.5 }, ...cardSx }}>
           <Stack spacing={1.25}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-              <Stack direction="row" spacing={0.6} alignItems="center">
-                <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
-                <Typography variant="subtitle2">Comments ({visibleCommentsCount})</Typography>
+            {showHeader ? (
+              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                <Stack direction="row" spacing={0.6} alignItems="center">
+                  <Iconify icon="solar:chat-round-dots-bold" width={16} sx={{ color: 'warning.main' }} />
+                  <Typography variant="subtitle2">Comments ({visibleCommentsCount})</Typography>
+                </Stack>
+
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setCommentsExpanded((prev) => !prev)}
+                  endIcon={
+                    <Iconify
+                      width={14}
+                      icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
+                    />
+                  }
+                >
+                  {commentsExpanded ? 'Collapse' : 'Expand'}
+                </Button>
               </Stack>
+            ) : null}
 
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setCommentsExpanded((prev) => !prev)}
-                endIcon={
-                  <Iconify
-                    width={14}
-                    icon={commentsExpanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                  />
-                }
-              >
-                {commentsExpanded ? 'Collapse' : 'Expand'}
-              </Button>
-            </Stack>
-
-            {commentsExpanded ? (
+            {commentsExpanded || !showHeader ? (
               <>
+                {!showHeader ? (
+                  <Typography variant="subtitle2">Comments ({visibleCommentsCount})</Typography>
+                ) : null}
+
                 <Stack spacing={0.75} sx={{ maxHeight: 190, overflowY: 'auto', pr: 0.5 }}>
                   {commentsForViewer.map((comment) => {
                     const authorName =
