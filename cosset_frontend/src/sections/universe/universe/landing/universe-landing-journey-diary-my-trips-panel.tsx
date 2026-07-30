@@ -11,6 +11,8 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import { MyJourneyCountryIcon } from 'src/sections/dashboard/journey-diary/my-journey-country-icon';
 
 import {
@@ -101,10 +103,18 @@ export function JourneyDiaryTripListCard({
         >
           {trip.coverUrl ? (
             <Box
-              component="img"
+              component={isVideoMediaPath(trip.coverUrl) ? 'video' : 'img'}
               src={trip.coverUrl}
               alt={trip.country}
-              sx={{ width: 1, height: 1, objectFit: 'cover' }}
+              muted={isVideoMediaPath(trip.coverUrl) ? true : undefined}
+              playsInline={isVideoMediaPath(trip.coverUrl) ? true : undefined}
+              preload={isVideoMediaPath(trip.coverUrl) ? 'metadata' : undefined}
+              sx={{
+                width: 1,
+                height: 1,
+                objectFit: 'cover',
+                bgcolor: isVideoMediaPath(trip.coverUrl) ? 'common.black' : undefined,
+              }}
             />
           ) : (
             <Stack alignItems="center" justifyContent="center" sx={{ width: 1, height: 1 }}>

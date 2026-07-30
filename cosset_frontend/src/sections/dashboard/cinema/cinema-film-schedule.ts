@@ -4,6 +4,11 @@ import type { ICinemaFilmScreening, ICinemaFilmScreeningWithFilm } from 'src/typ
 
 import { fDateTimeFromUtc, normalizeUtcTimestamp } from 'src/utils/format-time';
 
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
+
 // ----------------------------------------------------------------------
 
 export type CinemaFilmShowStatus = 'now' | 'upcoming' | 'past' | 'unscheduled';
@@ -23,7 +28,13 @@ const parseInstant = (value?: IDateValue | Date | null) => {
   }
 
   const parsed = new Date(utcValue);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  // Fallback for uncommon Postgres/Neon offset strings.
+  const viaDayjs = dayjs.utc(utcValue);
+  return viaDayjs.isValid() ? viaDayjs.toDate() : null;
 };
 
 /** Format a UTC instant for `<input type="datetime-local">` using UTC wall-clock parts. */
@@ -88,16 +99,18 @@ const isShowLiveAt = (
   mediaDurationSeconds?: number | null,
   nextStart?: Date | null,
 ) => {
-  const offsetSeconds = (now.getTime() - start.getTime()) / 1000;
-  if (offsetSeconds < 0) {
+  const nowMs = now.getTime();
+  const startMs = start.getTime();
+  if (nowMs < startMs) {
     return false;
   }
 
   // Once the next showtime begins, that show owns the theater.
-  if (nextStart && now >= nextStart) {
+  if (nextStart && nowMs >= nextStart.getTime()) {
     return false;
   }
 
+  const offsetSeconds = (nowMs - startMs) / 1000;
   return offsetSeconds < resolveShowDurationSeconds(mediaDurationSeconds);
 };
 
@@ -124,7 +137,10 @@ export const getActiveScreeningStart = (
 export const getNextScreeningStart = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
   now = new Date(),
-) => getScreeningStartInstants(screening).find((start) => start > now) || null;
+) => {
+  const nowMs = now.getTime();
+  return getScreeningStartInstants(screening).find((start) => start.getTime() > nowMs) || null;
+};
 
 export const getScreeningShowStatus = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
@@ -137,10 +153,12 @@ export const getScreeningShowStatus = (
     return 'unscheduled';
   }
 
+  // Live during either showAt or showAt2 playback window.
   if (getActiveScreeningStart(screening, now, mediaDurationSeconds)) {
     return 'now';
   }
 
+  // Still upcoming when waiting for the first show OR the second showtime.
   if (getNextScreeningStart(screening, now)) {
     return 'upcoming';
   }
@@ -152,7 +170,10 @@ export const getScreeningScheduleLabels = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
 ) =>
   getScreeningStartInstants(screening)
-    .map((start) => fDateTimeFromUtc(start))
+    .map((start) => {
+      const label = fDateTimeFromUtc(start);
+      return label ? `${label} UTC` : null;
+    })
     .filter((label): label is string => Boolean(label));
 
 export const formatScreeningSchedule = (

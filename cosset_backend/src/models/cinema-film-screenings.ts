@@ -28,13 +28,16 @@ export interface CinemaFilmScreeningWithFilm extends CinemaFilmScreening {
 }
 
 // show_at / show_at2 are TIMESTAMP WITHOUT TIME ZONE storing UTC wall-clock.
-// AT TIME ZONE 'UTC' returns timestamptz so drivers/JSON keep the correct instant.
+// Return canonical UTC ISO text so clients never re-interpret driver-local Dates.
 const SELECT_COLUMNS = `
   id,
   film_id as "filmId",
   customer_id as "customerId",
-  (show_at AT TIME ZONE 'UTC') as "showAt",
-  (show_at2 AT TIME ZONE 'UTC') as "showAt2",
+  (to_char(show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z') as "showAt",
+  CASE
+    WHEN show_at2 IS NULL THEN NULL
+    ELSE (to_char(show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt2",
   "order",
   is_public as "isPublic",
   created_at as "createdAt",
@@ -45,8 +48,11 @@ const SELECT_WITH_FILM_COLUMNS = `
   s.id,
   s.film_id as "filmId",
   s.customer_id as "customerId",
-  (s.show_at AT TIME ZONE 'UTC') as "showAt",
-  (s.show_at2 AT TIME ZONE 'UTC') as "showAt2",
+  (to_char(s.show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z') as "showAt",
+  CASE
+    WHEN s.show_at2 IS NULL THEN NULL
+    ELSE (to_char(s.show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt2",
   s."order",
   s.is_public as "isPublic",
   s.created_at as "createdAt",

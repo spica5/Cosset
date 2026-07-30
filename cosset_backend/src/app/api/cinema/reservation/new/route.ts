@@ -3,10 +3,7 @@ import type { NextRequest } from 'next/server';
 import { DatabaseError } from '@/db/errors';
 
 import { STATUS, response, handleError } from 'src/utils/response';
-import {
-  cancelCinemaFilmReservation,
-  createCinemaFilmReservation,
-} from 'src/models/cinema-film-reservations';
+import { createCinemaFilmReservation } from 'src/models/cinema-film-reservations';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

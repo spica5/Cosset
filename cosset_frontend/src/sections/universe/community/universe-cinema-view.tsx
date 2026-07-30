@@ -469,8 +469,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   }, [films, ownerId]);
 
   const viewerCustomerId = String(user?.id || '');
+  // Load all of this viewer's reserved seats for the category (don't filter by owner —
+  // community rooms can mix owners and a strict owner filter hid existing reservations,
+  // causing duplicate create → 409).
   const { reservations, reservationsLoading } = useGetCinemaReservations(viewerCustomerId || null, {
-    ...(catalogOwnerId ? { ownerCustomerId: catalogOwnerId } : {}),
     category: resolvedCategory,
     status: 'reserved',
   });
@@ -478,7 +480,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const reservationsByScreeningId = useMemo(() => {
     const map = new Map<number, ICinemaFilmReservationWithScreening>();
     reservations.forEach((reservation) => {
-      map.set(reservation.screeningId, reservation);
+      const screeningId = Number(reservation.screeningId);
+      if (Number.isFinite(screeningId)) {
+        map.set(screeningId, reservation);
+      }
     });
     return map;
   }, [reservations]);
@@ -486,8 +491,9 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const reservationsByFilmId = useMemo(() => {
     const map = new Map<number, ICinemaFilmReservationWithScreening>();
     reservations.forEach((reservation) => {
-      if (!map.has(reservation.filmId)) {
-        map.set(reservation.filmId, reservation);
+      const filmId = Number(reservation.filmId);
+      if (Number.isFinite(filmId) && !map.has(filmId)) {
+        map.set(filmId, reservation);
       }
     });
     return map;
@@ -539,12 +545,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
   const activeScreening = useMemo(() => {
     if (!activeFilm) return defaultScreening;
-    return (
-      screenings.find((screening) => screening.filmId === activeFilm.id) ||
-      getNextFilmScreening(activeFilm) ||
-      defaultScreening
-    );
-  }, [activeFilm, defaultScreening, screenings]);
+
+    // Prefer the screening that is live or next up (supports showAt + showAt2).
+    return getNextFilmScreening(activeFilm) || defaultScreening;
+  }, [activeFilm, defaultScreening]);
 
   const loading = filmsLoading || screeningsLoading;
   const accent = category?.accent || CINEMA_GOLD;
@@ -633,12 +637,16 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const activeReservation = useMemo(() => {
     if (!activeFilm) return null;
 
-    if (activeScreening?.id) {
-      const byScreening = reservationsByScreeningId.get(activeScreening.id);
-      if (byScreening) return byScreening;
+    if (activeScreening?.id != null) {
+      const screeningId = Number(activeScreening.id);
+      if (Number.isFinite(screeningId)) {
+        const byScreening = reservationsByScreeningId.get(screeningId);
+        if (byScreening) return byScreening;
+      }
     }
 
-    return reservationsByFilmId.get(activeFilm.id) || null;
+    const filmId = Number(activeFilm.id);
+    return Number.isFinite(filmId) ? reservationsByFilmId.get(filmId) || null : null;
   }, [activeFilm, activeScreening?.id, reservationsByFilmId, reservationsByScreeningId]);
 
   const headerSeatIds = useMemo(() => {
@@ -934,9 +942,17 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       try {
         setConfirming(true);
 
-        if (activeReservation) {
+        const screeningId = Number(activeScreening.id);
+        const existingReservation =
+          activeReservation ||
+          (Number.isFinite(screeningId)
+            ? reservationsByScreeningId.get(screeningId)
+            : undefined) ||
+          null;
+
+        if (existingReservation) {
           await updateCinemaReservationSeats(
-            activeReservation.id,
+            existingReservation.id,
             { customerId: viewerCustomerId, seatIds: [seatId] },
             {
               ownerCustomerId: String(activeFilm.customerId || catalogOwnerId || '') || undefined,
@@ -946,7 +962,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         } else {
           await createCinemaReservation(
             {
-              screeningId: activeScreening.id,
+              screeningId: Number(activeScreening.id),
               customerId: viewerCustomerId,
               seatIds: [seatId],
             },
@@ -1049,21 +1065,26 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         sx={{
           position: 'relative',
           zIndex: 3,
-          px: { xs: 2, md: 4 },
-          py: { xs: 1.75, md: 2 },
+          px: { xs: 1.5, sm: 2, md: 4 },
+          py: { xs: 1.25, md: 2 },
           borderBottom: '1px solid rgba(212, 176, 90, 0.16)',
           bgcolor: 'rgba(0,0,0,0.35)',
           backdropFilter: 'blur(10px)',
-          minHeight: { xs: 64, md: 72 },
+          minHeight: { xs: 56, md: 72 },
           display: 'flex',
           alignItems: 'center',
         }}
       >
         <Stack
           direction="row"
-          spacing={1.25}
+          spacing={1}
           alignItems="center"
-          sx={{ minWidth: 0, maxWidth: { xs: '38%', sm: '32%', md: '28%' }, zIndex: 1 }}
+          sx={{
+            minWidth: 0,
+            maxWidth: { xs: '42%', sm: '34%', md: '30%' },
+            zIndex: 1,
+            flexShrink: 1,
+          }}
         >
           <Iconify icon={category.icon} width={22} sx={{ color: accent, flexShrink: 0 }} />
           <Box sx={{ minWidth: 0 }}>
@@ -1072,7 +1093,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
               sx={{
                 fontFamily: CINEMA_SERIF,
                 fontWeight: 700,
-                fontSize: '1.05rem',
+                fontSize: { xs: '0.92rem', sm: '1.05rem' },
                 lineHeight: 1.25,
                 color: accent,
               }}
@@ -1083,7 +1104,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
               variant="overline"
               noWrap
               sx={{
-                display: 'block',
+                display: { xs: 'none', sm: 'block' },
                 color: 'rgba(245,230,200,0.58)',
                 letterSpacing: '0.18em',
                 lineHeight: 1.2,
@@ -1095,24 +1116,26 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         </Stack>
 
         <Typography
+          noWrap
           sx={{
             position: 'absolute',
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: { xs: '48%', sm: '52%', md: '56%' },
+            width: { xs: '46%', sm: '44%', md: '42%' },
             textAlign: 'center',
             fontFamily: CINEMA_SERIF,
             color: accent,
             fontWeight: 700,
-            fontSize: { xs: '0.85rem', sm: '1.15rem', md: '1.45rem' },
-            letterSpacing: '0.06em',
-            lineHeight: 1.15,
-            textTransform: 'uppercase',
+            fontSize: { xs: '0.72rem', sm: '0.95rem', md: '1.35rem' },
+            letterSpacing: { xs: '0.04em', md: '0.06em' },
+            lineHeight: 1.2,
+            textTransform: activeFilm ? 'none' : 'uppercase',
             pointerEvents: 'none',
+            px: 1,
           }}
         >
-          {category.headline}
+          {activeFilm?.title || category.headline}
         </Typography>
 
         <Stack
@@ -1259,34 +1282,72 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     <CircularProgress size={26} sx={{ color: accent }} />
                   </Stack>
                 ) : activeFilm ? (
-                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center' }}>
+                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', width: 1, px: 1 }}>
                     <Typography
                       sx={{
                         fontFamily: CINEMA_SERIF,
                         fontWeight: 700,
-                        fontSize: { xs: '1.1rem', md: '1.45rem' },
+                        fontSize: { xs: '0.98rem', sm: '1.2rem', md: '1.45rem' },
+                        lineHeight: 1.25,
                         color: '#FFF8E7',
                         textShadow: '0 3px 14px rgba(0,0,0,0.7)',
+                        maxWidth: 1,
+                        px: 0.5,
                       }}
                     >
                       {activeFilm.title}
                     </Typography>
 
                     {activeScheduleLabels.length ? (
-                      <Stack spacing={0.15} alignItems="center">
-                        {activeScheduleLabels.map((label) => (
-                          <Typography
-                            key={label}
-                            variant="caption"
-                            sx={{ color: 'rgba(245,230,200,0.75)' }}
-                          >
-                            {label}
-                          </Typography>
-                        ))}
+                      <Stack spacing={0.35} alignItems="center" sx={{ width: 1, maxWidth: 420 }}>
+                        <Stack
+                          direction="row"
+                          spacing={{ xs: 1.25, sm: 1.75 }}
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Stack spacing={0.15} alignItems="flex-start">
+                            {activeScheduleLabels.map((label) => (
+                              <Typography
+                                key={label}
+                                variant="caption"
+                                sx={{
+                                  color: 'rgba(245,230,200,0.75)',
+                                  fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                                  lineHeight: 1.35,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {label}
+                              </Typography>
+                            ))}
+                          </Stack>
+
+                          {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
+                            <Chip
+                              size="small"
+                              label={getCinemaFilmShowStatusLabel(activeShowStatus)}
+                              sx={{
+                                flexShrink: 0,
+                                fontWeight: 700,
+                                fontSize: { xs: '0.65rem', sm: '0.72rem' },
+                                height: 24,
+                                color: '#1A1208',
+                                bgcolor:
+                                  activeShowStatus === 'now'
+                                    ? accent
+                                    : activeShowStatus === 'upcoming'
+                                      ? 'rgba(245,230,200,0.92)'
+                                      : 'rgba(245,230,200,0.55)',
+                              }}
+                            />
+                          ) : null}
+                        </Stack>
+
                         {isSyncedScreening && activeShowStatus === 'now' ? (
                           <Typography
                             variant="caption"
-                            sx={{ color: 'rgba(245,230,200,0.75)' }}
+                            sx={{ color: 'rgba(245,230,200,0.75)', fontSize: { xs: '0.65rem', sm: '0.72rem' } }}
                           >
                             Live synced screening
                           </Typography>

@@ -356,6 +356,7 @@ function buildPictureEntries(pictures: JourneyPictureItem[]): JourneyDiaryEntry[
     title: (item.caption || '').trim() || `Memory ${index + 1}`,
     subtitle: formatJourneyLabel(item),
     imageUrl: item.signedImageUrl,
+    mediaKey: getPictureImageKey(item) || undefined,
     dateLabel: item.visitedAt
       ? formatDate(item.visitedAt)
       : item.journeyMonth !== undefined && item.journeyMonth !== null
@@ -376,6 +377,7 @@ function buildNoteEntries(notes: JourneyNoteItem[]): JourneyDiaryEntry[] {
     subtitle: formatJourneyLabel(note),
     excerpt: getNoteExcerpt(note),
     imageUrl: note.signedImageUrl,
+    mediaKey: note.imageKey || undefined,
     dateLabel: formatDate(note.noteDate || note.createdAt),
     createdAt: note.noteDate || note.createdAt,
   }));
@@ -390,6 +392,7 @@ function buildMemorialEntries(items: JourneyMemorialItem[]): JourneyDiaryEntry[]
     subtitle: `${getMemorialThingCategoryLabel(item.category)} · ${formatJourneyLabel(item)}`,
     excerpt: (item.description || '').trim() || undefined,
     imageUrl: item.signedImageUrl,
+    mediaKey: getMemorialImageKeys(item)[0] || undefined,
     dateLabel: formatDate(item.memorialDate || item.createdAt),
     createdAt: item.memorialDate || item.createdAt,
   }));

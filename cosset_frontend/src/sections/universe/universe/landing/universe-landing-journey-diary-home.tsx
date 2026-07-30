@@ -13,6 +13,8 @@ import CardActionArea from '@mui/material/CardActionArea';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import { JourneyDiaryWorldMap } from 'src/sections/dashboard/journey-diary/journey-diary-world-map';
 
 import { MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
@@ -150,6 +152,8 @@ function JourneyDiaryHomeRecentCard({
   const { theme: spaceTheme } = useDesignSpaceTheme();
   const excerpt = entry.excerpt || entry.subtitle;
   const categoryMeta = ENTRY_CATEGORY_META[entry.kind];
+  const isVideo =
+    isVideoMediaPath(entry.imageUrl) || isVideoMediaPath(entry.mediaKey);
 
   return (
     <Card
@@ -170,9 +174,12 @@ function JourneyDiaryHomeRecentCard({
         <Box sx={{ position: 'relative', pt: '68%' }}>
           {entry.imageUrl ? (
             <Box
-              component="img"
+              component={isVideo ? 'video' : 'img'}
               src={entry.imageUrl}
               alt={entry.title}
+              muted={isVideo ? true : undefined}
+              playsInline={isVideo ? true : undefined}
+              preload={isVideo ? 'metadata' : undefined}
               sx={{ position: 'absolute', inset: 0, width: 1, height: 1, objectFit: 'cover' }}
             />
           ) : (

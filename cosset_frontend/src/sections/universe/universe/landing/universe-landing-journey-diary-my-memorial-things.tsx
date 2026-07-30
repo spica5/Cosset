@@ -12,6 +12,8 @@ import CardActionArea from '@mui/material/CardActionArea';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
 import { useDesignSpaceTheme } from './design-space-theme-context';
@@ -87,14 +89,18 @@ function MemorialListCard({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0} alignItems="stretch">
           {imageUrl ? (
             <Box
-              component="img"
+              component={isVideoMediaPath(imageUrl) ? 'video' : 'img'}
               src={imageUrl}
               alt={item.title}
+              muted={isVideoMediaPath(imageUrl) ? true : undefined}
+              playsInline={isVideoMediaPath(imageUrl) ? true : undefined}
+              preload={isVideoMediaPath(imageUrl) ? 'metadata' : undefined}
               sx={{
                 width: { xs: 1, sm: 140 },
                 height: { xs: 160, sm: 120 },
                 objectFit: 'cover',
                 flexShrink: 0,
+                bgcolor: isVideoMediaPath(imageUrl) ? 'common.black' : undefined,
               }}
             />
           ) : (

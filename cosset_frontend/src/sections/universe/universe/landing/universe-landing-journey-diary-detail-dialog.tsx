@@ -4,7 +4,7 @@ import type { IJourneyDiaryNote } from 'src/types/journey-diary-note';
 import type { IJourneyMemorialThing } from 'src/types/journey-diary-memorial-thing';
 import type { IJourneyRepresentativePicture } from 'src/types/journey-diary-representative-picture';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -13,6 +13,8 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import { Iconify } from 'src/components/universe/iconify';
+
+import { isVideoMediaPath } from 'src/utils/media-file';
 
 import { getMemorialThingCategoryLabel } from 'src/sections/dashboard/journey-diary/memorial-things-categories';
 
@@ -183,11 +185,13 @@ function DetailNavButton({
 function ZoomableImageStage({
   src,
   alt,
+  mediaKey,
   maxHeight = { xs: 320, md: 520 },
   fullHeight = false,
 }: {
   src?: string;
   alt: string;
+  mediaKey?: string | null;
   maxHeight?: { xs: number; md: number };
   fullHeight?: boolean;
 }) {
@@ -196,13 +200,14 @@ function ZoomableImageStage({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const zoomPercent = `${Math.round(zoom * 100)}%`;
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const isVideo = isVideoMediaPath(src) || isVideoMediaPath(mediaKey);
 
   useEffect(() => {
     setZoom(1);
   }, [src]);
 
   useEffect(() => {
-    if (!src) {
+    if (!src || isVideo) {
       setNaturalSize({ width: 0, height: 0 });
       return undefined;
     }
@@ -219,7 +224,7 @@ function ZoomableImageStage({
     return () => {
       image.onload = null;
     };
-  }, [src]);
+  }, [isVideo, src]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -298,6 +303,36 @@ function ZoomableImageStage({
       }}
     >
       {src ? (
+        isVideo ? (
+          <Box
+            sx={{
+              width: 1,
+              height: fullHeight ? 1 : 'auto',
+              minHeight: fullHeight ? 0 : 220,
+              maxHeight: fullHeight ? 'none' : maxHeight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'common.black',
+              p: { xs: 1, md: 2 },
+            }}
+          >
+            <Box
+              component="video"
+              src={src}
+              controls
+              playsInline
+              preload="metadata"
+              sx={{
+                width: 1,
+                height: fullHeight ? 1 : 'auto',
+                maxHeight: fullHeight ? '100%' : maxHeight,
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </Box>
+        ) : (
         <Box
           ref={viewportRef}
           sx={{
@@ -351,6 +386,7 @@ function ZoomableImageStage({
             />
           </Box>
         </Box>
+        )
       ) : (
         <Stack
           alignItems="center"
@@ -365,6 +401,7 @@ function ZoomableImageStage({
         </Stack>
       )}
 
+      {!isVideo ? (
       <Stack
         direction="row"
         spacing={1}
@@ -422,6 +459,7 @@ function ZoomableImageStage({
           <Iconify icon="solar:add-circle-bold" width={20} />
         </IconButton>
       </Stack>
+      ) : null}
     </Box>
   );
 }
@@ -429,18 +467,22 @@ function ZoomableImageStage({
 function NoteDetailImageThumbnail({
   src,
   alt,
+  mediaKey,
   onExpand,
 }: {
   src: string;
   alt: string;
+  mediaKey?: string | null;
   onExpand: () => void;
 }) {
+  const isVideo = isVideoMediaPath(src) || isVideoMediaPath(mediaKey);
+
   return (
     <Box
       onClick={onExpand}
       role="button"
       tabIndex={0}
-      aria-label="View full image"
+      aria-label={isVideo ? 'View full video' : 'View full image'}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -484,14 +526,22 @@ function NoteDetailImageThumbnail({
         }}
       >
         <Box
-          component="img"
+          component={isVideo ? 'video' : 'img'}
           src={src}
           alt={alt}
+          muted={isVideo ? true : undefined}
+          playsInline={isVideo ? true : undefined}
+          preload={isVideo ? 'metadata' : undefined}
+          controls={isVideo ? true : undefined}
+          onClick={
+            isVideo ? (event: MouseEvent<HTMLElement>) => event.stopPropagation() : undefined
+          }
           sx={{
             width: 1,
             aspectRatio: '4 / 3',
             objectFit: 'cover',
             display: 'block',
+            bgcolor: isVideo ? 'common.black' : undefined,
           }}
         />
       </Box>
@@ -560,6 +610,7 @@ function NoteDetailDialog({
   subtitle,
   body,
   imageUrl,
+  mediaKey,
   hasPrev,
   hasNext,
   onClose,
@@ -571,6 +622,7 @@ function NoteDetailDialog({
   subtitle: string;
   body: string;
   imageUrl: string;
+  mediaKey?: string | null;
   hasPrev: boolean;
   hasNext: boolean;
   onClose: () => void;
@@ -699,6 +751,7 @@ function NoteDetailDialog({
                   <NoteDetailImageThumbnail
                     src={imageUrl}
                     alt={title}
+                    mediaKey={mediaKey}
                     onExpand={() => setFullImageOpen(true)}
                   />
                 </Box>
@@ -790,7 +843,7 @@ function NoteDetailDialog({
         </Stack>
 
         <Box sx={{ p: { xs: 1.5, md: 2 }, height: 'calc(92vh - 120px)', minHeight: 280 }}>
-          <ZoomableImageStage src={imageUrl} alt={title} fullHeight />
+          <ZoomableImageStage src={imageUrl} alt={title} mediaKey={mediaKey} fullHeight />
         </Box>
       </Dialog>
     </>
@@ -955,7 +1008,12 @@ export function UniverseLandingJourneyDiaryDetailDialog({
             }}
           >
             {imageUrl ? (
-              <ZoomableImageStage src={imageUrl} alt={title} fullHeight />
+              <ZoomableImageStage
+                src={imageUrl}
+                alt={title}
+                mediaKey={(currentItem as JourneyPictureDetailItem).imageKey}
+                fullHeight
+              />
             ) : (
               <Stack
                 alignItems="center"
@@ -1116,6 +1174,7 @@ export function UniverseLandingJourneyDiaryDetailDialog({
         subtitle={`${formatDate(note.noteDate || note.createdAt)} · ${formatJourneyLabel(note)}`}
         body={(note.content || '').trim() || 'No content yet.'}
         imageUrl={note.signedImageUrl || ''}
+        mediaKey={note.imageKey}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onClose={onClose}

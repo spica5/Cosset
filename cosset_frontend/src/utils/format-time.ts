@@ -66,12 +66,22 @@ export function normalizeUtcTimestamp(date: DatePickerFormat): string | null {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
 
+  if (typeof date === 'number') {
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
   const raw = String(date).trim();
   if (!raw) {
     return null;
   }
 
-  const normalized = raw.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+  let normalized = raw.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+
+  // Normalize uncommon Postgres/Neon offsets: +00, +0000 → +00:00
+  normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+  normalized = normalized.replace(/([+-]\d{2})$/, '$1:00');
+
   const hasTimezone = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized);
 
   return hasTimezone ? normalized : `${normalized}Z`;

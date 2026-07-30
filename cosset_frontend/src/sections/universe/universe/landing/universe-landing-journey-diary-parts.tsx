@@ -11,6 +11,8 @@ import CardActionArea from '@mui/material/CardActionArea';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import { useDesignSpaceTheme } from './design-space-theme-context';
 import { MySpaceCountBadge, MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
 import {
@@ -378,9 +380,28 @@ export function JourneyDiaryEntryCard({ entry, onClick }: EntryCardProps) {
           >
             {entry.imageUrl ? (
               <Box
-                component="img"
+                component={
+                  isVideoMediaPath(entry.imageUrl) || isVideoMediaPath(entry.mediaKey)
+                    ? 'video'
+                    : 'img'
+                }
                 src={entry.imageUrl}
                 alt={entry.title}
+                muted={
+                  isVideoMediaPath(entry.imageUrl) || isVideoMediaPath(entry.mediaKey)
+                    ? true
+                    : undefined
+                }
+                playsInline={
+                  isVideoMediaPath(entry.imageUrl) || isVideoMediaPath(entry.mediaKey)
+                    ? true
+                    : undefined
+                }
+                preload={
+                  isVideoMediaPath(entry.imageUrl) || isVideoMediaPath(entry.mediaKey)
+                    ? 'metadata'
+                    : undefined
+                }
                 sx={{ width: 1, height: 1, minHeight: 150, objectFit: 'cover', display: 'block' }}
               />
             ) : (

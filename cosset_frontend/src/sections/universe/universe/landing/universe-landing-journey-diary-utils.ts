@@ -62,6 +62,8 @@ export type JourneyDiaryEntry = {
   subtitle: string;
   excerpt?: string;
   imageUrl?: string;
+  /** Original storage key; used to detect video when the signed URL path is ambiguous. */
+  mediaKey?: string;
   dateLabel?: string;
   createdAt?: string | null;
   index: number;

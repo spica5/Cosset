@@ -59,8 +59,14 @@ const SELECT_WITH_SCREENING_COLUMNS = `
   COALESCE(r.seat_ids, '[]'::jsonb) as "seatIds",
   r.created_at as "createdAt",
   r.updated_at as "updatedAt",
-  (s.show_at AT TIME ZONE 'UTC') as "showAt",
-  (s.show_at2 AT TIME ZONE 'UTC') as "showAt2",
+  CASE
+    WHEN s.show_at IS NULL THEN NULL
+    ELSE (to_char(s.show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt",
+  CASE
+    WHEN s.show_at2 IS NULL THEN NULL
+    ELSE (to_char(s.show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt2",
   s.film_id as "filmId",
   f.title as "filmTitle",
   f.director as "filmDirector",
@@ -226,10 +232,21 @@ export async function createCinemaFilmReservation(input: {
     );
 
     if (existing) {
-      throw new DatabaseError({
-        code: 'CINEMA_RESERVATION_EXISTS',
-        message: 'This screening is already reserved',
-      });
+      // Idempotent join: update seat and return the existing reservation.
+      const updated = await updateCinemaFilmReservationSeats(
+        existing.id,
+        customerId,
+        seatIds,
+      );
+
+      if (!updated) {
+        throw new DatabaseError({
+          code: 'CREATE_CINEMA_RESERVATION_ERROR',
+          message: 'Failed to update existing reservation',
+        });
+      }
+
+      return updated;
     }
 
     const created = await queryOne<CinemaFilmReservation>(

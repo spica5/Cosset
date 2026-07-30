@@ -3,7 +3,7 @@
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -73,10 +73,20 @@ export function CinemaScreeningsTable({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingScreening, setEditingScreening] = useState<ICinemaFilmScreeningWithFilm | null>(null);
   const [defaultFilmId, setDefaultFilmId] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const canManage = canManageProp ?? Boolean(customerId);
   const loading = filmsLoading || screeningsLoading;
   const isBanner = variant === 'banner';
+  const scheduleNow = new Date(nowMs);
 
   const headerTitleSx = isBanner
     ? { fontWeight: 700, color: 'common.white' }
@@ -226,7 +236,7 @@ export function CinemaScreeningsTable({
 
             <TableBody>
               {screenings.map((screening) => {
-                const status = getScreeningShowStatus(screening);
+                const status = getScreeningShowStatus(screening, scheduleNow);
                 const statusLabel = getCinemaFilmShowStatusLabel(status);
                 const showTimeLabels = getScreeningScheduleLabels(screening);
 

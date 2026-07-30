@@ -12,6 +12,8 @@ import CardActionArea from '@mui/material/CardActionArea';
 
 import { Iconify } from 'src/components/universe/iconify';
 
+import { isVideoMediaPath } from 'src/utils/media-file';
+
 import { useDesignSpaceTheme } from './design-space-theme-context';
 import { MYSPACE_ITEM_TITLE_FONT } from './myspace-section-title';
 import {
@@ -169,9 +171,12 @@ function NoteListCard({
           >
             {note.signedImageUrl ? (
               <Box
-                component="img"
+                component={isVideoMediaPath(note.signedImageUrl) ? 'video' : 'img'}
                 src={note.signedImageUrl}
                 alt={note.title}
+                muted={isVideoMediaPath(note.signedImageUrl) ? true : undefined}
+                playsInline={isVideoMediaPath(note.signedImageUrl) ? true : undefined}
+                preload={isVideoMediaPath(note.signedImageUrl) ? 'metadata' : undefined}
                 sx={{
                   width: { xs: 72, sm: 96 },
                   height: { xs: 72, sm: 80 },
@@ -179,6 +184,7 @@ function NoteListCard({
                   borderRadius: 1.5,
                   border: palette.border,
                   display: 'block',
+                  bgcolor: isVideoMediaPath(note.signedImageUrl) ? 'common.black' : undefined,
                 }}
               />
             ) : null}

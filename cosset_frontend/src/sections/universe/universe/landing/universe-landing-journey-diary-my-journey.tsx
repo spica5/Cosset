@@ -12,6 +12,7 @@ import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 
 import { getS3SignedUrl } from 'src/utils/helper';
+import { isVideoMediaPath } from 'src/utils/media-file';
 
 import { Iconify } from 'src/components/universe/iconify';
 
@@ -187,15 +188,18 @@ type Props = {
 
 function ScrapbookPolaroid({
   imageUrl,
+  mediaKey,
   title,
   rotation = 0,
   palette,
 }: {
   imageUrl: string;
+  mediaKey?: string | null;
   title: string;
   rotation?: number;
   palette: JourneyPalette;
 }) {
+  const isVideo = isVideoMediaPath(imageUrl) || isVideoMediaPath(mediaKey);
   return (
     <Box
       sx={{
@@ -234,15 +238,18 @@ function ScrapbookPolaroid({
         }}
       >
         <Box
-          component="img"
+          component={isVideo ? 'video' : 'img'}
           src={imageUrl}
           alt={title}
+          muted={isVideo ? true : undefined}
+          playsInline={isVideo ? true : undefined}
+          preload={isVideo ? 'metadata' : undefined}
           sx={{
             width: 1,
             aspectRatio: '4 / 3',
             objectFit: 'cover',
             display: 'block',
-            bgcolor: 'grey.200',
+            bgcolor: isVideo ? 'common.black' : 'grey.200',
           }}
         />
         <Typography
@@ -373,6 +380,7 @@ function TimelineEntry({
             {picture.signedImageUrl ? (
               <ScrapbookPolaroid
                 imageUrl={picture.signedImageUrl}
+                mediaKey={picture.imageKey}
                 title={title}
                 rotation={((index % 3) - 1) * 1.5}
                 palette={palette}

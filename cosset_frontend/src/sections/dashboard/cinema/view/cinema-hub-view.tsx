@@ -72,7 +72,10 @@ function CinemaCategoryRoom({
   const reservationsByScreeningId = useMemo(() => {
     const map = new Map<number, ICinemaFilmReservationWithScreening>();
     reservations.forEach((reservation) => {
-      map.set(reservation.screeningId, reservation);
+      const screeningId = Number(reservation.screeningId);
+      if (Number.isFinite(screeningId)) {
+        map.set(screeningId, reservation);
+      }
     });
     return map;
   }, [reservations]);
