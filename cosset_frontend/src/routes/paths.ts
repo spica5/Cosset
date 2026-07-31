@@ -23,6 +23,7 @@ export const paths = {
   dashboard: {
     // root: ROOTS.DASHBOARD,
     root: `${ROOTS.DASHBOARD}/home-space/guest-area`,
+    home: ROOTS.DASHBOARD,
     preview: `${ROOTS.DASHBOARD}/preview`,
     customers: `${ROOTS.DASHBOARD}/customers`,
     admin: {

@@ -24,10 +24,6 @@ export async function POST(req: NextRequest) {
       return response({ message: 'filmId is required' }, STATUS.BAD_REQUEST);
     }
 
-    if (!screening?.showAt) {
-      return response({ message: 'showAt is required' }, STATUS.BAD_REQUEST);
-    }
-
     const film = await getCinemaFilmById(filmId);
 
     if (!film) {
@@ -41,7 +37,7 @@ export async function POST(req: NextRequest) {
     const created = await createCinemaFilmScreening({
       filmId,
       customerId,
-      showAt: screening.showAt,
+      showAt: screening.showAt ?? null,
       showAt2: screening.showAt2 ?? null,
       order: screening.order ?? null,
       isPublic: screening.isPublic ?? 1,

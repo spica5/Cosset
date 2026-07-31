@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmScreening } from 'src/types/cinema-film-screening';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -17,13 +17,13 @@ import { getS3SignedUrl } from 'src/utils/helper';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import { CinemaRibbonTitle } from './cinema-ribbon-title';
+import { CINEMA_GOLD, CINEMA_CREAM, CINEMA_SERIF } from './cinema-theater-theme';
 import {
   getNextFilmScreening,
   getScreeningShowStatus,
-  getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
+  getCinemaFilmShowStatusLabel,
 } from './cinema-film-schedule';
-import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF } from './cinema-theater-theme';
 
 // ----------------------------------------------------------------------
 

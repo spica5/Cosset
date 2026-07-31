@@ -29,8 +29,8 @@ import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CinemaScreeningFormDialog } from './cinema-screening-form-dialog';
 import {
   getScreeningShowStatus,
-  getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
+  getCinemaFilmShowStatusLabel,
 } from './cinema-film-schedule';
 
 import type { CinemaCategoryMeta } from './cinema-categories';

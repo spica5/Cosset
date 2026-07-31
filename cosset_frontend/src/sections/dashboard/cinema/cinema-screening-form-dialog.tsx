@@ -6,15 +6,19 @@ import type { CinemaCategory } from 'src/sections/dashboard/cinema/cinema-catego
 
 import { useState, useEffect, useCallback } from 'react';
 
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import {
   createCinemaScreening,
@@ -22,8 +26,14 @@ import {
 } from 'src/actions/cinema-film-screening';
 
 import { toast } from 'src/components/dashboard/snackbar';
+import { Iconify } from 'src/components/dashboard/iconify';
 
-import { toIsoOrNull, toDatetimeLocalValue } from './cinema-film-schedule';
+import {
+  toIsoOrNull,
+  toTimeLocalValue,
+  CINEMA_WEEKLY_DAYS_LABEL,
+  getLocalTimeLabelFromUtcInput,
+} from './cinema-film-schedule';
 
 // ----------------------------------------------------------------------
 
@@ -95,8 +105,8 @@ export function CinemaScreeningFormDialog({
 
     setForm({
       filmId: String(screening.filmId),
-      showAt: toDatetimeLocalValue(screening.showAt),
-      showAt2: toDatetimeLocalValue(screening.showAt2),
+      showAt: toTimeLocalValue(screening.showAt),
+      showAt2: toTimeLocalValue(screening.showAt2),
       order: screening.order != null ? String(screening.order) : '',
     });
   }, [defaultFilmId, open, screening]);
@@ -108,6 +118,10 @@ export function CinemaScreeningFormDialog({
     [],
   );
 
+  const handleClearField = useCallback((field: 'showAt' | 'showAt2') => {
+    setForm((prev) => ({ ...prev, [field]: '' }));
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     const filmId = Number.parseInt(form.filmId, 10);
 
@@ -116,15 +130,16 @@ export function CinemaScreeningFormDialog({
       return;
     }
 
-    if (!form.showAt.trim()) {
-      toast.error('Show start time is required.');
+    const showAt = toIsoOrNull(form.showAt);
+    const showAt2 = toIsoOrNull(form.showAt2);
+
+    if (form.showAt.trim() && !showAt) {
+      toast.error('Show start time is invalid.');
       return;
     }
 
-    const showAt = toIsoOrNull(form.showAt);
-
-    if (!showAt) {
-      toast.error('Show start time is invalid.');
+    if (form.showAt2.trim() && !showAt2) {
+      toast.error('Second show start time is invalid.');
       return;
     }
 
@@ -134,7 +149,7 @@ export function CinemaScreeningFormDialog({
       const payload = {
         filmId,
         showAt,
-        showAt2: toIsoOrNull(form.showAt2),
+        showAt2,
         order: parseNullableInteger(form.order),
         isPublic: 1,
       };
@@ -173,6 +188,37 @@ export function CinemaScreeningFormDialog({
     resetForm();
   }, [onClose, resetForm, submitting]);
 
+  const clearAdornment = (field: 'showAt' | 'showAt2', value: string) =>
+    value ? (
+      <InputAdornment position="end">
+        <IconButton
+          size="small"
+          aria-label={`Clear ${field === 'showAt' ? 'first' : 'second'} show time`}
+          onClick={() => handleClearField(field)}
+          edge="end"
+        >
+          <Iconify icon="mingcute:close-line" width={16} />
+        </IconButton>
+      </InputAdornment>
+    ) : null;
+
+  const showTimeHelperText = (utcValue: string) => {
+    const localLabel = getLocalTimeLabelFromUtcInput(utcValue);
+
+    return (
+      <Box component="span" sx={{ display: 'block' }}>
+        <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          Optional · {CINEMA_WEEKLY_DAYS_LABEL} each week (UTC)
+        </Typography>
+        {localLabel ? (
+          <Typography component="span" variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'info.main' }}>
+            Local time: {localLabel}
+          </Typography>
+        ) : null}
+      </Box>
+    );
+  };
+
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>{isEditMode ? 'Edit Screening' : 'Add Screening'}</DialogTitle>
@@ -198,23 +244,28 @@ export function CinemaScreeningFormDialog({
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="Show starts (UTC)"
-              type="datetime-local"
+              type="time"
               value={form.showAt}
               onChange={handleFieldChange('showAt')}
-              required
               fullWidth
-              helperText="Enter time in UTC"
+              helperText={showTimeHelperText(form.showAt)}
               InputLabelProps={{ shrink: true }}
+              FormHelperTextProps={{ component: 'div' }}
+              inputProps={{ step: 60 }}
+              InputProps={{ endAdornment: clearAdornment('showAt', form.showAt) }}
             />
 
             <TextField
               label="Show starts 2 (UTC)"
-              type="datetime-local"
+              type="time"
               value={form.showAt2}
               onChange={handleFieldChange('showAt2')}
               fullWidth
-              helperText="Enter time in UTC"
+              helperText={showTimeHelperText(form.showAt2)}
               InputLabelProps={{ shrink: true }}
+              FormHelperTextProps={{ component: 'div' }}
+              inputProps={{ step: 60 }}
+              InputProps={{ endAdornment: clearAdornment('showAt2', form.showAt2) }}
             />
           </Stack>
 

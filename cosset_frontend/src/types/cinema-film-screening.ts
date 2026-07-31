@@ -2,7 +2,7 @@ export type ICinemaFilmScreening = {
   id: number;
   filmId: number;
   customerId: string;
-  showAt: string | Date;
+  showAt?: string | Date | null;
   showAt2?: string | Date | null;
   order?: number | null;
   isPublic?: number | null;

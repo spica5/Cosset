@@ -9,7 +9,7 @@ export interface CinemaFilmScreening {
   id: number;
   filmId: number;
   customerId: string;
-  showAt: Date | string;
+  showAt?: Date | string | null;
   showAt2?: Date | string | null;
   order?: number | null;
   isPublic?: number | null;
@@ -27,13 +27,15 @@ export interface CinemaFilmScreeningWithFilm extends CinemaFilmScreening {
   filmDescription?: string | null;
 }
 
-// show_at / show_at2 are TIMESTAMP WITHOUT TIME ZONE storing UTC wall-clock.
-// Return canonical UTC ISO text so clients never re-interpret driver-local Dates.
+// show_at / show_at2 store UTC clock times (date is an anchor); films screen Fri/Sat/Sun each week.
 const SELECT_COLUMNS = `
   id,
   film_id as "filmId",
   customer_id as "customerId",
-  (to_char(show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z') as "showAt",
+  CASE
+    WHEN show_at IS NULL THEN NULL
+    ELSE (to_char(show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt",
   CASE
     WHEN show_at2 IS NULL THEN NULL
     ELSE (to_char(show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
@@ -48,7 +50,10 @@ const SELECT_WITH_FILM_COLUMNS = `
   s.id,
   s.film_id as "filmId",
   s.customer_id as "customerId",
-  (to_char(s.show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z') as "showAt",
+  CASE
+    WHEN s.show_at IS NULL THEN NULL
+    ELSE (to_char(s.show_at, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
+  END as "showAt",
   CASE
     WHEN s.show_at2 IS NULL THEN NULL
     ELSE (to_char(s.show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
@@ -89,17 +94,33 @@ const normalizeNullableInteger = (value: unknown): number | null => {
   return parseInteger(value);
 };
 
-/** Persist UTC wall-clock into TIMESTAMP WITHOUT TIME ZONE (no local shift). */
-const normalizeTimestamp = (value: unknown, required = false): string | null => {
+/** Persist UTC clock time into TIMESTAMP WITHOUT TIME ZONE (date is a fixed anchor; weekly days are applied in the app). */
+const normalizeTimestamp = (value: unknown): string | null => {
   if (value === undefined || value === null || value === '') {
-    if (required) {
-      throw new DatabaseError({
-        code: 'INVALID_CINEMA_SCREENING_TIME',
-        message: 'showAt is required',
-      });
-    }
-
     return null;
+  }
+
+  const TIME_ANCHOR_DATE = '1970-01-01';
+  const pad2 = (part: number) => String(part).padStart(2, '0');
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const timeOnly = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+    if (timeOnly) {
+      const hours = Number.parseInt(timeOnly[1], 10);
+      const minutes = Number.parseInt(timeOnly[2], 10);
+      const seconds = timeOnly[3] ? Number.parseInt(timeOnly[3], 10) : 0;
+      if (
+        hours >= 0 &&
+        hours <= 23 &&
+        minutes >= 0 &&
+        minutes <= 59 &&
+        seconds >= 0 &&
+        seconds <= 59
+      ) {
+        return `${TIME_ANCHOR_DATE} ${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+      }
+    }
   }
 
   let parsed: Date;
@@ -116,11 +137,12 @@ const normalizeTimestamp = (value: unknown, required = false): string | null => 
   if (Number.isNaN(parsed.getTime())) {
     throw new DatabaseError({
       code: 'INVALID_CINEMA_SCREENING_TIME',
-      message: 'showAt must be a valid datetime',
+      message: 'show time must be a valid time',
     });
   }
 
-  return parsed.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
+  // Keep UTC clock only — films screen Fri/Sat/Sun each week, not a one-off calendar date.
+  return `${TIME_ANCHOR_DATE} ${pad2(parsed.getUTCHours())}:${pad2(parsed.getUTCMinutes())}:${pad2(parsed.getUTCSeconds())}`;
 };
 
 const normalizeIsPublic = (value: unknown): 0 | 1 => {
@@ -207,7 +229,7 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
             id BIGSERIAL PRIMARY KEY,
             film_id BIGINT NOT NULL,
             customer_id VARCHAR(255) NOT NULL,
-            show_at TIMESTAMP NOT NULL,
+            show_at TIMESTAMP,
             show_at2 TIMESTAMP,
             "order" INTEGER,
             is_public INT DEFAULT 1,
@@ -235,6 +257,13 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
         `
           ALTER TABLE ${TABLE_NAME}
           ADD COLUMN IF NOT EXISTS show_at2 TIMESTAMP
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ALTER COLUMN show_at DROP NOT NULL
         `,
       );
 
@@ -445,7 +474,7 @@ export async function createCinemaFilmScreening(
       [
         normalizedFilmId,
         normalizedCustomerId,
-        normalizeTimestamp(screening.showAt, true),
+        normalizeTimestamp(screening.showAt),
         normalizeTimestamp(screening.showAt2),
         normalizeNullableInteger(screening.order),
         normalizeIsPublic(screening.isPublic),
@@ -510,7 +539,7 @@ export async function updateCinemaFilmScreening(
 
     if (updates.showAt !== undefined) {
       fields.push(`show_at = $${paramIndex}`);
-      values.push(normalizeTimestamp(updates.showAt, true));
+      values.push(normalizeTimestamp(updates.showAt));
       paramIndex += 1;
     }
 

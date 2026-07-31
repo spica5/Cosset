@@ -22,7 +22,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { uuidv4 } from 'src/utils/uuidv4';
 import { getS3SignedUrl } from 'src/utils/helper';
 
-import { deleteUploadedFile, uploadFileToS3 } from 'src/actions/upload';
+import { uploadFileToS3, deleteUploadedFile } from 'src/actions/upload';
 import { createCinemaFilm, updateCinemaFilm } from 'src/actions/cinema-film';
 
 import { toast } from 'src/components/dashboard/snackbar';
@@ -92,7 +92,7 @@ const getActionErrorMessage = (error: unknown, fallback: string) => {
   }
 
   if (error && typeof error === 'object' && 'message' in error) {
-    const message = (error as { message?: unknown }).message;
+    const {message} = (error as { message?: unknown });
     if (typeof message === 'string' && message.trim()) {
       return message;
     }

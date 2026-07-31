@@ -31,16 +31,16 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
-import type { CinemaCategoryMeta } from './cinema-categories';
+import { CINEMA_CREAM } from './cinema-theater-theme';
+import { formatCinemaSeatLabels } from './cinema-seat-map';
+import { CinemaSeatMapDialog } from './cinema-seat-map-dialog';
 import {
   getScreeningShowStatus,
   formatScreeningSchedule,  
   getCinemaFilmShowStatusLabel,
 } from './cinema-film-schedule';
 
-import { CINEMA_CREAM } from './cinema-theater-theme';
-import { formatCinemaSeatLabels } from './cinema-seat-map';
-import { CinemaSeatMapDialog } from './cinema-seat-map-dialog';
+import type { CinemaCategoryMeta } from './cinema-categories';
 
 
 // ----------------------------------------------------------------------
@@ -72,7 +72,7 @@ export function CinemaReservationsTable({
   const [confirming, setConfirming] = useState(false);
 
   const isBanner = variant === 'banner';
-  const accent = category.accent;
+  const {accent} = category;
 
   const editingSession = {
     cinemaName: 'Cosset Cinema',

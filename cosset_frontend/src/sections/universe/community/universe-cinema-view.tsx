@@ -19,7 +19,7 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { getS3SignedUrl } from 'src/utils/helper';
-import { fDateTimeFromUtc } from 'src/utils/format-time';
+import { formatStr, fTime, fDateTimeFromUtc } from 'src/utils/format-time';
 
 import { useGetCinemaFilms } from 'src/actions/cinema-film';
 import { leaveCinemaPresence } from 'src/actions/cinema-chat';
@@ -50,6 +50,7 @@ import {
   getDefaultScreening,
   getNextFilmScreening,
   isFixedTimeScreening,
+  isScreeningDayToday,
   getNextScreeningStart,
   getScreeningShowStatus,
   formatScreeningSchedule,
@@ -122,6 +123,31 @@ function hasReservationSeat(reservation?: ICinemaFilmReservationWithScreening | 
   return Boolean(reservation?.seatIds?.length);
 }
 
+/** Compact countdown until a future instant, e.g. `2h 15m 30s`. */
+function formatRemainingUntil(target: Date, now = new Date()) {
+  const remainingMs = target.getTime() - now.getTime();
+  if (remainingMs <= 0) {
+    return 'now';
+  }
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
 function getFilmDisplayScore(film: ICinemaFilm) {
   const score = 8.2 + ((film.id * 17) % 12) / 10;
   return score.toFixed(1);
@@ -134,18 +160,6 @@ function getFilmTags(film: ICinemaFilm, categoryId: CinemaCategory) {
   }
 
   return CATEGORY_TAGS[categoryId];
-}
-
-function isSameCalendarDay(value: string | Date | null | undefined, compare = new Date()) {
-  if (value === null || value === undefined || value === '') return false;
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-
-  return (
-    date.getFullYear() === compare.getFullYear() &&
-    date.getMonth() === compare.getMonth() &&
-    date.getDate() === compare.getDate()
-  );
 }
 
 function CinemaFilmPosterCard({
@@ -171,7 +185,7 @@ function CinemaFilmPosterCard({
   const nextScreening = getNextFilmScreening(film);
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
   const scheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
-  const isToday = nextScreening ? isSameCalendarDay(nextScreening.showAt) : false;
+  const isToday = nextScreening ? isScreeningDayToday(nextScreening) : false;
   const statusLabel = isToday
     ? showStatus === 'now'
       ? 'Today · Now'
@@ -665,6 +679,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const activeShowStatus = activeScreening
     ? getScreeningShowStatus(activeScreening, scheduleNow)
     : 'unscheduled';
+  const activeNextStart =
+    activeScreening && activeShowStatus === 'upcoming'
+      ? getNextScreeningStart(activeScreening, scheduleNow)
+      : null;
+  const activeRemainingLabel = activeNextStart
+    ? formatRemainingUntil(activeNextStart, scheduleNow)
+    : null;
   const activeScheduleLabels = activeScreening
     ? getScreeningScheduleLabels(activeScreening)
     : [];
@@ -743,7 +764,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       return {
         cinemaName: 'Cosset Universe Cinema',
         sessionLabel:
-          formatScreeningSchedule(viewingReservation) || 'Scheduled screening',
+          formatScreeningSchedule(viewingReservation) || 'Open screening',
         roomLabel: category?.title || 'Cinema room',
       };
     }
@@ -751,7 +772,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     return {
       cinemaName: 'Cosset Universe Cinema',
       sessionLabel: activeScreening
-        ? formatScreeningSchedule(activeScreening) || 'Scheduled screening'
+        ? formatScreeningSchedule(activeScreening) || 'Open screening'
         : 'Open screening',
       roomLabel: category?.title || 'Cinema room',
     };
@@ -922,7 +943,9 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       if (status === 'upcoming') {
         const nextStart = getNextScreeningStart(activeScreening, scheduleNow);
         toast.info(
-          `Screening starts at ${fDateTimeFromUtc(nextStart || activeScreening.showAt) || 'the scheduled time'}.`,
+          nextStart
+            ? `Screening starts ${fTime(nextStart, formatStr.time)}(${fDateTimeFromUtc(nextStart, formatStr.time)} UTC).`
+            : 'Screening starts at the next Fri–Sun showtime.',
         );
         return;
       }
@@ -1298,7 +1321,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       {activeFilm.title}
                     </Typography>
 
-                    {activeScheduleLabels.length ? (
+                    {activeScheduleLabels.length || activeScreening ? (
                       <Stack spacing={0.35} alignItems="center" sx={{ width: 1, maxWidth: 420 }}>
                         <Stack
                           direction="row"
@@ -1307,20 +1330,33 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           justifyContent="center"
                         >
                           <Stack spacing={0.15} alignItems="flex-start">
-                            {activeScheduleLabels.map((label) => (
+                            {activeScheduleLabels.length ? (
+                              activeScheduleLabels.map((label) => (
+                                <Typography
+                                  key={label}
+                                  variant="caption"
+                                  sx={{
+                                    color: 'rgba(245,230,200,0.75)',
+                                    fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                                    lineHeight: 1.35,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {label}
+                                </Typography>
+                              ))
+                            ) : (
                               <Typography
-                                key={label}
                                 variant="caption"
                                 sx={{
                                   color: 'rgba(245,230,200,0.75)',
                                   fontSize: { xs: '0.68rem', sm: '0.75rem' },
                                   lineHeight: 1.35,
-                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {label}
+                                No fixed showtime
                               </Typography>
-                            ))}
+                            )}
                           </Stack>
 
                           {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
@@ -1341,6 +1377,23 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                                       : 'rgba(245,230,200,0.55)',
                               }}
                             />
+                          ) : null}
+
+                          {activeRemainingLabel ? (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                flexShrink: 0,
+                                color: 'info.light',
+                                fontWeight: 700,
+                                fontSize: { xs: '0.65rem', sm: '0.72rem' },
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {activeRemainingLabel === 'now'
+                                ? 'starting now'
+                                : `${activeRemainingLabel} left`}
+                            </Typography>
                           ) : null}
                         </Stack>
 
@@ -1377,17 +1430,21 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     {activeFilm.videoUrl ? (
                       <Button
                         onClick={() => {
-                          if (isSyncedScreening && activeShowStatus === 'upcoming') {
-                            const nextStart = activeScreening
-                              ? getNextScreeningStart(activeScreening, scheduleNow)
-                              : null;
-                            toast.info(
-                              `Screening starts at ${fDateTimeFromUtc(nextStart || activeScreening?.showAt) || 'the scheduled time'}.`,
-                            );
-                            return;
-                          }
                           if (isSyncedScreening && activeShowStatus === 'past') {
                             toast.info('This screening has ended.');
+                            return;
+                          }
+
+                          // Upcoming fixed-time or open (no showtime): show screening / seat info.
+                          if (
+                            activeShowStatus === 'unscheduled' ||
+                            (isSyncedScreening && activeShowStatus === 'upcoming')
+                          ) {
+                            if (activeReservation && hasReservationSeat(activeReservation)) {
+                              handleViewReservation(activeReservation);
+                            } else {
+                              handleOpenSeatSelection(activeReservation);
+                            }
                             return;
                           }
 
@@ -1410,21 +1467,44 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           '&:hover': { bgcolor: accent, opacity: 0.92 },
                         }}
                       >
-                        {isSyncedScreening && activeShowStatus === 'upcoming'
-                          ? `Starts ${fDateTimeFromUtc(
-                              (activeScreening &&
-                                getNextScreeningStart(activeScreening, scheduleNow)) ||
-                                activeScreening?.showAt,
-                            ) || 'soon'}`
-                          : isSyncedScreening && activeShowStatus === 'past'
-                            ? 'Screening ended'
-                            : isSyncedScreening && activeShowStatus === 'now'
-                              ? headerSeatLabel
-                                ? `Join screening · ${headerSeatLabel}`
-                                : 'Join screening'
-                              : headerSeatLabel
-                                ? `Watch now · ${headerSeatLabel}`
-                                : 'Watch now'}
+                        {(() => {
+                          if (isSyncedScreening && activeShowStatus === 'upcoming') {
+                            const localLabel = activeNextStart
+                              ? fTime(activeNextStart, formatStr.dateTime)
+                              : null;
+                            const utcLabel = activeNextStart
+                              ? fDateTimeFromUtc(activeNextStart, formatStr.time)
+                              : null;
+
+                            if (!localLabel || !utcLabel) {
+                              return 'Starts soon';
+                            }
+
+                            return (
+                              <>
+                                Starts at{' '}
+                                <Box component="span" sx={{ color: 'info.dark' }}>
+                                  {localLabel}
+                                </Box>
+                                ({utcLabel} UTC)
+                              </>
+                            );
+                          }
+
+                          if (isSyncedScreening && activeShowStatus === 'past') {
+                            return 'Screening ended';
+                          }
+
+                          if (isSyncedScreening && activeShowStatus === 'now') {
+                            return headerSeatLabel
+                              ? `Join screening · ${headerSeatLabel}`
+                              : 'Join screening';
+                          }
+
+                          return headerSeatLabel
+                            ? `Screening info · ${headerSeatLabel}`
+                            : 'Screening info';
+                        })()}
                       </Button>
                     ) : null}
                   </Stack>

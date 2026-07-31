@@ -2,16 +2,30 @@ import type { IDateValue } from 'src/types/common';
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmScreening, ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
-import { fDateTimeFromUtc, normalizeUtcTimestamp } from 'src/utils/format-time';
-
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+
+import { formatStr, fDateTimeFromUtc, normalizeUtcTimestamp } from 'src/utils/format-time';
 
 dayjs.extend(utc);
 
 // ----------------------------------------------------------------------
 
 export type CinemaFilmShowStatus = 'now' | 'upcoming' | 'past' | 'unscheduled';
+
+/** Weekly screening days in UTC (`Date#getUTCDay`): Friday, Saturday, Sunday. */
+export const CINEMA_WEEKLY_UTC_DAYS = [5, 6, 0] as const;
+
+export const CINEMA_WEEKLY_DAYS_LABEL = 'Fri–Sun';
+
+/** Anchor date used when persisting time-only showtimes (date is ignored at runtime). */
+export const CINEMA_TIME_ANCHOR_DATE = '1970-01-01';
+
+type UtcClockTime = {
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
 
 const parseInstant = (value?: IDateValue | Date | null) => {
   if (value === null || value === undefined || value === '') {
@@ -37,27 +51,72 @@ const parseInstant = (value?: IDateValue | Date | null) => {
   return viaDayjs.isValid() ? viaDayjs.toDate() : null;
 };
 
-/** Format a UTC instant for `<input type="datetime-local">` using UTC wall-clock parts. */
-export const toDatetimeLocalValue = (value?: IDateValue | Date | null) => {
+const pad2 = (part: number) => String(part).padStart(2, '0');
+
+const clockFromInstant = (instant: Date): UtcClockTime => ({
+  hours: instant.getUTCHours(),
+  minutes: instant.getUTCMinutes(),
+  seconds: instant.getUTCSeconds(),
+});
+
+const clockKey = (clock: UtcClockTime) =>
+  `${pad2(clock.hours)}:${pad2(clock.minutes)}:${pad2(clock.seconds)}`;
+
+const parseTimeOnlyInput = (value: string): UtcClockTime | null => {
+  const trimmed = value.trim();
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number.parseInt(match[1], 10);
+  const minutes = Number.parseInt(match[2], 10);
+  const seconds = match[3] ? Number.parseInt(match[3], 10) : 0;
+
+  if (
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return null;
+  }
+
+  return { hours, minutes, seconds };
+};
+
+const toAnchoredIso = (clock: UtcClockTime) =>
+  `${CINEMA_TIME_ANCHOR_DATE}T${pad2(clock.hours)}:${pad2(clock.minutes)}:${pad2(clock.seconds)}.000Z`;
+
+/** Format a stored show time for `<input type="time">` (UTC wall-clock, no date). */
+export const toTimeLocalValue = (value?: IDateValue | Date | null) => {
   const parsed = parseInstant(value);
 
   if (!parsed) {
     return '';
   }
 
-  const pad = (part: number) => String(part).padStart(2, '0');
-
-  return `${parsed.getUTCFullYear()}-${pad(parsed.getUTCMonth() + 1)}-${pad(parsed.getUTCDate())}T${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}`;
+  return `${pad2(parsed.getUTCHours())}:${pad2(parsed.getUTCMinutes())}`;
 };
 
-/** Parse a datetime-local string as UTC (not the browser's local timezone). */
+/** @deprecated Prefer `toTimeLocalValue` — showtimes are weekly times, not calendar dates. */
+export const toDatetimeLocalValue = toTimeLocalValue;
+
+/** Parse a time-only string (`HH:mm`) as a UTC-anchored ISO timestamp. */
 export const toIsoOrNull = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) {
     return null;
   }
 
-  // datetime-local is `YYYY-MM-DDTHH:mm` (optionally with seconds).
+  const timeOnly = parseTimeOnlyInput(trimmed);
+  if (timeOnly) {
+    return toAnchoredIso(timeOnly);
+  }
+
+  // Legacy datetime-local / ISO values: keep the UTC clock, drop the calendar date.
   const normalized = trimmed.includes('T') ? trimmed.replace(' ', 'T') : trimmed;
   const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)
     ? `${normalized}:00`
@@ -66,7 +125,68 @@ export const toIsoOrNull = (value: string) => {
   const utcValue = hasTimezone ? withSeconds : `${withSeconds}Z`;
   const parsed = new Date(utcValue);
 
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return toAnchoredIso(clockFromInstant(parsed));
+};
+
+/** Unique UTC clock times from showAt / showAt2 (date portion ignored). */
+export const getScreeningClockTimes = (
+  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+): UtcClockTime[] => {
+  const clocks = [parseInstant(screening.showAt), parseInstant(screening.showAt2)]
+    .filter((value): value is Date => Boolean(value))
+    .map(clockFromInstant);
+
+  clocks.sort((a, b) => a.hours * 3600 + a.minutes * 60 + a.seconds - (b.hours * 3600 + b.minutes * 60 + b.seconds));
+
+  return clocks.filter((clock, index) => index === 0 || clockKey(clock) !== clockKey(clocks[index - 1]));
+};
+
+const isCinemaWeeklyUtcDay = (day: number) =>
+  (CINEMA_WEEKLY_UTC_DAYS as readonly number[]).includes(day);
+
+export const isCinemaWeeklyScreeningDay = (now = new Date()) => isCinemaWeeklyUtcDay(now.getUTCDay());
+
+const buildOccurrence = (year: number, month: number, day: number, clock: UtcClockTime) =>
+  new Date(Date.UTC(year, month, day, clock.hours, clock.minutes, clock.seconds));
+
+/**
+ * Expand showAt / showAt2 into concrete Fri/Sat/Sun UTC starts around `now`.
+ * The stored date on showAt/showAt2 is ignored — only the UTC clock matters.
+ */
+export const getScreeningStartInstants = (
+  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  now = new Date(),
+  options?: { lookBehindDays?: number; lookAheadDays?: number },
+) => {
+  const clocks = getScreeningClockTimes(screening);
+  if (!clocks.length) {
+    return [];
+  }
+
+  const lookBehindDays = options?.lookBehindDays ?? 2;
+  const lookAheadDays = options?.lookAheadDays ?? 14;
+  const starts: Date[] = [];
+
+  for (let offset = -lookBehindDays; offset <= lookAheadDays; offset += 1) {
+    const day = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset),
+    );
+
+    if (isCinemaWeeklyUtcDay(day.getUTCDay())) {
+      clocks.forEach((clock) => {
+        starts.push(
+          buildOccurrence(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), clock),
+        );
+      });
+    }
+  }
+
+  starts.sort((a, b) => a.getTime() - b.getTime());
+  return starts;
 };
 
 /** Fallback when the video duration is not loaded yet (keeps two showtimes from merging into one window). */
@@ -77,21 +197,6 @@ const positiveDurationSeconds = (value?: number | null) =>
 
 const resolveShowDurationSeconds = (mediaDurationSeconds?: number | null) =>
   positiveDurationSeconds(mediaDurationSeconds) ?? DEFAULT_SHOW_DURATION_SECONDS;
-
-/** Sorted unique start times (showAt and optional showAt2). */
-export const getScreeningStartInstants = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
-) => {
-  const starts = [parseInstant(screening.showAt), parseInstant(screening.showAt2)].filter(
-    (value): value is Date => Boolean(value),
-  );
-
-  starts.sort((a, b) => a.getTime() - b.getTime());
-
-  return starts.filter(
-    (start, index) => index === 0 || start.getTime() !== starts[index - 1].getTime(),
-  );
-};
 
 const isShowLiveAt = (
   start: Date,
@@ -120,7 +225,7 @@ export const getActiveScreeningStart = (
   now = new Date(),
   mediaDurationSeconds?: number | null,
 ) => {
-  const starts = getScreeningStartInstants(screening);
+  const starts = getScreeningStartInstants(screening, now);
 
   for (let index = 0; index < starts.length; index += 1) {
     const start = starts[index];
@@ -133,13 +238,13 @@ export const getActiveScreeningStart = (
   return null;
 };
 
-/** Next upcoming showtime start, or null when none remain. */
+/** Next upcoming Fri/Sat/Sun showtime start, or null when unscheduled. */
 export const getNextScreeningStart = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
   now = new Date(),
 ) => {
   const nowMs = now.getTime();
-  return getScreeningStartInstants(screening).find((start) => start.getTime() > nowMs) || null;
+  return getScreeningStartInstants(screening, now).find((start) => start.getTime() > nowMs) || null;
 };
 
 export const getScreeningShowStatus = (
@@ -147,18 +252,18 @@ export const getScreeningShowStatus = (
   now = new Date(),
   mediaDurationSeconds?: number | null,
 ): CinemaFilmShowStatus => {
-  const starts = getScreeningStartInstants(screening);
+  const clocks = getScreeningClockTimes(screening);
 
-  if (!starts.length) {
+  if (!clocks.length) {
     return 'unscheduled';
   }
 
-  // Live during either showAt or showAt2 playback window.
+  // Live during either showAt or showAt2 playback window on Fri/Sat/Sun.
   if (getActiveScreeningStart(screening, now, mediaDurationSeconds)) {
     return 'now';
   }
 
-  // Still upcoming when waiting for the first show OR the second showtime.
+  // Weekly showtimes always have a next Fri/Sat/Sun occurrence.
   if (getNextScreeningStart(screening, now)) {
     return 'upcoming';
   }
@@ -166,13 +271,55 @@ export const getScreeningShowStatus = (
   return 'past';
 };
 
+/** Pick a concrete Fri/Sat/Sun occurrence so local time reflects the correct DST offset. */
+const getDisplayOccurrenceForClock = (clock: UtcClockTime, now = new Date()) => {
+  const synthetic = { showAt: toAnchoredIso(clock), showAt2: null as string | null };
+  const next =
+    getNextScreeningStart(synthetic, now) ||
+    getScreeningStartInstants(synthetic, now).find((start) => start.getTime() <= now.getTime());
+
+  return next || buildOccurrence(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), clock);
+};
+
+/** Viewer-local clock label for a UTC time input (`HH:mm` / ISO). */
+export const getLocalTimeLabelFromUtcInput = (value: string, now = new Date()) => {
+  const iso = toIsoOrNull(value);
+  if (!iso) {
+    return null;
+  }
+
+  const clocks = getScreeningClockTimes({ showAt: iso, showAt2: null });
+  if (!clocks.length) {
+    return null;
+  }
+
+  const occurrence = getDisplayOccurrenceForClock(clocks[0], now);
+  const localLabel = dayjs(occurrence).format(formatStr.time);
+  return localLabel || null;
+};
+
+/** Format: `localtime(UTC time` e.g. `7:00 pm(2:00 am UTC)`. */
+const formatClockLabel = (clock: UtcClockTime, now = new Date()) => {
+  const occurrence = getDisplayOccurrenceForClock(clock, now);
+  const utcLabel = fDateTimeFromUtc(occurrence, formatStr.time);
+  const localLabel = dayjs(occurrence).format(formatStr.time);
+
+  if (!utcLabel || utcLabel === 'Invalid time value' || !localLabel) {
+    return null;
+  }
+
+  return `${localLabel}(${utcLabel} UTC)`;
+};
+
+/** Human schedule lines (time only + weekly days — no one-off calendar date). */
 export const getScreeningScheduleLabels = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  now = new Date(),
 ) =>
-  getScreeningStartInstants(screening)
-    .map((start) => {
-      const label = fDateTimeFromUtc(start);
-      return label ? `${label} UTC` : null;
+  getScreeningClockTimes(screening)
+    .map((clock) => {
+      const timeLabel = formatClockLabel(clock, now);
+      return timeLabel ? `${CINEMA_WEEKLY_DAYS_LABEL} · ${timeLabel}` : null;
     })
     .filter((label): label is string => Boolean(label));
 
@@ -196,15 +343,23 @@ export const getCinemaFilmShowStatusLabel = (status: CinemaFilmShowStatus) => {
       return 'Upcoming';
     case 'past':
       return 'Ended';
+    case 'unscheduled':
+      return 'Open screening';
     default:
       return null;
   }
 };
 
-/** True when this screening has a fixed start time (shared theater timeline). */
+/** True when this screening has a fixed weekly start time (shared theater timeline). */
 export const isFixedTimeScreening = (
-  screening?: Pick<ICinemaFilmScreening, 'showAt'> | null,
-) => Boolean(parseInstant(screening?.showAt));
+  screening?: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> | null,
+) => Boolean(screening && getScreeningClockTimes(screening).length);
+
+/** True when today (UTC) is a cinema screening day and this row has showtimes. */
+export const isScreeningDayToday = (
+  screening?: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> | null,
+  now = new Date(),
+) => Boolean(screening && isFixedTimeScreening(screening) && isCinemaWeeklyScreeningDay(now));
 
 /**
  * Seconds into the currently live showtime for synchronized theater playback.
@@ -271,6 +426,13 @@ export const getNextFilmScreening = (film: Pick<ICinemaFilm, 'screenings'>) => {
     return upcoming;
   }
 
+  const unscheduled = screenings.find(
+    (screening) => getScreeningShowStatus(screening, now) === 'unscheduled',
+  );
+  if (unscheduled) {
+    return unscheduled;
+  }
+
   return screenings[screenings.length - 1] || null;
 };
 
@@ -290,6 +452,13 @@ export const getDefaultScreening = (
   const upcoming = screenings.find((screening) => getScreeningShowStatus(screening, now) === 'upcoming');
   if (upcoming) {
     return upcoming;
+  }
+
+  const unscheduled = screenings.find(
+    (screening) => getScreeningShowStatus(screening, now) === 'unscheduled',
+  );
+  if (unscheduled) {
+    return unscheduled;
   }
 
   return screenings[0];

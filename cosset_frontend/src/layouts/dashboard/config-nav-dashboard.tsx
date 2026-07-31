@@ -86,6 +86,8 @@ export const navData = [
   {
     subheader: 'Overview',
     items: [
+      { title: 'Dashboard', path: paths.dashboard.home, icon: ICONS.dashboard },
+      { title: 'Home Space', path: paths.dashboard.preview, icon: ICONS.home },
       { 
         title: 'My Universe', 
         path: paths.dashboard.homeSpace.root, 
@@ -96,7 +98,6 @@ export const navData = [
           { title: 'Things To Share', path: paths.dashboard.homeSpace.thingsToShare },
         ],
       },
-      { title: 'Home Space', path: paths.dashboard.preview, icon: ICONS.home },
       { 
         title: 'Blogs', 
         path: paths.dashboard.blog.root, 

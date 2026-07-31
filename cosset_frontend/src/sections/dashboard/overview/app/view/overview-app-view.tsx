@@ -1,101 +1,56 @@
 'use client';
 
-import Button from '@mui/material/Button';
-import { useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Unstable_Grid2';
 
-import { _appFeatured } from 'src/_mock/dashboard';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
-import { SeoIllustration } from 'src/assets/dashboard/illustrations';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
+
 import { AppWelcome } from '../app-welcome';
-import { AppFeatured } from '../app-featured';
-import { AppWidgetSummary } from '../app-widget-summary';
-import { AppGeneralTemplate } from '../app-general-template';
-import { AppSeasonalTemplate } from '../app-seasonal-template';
+import { OverviewContentStats } from '../overview-content-stats';
+import { OverviewUpcomingCinema } from '../overview-upcoming-cinema';
+import { OverviewRecentPosts } from '../overview-recent-posts';
+import { OverviewTopShops } from '../overview-top-shops';
 
 // ----------------------------------------------------------------------
 
 export function OverviewAppView() {
   const { user } = useAuthContext();
 
-  const theme = useTheme();
-
   return (
     <DashboardContent maxWidth="xl">
+      <CustomBreadcrumbs
+        heading="Dashboard"
+        links={[{ name: 'Dashboard' }]}
+        sx={{ mb: { xs: 2, md: 3 } }}
+      />
+
       <Grid container spacing={3}>
-        <Grid xs={12} md={8}>
+        <Grid xs={12}>
           <AppWelcome
-            title={`Welcome back 👋 \n ${user?.displayName}`}
-            description="You can edit your home space and share your memories with your friends."
-            img={<SeoIllustration hideBackground />}
-            action={
-              <Button variant="contained" color="primary">
-                Go now
-              </Button>
-            }
+            title={`Hi ${user?.displayName || ''}, Welcome to Cosset.`}
+            description="This place is to focus on the freedom of each individual, which offers its own space for every young one to get away from this dizzy world.
+            You can keep what you cosset like a love story in a fragrant pretty drawer or sometimes it is just a memory of a cozy date with friends and family."
           />
         </Grid>
 
-        <Grid xs={12} md={4}>
-          <AppFeatured list={_appFeatured} />
+        <Grid xs={12}>
+          <OverviewContentStats />
         </Grid>
 
-        
-        <Grid xs={12} md={4}>
-          <AppWidgetSummary
-            title="Friends"
-            percent={2.6}
-            total={18765}
-            chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [15, 18, 12, 51, 68, 11, 39, 37],
-            }}
-          />
+        <Grid xs={12}>
+          <OverviewUpcomingCinema />
         </Grid>
 
-        <Grid xs={12} md={4}>
-          <AppWidgetSummary
-            title="Total images"
-            percent={0.2}
-            total={4876}
-            chart={{
-              colors: [theme.vars.palette.info.main],
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [20, 41, 63, 33, 28, 35, 50, 46],
-            }}
-          />
+        <Grid xs={12} md={6}>
+          <OverviewRecentPosts />
         </Grid>
 
-        <Grid xs={12} md={4}>
-          <AppWidgetSummary
-            title="Total downloads"
-            percent={-0.1}
-            total={678}
-            chart={{
-              colors: [theme.vars.palette.error.main],
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [18, 19, 31, 8, 16, 37, 12, 33],
-            }}
-          />
+        <Grid xs={12} md={6}>
+          <OverviewTopShops />
         </Grid>
-
-        {/* <Grid xs={12}>
-          <AppSeasonalTemplate 
-            title="Seasonal Template"
-            subheader="Change your home space with the seasons."
-          />
-        </Grid> */}
-
-        {/* <Grid xs={12}>
-          <AppGeneralTemplate 
-            title="General Template"
-            subheader="Timeless designs for any occasion."
-          />
-        </Grid> */}
-
       </Grid>
     </DashboardContent>
   );

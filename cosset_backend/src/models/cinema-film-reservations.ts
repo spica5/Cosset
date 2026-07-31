@@ -27,7 +27,7 @@ export interface CinemaFilmReservation {
 }
 
 export interface CinemaFilmReservationWithScreening extends CinemaFilmReservation {
-  showAt: Date | string;
+  showAt?: Date | string | null;
   showAt2?: Date | string | null;
   filmId: number;
   filmTitle: string;
