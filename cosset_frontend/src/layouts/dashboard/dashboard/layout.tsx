@@ -325,6 +325,7 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
                 {/* -- Logo -- */}
                 {isNavHorizontal && (
                   <Logo
+                    href={paths.home}
                     sx={{
                       display: 'none',
                       [theme.breakpoints.up(layoutQuery)]: { display: 'inline-flex' },

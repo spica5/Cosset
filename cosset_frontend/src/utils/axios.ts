@@ -267,6 +267,7 @@ export const endpoints = {
     add: '/api/post/new',
     comments: '/api/post/comment',
     view: '/api/post/view',
+    favorite: '/api/post/favorite',
     update: (id: string | number) => `/api/post/${id}`,
     delete: (id: string | number) => `/api/post/${id}`,
   },

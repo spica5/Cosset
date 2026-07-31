@@ -64,11 +64,14 @@ export function NavAccountPopover({ sx }: NavItemsProps) {
       <Box component="nav">
         <Box component="ul" gap={0.5} display="flex" flexDirection="column">
           {navAccountData
-          .filter(item => item.roles.includes(user?.role)).map((item) => (
-            <Box component="li" key={item.title} sx={{ display: 'flex' }}>
-              <NavItem title={item.title} path={item.path} icon={item.icon} />
-            </Box>
-          ))}
+            .filter((item) =>
+              item.roles.includes(String(user?.role || 'user').trim().toLowerCase()),
+            )
+            .map((item) => (
+              <Box component="li" key={item.title} sx={{ display: 'flex' }}>
+                <NavItem title={item.title} path={item.path} icon={item.icon} />
+              </Box>
+            ))}
         </Box>
       </Box>
       <Divider sx={{ my: 0.5, borderStyle: 'dashed' }} />

@@ -9,7 +9,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 export const _account = [
   {
     label: 'Home',
-    href: '/',
+    href: paths.home,
     icon: <Iconify icon="solar:home-angle-bold-duotone" />,
   },
   {

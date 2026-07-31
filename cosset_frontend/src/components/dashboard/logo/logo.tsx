@@ -6,6 +6,7 @@ import { forwardRef } from 'react';
 
 import Box from '@mui/material/Box';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { CONFIG } from 'src/config-global';
@@ -22,7 +23,16 @@ export type LogoProps = BoxProps & {
 
 export const Logo = forwardRef<HTMLDivElement, LogoProps>(
   (
-    { width, href = '/home', height, isSingle = true, disableLink = false, className, sx, ...other },
+    {
+      width,
+      href = paths.home,
+      height,
+      isSingle = true,
+      disableLink = false,
+      className,
+      sx,
+      ...other
+    },
     ref
   ) => {
 

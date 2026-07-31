@@ -11,6 +11,8 @@ import { Logo } from 'src/components/dashboard/logo';
 import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { NavSectionVertical } from 'src/components/dashboard/nav-section';
 
+import { paths } from 'src/routes/paths';
+
 import { NavUpgrade } from '../components/nav-upgrade';
 
 // ----------------------------------------------------------------------
@@ -49,7 +51,7 @@ export function NavMobile({ data, open, onClose, slots, sx, ...other }: NavMobil
     >
       {slots?.topArea ?? (
         <Box sx={{ pl: 3.5, pt: 2.5, pb: 1 }}>
-          <Logo />
+          <Logo href={paths.home} />
         </Box>
       )}
 

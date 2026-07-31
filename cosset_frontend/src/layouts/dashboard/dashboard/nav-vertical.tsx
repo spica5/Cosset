@@ -10,8 +10,7 @@ import { Logo } from 'src/components/dashboard/logo';
 import { Scrollbar } from 'src/components/dashboard/scrollbar';
 import { NavSectionMini, NavSectionVertical } from 'src/components/dashboard/nav-section';
 
-import { useAuthContext } from 'src/auth/hooks';
-import { getDashboardHomePath } from 'src/auth/utils/role';
+import { paths } from 'src/routes/paths';
 
 import { NavUpgrade } from '../components/nav-upgrade';
 import { NavToggleButton } from '../components/nav-toggle-button';
@@ -38,14 +37,12 @@ export function NavVertical({
   ...other
 }: NavVerticalProps) {
   const theme = useTheme();
-  const { user } = useAuthContext();
-  const homeHref = getDashboardHomePath(user?.role);
 
   const renderNavVertical = (
     <>
       {slots?.topArea ?? (
         <Box sx={{ pl: 3.5, pt: 2.5, pb: 1 }}>
-          <Logo href={homeHref} />
+          <Logo href={paths.home} />
         </Box>
       )}
 
@@ -61,7 +58,7 @@ export function NavVertical({
     <>
       {slots?.topArea ?? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2.5 }}>
-          <Logo href={homeHref} />
+          <Logo href={paths.home} />
         </Box>
       )}
 

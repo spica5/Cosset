@@ -7,9 +7,9 @@ import { Iconify } from 'src/components/universe/iconify';
 export const navAccountData = [
   {
     title: 'Dashboard',
-    path: paths.dashboard.root,
+    path: paths.dashboard.home,
     icon: <Iconify icon="carbon:dashboard" />,
-    roles: [ 'admin', 'user' ],
+    roles: ['admin', 'user', 'business'],
   },
 ];
 

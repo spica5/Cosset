@@ -21,10 +21,16 @@ import { RouterLink } from 'src/routes/components';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
-import { markPostsAsViewed, useGetPosts } from 'src/actions/post';
+import {
+  markPostsAsViewed,
+  useGetPosts,
+  fetchPostFavorites,
+  togglePostFavorite,
+} from 'src/actions/post';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
@@ -34,9 +40,9 @@ import { PostItemForm } from '../post-item-form';
 // ----------------------------------------------------------------------
 
 type OrderByValue = 'newest' | 'oldest' | 'mostViewed' | 'mostFollowing';
-type ViewMode = 'all' | 'mine' | 'advertise';
+type ViewMode = 'all' | 'mine' | 'advertise' | 'favorite';
 
-const VIEW_MODE_VALUES: ViewMode[] = ['all', 'mine', 'advertise'];
+const VIEW_MODE_VALUES: ViewMode[] = ['all', 'mine', 'advertise', 'favorite'];
 
 const parseViewMode = (value: string | null): ViewMode => {
   const normalized = String(value || '')
@@ -64,7 +70,18 @@ const getCreatedAtTime = (value: IPostItem['createdAt']) => {
 const viewHeading = (viewMode: ViewMode) => {
   if (viewMode === 'mine') return 'My Posts';
   if (viewMode === 'advertise') return 'Advertise Posts';
+  if (viewMode === 'favorite') return 'Favorite Posts';
   return 'Community Posts';
+};
+
+const viewPathForMode = (value: ViewMode) => {
+  if (value === 'advertise') {
+    return `${paths.dashboard.community.post.list}?view=advertise`;
+  }
+  if (value === 'favorite') {
+    return `${paths.dashboard.community.post.list}?view=favorite`;
+  }
+  return paths.dashboard.community.post.list;
 };
 
 // ----------------------------------------------------------------------
@@ -78,12 +95,15 @@ export function PostListView() {
   const [authorQuery, setAuthorQuery] = useState('');
   const [orderBy, setOrderBy] = useState<OrderByValue>('newest');
   const [viewMode, setViewMode] = useState<ViewMode>(() => parseViewMode(searchParams.get('view')));
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const markedViewedIdsRef = useRef<Set<string>>(new Set());
 
   const { posts, postsLoading, refreshPosts } = useGetPosts(undefined, {
     authorRole: viewMode === 'advertise' ? 'business' : undefined,
     limit: 100,
   });
+
+  const favoriteSet = useMemo(() => new Set(favoriteIds.map(Number)), [favoriteIds]);
 
   useEffect(() => {
     setViewMode(parseViewMode(searchParams.get('view')));
@@ -92,6 +112,25 @@ export function PostListView() {
   useEffect(() => {
     refreshPosts();
   }, [refreshPosts]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setFavoriteIds([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    fetchPostFavorites().then((ids) => {
+      if (!cancelled) {
+        setFavoriteIds(ids);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (postsLoading || !user?.id || !posts.length) {
@@ -137,18 +176,47 @@ export function PostListView() {
     (_event: React.MouseEvent<HTMLElement>, value: ViewMode | null) => {
       if (!value) return;
       setViewMode(value);
-      const nextPath =
-        value === 'advertise'
-          ? `${paths.dashboard.community.post.list}?view=advertise`
-          : paths.dashboard.community.post.list;
-      router.replace(nextPath);
+      router.replace(viewPathForMode(value));
     },
     [router],
   );
 
+  const handleToggleFavorite = useCallback(
+    async (postId: number) => {
+      if (!user?.id) {
+        toast.error('Please sign in to favorite posts.');
+        return;
+      }
+
+      const numId = Number(postId);
+      if (!Number.isFinite(numId)) {
+        return;
+      }
+
+      const wasFavorite = favoriteSet.has(numId);
+      setFavoriteIds((prev) =>
+        wasFavorite ? prev.filter((fid) => fid !== numId) : [...prev, numId],
+      );
+
+      try {
+        await togglePostFavorite(numId);
+        const fresh = await fetchPostFavorites();
+        setFavoriteIds(fresh);
+      } catch (error) {
+        console.error('Failed to toggle post favorite:', error);
+        setFavoriteIds((prev) =>
+          wasFavorite ? [...prev, numId] : prev.filter((fid) => fid !== numId),
+        );
+        toast.error('Failed to update favorite.');
+      }
+    },
+    [favoriteSet, user?.id],
+  );
+
   const effectiveViewMode: ViewMode = viewMode;
   const normalizedQuery = query.trim().toLowerCase();
-  const normalizedAuthorQuery = effectiveViewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();
+  const normalizedAuthorQuery =
+    effectiveViewMode === 'mine' ? '' : authorQuery.trim().toLowerCase();
 
   const myPosts = useMemo(
     () => posts.filter((post) => String(post.customerId || '') === String(user?.id || '')),
@@ -157,12 +225,19 @@ export function PostListView() {
 
   const advertisePosts = useMemo(() => posts.filter(isBusinessAuthorPost), [posts]);
 
+  const favoritePosts = useMemo(
+    () => posts.filter((post) => favoriteSet.has(Number(post.id))),
+    [favoriteSet, posts],
+  );
+
   const postsToFilter =
     effectiveViewMode === 'mine'
       ? myPosts
       : effectiveViewMode === 'advertise'
         ? advertisePosts
-        : posts;
+        : effectiveViewMode === 'favorite'
+          ? favoritePosts
+          : posts;
 
   const filteredPosts = useMemo(() => {
     const matchedPosts = postsToFilter.filter((post) => {
@@ -219,7 +294,14 @@ export function PostListView() {
           ? 'No matching posts'
           : effectiveViewMode === 'advertise'
             ? 'No advertise posts yet'
-            : 'No posts'
+            : effectiveViewMode === 'favorite'
+              ? 'No favorite posts yet'
+              : 'No posts'
+      }
+      description={
+        effectiveViewMode === 'favorite' && !isFiltering
+          ? 'Tap the bookmark icon on a post to save it here.'
+          : undefined
       }
       filled
       sx={{ py: 10 }}
@@ -287,6 +369,8 @@ export function PostListView() {
           key={post.id}
           post={post}
           showShopLink={effectiveViewMode === 'advertise'}
+          isFavorite={favoriteSet.has(Number(post.id))}
+          onToggleFavorite={user ? handleToggleFavorite : undefined}
         />
       ))}
     </Stack>
@@ -322,6 +406,18 @@ export function PostListView() {
               <ToggleButton value="advertise">Advertise Posts</ToggleButton>
               <ToggleButton value="mine" disabled={!user}>
                 My Posts
+              </ToggleButton>
+              <ToggleButton value="favorite" disabled={!user}>
+                <Iconify
+                  icon={
+                    effectiveViewMode === 'favorite'
+                      ? 'solar:bookmark-bold'
+                      : 'solar:bookmark-linear'
+                  }
+                  width={16}
+                  sx={{ mr: 0.75 }}
+                />
+                Favorite
               </ToggleButton>
             </ToggleButtonGroup>
             <Button

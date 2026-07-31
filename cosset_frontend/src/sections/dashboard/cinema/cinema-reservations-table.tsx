@@ -340,7 +340,7 @@ export function CinemaReservationsTable({
                               '&:hover': { bgcolor: accent, opacity: 0.92 },
                             }}
                           >
-                            Show cinema
+                            Watch
                           </Button>
 
                           <IconButton

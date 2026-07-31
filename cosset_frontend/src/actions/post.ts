@@ -309,3 +309,21 @@ export async function updatePostCommentVisibility(params: {
 
   return res.data;
 }
+
+// ----------------------------------------------------------------------
+
+const POST_FAVORITE_ENDPOINT = endpoints.post.favorite;
+
+export async function fetchPostFavorites(): Promise<number[]> {
+  try {
+    const res = await axios.get(POST_FAVORITE_ENDPOINT);
+    return (res.data?.favoriteIds || []).map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id));
+  } catch {
+    return [];
+  }
+}
+
+export async function togglePostFavorite(postId: number) {
+  const res = await axios.post(POST_FAVORITE_ENDPOINT, { postId });
+  return res.data as { isFavorite: boolean };
+}

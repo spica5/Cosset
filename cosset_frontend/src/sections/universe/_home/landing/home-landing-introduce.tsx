@@ -164,7 +164,7 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
         component="img"
         loading="lazy"
         alt="Universe cover"
-        src={`${CONFIG.universe.assetsDir}/assets/images/universe/universe-large-1.webp`}
+        src={`${CONFIG.universe.assetsDir}/assets/images/universe/cosset_background1.png`}
         sx={(theme) => ({
           minHeight: 320,
           objectFit: 'cover',

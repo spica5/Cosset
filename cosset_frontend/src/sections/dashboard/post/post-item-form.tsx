@@ -38,6 +38,8 @@ import { PostAuthorInfo } from './post-author-info';
 type Props = {
   post: IPostItem;
   showShopLink?: boolean;
+  isFavorite?: boolean;
+  onToggleFavorite?: (postId: number) => void;
 };
 
 const PREVIEW_LENGTH = 20;
@@ -105,7 +107,12 @@ const getPostAuthorName = (post: IPostItem) => {
   return post.customerDisplayName || fullName || post.customerEmail || post.customerId || 'Customer';
 };
 
-export function PostItemForm({ post, showShopLink = false }: Props) {
+export function PostItemForm({
+  post,
+  showShopLink = false,
+  isFavorite = false,
+  onToggleFavorite,
+}: Props) {
   const router = useRouter();
   const { user, authenticated } = useAuthContext();
   const popover = usePopover();
@@ -385,6 +392,21 @@ export function PostItemForm({ post, showShopLink = false }: Props) {
               {isOwner ? (
                 <IconButton onClick={popover.onOpen} aria-label="Post actions" sx={{ mt: -0.5, mr: -0.5 }}>
                   <Iconify icon="eva:more-vertical-fill" sx={{ color: 'text.secondary' }} />
+                </IconButton>
+              ) : null}
+
+              {onToggleFavorite && authenticated ? (
+                <IconButton
+                  size="small"
+                  aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  onClick={() => onToggleFavorite(Number(post.id))}
+                  sx={{ mt: -0.5 }}
+                >
+                  <Iconify
+                    icon={isFavorite ? 'solar:bookmark-bold' : 'solar:bookmark-linear'}
+                    width={18}
+                    sx={{ color: isFavorite ? 'warning.main' : 'text.secondary' }}
+                  />
                 </IconButton>
               ) : null}
 
