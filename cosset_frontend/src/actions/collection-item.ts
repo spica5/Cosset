@@ -108,6 +108,58 @@ export function useGetCollectionItems(collectionId: string | number | '', custom
   );
 }
 
+export function useGetCollectionsItemsCount(
+  collectionIds: Array<string | number>,
+  customerId?: string | number,
+) {
+  const normalizedIds = useMemo(
+    () =>
+      collectionIds
+        .map((id) => String(id))
+        .filter(Boolean)
+        .sort(),
+    [collectionIds],
+  );
+
+  const key =
+    customerId !== undefined &&
+    customerId !== null &&
+    customerId !== '' &&
+    normalizedIds.length > 0
+      ? ['collection-items-total', String(customerId), normalizedIds.join(',')]
+      : null;
+
+  const { data, isLoading, error, isValidating } = useSWR<number>(
+    key,
+    async () => {
+      const results = await Promise.all(
+        normalizedIds.map(async (collectionId) => {
+          const url = buildCollectionItemsUrl(collectionId, customerId);
+          if (!url) {
+            return 0;
+          }
+
+          const response = await fetcher(url);
+          return getCollectionItems(response as CollectionItemsData).length;
+        }),
+      );
+
+      return results.reduce((sum, count) => sum + count, 0);
+    },
+    swrOptions,
+  );
+
+  return useMemo(
+    () => ({
+      collectionItemsTotal: data ?? 0,
+      collectionItemsTotalLoading: Boolean(key) && isLoading,
+      collectionItemsTotalError: error,
+      collectionItemsTotalValidating: isValidating,
+    }),
+    [data, error, isLoading, isValidating, key],
+  );
+}
+
 export function useGetCollectionItem(itemId: string | number | '') {
   const url = itemId ? endpoints.collectionItem.details(itemId) : null;
 

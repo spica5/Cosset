@@ -517,6 +517,21 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const defaultScreening = useMemo(() => getDefaultScreening(screenings), [screenings]);
 
   const screeningFilms = useMemo(() => {
+    const getNewestTime = (value?: string | Date | null) => {
+      if (!value) return 0;
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    };
+
+    const sortNewestFirst = <T extends { id: number; createdAt?: string | Date | null; order?: number | null }>(
+      list: T[],
+    ) =>
+      [...list].sort((a, b) => {
+        const createdDiff = getNewestTime(b.createdAt) - getNewestTime(a.createdAt);
+        if (createdDiff !== 0) return createdDiff;
+        return Number(b.id) - Number(a.id);
+      });
+
     const filmsById = new Map(films.map((film) => [film.id, film]));
     const screeningsByFilmId = screenings.reduce<Record<number, typeof screenings>>((acc, screening) => {
       const list = acc[screening.filmId] || [];
@@ -532,13 +547,15 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     });
 
     if (fromScreenings.length) {
-      return fromScreenings;
+      return sortNewestFirst(fromScreenings);
     }
 
-    return films.flatMap((film) => {
-      const nested = Array.isArray(film.screenings) ? film.screenings : [];
-      return nested.length ? [{ ...film, screenings: nested }] : [];
-    });
+    return sortNewestFirst(
+      films.flatMap((film) => {
+        const nested = Array.isArray(film.screenings) ? film.screenings : [];
+        return nested.length ? [{ ...film, screenings: nested }] : [];
+      }),
+    );
   }, [films, screenings]);
 
   const activeFilm = useMemo(() => {

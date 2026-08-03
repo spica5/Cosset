@@ -13,6 +13,8 @@ import { OverviewContentStats } from '../overview-content-stats';
 import { OverviewUpcomingCinema } from '../overview-upcoming-cinema';
 import { OverviewRecentPosts } from '../overview-recent-posts';
 import { OverviewTopShops } from '../overview-top-shops';
+import { OverviewNeighbors } from '../overview-neighbors';
+import { OverviewFriends } from '../overview-friends';
 
 // ----------------------------------------------------------------------
 
@@ -50,6 +52,14 @@ export function OverviewAppView() {
 
         <Grid xs={12} md={6}>
           <OverviewTopShops />
+        </Grid>
+
+        <Grid xs={12} md={6}>
+          <OverviewNeighbors />
+        </Grid>
+
+        <Grid xs={12} md={6}>
+          <OverviewFriends />
         </Grid>
       </Grid>
     </DashboardContent>

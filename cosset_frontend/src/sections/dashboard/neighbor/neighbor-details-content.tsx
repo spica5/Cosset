@@ -23,7 +23,11 @@ type Props = {
 };
 
 export function NeighborDetailsContent({ neighbor }: Props) {
-  const slides = neighbor?.images.map((slide) => ({ src: slide })) || [];
+  const slides =
+    neighbor?.images
+      ?.map((slide) => String(slide || '').trim())
+      .filter(Boolean)
+      .map((src) => ({ src })) || [];
 
   const {
     selected: selectedImage,
@@ -32,7 +36,9 @@ export function NeighborDetailsContent({ neighbor }: Props) {
     onClose: handleCloseLightbox,
   } = useLightBox(slides);
 
-  const renderGallery = (
+  const primarySlide = slides[0];
+
+  const renderGallery = slides.length ? (
     <>
       <Box
         gap={1}
@@ -40,18 +46,20 @@ export function NeighborDetailsContent({ neighbor }: Props) {
         gridTemplateColumns={{ xs: 'repeat(1, 1fr)', md: 'repeat(2, 1fr)' }}
         sx={{ mb: { xs: 3, md: 5 } }}
       >
-        <Image
-          alt={slides[0].src}
-          src={slides[0].src}
-          ratio="1/1"
-          onClick={() => handleOpenLightbox(slides[0].src)}
-          sx={{
-            borderRadius: 2,
-            cursor: 'pointer',
-            transition: (theme) => theme.transitions.create('opacity'),
-            '&:hover': { opacity: 0.8 },
-          }}
-        />
+        {primarySlide ? (
+          <Image
+            alt={primarySlide.src}
+            src={primarySlide.src}
+            ratio="1/1"
+            onClick={() => handleOpenLightbox(primarySlide.src)}
+            sx={{
+              borderRadius: 2,
+              cursor: 'pointer',
+              transition: (theme) => theme.transitions.create('opacity'),
+              '&:hover': { opacity: 0.8 },
+            }}
+          />
+        ) : null}
 
         <Box gap={1} display="grid" gridTemplateColumns="repeat(2, 1fr)">
           {slides.slice(1, 5).map((slide) => (
@@ -79,7 +87,7 @@ export function NeighborDetailsContent({ neighbor }: Props) {
         close={handleCloseLightbox}
       />
     </>
-  );
+  ) : null;
 
   const renderHead = (
     <>
@@ -140,7 +148,7 @@ export function NeighborDetailsContent({ neighbor }: Props) {
         },
         {
           label: 'Friends',
-          value: neighbor?.friends.length,
+          value: neighbor?.friends?.length ?? 0,
           icon: <Iconify icon="solar:user-rounded-bold" />,
         },
         {
@@ -150,7 +158,7 @@ export function NeighborDetailsContent({ neighbor }: Props) {
         },
         {
           label: 'Available',
-          value: `${fDate(neighbor?.available.startDate)} - ${fDate(neighbor?.available.endDate)}`,
+          value: `${fDate(neighbor?.available?.startDate)} - ${fDate(neighbor?.available?.endDate)}`,
           icon: <Iconify icon="solar:calendar-date-bold" />,
         },
       ].map((item) => (

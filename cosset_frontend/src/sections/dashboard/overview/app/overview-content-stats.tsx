@@ -2,6 +2,8 @@
 
 import type { CardProps } from '@mui/material/Card';
 
+import { useMemo } from 'react';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Unstable_Grid2';
@@ -21,7 +23,7 @@ import { useGetBlogs } from 'src/actions/blog';
 import { useGetAlbums } from 'src/actions/album';
 import { useGetGifts } from 'src/actions/gift';
 import { useGetCollections } from 'src/actions/collection';
-import { useGetCollectionItems } from 'src/actions/collection-item';
+import { useGetCollectionItems, useGetCollectionsItemsCount } from 'src/actions/collection-item';
 import { useGetBookshelfEbooks } from 'src/actions/bookshelf-ebook';
 import { useGetBookshelfAudiobooks } from 'src/actions/bookshelf-audiobook';
 import { useGetJourneyDiaryNotes } from 'src/actions/journey-diary-note';
@@ -140,6 +142,29 @@ export function OverviewContentStats() {
   const { collectionItems: sadMemos, collectionItemsLoading: sadMemosLoading } =
     useGetCollectionItems(userId ? SAD_MEMO_COLLECTION_ID : '', userId);
   const { collections, collectionsLoading } = useGetCollections(userId || undefined);
+  const collectionIds = useMemo(() => collections.map((collection) => collection.id), [collections]);
+  const { collectionItemsTotal, collectionItemsTotalLoading } = useGetCollectionsItemsCount(
+    collectionIds,
+    userId || undefined,
+  );
+  const firstCollectionHref = useMemo(() => {
+    if (!collections.length) {
+      return paths.dashboard.collections.manage;
+    }
+
+    const [firstCollection] = [...collections].sort((a, b) => {
+      const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+
+      if (aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return paths.dashboard.collections.items(firstCollection.id);
+  }, [collections]);
   const { ebooks, ebooksLoading } = useGetBookshelfEbooks(userId || null);
   const { audiobooks, audiobooksLoading } = useGetBookshelfAudiobooks(userId || null);
   const { pictures, picturesLoading } = useGetJourneyRepresentativePictures(userId || undefined);
@@ -156,6 +181,8 @@ export function OverviewContentStats() {
 
   const journeyTotal = pictures.length + notes.length + memorialThings.length;
   const journeyLoading = picturesLoading || notesLoading || memorialThingsLoading;
+
+  const collectionsCardLoading = collectionsLoading || collectionItemsTotalLoading;
 
   const stats = [
     {
@@ -188,11 +215,11 @@ export function OverviewContentStats() {
     {
       title: 'Collections',
       total: collections.length,
-      loading: collectionsLoading,
+      loading: collectionsCardLoading,
       icon: 'solar:folder-with-files-bold-duotone',
       color: '#FFAB00',
-      href: paths.dashboard.collections.manage,
-      details: `${collections.length} collections`,
+      href: firstCollectionHref,
+      details: `${collections.length} collections · ${collectionItemsTotal} items`,
     },
     {
       title: 'Bookshelf',

@@ -86,6 +86,12 @@ function CinemaCategoryRoom({
   );
 
   const scheduledFilms = useMemo(() => {
+    const getNewestTime = (value?: string | Date | null) => {
+      if (!value) return 0;
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    };
+
     const screeningsByFilmId = screenings.reduce<Record<number, typeof screenings>>((acc, screening) => {
       const list = acc[screening.filmId] || [];
       list.push(screening);
@@ -93,13 +99,19 @@ function CinemaCategoryRoom({
       return acc;
     }, {});
 
-    return films.flatMap((film) => {
-      const fromApi = screeningsByFilmId[film.id] || [];
-      const nested = Array.isArray(film.screenings) ? film.screenings : [];
-      const merged = fromApi.length ? fromApi : nested;
+    return films
+      .flatMap((film) => {
+        const fromApi = screeningsByFilmId[film.id] || [];
+        const nested = Array.isArray(film.screenings) ? film.screenings : [];
+        const merged = fromApi.length ? fromApi : nested;
 
-      return merged.length ? [{ ...film, screenings: merged }] : [];
-    });
+        return merged.length ? [{ ...film, screenings: merged }] : [];
+      })
+      .sort((a, b) => {
+        const createdDiff = getNewestTime(b.createdAt) - getNewestTime(a.createdAt);
+        if (createdDiff !== 0) return createdDiff;
+        return Number(b.id) - Number(a.id);
+      });
   }, [films, screenings]);
 
   const universeUrl = catalogOwnerId

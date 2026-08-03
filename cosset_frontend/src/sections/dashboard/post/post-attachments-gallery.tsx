@@ -104,7 +104,7 @@ export function PostAttachmentsGallery({
   stopPropagation = false,
   arrangeType = 'row',
   itemSpacing = 1,
-  minItemWidth = 120,
+  minItemWidth = 100,
   imageWidth = 200,
   imageHeight = 120,
   videoWidth = 280,
@@ -280,7 +280,12 @@ export function PostAttachmentsGallery({
             <Stack
               key={`${type}-${key}-${index}`}
               spacing={0.5}
-              sx={{ width: arrangeType === 'grid' ? '100%' : imageWidth, position: 'relative' }}
+              sx={{
+                width: arrangeType === 'grid' ? '100%' : 'auto',
+                maxWidth: '100%',
+                position: 'relative',
+                flexShrink: 0,
+              }}
             >
               {removeButton}
               <Box
@@ -295,10 +300,15 @@ export function PostAttachmentsGallery({
                   handleOpenLightbox(mediaSlides, index);
                 }}
                 sx={{
-                  width: '100%',
                   height: imageHeight,
+                  width: arrangeType === 'grid' ? '100%' : 'auto',
+                  maxWidth: '100%',
+                  minWidth: arrangeType === 'grid' ? undefined : minItemWidth,
                   borderRadius: 1,
-                  objectFit: 'cover',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  display: 'block',
+                  bgcolor: 'grey.100',
                   cursor: mediaSlides.length ? 'pointer' : 'default',
                   border: '1px solid',
                   borderColor: 'divider',
@@ -315,7 +325,7 @@ export function PostAttachmentsGallery({
                   onPreview?.();
                   handleOpenLightbox(mediaSlides, index);
                 }}
-                sx={{ minWidth: 0 }}
+                sx={{ minWidth: 0, alignSelf: 'flex-start' }}
               >
                 Preview
               </Button>
@@ -408,7 +418,13 @@ export function PostAttachmentsGallery({
       }
 
       return (
-        <Stack direction="row" spacing={itemSpacing} useFlexGap flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={itemSpacing}
+          useFlexGap
+          flexWrap="wrap"
+          alignItems="flex-start"
+        >
           {items}
         </Stack>
       );
@@ -419,9 +435,9 @@ export function PostAttachmentsGallery({
       buildLightboxSlides,
       handleOpenLightbox,
       imageHeight,
-      imageWidth,
       itemSpacing,
       minItemWidth,
+      onPreview,
       onRemoveAttachment,
       signedUrlMap,
       stopPropagation,

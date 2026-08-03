@@ -2,8 +2,6 @@ import type { IAlbumItem } from 'src/types/album';
 
 import { useState, useEffect } from 'react';
 
-import ListItemIcon from '@mui/material/ListItemIcon';
-
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
@@ -19,11 +17,12 @@ import { RouterLink } from 'src/routes/components';
 import { getS3SignedUrl } from 'src/utils/helper';
 import { fDateTime } from 'src/utils/format-time';
 
-import { Image } from 'src/components/dashboard/image';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
 
 // ----------------------------------------------------------------------
+
+const COVER_HEIGHT = 164;
 
 type Props = {
   album: IAlbumItem;
@@ -38,6 +37,8 @@ export function AlbumItem({ album, onView, onDelete }: Props) {
   useEffect(() => {
     if (album.coverUrl) {
       getS3SignedUrl(album.coverUrl).then(setCoverUrl);
+    } else {
+      setCoverUrl('');
     }
   }, [album.coverUrl]);
 
@@ -48,14 +49,46 @@ export function AlbumItem({ album, onView, onDelete }: Props) {
       color="inherit"
       underline="none"
     >
-      <Box gap={0.5} display="flex" sx={{ p: 1 }}>
-        <Box flexGrow={1} sx={{ position: 'relative' }}>
-          <Image
+      <Box
+        sx={{
+          p: 1,
+          minHeight: COVER_HEIGHT + 16,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'grey.100',
+        }}
+      >
+        {coverUrl ? (
+          <Box
+            component="img"
             alt={album.title}
             src={coverUrl}
-            sx={{ width: 1, height: 164, borderRadius: 1 }}
+            sx={{
+              height: COVER_HEIGHT,
+              width: 'auto',
+              maxWidth: '100%',
+              objectFit: 'contain',
+              objectPosition: 'center',
+              borderRadius: 1,
+              display: 'block',
+            }}
           />
-        </Box>
+        ) : (
+          <Box
+            sx={{
+              height: COVER_HEIGHT,
+              width: 1,
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'text.disabled',
+            }}
+          >
+            <Iconify icon="solar:gallery-wide-bold" width={40} />
+          </Box>
+        )}
       </Box>
     </Link>
   );
