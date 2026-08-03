@@ -1,5 +1,4 @@
 import type { BoxProps } from '@mui/material/Box';
-import type { IUniverseProps } from 'src/types/universe';
 
 import Fade from 'embla-carousel-fade';
 
@@ -11,15 +10,22 @@ import Typography from '@mui/material/Typography';
 import { bgBlur, varAlpha } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify';
-import { Carousel, useCarousel, CarouselThumbs, CarouselDotButtons } from 'src/components/universe/carousel';
+import {
+  Carousel,
+  useCarousel,
+  CarouselThumbs,
+  CarouselDotButtons,
+} from 'src/components/universe/carousel';
+
+import type { HomeHeroSlide } from './home-images';
 
 // ----------------------------------------------------------------------
 
 type Props = BoxProps & {
-  universes: IUniverseProps[];
+  slides: HomeHeroSlide[];
 };
 
-export function HomeLandingHero({ universes, sx, ...other }: Props) {
+export function HomeLandingHero({ slides, sx, ...other }: Props) {
   const carousel = useCarousel(
     {
       loop: true,
@@ -44,8 +50,8 @@ export function HomeLandingHero({ universes, sx, ...other }: Props) {
       {...other}
     >
       <Carousel carousel={carousel}>
-        {universes.map((universe) => (
-          <CarouselItem key={universe.id} universe={universe} />
+        {slides.map((slide) => (
+          <CarouselItem key={slide.id} slide={slide} />
         ))}
       </Carousel>
 
@@ -80,10 +86,10 @@ export function HomeLandingHero({ universes, sx, ...other }: Props) {
           right: { xs: 20, lg: '6%', xl: '10%' },
         }}
       >
-        {universes.map((universe, index) => (
+        {slides.map((slide, index) => (
           <ThumbnailItem
-            key={universe.id}
-            universe={universe}
+            key={slide.id}
+            slide={slide}
             selected={index === carousel.thumbs.selectedIndex}
             onClick={() => carousel.thumbs.onClickThumb(index)}
           />
@@ -96,10 +102,10 @@ export function HomeLandingHero({ universes, sx, ...other }: Props) {
 // ----------------------------------------------------------------------
 
 type CarouselItemProps = BoxProps & {
-  universe: IUniverseProps;
+  slide: HomeHeroSlide;
 };
 
-function CarouselItem({ universe, sx, ...other }: CarouselItemProps) {
+function CarouselItem({ slide, sx, ...other }: CarouselItemProps) {
   const theme = useTheme();
 
   return (
@@ -146,29 +152,16 @@ function CarouselItem({ universe, sx, ...other }: CarouselItemProps) {
         }}
       >
         <Typography variant="overline" sx={{ color: 'info.main' }}>
-          {universe.mood}
+          {slide.overline}
         </Typography>
 
         <Typography variant="h2" component="h1" sx={{ maxWidth: 480 }}>
-          {universe.name}
+          {slide.title}
         </Typography>
 
-        <Box
-          display="flex"
-          flexWrap="wrap"
-          alignItems="center"
-          justifyContent="center"
-          gap={{ xs: 2.5, md: 5 }}
-        >
-          <Box gap={1} display="flex" alignItems="center" sx={{ typography: 'subtitle2' }}>
-            <Iconify width={24} icon="eva:star-fill" sx={{ color: 'primary.main' }} />
-            {`${universe.ratingNumber} reviews`}
-          </Box>
-          <Box gap={1} display="flex" alignItems="center" sx={{ typography: 'subtitle2' }}>
-            <Iconify width={24} icon="carbon:friendship" sx={{ color: 'primary.main' }} />
-            {`${universe.connections} friends`}
-          </Box>
-        </Box>
+        <Typography variant="subtitle1" sx={{ opacity: 0.8, maxWidth: 420 }}>
+          {slide.caption}
+        </Typography>
 
         <Button variant="contained" size="large" color="primary">
           Visit now
@@ -177,8 +170,8 @@ function CarouselItem({ universe, sx, ...other }: CarouselItemProps) {
 
       <Box
         component="img"
-        alt={universe.name}
-        src={universe.heroUrl}
+        alt={slide.title}
+        src={slide.imageUrl}
         sx={{
           top: 0,
           left: 0,
@@ -196,11 +189,11 @@ function CarouselItem({ universe, sx, ...other }: CarouselItemProps) {
 // ----------------------------------------------------------------------
 
 type ThumbnailItemProps = BoxProps & {
-  universe: IUniverseProps;
+  slide: HomeHeroSlide;
   selected?: boolean;
 };
 
-function ThumbnailItem({ universe, selected, sx, ...other }: ThumbnailItemProps) {
+function ThumbnailItem({ slide, selected, sx, ...other }: ThumbnailItemProps) {
   const theme = useTheme();
 
   return (
@@ -226,20 +219,20 @@ function ThumbnailItem({ universe, selected, sx, ...other }: ThumbnailItemProps)
     >
       <Box
         component="img"
-        alt={universe.name}
-        src={universe.heroUrl}
-        sx={{ width: 48, height: 48, borderRadius: '50%' }}
+        alt={slide.title}
+        src={slide.imageUrl}
+        sx={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
       />
 
       <Box gap={0.5} display="flex" flex="1 1 auto" flexDirection="column" sx={{ minWidth: 0 }}>
         <Typography variant="subtitle1" component="span" noWrap>
-          {universe.mood}
+          {slide.overline}
         </Typography>
 
         <Box component="span" gap={0.75} display="flex" alignItems="center">
           <Iconify width={18} icon="carbon:location" sx={{ color: 'primary.main' }} />
           <Typography variant="caption" noWrap sx={{ opacity: 0.48 }}>
-            {universe.motif}
+            {slide.caption}
           </Typography>
         </Box>
       </Box>

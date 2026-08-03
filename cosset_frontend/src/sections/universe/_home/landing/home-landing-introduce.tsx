@@ -1,4 +1,9 @@
+'use client';
+
 import type { BoxProps } from '@mui/material/Box';
+
+import Fade from 'embla-carousel-fade';
+import Autoplay from 'embla-carousel-autoplay';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -10,6 +15,9 @@ import { CONFIG } from 'src/config-global';
 
 import { Iconify } from 'src/components/universe/iconify';
 import { SvgColor } from 'src/components/universe/svg-color';
+import { Carousel, useCarousel, CarouselDotButtons } from 'src/components/universe/carousel';
+
+import { HOME_INTRODUCE_SLIDES } from './home-images';
 
 // ----------------------------------------------------------------------
 
@@ -42,6 +50,14 @@ const INTRODUCTIONS = [
 
 export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
   const containerOffset = 'calc((100vw - 1200px) / 2)';
+
+  const carousel = useCarousel(
+    {
+      loop: true,
+      duration: 60,
+    },
+    [Autoplay({ playOnInit: true, delay: 4500 }), Fade()]
+  );
 
   const renderList = (
     <Container sx={{ textAlign: 'center' }}>
@@ -90,8 +106,9 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
         <Typography variant="h2">Welcome to Cosset</Typography>
 
         <Typography sx={{ color: 'text.secondary' }}>
-          A Place for Retreat - 
-          Your personal sanctuary for memories, connections, and creativity. Store your precious moments, connect with friends and neighbors, and explore a world of shared experiences.
+          A Place for Retreat -
+          Your personal sanctuary for memories, connections, and creativity. Store your precious
+          moments, connect with friends and neighbors, and explore a world of shared experiences.
         </Typography>
       </Stack>
     </Container>
@@ -119,8 +136,8 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
           alignItems: 'unset',
           justifyContent: 'unset',
         },
-        [theme.breakpoints.up('md')]: { top: 40, left: 40, maxWidth: 360 },
-        [theme.breakpoints.up('lg')]: { top: 64, left: 64 },
+        [theme.breakpoints.up('md')]: { top: 32, left: 32, maxWidth: 320 },
+        [theme.breakpoints.up('lg')]: { top: 40, left: 40 },
       })}
     >
       <Typography variant="overline" sx={{ color: 'text.disabled' }}>
@@ -151,29 +168,53 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     <Container
       sx={(theme) => ({
         px: 0,
-        my: { xs: 5, md: 10 },
+        my: { xs: 4, md: 7 },
         position: 'relative',
         [theme.breakpoints.up('sm')]: { px: 0 },
-        [theme.breakpoints.up('md')]: { my: 10 },
         [theme.breakpoints.up('lg')]: { px: 3 },
       })}
     >
       {renderCard}
 
       <Box
-        component="img"
-        loading="lazy"
-        alt="Universe cover"
-        src={`${CONFIG.universe.assetsDir}/assets/images/universe/cosset_background1.png`}
         sx={(theme) => ({
-          minHeight: 320,
-          objectFit: 'cover',
+          position: 'relative',
+          overflow: 'hidden',
+          height: { xs: 480, sm: 560, md: 640 },
           [theme.breakpoints.up('lg')]: {
             maxWidth: 'unset',
             width: `calc(100vw - ${containerOffset})`,
           },
         })}
-      />
+      >
+        <Carousel carousel={carousel} sx={{ width: 1, height: 1 }}>
+          {HOME_INTRODUCE_SLIDES.map((slide) => (
+            <Box
+              key={slide.id}
+              component="img"
+              loading="lazy"
+              alt={slide.alt}
+              src={slide.imageUrl}
+              sx={{ width: 1, height: 1, objectFit: 'cover' }}
+            />
+          ))}
+        </Carousel>
+
+        <CarouselDotButtons
+          variant="rounded"
+          scrollSnaps={carousel.dots.scrollSnaps}
+          selectedIndex={carousel.dots.selectedIndex}
+          onClickDot={carousel.dots.onClickDot}
+          sx={{
+            left: 0,
+            right: 0,
+            bottom: 16,
+            position: 'absolute',
+            color: 'primary.main',
+            justifyContent: 'center',
+          }}
+        />
+      </Box>
     </Container>
   );
 
