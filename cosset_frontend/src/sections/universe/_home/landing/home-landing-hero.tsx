@@ -1,6 +1,7 @@
 import type { BoxProps } from '@mui/material/Box';
 
 import Fade from 'embla-carousel-fade';
+import Autoplay from 'embla-carousel-autoplay';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -37,7 +38,7 @@ export function HomeLandingHero({ slides, sx, ...other }: Props) {
         slidesToShow: 'auto',
       },
     },
-    [Fade()]
+    [Autoplay({ playOnInit: true, delay: 5000 }), Fade()]
   );
 
   return (

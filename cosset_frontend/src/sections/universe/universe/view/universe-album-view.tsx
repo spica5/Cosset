@@ -475,9 +475,6 @@ export function UniverseAlbumView({ albumId }: Props) {
               <Box sx={{ width: { xs: 1, md: '36%' }, flexShrink: 0 }}>
                 {coverUrl ? (
                   <Box
-                    component="img"
-                    src={coverUrl}
-                    alt={album.title}
                     onClick={() => {
                       if (galleryItems.length > 0) {
                         lightbox.setSelected(0);
@@ -486,10 +483,14 @@ export function UniverseAlbumView({ albumId }: Props) {
                     sx={{
                       width: 1,
                       height: { xs: 220, md: 280 },
-                      objectFit: 'cover',
                       borderRadius: 1.5,
                       border: '1px solid',
                       borderColor: 'divider',
+                      bgcolor: 'grey.100',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
                       cursor: galleryItems.length > 0 ? 'pointer' : 'default',
                       transition: (theme) =>
                         theme.transitions.create('transform', {
@@ -499,7 +500,21 @@ export function UniverseAlbumView({ albumId }: Props) {
                         transform: galleryItems.length > 0 ? 'scale(1.02)' : 'none',
                       },
                     }}
-                  />
+                  >
+                    <Box
+                      component="img"
+                      src={coverUrl}
+                      alt={album.title}
+                      sx={{
+                        height: 1,
+                        width: 'auto',
+                        maxWidth: '100%',
+                        objectFit: 'contain',
+                        objectPosition: 'center',
+                        display: 'block',
+                      }}
+                    />
+                  </Box>
                 ) : (
                   <Box
                     sx={{
@@ -684,19 +699,34 @@ export function UniverseAlbumView({ albumId }: Props) {
                         }}
                       >
                         <Box
-                          component="img"
-                          src={image.signedUrl}
-                          alt={image.imageTitle || 'Album image'}
                           sx={{
                             width: 1,
                             aspectRatio: '1/1',
-                            objectFit: 'cover',
-                            transition: (theme) =>
-                              theme.transitions.create('transform', {
-                                duration: theme.transitions.duration.shorter,
-                              }),
+                            bgcolor: 'grey.100',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
                           }}
-                        />
+                        >
+                          <Box
+                            component="img"
+                            src={image.signedUrl}
+                            alt={image.imageTitle || 'Album image'}
+                            sx={{
+                              width: 'auto',
+                              height: 'auto',
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain',
+                              objectPosition: 'center',
+                              transition: (theme) =>
+                                theme.transitions.create('transform', {
+                                  duration: theme.transitions.duration.shorter,
+                                }),
+                            }}
+                          />
+                        </Box>
 
                         <Box
                           className="image-overlay"

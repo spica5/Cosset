@@ -117,34 +117,31 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
   const renderCard = (
     <Card
       sx={(theme) => ({
-        p: 5,
-        top: 24,
-        left: 24,
+        p: { xs: 2, sm: 3, md: 5 },
+        top: { xs: 16, sm: 24, md: 32, lg: 40 },
+        left: { xs: 16, sm: 24, md: 32, lg: 40 },
         zIndex: 9,
-        right: 24,
-        bottom: 24,
+        right: 'auto',
+        bottom: 'auto',
+        maxWidth: { xs: 200, sm: 260, md: 320 },
+        width: { xs: '58%', sm: 'auto' },
         display: 'flex',
-        textAlign: 'center',
+        textAlign: { xs: 'center', sm: 'unset' },
         position: 'absolute',
-        alignItems: 'center',
+        alignItems: { xs: 'center', sm: 'unset' },
         flexDirection: 'column',
         justifyContent: 'center',
-        [theme.breakpoints.up('sm')]: {
-          right: 'auto',
-          bottom: 'auto',
-          textAlign: 'unset',
-          alignItems: 'unset',
-          justifyContent: 'unset',
-        },
-        [theme.breakpoints.up('md')]: { top: 32, left: 32, maxWidth: 320 },
-        [theme.breakpoints.up('lg')]: { top: 40, left: 40 },
       })}
     >
-      <Typography variant="overline" sx={{ color: 'text.disabled' }}>
+      <Typography variant="overline" sx={{ color: 'text.disabled', fontSize: { xs: 10, sm: undefined } }}>
         Device
       </Typography>
 
-      <Typography component="h6" variant="h4" sx={{ my: 3 }}>
+      <Typography
+        component="h6"
+        variant="h4"
+        sx={{ my: { xs: 1.25, sm: 2, md: 3 }, typography: { xs: 'subtitle1', sm: 'h6', md: 'h4' } }}
+      >
         The more important the work
       </Typography>
 
@@ -155,11 +152,11 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
         sx={{
           cursor: 'pointer',
           color: 'primary.main',
-          typography: 'subtitle1',
+          typography: { xs: 'body2', sm: 'subtitle1' },
           '&:hover': { opacity: 0.72 },
         }}
       >
-        <Iconify width={22} icon="solar:play-outline" /> Watch video
+        <Iconify width={20} icon="solar:play-outline" /> Watch video
       </Box>
     </Card>
   );

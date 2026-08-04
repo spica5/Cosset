@@ -143,11 +143,15 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
         <Box
           sx={{
             position: 'relative',
+            height: 180,
             minHeight: 150,
             borderRadius: 2,
             overflow: 'hidden',
             border: '1px solid rgba(139, 119, 101, 0.14)',
             bgcolor: 'grey.200',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           {coverUrl ? (
@@ -156,9 +160,11 @@ function UniverseLandingAlbumCard({ album, albumHref, isViewed }: AlbumCardProps
               src={coverUrl}
               alt={title}
               sx={{
-                width: 1,
-                height: 180,
-                objectFit: 'cover',
+                height: 1,
+                width: 'auto',
+                maxWidth: '100%',
+                objectFit: 'contain',
+                objectPosition: 'center',
                 display: 'block',
               }}
             />
