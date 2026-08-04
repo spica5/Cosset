@@ -136,6 +136,25 @@ export function AdminCinemaView() {
                   <Typography variant="body2" color="text.secondary">
                     {category.description}
                   </Typography>
+                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                    {category.chips.map((chip) => (
+                      <Box
+                        key={chip}
+                        sx={{
+                          px: 1,
+                          py: 0.2,
+                          borderRadius: category.id === 'genre' ? 999 : 0.75,
+                          typography: 'caption',
+                          fontWeight: 700,
+                          color: category.accent,
+                          border: `1px solid ${category.accent}55`,
+                          bgcolor: `${category.accent}12`,
+                        }}
+                      >
+                        {chip}
+                      </Box>
+                    ))}
+                  </Stack>
                 </Box>
               </Stack>
 

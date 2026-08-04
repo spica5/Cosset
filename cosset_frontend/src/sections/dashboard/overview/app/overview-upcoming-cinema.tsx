@@ -287,19 +287,18 @@ function useCategoryUpcoming(categoryId: CinemaCategory) {
 export function OverviewUpcomingCinema() {
   const classic = useCategoryUpcoming('classic');
   const genre = useCategoryUpcoming('genre');
-  const drama = useCategoryUpcoming('drama');
 
-  const loading = classic.loading || genre.loading || drama.loading;
+  const loading = classic.loading || genre.loading;
 
   const upcomingItems = useMemo(
     () =>
-      [...classic.items, ...genre.items, ...drama.items].sort((a, b) => {
+      [...classic.items, ...genre.items].sort((a, b) => {
         if (a.status !== b.status) {
           return a.status === 'now' ? -1 : 1;
         }
         return a.sortAt - b.sortAt;
       }),
-    [classic.items, drama.items, genre.items],
+    [classic.items, genre.items],
   );
 
   return (
@@ -314,7 +313,7 @@ export function OverviewUpcomingCinema() {
         <Stack spacing={0.35}>
           <Typography variant="h5">Upcoming cinema</Typography>
           <Typography variant="body2" color="text.secondary">
-            Live and upcoming screenings across Classic, Genre, and Drama rooms.
+            Live and upcoming screenings across Classic & Social Psychology and Action & Genre rooms.
           </Typography>
         </Stack>
 

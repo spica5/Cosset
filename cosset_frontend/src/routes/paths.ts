@@ -33,7 +33,6 @@ export const paths = {
         cinema: `${ROOTS.DASHBOARD}/admin/media/cinema`,
         cinemaClassic: `${ROOTS.DASHBOARD}/admin/media/cinema/classic`,
         cinemaGenre: `${ROOTS.DASHBOARD}/admin/media/cinema/genre`,
-        cinemaDrama: `${ROOTS.DASHBOARD}/admin/media/cinema/drama`,
       },
     },
     blog: {
@@ -137,7 +136,6 @@ export const paths = {
         root: `${ROOTS.DASHBOARD}/community/cinema`,
         classic: `${ROOTS.DASHBOARD}/community/cinema/classic`,
         genre: `${ROOTS.DASHBOARD}/community/cinema/genre`,
-        drama: `${ROOTS.DASHBOARD}/community/cinema/drama`,
         view: (category: string) => `${ROOTS.UNIVERSE}/community/cinema/${category}/view`,
       },
       friend: `${ROOTS.DASHBOARD}/community/friend`,

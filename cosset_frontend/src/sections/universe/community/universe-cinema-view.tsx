@@ -96,9 +96,8 @@ type Props = {
 };
 
 const CATEGORY_TAGS: Record<CinemaCategory, string> = {
-  classic: 'Romance • Timeless',
-  genre: 'Thrill • Suspense',
-  drama: 'Drama • Heartfelt',
+  classic: 'Classic • Social Psychology',
+  genre: 'Action • Horror • Science • Detective',
 };
 
 async function resolveMediaUrl(mediaUrl?: string | null) {
@@ -1095,8 +1094,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         sx={{
           position: 'absolute',
           inset: 0,
-          background:
-            'radial-gradient(ellipse at 50% 18%, rgba(212,176,90,0.12), transparent 48%), radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.65), transparent 55%)',
+          background: category.overlay,
           pointerEvents: 'none',
         }}
       />
@@ -1107,7 +1105,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           zIndex: 3,
           px: { xs: 1.5, sm: 2, md: 4 },
           py: { xs: 1.25, md: 2 },
-          borderBottom: '1px solid rgba(212, 176, 90, 0.16)',
+          borderBottom: `1px solid rgba(${category.accentRgb}, 0.22)`,
           bgcolor: 'rgba(0,0,0,0.35)',
           backdropFilter: 'blur(10px)',
           minHeight: { xs: 56, md: 72 },

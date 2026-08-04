@@ -25,9 +25,10 @@ import { CinemaCategoryFilmsPanel } from '../cinema-category-films-panel';
 import {
   type CinemaCategoryMeta,
   getCinemaCategoryDashboardPath,
+  cinemaShellSx,
   CINEMA_CATEGORIES,
 } from '../cinema-categories';
-import { CINEMA_CREAM, cinemaPageShellSx } from '../cinema-theater-theme';
+import { CINEMA_CREAM } from '../cinema-theater-theme';
 
 // ----------------------------------------------------------------------
 
@@ -83,13 +84,12 @@ export function CinemaCategoryView({ category }: Props) {
       />
 
       <Stack spacing={3}>
-        <Box sx={{ ...cinemaPageShellSx, p: { xs: 2, md: 3 } }}>
+        <Box sx={{ ...cinemaShellSx(category), p: { xs: 2, md: 3 } }}>
           <Box
             sx={{
               position: 'absolute',
               inset: 0,
-              background:
-                'radial-gradient(ellipse at 50% 18%, rgba(212,176,90,0.12), transparent 48%)',
+              background: category.overlay,
               pointerEvents: 'none',
             }}
           />
@@ -99,7 +99,28 @@ export function CinemaCategoryView({ category }: Props) {
               category={category}
               height={{ xs: 300, md: 460 }}
               footer={
-                <Stack direction="row" justifyContent="center">
+                <Stack spacing={1.5} alignItems="center">
+                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" justifyContent="center">
+                    {category.chips.map((chip) => (
+                      <Box
+                        key={chip}
+                        sx={{
+                          px: 1.25,
+                          py: 0.35,
+                          borderRadius: category.id === 'genre' ? 999 : 0.75,
+                          typography: 'caption',
+                          fontWeight: 700,
+                          letterSpacing: '0.05em',
+                          color: accent,
+                          border: `1px solid rgba(${category.accentRgb}, 0.45)`,
+                          bgcolor: 'rgba(0,0,0,0.35)',
+                          backdropFilter: 'blur(6px)',
+                        }}
+                      >
+                        {chip}
+                      </Box>
+                    ))}
+                  </Stack>
                   <Button
                     component={RouterLink}
                     href={universeUrl}
@@ -109,9 +130,10 @@ export function CinemaCategoryView({ category }: Props) {
                     endIcon={<Iconify icon="solar:play-bold" />}
                     sx={{
                       bgcolor: accent,
-                      color: '#1A1208',
+                      color: category.id === 'genre' ? '#14060A' : '#1A1208',
                       fontWeight: 800,
                       px: 2.5,
+                      borderRadius: category.id === 'genre' ? 999 : 1,
                       '&:hover': { bgcolor: accent, opacity: 0.92 },
                     }}
                   >
@@ -132,13 +154,13 @@ export function CinemaCategoryView({ category }: Props) {
 
         <Box
           sx={{
-            ...cinemaPageShellSx,
+            ...cinemaShellSx(category),
             p: { xs: 2, md: 3 },
           }}
         >
           <Box
             sx={{
-              '& .MuiTypography-root': { color: CINEMA_CREAM },
+              '& .MuiTypography-root': { color: category.textColor },
             }}
           >
             <CinemaCategoryFilmsPanel

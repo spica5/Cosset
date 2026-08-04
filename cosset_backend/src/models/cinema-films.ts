@@ -3,7 +3,7 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 const TABLE_NAME = 'cinema_films';
 
-export type CinemaFilmCategory = 'classic' | 'genre' | 'drama';
+export type CinemaFilmCategory = 'classic' | 'genre';
 
 export interface CinemaFilm {
   id: number;
@@ -21,7 +21,8 @@ export interface CinemaFilm {
   updatedAt?: Date | null;
 }
 
-const VALID_CATEGORIES = new Set<CinemaFilmCategory>(['classic', 'genre', 'drama']);
+const VALID_CATEGORIES = new Set<CinemaFilmCategory>(['classic', 'genre']);
+const CATEGORY_ERROR = 'category must be classic or genre';
 
 const SELECT_COLUMNS = `
   id,
@@ -64,6 +65,11 @@ const normalizeNullableInteger = (value: unknown): number | null => {
 
 export const normalizeCinemaCategory = (value: unknown): CinemaFilmCategory | null => {
   const normalized = String(value || '').trim().toLowerCase();
+
+  // Legacy "drama" room is folded into classic & social psychology.
+  if (normalized === 'drama') {
+    return 'classic';
+  }
 
   if (!VALID_CATEGORIES.has(normalized as CinemaFilmCategory)) {
     return null;
@@ -141,6 +147,9 @@ const ensureTable = async (): Promise<void> => {
           END $$;
         `,
       );
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET category = 'classic' WHERE LOWER(TRIM(category)) = 'drama'`,
+      );
     })().catch((error) => {
       ensureTablePromise = null;
       throw error;
@@ -168,7 +177,7 @@ export async function getCinemaFilms(
     if (!normalizedCategory) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_FILM_CATEGORY',
-        message: 'category must be classic, genre, or drama',
+        message: CATEGORY_ERROR,
       });
     }
 
@@ -284,7 +293,7 @@ export async function createCinemaFilm(
     if (!normalizedCategory) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_FILM_CATEGORY',
-        message: 'category must be classic, genre, or drama',
+        message: CATEGORY_ERROR,
       });
     }
 
@@ -367,7 +376,7 @@ export async function updateCinemaFilm(
       if (!normalizedCategory) {
         throw new DatabaseError({
           code: 'INVALID_CINEMA_FILM_CATEGORY',
-          message: 'category must be classic, genre, or drama',
+          message: CATEGORY_ERROR,
         });
       }
 

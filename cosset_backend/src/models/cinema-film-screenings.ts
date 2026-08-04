@@ -294,7 +294,7 @@ export async function getCinemaFilmScreeningsByCategory(
     if (!normalizedCategory) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_SCREENING_CATEGORY',
-        message: 'category must be classic, genre, or drama',
+        message: 'category must be classic or genre',
       });
     }
 

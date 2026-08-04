@@ -65,7 +65,7 @@ export async function PUT(
     }
 
     if (updates.category !== undefined && !normalizeCinemaCategory(updates.category)) {
-      return response({ message: 'category must be classic, genre, or drama' }, STATUS.BAD_REQUEST);
+      return response({ message: 'category must be classic or genre' }, STATUS.BAD_REQUEST);
     }
 
     const film = await updateCinemaFilm(filmId, {

@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (searchParams.get('category') && !category) {
-      return response({ message: 'category must be classic, genre, or drama' }, STATUS.BAD_REQUEST);
+      return response({ message: 'category must be classic or genre' }, STATUS.BAD_REQUEST);
     }
 
     const reservations = await listCinemaFilmReservations({

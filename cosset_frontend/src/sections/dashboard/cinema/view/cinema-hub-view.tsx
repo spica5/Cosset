@@ -31,7 +31,11 @@ import {
 } from 'src/actions/cinema-film-reservation';
 
 import { CinemaFilmPosterCarousel } from '../cinema-film-poster-carousel';
-import { CINEMA_CATEGORIES, type CinemaCategoryMeta } from '../cinema-categories';
+import {
+  CINEMA_CATEGORIES,
+  cinemaShellSx,
+  type CinemaCategoryMeta,
+} from '../cinema-categories';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
 import { formatScreeningSchedule, getNextFilmScreening } from '../cinema-film-schedule';
 import { CinemaSeatMapDialog } from '../cinema-seat-map-dialog';
@@ -217,7 +221,7 @@ function CinemaCategoryRoom({
     <Box
       id={`cinema-${category.id}`}
       sx={{
-        ...cinemaPageShellSx,
+        ...cinemaShellSx(category),
         p: { xs: 2, md: 3 },
       }}
     >
@@ -225,8 +229,7 @@ function CinemaCategoryRoom({
         sx={{
           position: 'absolute',
           inset: 0,
-          background:
-            'radial-gradient(ellipse at 50% 18%, rgba(212,176,90,0.1), transparent 48%), radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.55), transparent 55%)',
+          background: category.overlay,
           pointerEvents: 'none',
         }}
       />
@@ -243,12 +246,16 @@ function CinemaCategoryRoom({
               sx={{
                 width: 44,
                 height: 44,
-                borderRadius: 1.5,
+                borderRadius: category.id === 'genre' ? '50%' : 1.5,
                 display: 'grid',
                 placeItems: 'center',
-                bgcolor: `${accent}22`,
+                bgcolor: `rgba(${category.accentRgb}, 0.16)`,
                 color: accent,
                 flexShrink: 0,
+                boxShadow:
+                  category.id === 'genre'
+                    ? `0 0 0 1px rgba(${category.accentRgb}, 0.35), 0 0 24px rgba(${category.accentRgb}, 0.25)`
+                    : `inset 0 0 0 1px rgba(${category.accentRgb}, 0.35)`,
               }}
             >
               <Iconify icon={category.icon} width={22} />
@@ -256,17 +263,38 @@ function CinemaCategoryRoom({
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 sx={{
-                  fontFamily: CINEMA_SERIF,
+                  fontFamily: category.fontFamily,
                   fontWeight: 700,
                   fontSize: '1.2rem',
-                  color: CINEMA_CREAM,
+                  letterSpacing: category.id === 'genre' ? '0.04em' : undefined,
+                  color: category.textColor,
                 }}
               >
                 {category.title}
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(245,230,200,0.68)' }}>
+              <Typography variant="body2" sx={{ color: category.mutedTextColor }}>
                 {category.tagline}
               </Typography>
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                {category.chips.map((chip) => (
+                  <Box
+                    key={chip}
+                    sx={{
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: category.id === 'genre' ? 999 : 0.75,
+                      typography: 'caption',
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      color: accent,
+                      border: `1px solid rgba(${category.accentRgb}, 0.4)`,
+                      bgcolor: `rgba(${category.accentRgb}, 0.1)`,
+                    }}
+                  >
+                    {chip}
+                  </Box>
+                ))}
+              </Stack>
             </Box>
           </Stack>
 
@@ -425,8 +453,8 @@ export function CinemaHubView() {
                 Cinema rooms
               </Typography>
               <Typography variant="body2" sx={{ color: 'rgba(245,230,200,0.72)', maxWidth: 560 }}>
-                Reserve scheduled films, then open the cinema room when you are ready to watch.
-                Film catalog and showtimes are managed in Admin → Media → Cinema.
+                Two cinema halls: Classic & Social Psychology, and Action & Genre (action, horror,
+                science, detective). Reserve a screening, then enter the room when you are ready.
               </Typography>
             </Stack>
           </Stack>

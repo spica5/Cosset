@@ -1,16 +1,7 @@
-import { CONFIG } from 'src/config-global';
+import { redirect } from 'next/navigation';
 
-import { CinemaCategoryView } from 'src/sections/dashboard/cinema/view';
-import { getCinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
-
-export const metadata = { title: `Drama & Comedy - Cinema - ${CONFIG.appName}` };
+import { paths } from 'src/routes/paths';
 
 export default function Page() {
-  const category = getCinemaCategory('drama');
-
-  if (!category) {
-    return null;
-  }
-
-  return <CinemaCategoryView category={category} />;
+  redirect(paths.dashboard.community.cinema.classic);
 }

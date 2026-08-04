@@ -83,9 +83,9 @@ export function CinemaTheaterIntro({
         >
           <Typography
             sx={{
-              fontFamily: CINEMA_SERIF,
+              fontFamily: category.fontFamily || CINEMA_SERIF,
               color: accent,
-              letterSpacing: '0.28em',
+              letterSpacing: category.id === 'genre' ? '0.34em' : '0.28em',
               fontSize: { xs: '0.72rem', md: '0.88rem' },
               textTransform: 'uppercase',
               fontWeight: 600,
@@ -97,15 +97,18 @@ export function CinemaTheaterIntro({
 
           <Typography
             sx={{
-              fontFamily: CINEMA_SERIF,
+              fontFamily: category.fontFamily || CINEMA_SERIF,
               color: accent,
               fontWeight: 700,
               fontSize: { xs: '1.55rem', sm: '2.15rem', md: '2.85rem' },
-              letterSpacing: '0.06em',
+              letterSpacing: category.id === 'genre' ? '0.1em' : '0.06em',
               lineHeight: 1.12,
               textTransform: 'uppercase',
               maxWidth: 820,
-              textShadow: '0 4px 22px rgba(0,0,0,0.65)',
+              textShadow:
+                category.id === 'genre'
+                  ? `0 0 28px rgba(${category.accentRgb}, 0.45), 0 4px 22px rgba(0,0,0,0.65)`
+                  : '0 4px 22px rgba(0,0,0,0.65)',
             }}
           >
             {category.headline}
@@ -113,10 +116,11 @@ export function CinemaTheaterIntro({
 
           <Typography
             sx={{
-              color: 'rgba(245,230,200,0.9)',
+              color: category.mutedTextColor || 'rgba(245,230,200,0.9)',
               fontSize: { xs: '0.88rem', md: '1.05rem' },
               letterSpacing: '0.04em',
               textShadow: '0 2px 10px rgba(0,0,0,0.55)',
+              maxWidth: 640,
             }}
           >
             {category.subtitle}
