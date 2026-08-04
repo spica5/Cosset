@@ -43,12 +43,12 @@ export function AuthSplitLayout({ sx, section, children }: AuthSplitLayoutProps)
           title={section?.title ?? 'Hi, Welcome to Cosset!'}
           images={
             section?.images ?? [
+              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin4.png`,
+              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin6.png`,
+              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin3.png`,
+              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin5.png`,
               `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin1.png`,
               `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin2.png`,
-              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin3.png`,
-              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin4.png`,
-              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin5.png`,
-              `${CONFIG.dashboard.assetsDir}/assets/images/singin/back_signin6.png`,
             ]
           }
         />
