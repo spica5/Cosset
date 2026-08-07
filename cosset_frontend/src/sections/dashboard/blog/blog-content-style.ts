@@ -228,49 +228,49 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
       return {
         ...base,
         fontFamily: withContentFontFallback('"Trebuchet MS", "Segoe UI"', 'sans'),
-        fontSize: 14,
+        fontSize: 16,
         lineHeight: 1.85,
       };
     case 'typewriter':
       return {
         ...base,
         fontFamily: withContentFontFallback('"Courier New", Courier', 'sans'),
-        fontSize: 13,
+        fontSize: 15,
         lineHeight: 1.9,
       };
     case 'journal':
       return {
         ...base,
         fontFamily: withContentFontFallback('"Palatino Linotype", Palatino', 'serif'),
-        fontSize: 15,
+        fontSize: 17,
         lineHeight: 1.95,
       };
     case 'elegant-serif':
       return {
         ...base,
         fontFamily: withContentFontFallback('Garamond, "Times New Roman"', 'serif'),
-        fontSize: 15,
+        fontSize: 17,
         lineHeight: 1.95,
       };
     case 'soft-handwritten':
       return {
         ...base,
         fontFamily: withContentFontFallback('"Comic Sans MS", "Trebuchet MS", cursive', 'script'),
-        fontSize: 15,
+        fontSize: 17,
         lineHeight: 1.9,
       };
     case 'modern-book':
       return {
         ...base,
         fontFamily: withContentFontFallback('"Book Antiqua", Palatino', 'serif'),
-        fontSize: 14,
+        fontSize: 16,
         lineHeight: 2,
       };
     case 'minimal-readable':
       return {
         ...base,
         fontFamily: withContentFontFallback('Arial, "Helvetica Neue"', 'sans'),
-        fontSize: 14,
+        fontSize: 16,
         lineHeight: 1.85,
       };
     case 'romantic-script':
@@ -281,14 +281,14 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
           '"Segoe Script", "Comic Sans MS", "Brush Script MT", cursive',
           'script',
         ),
-        fontSize: 16,
+        fontSize: 18,
         lineHeight: 1.9,
       };
     case 'classic-letter':
       return {
         ...base,
         fontFamily: withContentFontFallback('Baskerville, "Times New Roman"', 'serif'),
-        fontSize: 15,
+        fontSize: 17,
         lineHeight: 2,
       };
     case 'classic-serif':
@@ -297,7 +297,7 @@ export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps
         ...base,
         // Times New Roman has reliable Vietnamese coverage on Windows laptops.
         fontFamily: withContentFontFallback('"Times New Roman", Georgia', 'serif'),
-        fontSize: 14,
+        fontSize: 16,
         lineHeight: 2,
       };
   }

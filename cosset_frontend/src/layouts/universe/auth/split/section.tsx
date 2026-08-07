@@ -56,14 +56,19 @@ export function Section({
           zIndex: 8,
           content: "''",
           position: 'absolute',
-          backgroundImage: `linear-gradient(to bottom, ${varAlpha(theme.vars.palette.common.blackChannel, 0)} 0%, ${
+          backgroundImage: `linear-gradient(to bottom, ${varAlpha(theme.vars.palette.common.blackChannel, 0)} 50%, ${
             theme.vars.palette.common.black
-          } 75%)`,
+          } 85%)`,
         },
         [theme.breakpoints.up(layoutQuery)]: {
           display: 'flex',
           height: '100vh',
           minHeight: undefined,
+          '&::before': {
+            backgroundImage: `linear-gradient(to bottom, ${varAlpha(theme.vars.palette.common.blackChannel, 0)} 0%, ${
+              theme.vars.palette.common.black
+            } 75%)`,
+          },
         },
         ...sx,
       }}
