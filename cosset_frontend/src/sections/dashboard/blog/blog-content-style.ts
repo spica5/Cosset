@@ -85,10 +85,6 @@ const BACKGROUND_SET = new Set<BlogContentBackgroundPreset>(
   BLOG_CONTENT_BACKGROUND_OPTIONS.map((item) => item.value)
 );
 
-const EMOJI_FONT_FALLBACK = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol"';
-
-const withEmojiFontFallback = (fontFamily: string) => `${fontFamily}, ${EMOJI_FONT_FALLBACK}`;
-
 export const isBlogContentFontPreset = (value: unknown): value is BlogContentFontPreset =>
   typeof value === 'string' && FONT_SET.has(value as BlogContentFontPreset);
 
@@ -190,78 +186,119 @@ export function buildBlogCommentsWithAppearance(
   return JSON.stringify(payload);
 }
 
+const EMOJI_FONT_FALLBACK = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol"';
+
+/**
+ * Windows system serifs (Georgia/Garamond/Brush Script) often miss Vietnamese
+ * precomposed glyphs, so accents render as detached combining marks. Keep a
+ * Vietnamese-capable fallback immediately after the decorative face.
+ */
+const VIETNAMESE_SAFE_SANS =
+  '"Nunito Sans Variable", "Inter Variable", "Public Sans Variable", "Segoe UI", "Noto Sans", Arial, sans-serif';
+const VIETNAMESE_SAFE_SERIF =
+  '"Times New Roman", "Liberation Serif", "Noto Serif", "Segoe UI", "Nunito Sans Variable", serif';
+
+const withContentFontFallback = (fontFamily: string, kind: 'sans' | 'serif' | 'script' = 'serif') => {
+  const languageFallback =
+    kind === 'sans' ? VIETNAMESE_SAFE_SANS : kind === 'script' ? VIETNAMESE_SAFE_SANS : VIETNAMESE_SAFE_SERIF;
+
+  return `${fontFamily}, ${languageFallback}, ${EMOJI_FONT_FALLBACK}`;
+};
+
+/** NFC keeps Vietnamese accents on the base letter (avoids NFD + letter-spacing breakage). */
+export function normalizeBlogContentText(value: string): string {
+  try {
+    return value.normalize('NFC');
+  } catch {
+    return value;
+  }
+}
+
 export function getBlogContentFontSx(fontPreset: BlogContentFontPreset): SxProps<Theme> {
+  // letter-spacing must stay normal — positive tracking separates Vietnamese combining marks on Windows.
+  const base = {
+    letterSpacing: 'normal',
+    fontKerning: 'normal' as const,
+    fontVariantLigatures: 'common-ligatures' as const,
+    textRendering: 'optimizeLegibility' as const,
+  };
+
   switch (fontPreset) {
     case 'clean-sans':
       return {
-        fontFamily: withEmojiFontFallback('"Trebuchet MS", "Segoe UI", sans-serif'),
+        ...base,
+        fontFamily: withContentFontFallback('"Trebuchet MS", "Segoe UI"', 'sans'),
         fontSize: 14,
         lineHeight: 1.85,
-        letterSpacing: '0.01em',
       };
     case 'typewriter':
       return {
-        fontFamily: withEmojiFontFallback('"Courier New", Courier, monospace'),
+        ...base,
+        fontFamily: withContentFontFallback('"Courier New", Courier', 'sans'),
         fontSize: 13,
         lineHeight: 1.9,
-        letterSpacing: '0.02em',
       };
     case 'journal':
       return {
-        fontFamily: withEmojiFontFallback('"Palatino Linotype", Palatino, serif'),
+        ...base,
+        fontFamily: withContentFontFallback('"Palatino Linotype", Palatino', 'serif'),
         fontSize: 15,
         lineHeight: 1.95,
-        letterSpacing: '0.005em',
       };
-      case 'elegant-serif':
+    case 'elegant-serif':
       return {
-        fontFamily: withEmojiFontFallback('"Garamond", "Times New Roman", serif'),
+        ...base,
+        fontFamily: withContentFontFallback('Garamond, "Times New Roman"', 'serif'),
         fontSize: 15,
         lineHeight: 1.95,
-        letterSpacing: '0.01em',
       };
     case 'soft-handwritten':
       return {
-        fontFamily: withEmojiFontFallback('"Comic Sans MS", "Trebuchet MS", cursive, sans-serif'),
+        ...base,
+        fontFamily: withContentFontFallback('"Comic Sans MS", "Trebuchet MS", cursive', 'script'),
         fontSize: 15,
         lineHeight: 1.9,
-        letterSpacing: '0.01em',
       };
     case 'modern-book':
       return {
-        fontFamily: withEmojiFontFallback('"Book Antiqua", Palatino, serif'),
+        ...base,
+        fontFamily: withContentFontFallback('"Book Antiqua", Palatino', 'serif'),
         fontSize: 14,
         lineHeight: 2,
-        letterSpacing: '0.008em',
       };
     case 'minimal-readable':
       return {
-        fontFamily: withEmojiFontFallback('Arial, "Helvetica Neue", sans-serif'),
+        ...base,
+        fontFamily: withContentFontFallback('Arial, "Helvetica Neue"', 'sans'),
         fontSize: 14,
         lineHeight: 1.85,
-        letterSpacing: '0.005em',
       };
     case 'romantic-script':
       return {
-        fontFamily: withEmojiFontFallback('"Brush Script MT", "Comic Sans MS", cursive'),
+        ...base,
+        // Brush Script has almost no Vietnamese coverage — prefer safe faces first on Windows.
+        fontFamily: withContentFontFallback(
+          '"Segoe Script", "Comic Sans MS", "Brush Script MT", cursive',
+          'script',
+        ),
         fontSize: 16,
         lineHeight: 1.9,
-        letterSpacing: '0.02em',
       };
     case 'classic-letter':
       return {
-        fontFamily: withEmojiFontFallback('"Baskerville", "Times New Roman", serif'),
+        ...base,
+        fontFamily: withContentFontFallback('Baskerville, "Times New Roman"', 'serif'),
         fontSize: 15,
         lineHeight: 2,
-        letterSpacing: '0.012em',
       };
     case 'classic-serif':
     default:
       return {
-        fontFamily: withEmojiFontFallback('Georgia, "Times New Roman", serif'),
+        ...base,
+        // Times New Roman has reliable Vietnamese coverage on Windows laptops.
+        fontFamily: withContentFontFallback('"Times New Roman", Georgia', 'serif'),
         fontSize: 14,
         lineHeight: 2,
-        letterSpacing: '0.01em',
       };
   }
 }

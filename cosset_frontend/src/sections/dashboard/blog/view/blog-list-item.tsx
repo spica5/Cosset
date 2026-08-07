@@ -23,6 +23,7 @@ import {
   getBlogContentFontSx,
   isBlogContentBackgroundPreset,
   isBlogContentFontPreset,
+  normalizeBlogContentText,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
 import { stylesMode } from 'src/theme/dashboard/styles';
@@ -50,7 +51,7 @@ const formatDate = (value: unknown) => {
 
 const getContent = (blog: IBlogItem) => {
   const source = blog.content || '';
-  const text = source.trim();
+  const text = normalizeBlogContentText(source.trim());
 
   if (!text) {
     return 'No content yet.';

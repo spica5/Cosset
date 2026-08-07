@@ -29,6 +29,7 @@ import {
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   isBlogContentBackgroundPreset,
+  normalizeBlogContentText,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -131,7 +132,7 @@ const formatBlogDate = (value: unknown) => {
 const stripHtml = (value: string) => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 const getPlainContent = (blog: IBlogItem) => {
-  const source = (blog.content || blog.description || '').trim();
+  const source = normalizeBlogContentText((blog.content || blog.description || '').trim());
   if (!source) {
     return 'No content yet.';
   }

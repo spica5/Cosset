@@ -201,7 +201,7 @@ export function OverviewTopShops() {
         sx={{ mb: 2 }}
       >
         <Stack spacing={0.25}>
-          <Typography variant="h5">Top shops</Typography>
+          <Typography variant="h5">Coffee shops</Typography>
           <Typography variant="body2" color="text.secondary">
             Favorites first, then newest coffee shops
           </Typography>

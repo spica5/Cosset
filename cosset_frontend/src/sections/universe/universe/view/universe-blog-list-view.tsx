@@ -41,6 +41,7 @@ import {
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
   isBlogContentBackgroundPreset,
+  normalizeBlogContentText,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -69,7 +70,7 @@ const formatDate = (value: unknown) => {
 
 const getContent = (blog: IBlogItem) => {
   const source = blog.content || '';
-  const text = source.trim();
+  const text = normalizeBlogContentText(source.trim());
 
   if (!text) {
     return 'No content yet.';

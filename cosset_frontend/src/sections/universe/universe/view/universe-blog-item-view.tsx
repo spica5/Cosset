@@ -39,6 +39,7 @@ import {
   getBlogContentFontColor,
   getBlogContentAppearance,
   getBlogContentBackgroundSx,
+  normalizeBlogContentText,
   isBlogContentBackgroundPreset,
 } from 'src/sections/dashboard/blog/blog-content-style';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
@@ -299,7 +300,8 @@ export function UniverseBlogItemView({ customerId, blogId }: Props) {
     );
   }
 
-  const content = (blog.content || blog.description || '').trim() || 'No content yet.';
+  const content =
+    normalizeBlogContentText((blog.content || blog.description || '').trim()) || 'No content yet.';
 
   const totalViews = REACTION_OPTIONS.reduce((sum, option) => sum + (optimisticCounts[option.type] ?? 0), 0);
 
