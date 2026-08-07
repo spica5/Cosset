@@ -2,8 +2,8 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
-import { createCinemaFilmScreening } from 'src/models/cinema-film-screenings';
 import { getCinemaFilmById } from 'src/models/cinema-films';
+import { createCinemaFilmScreening } from 'src/models/cinema-film-screenings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,6 +39,11 @@ export async function POST(req: NextRequest) {
       customerId,
       showAt: screening.showAt ?? null,
       showAt2: screening.showAt2 ?? null,
+      showFriday: screening.showFriday ?? true,
+      showSaturday: screening.showSaturday ?? true,
+      showSunday: screening.showSunday ?? true,
+      pricingType: screening.pricingType ?? null,
+      price: screening.price ?? null,
       order: screening.order ?? null,
       isPublic: screening.isPublic ?? 1,
     });

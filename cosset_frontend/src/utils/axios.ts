@@ -41,6 +41,14 @@ export const endpoints = {
     forgotPassword: '/api/auth/forgot-password',
     resetPassword: '/api/auth/reset-password',
   },
+  billing: {
+    checkout: '/api/billing/checkout',
+    portal: '/api/billing/portal',
+    payments: '/api/billing/payments',
+    paypalCheckout: '/api/billing/paypal/checkout',
+    paypalCapture: '/api/billing/paypal/capture',
+    paypalCancel: '/api/billing/paypal/cancel',
+  },
   user: {
     list: '/api/user/list',
     directory: '/api/user/directory',

@@ -18,9 +18,17 @@ type SectionProps = BoxProps & {
   title: string;
   images: string[];
   layoutQuery: Breakpoint;
+  mobileVisible?: boolean;
 };
 
-export function Section({ title, images, layoutQuery, sx, ...other }: SectionProps) {
+export function Section({
+  title,
+  images,
+  layoutQuery,
+  mobileVisible = false,
+  sx,
+  ...other
+}: SectionProps) {
   const theme = useTheme();
 
   const carousel = useCarousel(
@@ -34,10 +42,12 @@ export function Section({ title, images, layoutQuery, sx, ...other }: SectionPro
   return (
     <Box
       sx={{
-        display: 'none',
+        display: mobileVisible ? 'flex' : 'none',
         flex: '1 1 auto',
         position: 'relative',
         bgcolor: 'common.black',
+        height: mobileVisible ? 280 : '100vh',
+        minHeight: mobileVisible ? 280 : undefined,
         '&::before': {
           top: 0,
           left: 0,
@@ -52,6 +62,8 @@ export function Section({ title, images, layoutQuery, sx, ...other }: SectionPro
         },
         [theme.breakpoints.up(layoutQuery)]: {
           display: 'flex',
+          height: '100vh',
+          minHeight: undefined,
         },
         ...sx,
       }}
@@ -74,7 +86,12 @@ export function Section({ title, images, layoutQuery, sx, ...other }: SectionPro
             component="img"
             alt={img}
             src={img}
-            sx={{ width: 1, height: '100vh', objectFit: 'cover' }}
+            sx={{
+              width: 1,
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center center',
+            }}
           />
         ))}
       </Carousel>
@@ -86,7 +103,7 @@ export function Section({ title, images, layoutQuery, sx, ...other }: SectionPro
         flexDirection="column"
         sx={{
           zIndex: 9,
-          bottom: 80,
+          bottom: mobileVisible ? 20 : 80,
           left: '50%',
           position: 'absolute',
           transform: 'translateX(-50%)',
@@ -99,6 +116,7 @@ export function Section({ title, images, layoutQuery, sx, ...other }: SectionPro
               `90deg, ${theme.vars.palette.primary.main} 20%, ${theme.vars.palette.secondary.main} 100%`
             ),
             whiteSpace: 'pre-line',
+            fontSize: mobileVisible ? '1.85rem' : undefined,
           }}
         >
           {title}

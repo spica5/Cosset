@@ -18,6 +18,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
+import { ensureCustomerBillingAccountsTable } from './customer-billing-accounts';
+
 /**
  * Table name for users
  */
@@ -109,6 +111,10 @@ const ensureUserBusinessColumns = async (): Promise<void> => {
       await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS business_account_requested_at TIMESTAMP NULL`,
       );
+
+      // Move legacy billing provider fields out of cosset_users and into the dedicated
+      // customer_billing_accounts table.
+      await ensureCustomerBillingAccountsTable();
 
       // Ensure the Postgres enum used by cosset_users.role includes business.
       await executeQuery(
@@ -784,6 +790,46 @@ export async function updateUser(
       });
     }
     throw error;
+  }
+}
+
+export async function updateUserPlan(id: string, plan: UserPlanType): Promise<User> {
+  try {
+    const normalizedPlan = String(plan || 'FREE').trim().toUpperCase() as UserPlanType;
+    if (normalizedPlan !== 'FREE' && normalizedPlan !== 'PAID' && normalizedPlan !== 'EXTRA-PAID') {
+      throw new DatabaseError({
+        code: 'INVALID_USER_PLAN',
+        message: 'plan must be FREE, PAID, or EXTRA-PAID',
+      });
+    }
+
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET plan = $2, updated_at = NOW()
+        WHERE id = $1::uuid
+        RETURNING
+          ${USER_SELECT_FIELDS}
+      `,
+      [id, normalizedPlan],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_PLAN_FAILED',
+        message: 'Failed to update user plan: User not found',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw error;
+    }
+    throw new DatabaseError({
+      code: 'UPDATE_USER_PLAN_ERROR',
+      message: `Failed to update user plan: ${(error as Error).message}`,
+    });
   }
 }
 

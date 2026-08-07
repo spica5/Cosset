@@ -29,6 +29,8 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { UploadingOverlay } from 'src/components/dashboard/uploading-overlay';
 
+import { probeVideoDurationSeconds } from './cinema-film-schedule';
+
 // ----------------------------------------------------------------------
 
 type FormState = {
@@ -38,6 +40,8 @@ type FormState = {
   description: string;
   posterImage: string;
   videoUrl: string;
+  /** Display value as `m:ss` / `h:mm:ss` or whole seconds. */
+  duration: string;
   order: string;
   isPublic: boolean;
 };
@@ -49,6 +53,7 @@ const emptyForm: FormState = {
   description: '',
   posterImage: '',
   videoUrl: '',
+  duration: '',
   order: '',
   isPublic: true,
 };
@@ -111,6 +116,53 @@ const parseNullableInteger = (value: string): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const formatDurationLabel = (seconds?: number | null) => {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
+    return '';
+  }
+
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+};
+
+/** Accepts `ss`, `m:ss`, or `h:mm:ss` and returns whole seconds. */
+const parseDurationInput = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = Number.parseInt(trimmed, 10);
+    return seconds > 0 ? seconds : null;
+  }
+
+  const parts = trimmed.split(':').map((part) => Number.parseInt(part, 10));
+  if (!parts.length || parts.some((part) => Number.isNaN(part) || part < 0)) {
+    return null;
+  }
+
+  if (parts.length === 2) {
+    const seconds = parts[0] * 60 + parts[1];
+    return seconds > 0 ? seconds : null;
+  }
+
+  if (parts.length === 3) {
+    const seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return seconds > 0 ? seconds : null;
+  }
+
+  return null;
+};
+
 export function CinemaFilmFormDialog({
   open,
   category,
@@ -162,6 +214,7 @@ export function CinemaFilmFormDialog({
       description: film.description || '',
       posterImage: film.posterImage || '',
       videoUrl: isExternalVideoUrl(film.videoUrl || '') ? film.videoUrl : '',
+      duration: formatDurationLabel(film.duration),
       order: film.order != null ? String(film.order) : '',
       isPublic: film.isPublic !== 0,
     });
@@ -257,6 +310,35 @@ export function CinemaFilmFormDialog({
     };
   }, [film?.videoUrl, form.videoUrl, isEditMode, removedStoredVideo, selectedVideoFile]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const detectDuration = async () => {
+      if (!videoPreviewUrl || isEmbeddedVideoUrl(videoPreviewUrl)) {
+        return;
+      }
+
+      const seconds = await probeVideoDurationSeconds(videoPreviewUrl);
+      if (cancelled || seconds == null) {
+        return;
+      }
+
+      setForm((prev) => {
+        // Keep a manually entered duration unless the video source changed and duration is empty.
+        if (prev.duration.trim()) {
+          return prev;
+        }
+        return { ...prev, duration: formatDurationLabel(seconds) };
+      });
+    };
+
+    detectDuration();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoPreviewUrl]);
+
   const handleFieldChange = useCallback(
     (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
       setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -322,6 +404,7 @@ export function CinemaFilmFormDialog({
 
     setSelectedVideoFile(file);
     setRemovedStoredVideo(false);
+    setForm((prev) => ({ ...prev, videoUrl: '', duration: '' }));
     event.target.value = '';
   }, []);
 
@@ -408,6 +491,12 @@ export function CinemaFilmFormDialog({
       return;
     }
 
+    const durationSeconds = parseDurationInput(form.duration);
+    if (form.duration.trim() && durationSeconds == null) {
+      toast.error('Duration must be m:ss, h:mm:ss, or whole seconds.');
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -428,6 +517,7 @@ export function CinemaFilmFormDialog({
         description: form.description.trim() || null,
         posterImage,
         videoUrl,
+        duration: durationSeconds,
         order: parseNullableInteger(form.order),
         isPublic: form.isPublic ? 1 : 0,
       };
@@ -554,6 +644,15 @@ export function CinemaFilmFormDialog({
               minRows={3}
             />
 
+            <TextField
+              label="Duration"
+              value={form.duration}
+              onChange={handleFieldChange('duration')}
+              fullWidth
+              placeholder="e.g. 4:19 or 259"
+              helperText="Film length as m:ss, h:mm:ss, or seconds. Auto-detected from uploaded videos when possible."
+            />
+
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Video
@@ -563,7 +662,14 @@ export function CinemaFilmFormDialog({
                 <TextField
                   label="Video URL"
                   value={form.videoUrl}
-                  onChange={handleFieldChange('videoUrl')}
+                  onChange={(event) => {
+                    const {value} = event.target;
+                    setForm((prev) => ({
+                      ...prev,
+                      videoUrl: value,
+                      duration: value.trim() === prev.videoUrl.trim() ? prev.duration : '',
+                    }));
+                  }}
                   fullWidth
                   placeholder="https://www.youtube.com/watch?v=..."
                   helperText="YouTube, Vimeo, or direct video link"

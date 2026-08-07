@@ -8,7 +8,7 @@ import { CONFIG } from './config-global';
 
 const corsOptions = {
   'Access-Control-Allow-Methods': CONFIG.cors.methods.join(', '),
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Signature',
 };
 
 function isOriginAllowed(origin: string): boolean {

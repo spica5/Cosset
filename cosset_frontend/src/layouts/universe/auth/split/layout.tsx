@@ -13,13 +13,19 @@ import { LayoutSection } from '../../core/layout-section';
 export type AuthSplitLayoutProps = {
   sx?: SxProps<Theme>;
   children: React.ReactNode;
+  mobileSection?: boolean;
   section?: {
     title?: string;
     images?: string[];
   };
 };
 
-export function AuthSplitLayout({ sx, section, children }: AuthSplitLayoutProps) {
+export function AuthSplitLayout({
+  sx,
+  section,
+  children,
+  mobileSection = false,
+}: AuthSplitLayoutProps) {
   const layoutQuery: Breakpoint = 'md';
 
   return (
@@ -37,9 +43,30 @@ export function AuthSplitLayout({ sx, section, children }: AuthSplitLayoutProps)
       }}
     >
       <Main layoutQuery={layoutQuery}>
-        <Content layoutQuery={layoutQuery}>{children}</Content>
+        <Content
+          layoutQuery={layoutQuery}
+          sx={
+            mobileSection
+              ? {
+                  // Mobile: form below image. Desktop: form on the left.
+                  order: { xs: 2, [layoutQuery]: 1 },
+                }
+              : undefined
+          }
+        >
+          {children}
+        </Content>
         <Section
           layoutQuery={layoutQuery}
+          mobileVisible={mobileSection}
+          sx={
+            mobileSection
+              ? {
+                  // Mobile: image first. Desktop: image on the right.
+                  order: { xs: 1, [layoutQuery]: 2 },
+                }
+              : undefined
+          }
           title={section?.title ?? 'Hi, Welcome to Cosset!'}
           images={
             section?.images ?? [

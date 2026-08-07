@@ -1,5 +1,5 @@
-export const CINEMA_SERIF = '"Playfair Display", "Times New Roman", Georgia, serif';
-export const CINEMA_SANS = '"Rajdhani", "Segoe UI", Helvetica, Arial, sans-serif';
+export const CINEMA_SERIF = '"Times New Roman", Georgia, serif';
+export const CINEMA_SANS = '"Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif';
 export const CINEMA_GOLD = '#D4B05A';
 export const CINEMA_CREAM = '#F5E6C8';
 

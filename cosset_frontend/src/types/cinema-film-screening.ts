@@ -4,6 +4,11 @@ export type ICinemaFilmScreening = {
   customerId: string;
   showAt?: string | Date | null;
   showAt2?: string | Date | null;
+  showFriday?: boolean | null;
+  showSaturday?: boolean | null;
+  showSunday?: boolean | null;
+  pricingType?: 'free' | 'paid' | null;
+  price?: string | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: string | Date | null;

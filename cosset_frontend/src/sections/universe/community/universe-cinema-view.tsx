@@ -8,12 +8,18 @@ import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import Divider from '@mui/material/Divider';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -55,6 +61,7 @@ import {
   getScreeningShowStatus,
   formatScreeningSchedule,
   getSyncedPlaybackSeconds,
+  probeVideoDurationSeconds,
   getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
 } from 'src/sections/dashboard/cinema/cinema-film-schedule';
@@ -122,6 +129,40 @@ function hasReservationSeat(reservation?: ICinemaFilmReservationWithScreening | 
   return Boolean(reservation?.seatIds?.length);
 }
 
+type CinemaViewerPlan = 'FREE' | 'PAID' | 'EXTRA-PAID';
+type ScreeningAccessState = 'scheduled-live' | 'off-schedule';
+
+type ScreeningPaymentQuote = {
+  screeningId: number;
+  filmTitle: string;
+  plan: CinemaViewerPlan;
+  accessState: ScreeningAccessState;
+  baseFee: number;
+  charge: number;
+};
+
+function normalizeViewerPlan(value: unknown): CinemaViewerPlan {
+  const normalized = String(value || '').trim().toUpperCase().replace(/\s+/g, '-');
+  if (normalized === 'PAID' || normalized === 'EXTRA-PAID') {
+    return normalized;
+  }
+  return 'FREE';
+}
+
+function parseScreeningFee(value?: string | null) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function formatCinemaMoney(value: number) {
+  return new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(value)));
+}
+
 /** Compact countdown until a future instant, e.g. `2h 15m 30s`. */
 function formatRemainingUntil(target: Date, now = new Date()) {
   const remainingMs = target.getTime() - now.getTime();
@@ -167,6 +208,8 @@ function CinemaFilmPosterCard({
   categoryId,
   selected,
   isReserved,
+  mediaDurationSeconds,
+  scheduleNow,
   onSelect,
   onReserveSeat,
 }: {
@@ -175,16 +218,21 @@ function CinemaFilmPosterCard({
   categoryId: CinemaCategory;
   selected: boolean;
   isReserved?: boolean;
+  mediaDurationSeconds?: number | null;
+  scheduleNow?: Date;
   onSelect: () => void;
   onReserveSeat?: () => void;
 }) {
   const [posterUrl, setPosterUrl] = useState('');
   const displayScore = getFilmDisplayScore(film);
   const tags = getFilmTags(film, categoryId);
-  const nextScreening = getNextFilmScreening(film);
-  const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
-  const scheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
-  const isToday = nextScreening ? isScreeningDayToday(nextScreening) : false;
+  const now = scheduleNow || new Date();
+  const nextScreening = getNextFilmScreening(film, now, mediaDurationSeconds);
+  const showStatus = nextScreening
+    ? getScreeningShowStatus(nextScreening, now, mediaDurationSeconds)
+    : 'unscheduled';
+  const scheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening, now) : [];
+  const isToday = nextScreening ? isScreeningDayToday(nextScreening, now) : false;
   const statusLabel = isToday
     ? showStatus === 'now'
       ? 'Today · Now'
@@ -513,7 +561,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   }, [reservations]);
 
   const [activeFilmId, setActiveFilmId] = useState<number | null>(initialFilmId ?? null);
-  const defaultScreening = useMemo(() => getDefaultScreening(screenings), [screenings]);
+  const [filmDurationById, setFilmDurationById] = useState<Record<number, number>>({});
+  const defaultScreening = useMemo(
+    () => getDefaultScreening(screenings, new Date(nowMs), filmDurationById),
+    [filmDurationById, nowMs, screenings],
+  );
 
   const screeningFilms = useMemo(() => {
     const getNewestTime = (value?: string | Date | null) => {
@@ -576,9 +628,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const activeScreening = useMemo(() => {
     if (!activeFilm) return defaultScreening;
 
+    const duration = filmDurationById[activeFilm.id] ?? null;
     // Prefer the screening that is live or next up (supports showAt + showAt2).
-    return getNextFilmScreening(activeFilm) || defaultScreening;
-  }, [activeFilm, defaultScreening]);
+    return getNextFilmScreening(activeFilm, new Date(nowMs), duration) || defaultScreening;
+  }, [activeFilm, defaultScreening, filmDurationById, nowMs]);
 
   const loading = filmsLoading || screeningsLoading;
   const accent = category?.accent || CINEMA_GOLD;
@@ -594,6 +647,76 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const [viewingReservation, setViewingReservation] =
     useState<ICinemaFilmReservationWithScreening | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [paymentQuote, setPaymentQuote] = useState<ScreeningPaymentQuote | null>(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [screeningUnlocked, setScreeningUnlocked] = useState(false);
+
+  useEffect(() => {
+    const stored: Record<number, number> = {};
+
+    screeningFilms.forEach((film) => {
+      if (typeof film.duration === 'number' && Number.isFinite(film.duration) && film.duration > 0) {
+        stored[film.id] = film.duration;
+      }
+    });
+
+    if (!Object.keys(stored).length) {
+      return;
+    }
+
+    setFilmDurationById((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(stored).forEach(([id, duration]) => {
+        const filmId = Number(id);
+        if (next[filmId] !== duration) {
+          next[filmId] = duration;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [screeningFilms]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDurations = async () => {
+      const pending = screeningFilms.filter(
+        (film) =>
+          film.videoUrl &&
+          !(typeof film.duration === 'number' && film.duration > 0) &&
+          filmDurationById[film.id] == null,
+      );
+      if (!pending.length) return;
+
+      await Promise.all(
+        pending.map(async (film) => {
+          try {
+            const url = await resolveMediaUrl(film.videoUrl);
+            if (!url || cancelled) return;
+            const duration = await probeVideoDurationSeconds(url);
+            if (cancelled || duration == null) return;
+            setFilmDurationById((prev) =>
+              prev[film.id] == null ? { ...prev, [film.id]: duration } : prev,
+            );
+          } catch {
+            // Keep fallback window when duration cannot be probed.
+          }
+        }),
+      );
+    };
+
+    loadDurations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filmDurationById, screeningFilms]);
+
+  const viewerPlan = normalizeViewerPlan(user?.plan);
+  const isPaidViewer = viewerPlan !== 'FREE';
 
   const isPresent = useMemo(() => {
     const uid = user?.id != null ? String(user.id).trim().toLowerCase() : '';
@@ -692,9 +815,16 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const useEmbedPlayer = Boolean(resolvedVideoUrl && isStreamEmbedUrl(resolvedVideoUrl));
   const isSyncedScreening = isFixedTimeScreening(activeScreening);
   const scheduleNow = useMemo(() => new Date(nowMs), [nowMs]);
+  const activeMediaDurationSeconds =
+    (activeFilm?.id != null ? filmDurationById[activeFilm.id] : null) ?? null;
   const activeShowStatus = activeScreening
-    ? getScreeningShowStatus(activeScreening, scheduleNow)
+    ? getScreeningShowStatus(activeScreening, scheduleNow, activeMediaDurationSeconds)
     : 'unscheduled';
+  const activeScreeningFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
+  const isComplimentaryLiveAccess = isPaidViewer && activeShowStatus === 'now';
+  const requiresPayment =
+    activeScreeningFee > 0 && !screeningUnlocked && !isComplimentaryLiveAccess;
+  const isLiveScheduledScreening = isSyncedScreening && activeShowStatus === 'now';
   const activeNextStart =
     activeScreening && activeShowStatus === 'upcoming'
       ? getNextScreeningStart(activeScreening, scheduleNow)
@@ -703,11 +833,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     ? formatRemainingUntil(activeNextStart, scheduleNow)
     : null;
   const activeScheduleLabels = activeScreening
-    ? getScreeningScheduleLabels(activeScreening)
+    ? getScreeningScheduleLabels(activeScreening, scheduleNow)
     : [];
 
   const syncNativePlayback = useCallback(() => {
-    if (!isSyncedScreening || !activeScreening || useEmbedPlayer) {
+    if (!isLiveScheduledScreening || !activeScreening || useEmbedPlayer) {
       return false;
     }
 
@@ -716,9 +846,14 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       return false;
     }
 
+    const mediaDuration =
+      Number.isFinite(node.duration) && node.duration > 0
+        ? node.duration
+        : activeMediaDurationSeconds;
+
     const target = getSyncedPlaybackSeconds(
       activeScreening,
-      Number.isFinite(node.duration) ? node.duration : null,
+      mediaDuration,
       scheduleNow,
     );
 
@@ -730,8 +865,6 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         toast.info(
           `This showtime has ended. Next screening starts at ${fDateTimeFromUtc(nextStart)}.`,
         );
-      } else if (activeShowStatus === 'upcoming') {
-        toast.info('This screening has not started yet.');
       } else {
         toast.info('This screening has ended.');
       }
@@ -747,14 +880,25 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     }
 
     return true;
-  }, [activeScreening, activeShowStatus, isSyncedScreening, scheduleNow, useEmbedPlayer]);
+  }, [
+    activeMediaDurationSeconds,
+    activeScreening,
+    activeShowStatus,
+    isLiveScheduledScreening,
+    scheduleNow,
+    useEmbedPlayer,
+  ]);
 
   const syncEmbedPlayback = useCallback(() => {
-    if (!isSyncedScreening || !activeScreening || !useEmbedPlayer) {
+    if (!isLiveScheduledScreening || !activeScreening || !useEmbedPlayer) {
       return false;
     }
 
-    const target = getSyncedPlaybackSeconds(activeScreening, null, scheduleNow);
+    const target = getSyncedPlaybackSeconds(
+      activeScreening,
+      activeMediaDurationSeconds,
+      scheduleNow,
+    );
 
     if (target == null) {
       setIsPlaying(false);
@@ -763,8 +907,6 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         toast.info(
           `This showtime has ended. Next screening starts at ${fDateTimeFromUtc(nextStart)}.`,
         );
-      } else if (activeShowStatus === 'upcoming') {
-        toast.info('This screening has not started yet.');
       } else {
         toast.info('This screening has ended.');
       }
@@ -773,7 +915,14 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
     embedPlayerRef.current?.seekTo(target, 'seconds');
     return true;
-  }, [activeScreening, activeShowStatus, isSyncedScreening, scheduleNow, useEmbedPlayer]);
+  }, [
+    activeMediaDurationSeconds,
+    activeScreening,
+    activeShowStatus,
+    isLiveScheduledScreening,
+    scheduleNow,
+    useEmbedPlayer,
+  ]);
 
   const seatSession = useMemo(() => {
     if (seatMapMode === 'view' && viewingReservation) {
@@ -802,6 +951,9 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     setSeatMapOpen(false);
     setSeatMapMode('select');
     setViewingReservation(null);
+    setScreeningUnlocked(false);
+    setPaymentOpen(false);
+    setPaymentQuote(null);
 
     const loadVideo = async () => {
       if (!activeFilm?.videoUrl) return;
@@ -823,43 +975,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   }, [activeFilm?.id, activeFilm?.videoUrl]);
 
   useEffect(() => {
-    if (
-      !activeFilm?.videoUrl ||
-      isPlaying ||
-      filmsLoading ||
-      screeningsLoading ||
-      reservationsLoading
-    ) {
-      return;
-    }
-
-    if (headerSeatLabel) {
-      return;
-    }
-
-    setSeatMapMode('select');
-    setViewingReservation(activeReservation || null);
-    setSelectedSeatIds([]);
-    setSeatMapOpen(true);
-  }, [
-    activeFilm?.id,
-    activeFilm?.videoUrl,
-    activeReservation,
-    filmsLoading,
-    headerSeatLabel,
-    isPlaying,
-    reservationsLoading,
-    screeningsLoading,
-  ]);
-
-  useEffect(() => {
     if (!isPlaying || useEmbedPlayer) return undefined;
 
     const node = videoRef.current;
     if (!node || !resolvedVideoUrl) return undefined;
 
     const startPlayback = () => {
-      if (isSyncedScreening && !syncNativePlayback()) {
+      if (isLiveScheduledScreening && !syncNativePlayback()) {
         return;
       }
 
@@ -878,7 +1000,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     }
 
     const handleSeeking = () => {
-      if (!isSyncedScreening || syncingRef.current) return;
+      if (!isLiveScheduledScreening || syncingRef.current) return;
       syncNativePlayback();
     };
 
@@ -893,12 +1015,12 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     resolvedVideoUrl,
     useEmbedPlayer,
     activeFilm?.id,
-    isSyncedScreening,
+    isLiveScheduledScreening,
     syncNativePlayback,
   ]);
 
   useEffect(() => {
-    if (!isPlaying || !isSyncedScreening) {
+    if (!isPlaying || !isLiveScheduledScreening) {
       return undefined;
     }
 
@@ -914,7 +1036,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     return () => window.clearInterval(intervalId);
   }, [
     isPlaying,
-    isSyncedScreening,
+    isLiveScheduledScreening,
     useEmbedPlayer,
     syncNativePlayback,
     syncEmbedPlayback,
@@ -950,13 +1072,126 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     setSelectedSeatIds((prev) => (prev.includes(seatId) ? [] : [seatId]));
   };
 
+  const finishPlayback = useCallback(async () => {
+    if (!activeFilm?.videoUrl) {
+      toast.error('This film has no video yet.');
+      return;
+    }
+
+    const seatId = selectedSeatIds[0] || activeReservation?.seatIds?.[0];
+
+    // Seat is optional for paid unlock — reservation is only saved when a seat was chosen.
+    if (seatId && viewerCustomerId && activeScreening?.id) {
+      try {
+        setConfirming(true);
+
+        const screeningId = Number(activeScreening.id);
+        const existingReservation =
+          activeReservation ||
+          (Number.isFinite(screeningId)
+            ? reservationsByScreeningId.get(screeningId)
+            : undefined) ||
+          null;
+
+        if (existingReservation) {
+          await updateCinemaReservationSeats(
+            existingReservation.id,
+            { customerId: viewerCustomerId, seatIds: [seatId] },
+            {
+              ownerCustomerId: String(activeFilm.customerId || catalogOwnerId || '') || undefined,
+              category: resolvedCategory || undefined,
+            },
+          );
+        } else {
+          await createCinemaReservation(
+            {
+              screeningId: Number(activeScreening.id),
+              customerId: viewerCustomerId,
+              seatIds: [seatId],
+            },
+            {
+              ownerCustomerId: String(activeFilm.customerId || catalogOwnerId || '') || undefined,
+              category: resolvedCategory || undefined,
+            },
+          );
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message || error?.message || 'Failed to save seat.';
+        toast.error(message);
+        return;
+      } finally {
+        setConfirming(false);
+      }
+    }
+
+    let url = resolvedVideoUrl;
+    if (!url) {
+      setVideoLoading(true);
+      try {
+        url = await resolveMediaUrl(activeFilm.videoUrl);
+        setResolvedVideoUrl(url);
+      } finally {
+        setVideoLoading(false);
+      }
+    }
+
+    if (!url) {
+      toast.error('Unable to load the screening video.');
+      return;
+    }
+
+    setPaymentOpen(false);
+    setPaymentQuote(null);
+    setScreeningUnlocked(true);
+    setSeatMapOpen(false);
+    setSeatMapMode('select');
+    setViewingReservation(null);
+    setIsPlaying(true);
+  }, [
+    activeFilm?.customerId,
+    activeFilm?.videoUrl,
+    activeReservation,
+    activeScreening?.id,
+    catalogOwnerId,
+    resolvedCategory,
+    resolvedVideoUrl,
+    reservationsByScreeningId,
+    selectedSeatIds,
+    viewerCustomerId,
+  ]);
+
   const handleStartPlayback = async () => {
     const seatId = selectedSeatIds[0] || activeReservation?.seatIds?.[0];
     if (!activeFilm?.videoUrl || !seatId) return;
 
-    if (isSyncedScreening && activeScreening) {
-      const status = getScreeningShowStatus(activeScreening, scheduleNow);
-      if (status === 'upcoming') {
+    const status = activeScreening
+      ? getScreeningShowStatus(activeScreening, scheduleNow, activeMediaDurationSeconds)
+      : 'unscheduled';
+    if (status !== 'now' || !isPaidViewer) {
+      const baseFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
+      const charge = isPaidViewer ? baseFee / 2 : baseFee;
+
+      setPaymentQuote({
+        screeningId: Number(activeScreening?.id || 0),
+        filmTitle: activeFilm.title,
+        plan: viewerPlan,
+        accessState: status === 'now' ? 'scheduled-live' : 'off-schedule',
+        baseFee,
+        charge,
+      });
+      setPaymentOpen(true);
+      setSeatMapOpen(false);
+      return;
+    }
+
+    if (isLiveScheduledScreening && activeScreening) {
+      const liveStatus = getScreeningShowStatus(
+        activeScreening,
+        scheduleNow,
+        activeMediaDurationSeconds,
+      );
+      if (liveStatus === 'upcoming') {
         const nextStart = getNextScreeningStart(activeScreening, scheduleNow);
         toast.info(
           nextStart
@@ -965,12 +1200,16 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         );
         return;
       }
-      if (status === 'past') {
+      if (liveStatus === 'past') {
         toast.info('This screening has ended.');
         return;
       }
 
-      const target = getSyncedPlaybackSeconds(activeScreening, null, scheduleNow);
+      const target = getSyncedPlaybackSeconds(
+        activeScreening,
+        activeMediaDurationSeconds,
+        scheduleNow,
+      );
       if (target == null) {
         toast.info('This screening is not available to watch right now.');
         return;
@@ -1039,6 +1278,44 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     setIsPlaying(true);
   };
 
+  const openPaymentDialog = useCallback(() => {
+    if (!activeFilm?.title) return;
+
+    const baseFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
+    const charge = isPaidViewer ? baseFee / 2 : baseFee;
+
+    setPaymentQuote({
+      screeningId: Number(activeScreening?.id || 0),
+      filmTitle: activeFilm.title,
+      plan: viewerPlan,
+      accessState: activeShowStatus === 'now' ? 'scheduled-live' : 'off-schedule',
+      baseFee,
+      charge,
+    });
+    setPaymentOpen(true);
+  }, [
+    activeFilm?.title,
+    activeScreening,
+    activeShowStatus,
+    isPaidViewer,
+    viewerPlan,
+  ]);
+
+  const handleConfirmPayment = useCallback(async () => {
+    try {
+      setPaying(true);
+      await finishPlayback();
+    } finally {
+      setPaying(false);
+    }
+  }, [finishPlayback]);
+
+  const handleClosePayment = useCallback(() => {
+    if (paying) return;
+    setPaymentOpen(false);
+    setPaymentQuote(null);
+  }, [paying]);
+
   const handleClosePlayer = () => {
     const node = videoRef.current;
     if (node) {
@@ -1055,6 +1332,9 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       setSeatMapOpen(false);
       setSeatMapMode('select');
       setViewingReservation(null);
+      setScreeningUnlocked(false);
+      setPaymentOpen(false);
+      setPaymentQuote(null);
     }
     setActiveFilmId(filmId);
   };
@@ -1254,16 +1534,29 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     ref={embedPlayerRef}
                     url={resolvedVideoUrl}
                     playing
-                    controls={!isSyncedScreening}
+                    controls={!isLiveScheduledScreening}
                     width="100%"
                     height="100%"
+                    onDuration={(duration: number) => {
+                      if (
+                        activeFilm?.id != null &&
+                        Number.isFinite(duration) &&
+                        duration > 0
+                      ) {
+                        setFilmDurationById((prev) =>
+                          prev[activeFilm.id] === duration
+                            ? prev
+                            : { ...prev, [activeFilm.id]: duration },
+                        );
+                      }
+                    }}
                     onReady={() => {
-                      if (isSyncedScreening) {
+                      if (isLiveScheduledScreening) {
                         syncEmbedPlayback();
                       }
                     }}
                     onSeek={() => {
-                      if (isSyncedScreening) {
+                      if (isLiveScheduledScreening) {
                         syncEmbedPlayback();
                       }
                     }}
@@ -1276,10 +1569,24 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   key={resolvedVideoUrl}
                   src={resolvedVideoUrl}
                   controls
-                  controlsList={isSyncedScreening ? 'nodownload noplaybackrate' : undefined}
+                  controlsList={isLiveScheduledScreening ? 'nodownload noplaybackrate' : undefined}
                   autoPlay
                   playsInline
                   preload="metadata"
+                  onLoadedMetadata={(event) => {
+                    const duration = event.currentTarget.duration;
+                    if (
+                      activeFilm?.id != null &&
+                      Number.isFinite(duration) &&
+                      duration > 0
+                    ) {
+                      setFilmDurationById((prev) =>
+                        prev[activeFilm.id] === duration
+                          ? prev
+                          : { ...prev, [activeFilm.id]: duration },
+                      );
+                    }
+                  }}
                   sx={{
                     position: 'absolute',
                     inset: 0,
@@ -1412,7 +1719,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           ) : null}
                         </Stack>
 
-                        {isSyncedScreening && activeShowStatus === 'now' ? (
+                        {isLiveScheduledScreening ? (
                           <Typography
                             variant="caption"
                             sx={{ color: 'rgba(245,230,200,0.75)', fontSize: { xs: '0.65rem', sm: '0.72rem' } }}
@@ -1445,6 +1752,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     {activeFilm.videoUrl ? (
                       <Button
                         onClick={() => {
+                          if (requiresPayment) {
+                            openPaymentDialog();
+                            return;
+                          }
+
                           if (isSyncedScreening && activeShowStatus === 'past') {
                             toast.info('This screening has ended.');
                             return;
@@ -1700,7 +2012,12 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                 }}
               >
                 {screeningFilms.map((film) => {
-                  const nextScreening = getNextFilmScreening(film);
+                  const mediaDurationSeconds = filmDurationById[film.id] ?? null;
+                  const nextScreening = getNextFilmScreening(
+                    film,
+                    scheduleNow,
+                    mediaDurationSeconds,
+                  );
                   const reservation =
                     (nextScreening && reservationsByScreeningId.get(nextScreening.id)) ||
                     reservationsByFilmId.get(film.id) ||
@@ -1715,6 +2032,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       categoryId={resolvedCategory}
                       selected={activeFilm?.id === film.id}
                       isReserved={isReserved}
+                      mediaDurationSeconds={mediaDurationSeconds}
+                      scheduleNow={scheduleNow}
                       onSelect={() => handleSelectFilm(film.id)}
                       onReserveSeat={
                         reservation
@@ -1739,6 +2058,102 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           )}
         </Stack>
       </Stack>
+
+      <Dialog
+        open={paymentOpen && Boolean(paymentQuote)}
+        onClose={handleClosePayment}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            overflow: 'hidden',
+          },
+        }}
+      >
+        <DialogTitle sx={{ pr: 6 }}>
+          <Typography sx={{ fontFamily: CINEMA_SERIF, fontWeight: 700, fontSize: '1.25rem' }}>
+            Unlock screening
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {paymentQuote?.accessState === 'scheduled-live'
+              ? 'This scheduled screening is reserved for paid users. Confirm the access fee to watch now.'
+              : 'This screening is outside the scheduled window. Confirm the access fee to watch once now.'}
+          </Typography>
+          <IconButton
+            aria-label="Close"
+            onClick={handleClosePayment}
+            disabled={paying}
+            sx={{ position: 'absolute', right: 12, top: 12 }}
+          >
+            <Iconify icon="mingcute:close-line" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Alert severity={paymentQuote?.accessState === 'scheduled-live' ? 'warning' : 'info'}>
+              {paymentQuote?.accessState === 'scheduled-live'
+                ? 'Paid viewers can start this scheduled screening directly. Free viewers can pay the full access fee to unlock one watch.'
+                : 'Paid viewers pay half of the screening fee. Free viewers pay the full screening fee.'}
+            </Alert>
+
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                p: 2,
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Stack spacing={1.25}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="body2" color="text.secondary">
+                    Film
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {paymentQuote?.filmTitle || activeFilm?.title || 'Screening'}
+                  </Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="body2" color="text.secondary">
+                    Screening fee
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {paymentQuote?.baseFee
+                      ? `${formatCinemaMoney(paymentQuote.baseFee)}`
+                      : 'Free'}
+                  </Typography>
+                </Stack>
+                <Divider />
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                    Your price
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    {paymentQuote?.charge ? formatCinemaMoney(paymentQuote.charge) : 'Free'}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Box>
+
+            <Typography variant="body2" color="text.secondary">
+              This unlocks one screening session for the current film. If you leave the player,
+              you can purchase access again the next time you want to watch outside the schedule.
+            </Typography>
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleClosePayment} disabled={paying} variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmPayment} disabled={paying} variant="contained">
+            {paymentQuote?.charge ? `Pay ${formatCinemaMoney(paymentQuote.charge)} & watch` : 'Watch now'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <CinemaSeatMapDialog
         open={seatMapOpen}

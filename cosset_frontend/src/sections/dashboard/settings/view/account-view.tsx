@@ -1,28 +1,74 @@
 'use client';
 
+import { useMemo, useState, useEffect, useCallback } from 'react';
+
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
+import TableRow from '@mui/material/TableRow';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
+import ToggleButton from '@mui/material/ToggleButton';
+import TableContainer from '@mui/material/TableContainer';
+import CircularProgress from '@mui/material/CircularProgress';
+import LoadingButton from '@mui/lab/LoadingButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
+import { useSearchParams, useRouter } from 'src/routes/hooks';
 
 import { isUserBusiness } from 'src/auth/utils/role';
+import { useAuthContext } from 'src/auth/hooks';
 
+import {
+  refreshBillingUser,
+  useGetCustomerPayments,
+  cancelPayPalSubscription,
+  capturePayPalSubscription,
+  createBillingPortalSession,
+  createBillingCheckoutSession,
+  type PaidPlanType,
+  type BillingProvider,
+} from 'src/actions/billing';
 import { useGetCurrentUser } from 'src/actions/user';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
 // ---------------------------------------------------------------
+
+type PlanKey = 'FREE' | 'PAID' | 'EXTRA-PAID';
+
+const PLAN_LABELS: Record<PlanKey, string> = {
+  FREE: 'Free Account',
+  PAID: 'Paid Account',
+  'EXTRA-PAID': 'Extra-paid Account',
+};
+
+function normalizePlan(value: unknown): PlanKey {
+  const normalized = String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '-');
+
+  if (normalized === 'PAID' || normalized === 'EXTRA-PAID') {
+    return normalized;
+  }
+
+  return 'FREE';
+}
 
 function getBusinessRequestAt(user?: Record<string, any> | null) {
   return user?.businessAccountRequestedAt || user?.business_account_requested_at || null;
@@ -41,33 +87,210 @@ function formatRequestDate(value: unknown) {
   return date.toLocaleString();
 }
 
+function formatBillingDate(value: unknown) {
+  if (!value) {
+    return '—';
+  }
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatMoney(amountCents: number, currency = 'usd') {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: (currency || 'usd').toUpperCase(),
+    }).format((amountCents || 0) / 100);
+  } catch {
+    return `$${((amountCents || 0) / 100).toFixed(2)}`;
+  }
+}
+
 export function AccountView() {
   const theme = useTheme();
-  const { user } = useGetCurrentUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { checkUserSession } = useAuthContext();
+  const { user, userLoading } = useGetCurrentUser();
+  const { payments, billing, paymentsLoading } = useGetCustomerPayments();
 
-  // Determine account type based on user subscription status
-  // This is a placeholder - adjust based on your actual user schema
-  const accountType = user?.accountType || 'Free Account';
+  const [checkoutLoading, setCheckoutLoading] = useState<PaidPlanType | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<BillingProvider>('stripe');
+
+  const billingSummary = billing || user?.billing || null;
+  const plan = normalizePlan(billingSummary?.plan || user?.plan);
+  const accountType = PLAN_LABELS[plan];
   const billingEmail = user?.email || '';
-  const billingCycle = 'Monthly';
-  const nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
+  const billingCycle = plan === 'FREE' ? '—' : 'Monthly';
+  const nextBillingDate = formatBillingDate(billingSummary?.currentPeriodEnd);
   const hasBusinessAccount = isUserBusiness(user?.role);
   const requestedAt = getBusinessRequestAt(user);
   const hasPendingBusinessRequest = Boolean(requestedAt) && !hasBusinessAccount;
   const requestedAtLabel = formatRequestDate(requestedAt);
+  const isFreeAccount = plan === 'FREE';
+  const billingProvider = (billingSummary?.provider || null) as BillingProvider | null;
+  const hasStripeCustomer = Boolean(
+    billingProvider === 'stripe' &&
+      (billingSummary?.providerCustomerId || billingSummary?.externalSubscriptionId),
+  );
+  const hasPayPalSubscription = Boolean(
+    billingProvider === 'paypal' && billingSummary?.externalSubscriptionId,
+  );
 
-  const getAccountTypeColor = (type: string) => {
+  const billingStatus = useMemo(() => {
+    const status = searchParams.get('billing');
+    if (status === 'success' || status === 'canceled' || status === 'paypal_success') {
+      return status;
+    }
+    return null;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (billingProvider === 'paypal' || billingProvider === 'stripe') {
+      setPaymentProvider(billingProvider);
+    }
+  }, [billingProvider]);
+
+  useEffect(() => {
+    if (!billingStatus) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const sync = async () => {
+      try {
+        if (billingStatus === 'paypal_success') {
+          const subscriptionId =
+            searchParams.get('subscription_id') ||
+            searchParams.get('token') ||
+            searchParams.get('ba_token') ||
+            '';
+          if (subscriptionId) {
+            await capturePayPalSubscription(subscriptionId);
+          }
+        }
+
+        await refreshBillingUser();
+        await checkUserSession?.();
+        if (!active) {
+          return;
+        }
+
+        if (billingStatus === 'canceled') {
+          toast.info('Checkout canceled. No changes were made.');
+        } else {
+          toast.success('Payment successful. Your plan is updated.');
+        }
+      } catch (error: any) {
+        if (active) {
+          toast.error(
+            error?.response?.data?.message || error?.message || 'Unable to confirm payment.',
+          );
+        }
+      } finally {
+        if (active) {
+          router.replace(paths.dashboard.settings.account);
+        }
+      }
+    };
+
+    sync();
+
+    return () => {
+      active = false;
+    };
+  }, [billingStatus, checkUserSession, router, searchParams]);
+
+  const getAccountTypeColor = (type: PlanKey) => {
     switch (type) {
-      case 'Extra-paid Account':
+      case 'EXTRA-PAID':
         return 'success';
-      case 'Paid Account':
+      case 'PAID':
         return 'info';
       default:
         return 'default';
     }
   };
 
-  const isFreeAccount = accountType === 'Free Account';
+  const handleCheckout = useCallback(
+    async (nextPlan: PaidPlanType) => {
+      try {
+        setCheckoutLoading(nextPlan);
+        const data = await createBillingCheckoutSession(nextPlan, paymentProvider);
+
+        if (data.updated) {
+          await refreshBillingUser();
+          await checkUserSession?.();
+          toast.success(data.message || 'Plan updated.');
+          setCheckoutLoading(null);
+          return;
+        }
+
+        if (!data.url) {
+          throw new Error(data.message || 'Unable to start checkout.');
+        }
+        window.location.href = data.url;
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message || error?.message || 'Unable to start checkout.';
+        toast.error(message);
+        setCheckoutLoading(null);
+      }
+    },
+    [checkUserSession, paymentProvider],
+  );
+
+  const handlePortal = useCallback(async () => {
+    try {
+      setPortalLoading(true);
+
+      if (billingProvider === 'paypal' || (!hasStripeCustomer && hasPayPalSubscription)) {
+        await cancelPayPalSubscription();
+        await refreshBillingUser();
+        await checkUserSession?.();
+        toast.success('PayPal subscription canceled. Your plan is now Free.');
+        setPortalLoading(false);
+        return;
+      }
+
+      const data = await createBillingPortalSession();
+      if (!data.url) {
+        throw new Error(data.message || 'Unable to open the billing portal.');
+      }
+      window.location.href = data.url;
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Unable to manage billing.';
+      toast.error(message);
+      setPortalLoading(false);
+    }
+  }, [billingProvider, checkUserSession, hasPayPalSubscription, hasStripeCustomer]);
+
+  const planActionLabel = (target: PlanKey) => {
+    if (plan === target) {
+      return 'Current Plan';
+    }
+    if (target === 'FREE') {
+      return 'Manage / Cancel';
+    }
+    if (plan === 'FREE') {
+      return 'Upgrade';
+    }
+    if (target === 'EXTRA-PAID' && plan === 'PAID') {
+      return 'Upgrade';
+    }
+    if (target === 'PAID' && plan === 'EXTRA-PAID') {
+      return 'Switch plan';
+    }
+    return 'Upgrade';
+  };
 
   return (
     <DashboardContent>
@@ -78,7 +301,13 @@ export function AccountView() {
       />
 
       <Stack spacing={4}>
-        {/* Account Type Card */}
+        {billingStatus === 'success' ? (
+          <Alert severity="success">Payment received. Syncing your Cosset plan…</Alert>
+        ) : null}
+        {billingStatus === 'canceled' ? (
+          <Alert severity="info">Checkout was canceled. You can try again anytime.</Alert>
+        ) : null}
+
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Stack spacing={3}>
@@ -87,25 +316,27 @@ export function AccountView() {
                   Current Account Type
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Chip
-                    label={accountType}
-                    color={getAccountTypeColor(accountType)}
-                    variant="outlined"
-                    size="medium"
-                    icon={
-                      accountType === 'Free Account' ? (
-                        <Iconify icon="solar:key-bold" />
-                      ) : accountType === 'Paid Account' ? (
-                        <Iconify icon="solar:star-bold" />
-                      ) : (
-                        <Iconify icon="solar:star-bold" />
-                      )
-                    }
-                  />
+                  {userLoading ? (
+                    <CircularProgress size={22} />
+                  ) : (
+                    <Chip
+                      label={accountType}
+                      color={getAccountTypeColor(plan)}
+                      variant="outlined"
+                      size="medium"
+                      icon={
+                        plan === 'FREE' ? (
+                          <Iconify icon="solar:key-bold" />
+                        ) : (
+                          <Iconify icon="solar:star-bold" />
+                        )
+                      }
+                    />
+                  )}
                   <Typography variant="body2" color="text.secondary">
-                    {accountType === 'Free Account'
+                    {plan === 'FREE'
                       ? 'Enjoy limited features with our free plan.'
-                      : accountType === 'Paid Account'
+                      : plan === 'PAID'
                         ? 'Unlock premium features with our paid plan.'
                         : 'Enjoy all premium features with our extra-paid plan.'}
                   </Typography>
@@ -114,32 +345,56 @@ export function AccountView() {
 
               <Divider />
 
-              {/* Account Options Grid */}
               <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+                  Payment method
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  color="primary"
+                  size="small"
+                  value={paymentProvider}
+                  onChange={(_event, value: BillingProvider | null) => {
+                    if (value) {
+                      setPaymentProvider(value);
+                    }
+                  }}
+                  sx={{ mb: 2.5 }}
+                >
+                  <ToggleButton value="stripe" sx={{ px: 2 }}>
+                    <Iconify icon="solar:card-bold" width={18} sx={{ mr: 1 }} />
+                    Stripe
+                  </ToggleButton>
+                  <ToggleButton value="paypal" sx={{ px: 2 }}>
+                    <Iconify icon="solar:wallet-money-bold" width={18} sx={{ mr: 1 }} />
+                    PayPal
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {paymentProvider === 'paypal'
+                    ? 'Upgrade with PayPal Subscriptions. Manage or cancel from this page.'
+                    : 'Upgrade with Stripe Checkout. Manage invoices and cards in the Stripe portal.'}
+                </Typography>
+
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
                   Available Plans
                 </Typography>
                 <Grid container spacing={2}>
-                  {/* Free Account */}
                   <Grid item xs={12} sm={6} md={4}>
                     <Card
                       variant="outlined"
                       sx={{
                         p: 2,
-                        cursor: 'pointer',
+                        height: 1,
                         transition: 'all 0.3s ease',
                         border:
-                          accountType === 'Free Account'
+                          plan === 'FREE'
                             ? `2px solid ${theme.vars.palette.primary.main}`
                             : undefined,
-                        bgcolor: accountType === 'Free Account' ? 'action.selected' : undefined,
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          boxShadow: 1,
-                        },
+                        bgcolor: plan === 'FREE' ? 'action.selected' : undefined,
                       }}
                     >
-                      <Stack spacing={2}>
+                      <Stack spacing={2} sx={{ height: 1 }}>
                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
                           Free Account
                         </Typography>
@@ -152,7 +407,7 @@ export function AccountView() {
                             /mo
                           </Typography>
                         </Typography>
-                        <Stack spacing={1}>
+                        <Stack spacing={1} sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Iconify
                               icon="solar:check-circle-bold"
@@ -168,37 +423,36 @@ export function AccountView() {
                             <Typography variant="body2">Limited storage</Typography>
                           </Box>
                         </Stack>
-                        <Button
+                        <LoadingButton
                           fullWidth
-                          variant={accountType === 'Free Account' ? 'contained' : 'outlined'}
-                          disabled={accountType === 'Free Account'}
+                          variant={plan === 'FREE' ? 'contained' : 'outlined'}
+                          disabled={
+                            plan === 'FREE' || (!hasStripeCustomer && !hasPayPalSubscription)
+                          }
+                          onClick={() => handlePortal()}
+                          loading={portalLoading && plan !== 'FREE'}
                         >
-                          {accountType === 'Free Account' ? 'Current Plan' : 'Downgrade'}
-                        </Button>
+                          {planActionLabel('FREE')}
+                        </LoadingButton>
                       </Stack>
                     </Card>
                   </Grid>
 
-                  {/* Paid Account */}
                   <Grid item xs={12} sm={6} md={4}>
                     <Card
                       variant="outlined"
                       sx={{
                         p: 2,
-                        cursor: 'pointer',
+                        height: 1,
                         transition: 'all 0.3s ease',
                         border:
-                          accountType === 'Paid Account'
+                          plan === 'PAID'
                             ? `2px solid ${theme.vars.palette.primary.main}`
                             : undefined,
-                        bgcolor: accountType === 'Paid Account' ? 'action.selected' : undefined,
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          boxShadow: 1,
-                        },
+                        bgcolor: plan === 'PAID' ? 'action.selected' : undefined,
                       }}
                     >
-                      <Stack spacing={2}>
+                      <Stack spacing={2} sx={{ height: 1 }}>
                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
                           Paid Account
                         </Typography>
@@ -211,7 +465,7 @@ export function AccountView() {
                             /mo
                           </Typography>
                         </Typography>
-                        <Stack spacing={1}>
+                        <Stack spacing={1} sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Iconify
                               icon="solar:check-circle-bold"
@@ -234,38 +488,35 @@ export function AccountView() {
                             <Typography variant="body2">Priority support</Typography>
                           </Box>
                         </Stack>
-                        <Button
+                        <LoadingButton
                           fullWidth
-                          variant={accountType === 'Paid Account' ? 'contained' : 'outlined'}
+                          variant={plan === 'PAID' ? 'contained' : 'outlined'}
                           color="primary"
+                          disabled={plan === 'PAID' || Boolean(checkoutLoading)}
+                          loading={checkoutLoading === 'PAID'}
+                          onClick={() => handleCheckout('PAID')}
                         >
-                          {accountType === 'Paid Account' ? 'Current Plan' : 'Upgrade'}
-                        </Button>
+                          {planActionLabel('PAID')}
+                        </LoadingButton>
                       </Stack>
                     </Card>
                   </Grid>
 
-                  {/* Extra-paid Account */}
                   <Grid item xs={12} sm={6} md={4}>
                     <Card
                       variant="outlined"
                       sx={{
                         p: 2,
-                        cursor: 'pointer',
+                        height: 1,
                         transition: 'all 0.3s ease',
                         border:
-                          accountType === 'Extra-paid Account'
+                          plan === 'EXTRA-PAID'
                             ? `2px solid ${theme.vars.palette.primary.main}`
                             : undefined,
-                        bgcolor:
-                          accountType === 'Extra-paid Account' ? 'action.selected' : undefined,
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          boxShadow: 1,
-                        },
+                        bgcolor: plan === 'EXTRA-PAID' ? 'action.selected' : undefined,
                       }}
                     >
-                      <Stack spacing={2}>
+                      <Stack spacing={2} sx={{ height: 1 }}>
                         <Box
                           sx={{
                             display: 'flex',
@@ -287,7 +538,7 @@ export function AccountView() {
                             /mo
                           </Typography>
                         </Typography>
-                        <Stack spacing={1}>
+                        <Stack spacing={1} sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Iconify
                               icon="solar:check-circle-bold"
@@ -317,13 +568,16 @@ export function AccountView() {
                             <Typography variant="body2">Custom integrations</Typography>
                           </Box>
                         </Stack>
-                        <Button
+                        <LoadingButton
                           fullWidth
-                          variant={accountType === 'Extra-paid Account' ? 'contained' : 'outlined'}
+                          variant={plan === 'EXTRA-PAID' ? 'contained' : 'outlined'}
                           color="primary"
+                          disabled={plan === 'EXTRA-PAID' || Boolean(checkoutLoading)}
+                          loading={checkoutLoading === 'EXTRA-PAID'}
+                          onClick={() => handleCheckout('EXTRA-PAID')}
                         >
-                          {accountType === 'Extra-paid Account' ? 'Current Plan' : 'Upgrade'}
-                        </Button>
+                          {planActionLabel('EXTRA-PAID')}
+                        </LoadingButton>
                       </Stack>
                     </Card>
                   </Grid>
@@ -390,7 +644,6 @@ export function AccountView() {
           </CardContent>
         </Card>
 
-        {/* Billing Information Card */}
         {!isFreeAccount && (
           <Card>
             <CardContent sx={{ p: 3 }}>
@@ -408,6 +661,16 @@ export function AccountView() {
                         Billing Email
                       </Typography>
                       <Typography variant="body1">{billingEmail}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Payment Provider
+                      </Typography>
+                      <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
+                        {billingProvider || paymentProvider}
+                      </Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -438,16 +701,117 @@ export function AccountView() {
 
                 <Divider />
 
-                <Stack direction="row" spacing={2}>
-                  <Button variant="outlined">View Invoice History</Button>
-                  <Button variant="outlined">Update Payment Method</Button>
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  {billingProvider === 'paypal' || hasPayPalSubscription ? (
+                    <LoadingButton
+                      variant="outlined"
+                      color="error"
+                      onClick={handlePortal}
+                      loading={portalLoading}
+                    >
+                      Cancel PayPal Subscription
+                    </LoadingButton>
+                  ) : (
+                    <>
+                      <LoadingButton
+                        variant="outlined"
+                        onClick={handlePortal}
+                        loading={portalLoading}
+                      >
+                        View Invoice History
+                      </LoadingButton>
+                      <LoadingButton
+                        variant="outlined"
+                        onClick={handlePortal}
+                        loading={portalLoading}
+                      >
+                        Update Payment Method
+                      </LoadingButton>
+                    </>
+                  )}
                 </Stack>
               </Stack>
             </CardContent>
           </Card>
         )}
 
-        {/* Danger Zone */}
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Payment history
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Payment history stays in the payments table, while provider account links are
+                  managed by customer id.
+                </Typography>
+              </Box>
+
+              {paymentsLoading ? (
+                <Stack alignItems="center" sx={{ py: 3 }}>
+                  <CircularProgress size={28} />
+                </Stack>
+              ) : payments.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No payments yet.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Provider</TableCell>
+                        <TableCell>Plan</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Reference</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{formatBillingDate(payment.createdAt)}</TableCell>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>
+                            {payment.provider}
+                          </TableCell>
+                          <TableCell>{payment.plan}</TableCell>
+                          <TableCell>
+                            {formatMoney(payment.amountCents, payment.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={payment.status}
+                              color={
+                                payment.status === 'completed' || payment.status === 'active'
+                                  ? 'success'
+                                  : payment.status === 'pending'
+                                    ? 'warning'
+                                    : 'default'
+                              }
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 180 }}>
+                            <Typography variant="body2" noWrap>
+                              {payment.externalPaymentId ||
+                                payment.externalSubscriptionId ||
+                                payment.externalCheckoutId ||
+                                '—'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+
         <Card sx={{ borderColor: 'error.main', borderWidth: 2 }}>
           <CardContent sx={{ p: 3 }}>
             <Stack spacing={3}>
@@ -456,13 +820,20 @@ export function AccountView() {
                   Danger Zone
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Irreversible and destructive actions
+                  Cancel Stripe via Customer Portal or cancel PayPal from here. Your plan returns to
+                  Free when the subscription ends.
                 </Typography>
               </Box>
 
-              <Button variant="outlined" color="error">
+              <LoadingButton
+                variant="outlined"
+                color="error"
+                disabled={isFreeAccount && !hasStripeCustomer && !hasPayPalSubscription}
+                onClick={handlePortal}
+                loading={portalLoading}
+              >
                 Cancel Subscription
-              </Button>
+              </LoadingButton>
             </Stack>
           </CardContent>
         </Card>

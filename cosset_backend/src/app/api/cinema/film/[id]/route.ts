@@ -76,6 +76,7 @@ export async function PUT(
       description: updates.description,
       posterImage: updates.posterImage,
       videoUrl: updates.videoUrl,
+      duration: updates.duration,
       order: updates.order,
       isPublic: updates.isPublic,
     });

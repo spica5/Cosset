@@ -11,6 +11,11 @@ export interface CinemaFilmScreening {
   customerId: string;
   showAt?: Date | string | null;
   showAt2?: Date | string | null;
+  showFriday?: boolean | null;
+  showSaturday?: boolean | null;
+  showSunday?: boolean | null;
+  pricingType?: 'free' | 'paid' | null;
+  price?: string | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: Date | null;
@@ -40,6 +45,11 @@ const SELECT_COLUMNS = `
     WHEN show_at2 IS NULL THEN NULL
     ELSE (to_char(show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
   END as "showAt2",
+  show_friday as "showFriday",
+  show_saturday as "showSaturday",
+  show_sunday as "showSunday",
+  COALESCE(pricing_type, 'free') as "pricingType",
+  price,
   "order",
   is_public as "isPublic",
   created_at as "createdAt",
@@ -58,6 +68,11 @@ const SELECT_WITH_FILM_COLUMNS = `
     WHEN s.show_at2 IS NULL THEN NULL
     ELSE (to_char(s.show_at2, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z')
   END as "showAt2",
+  s.show_friday as "showFriday",
+  s.show_saturday as "showSaturday",
+  s.show_sunday as "showSunday",
+  COALESCE(s.pricing_type, 'free') as "pricingType",
+  s.price,
   s."order",
   s.is_public as "isPublic",
   s.created_at as "createdAt",
@@ -93,6 +108,18 @@ const normalizeNullableInteger = (value: unknown): number | null => {
 
   return parseInteger(value);
 };
+
+const normalizePrice = (value: unknown): string | null => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized.slice(0, 40) : null;
+};
+
+const normalizePricingType = (value: unknown): 'free' | 'paid' =>
+  String(value || '').trim().toLowerCase() === 'paid' ? 'paid' : 'free';
 
 /** Persist UTC clock time into TIMESTAMP WITHOUT TIME ZONE (date is a fixed anchor; weekly days are applied in the app). */
 const normalizeTimestamp = (value: unknown): string | null => {
@@ -170,6 +197,8 @@ const migrateLegacyFilmSchedules = async (): Promise<void> => {
         customer_id,
         show_at,
         show_at2,
+        pricing_type,
+        price,
         "order",
         is_public,
         created_at,
@@ -180,6 +209,8 @@ const migrateLegacyFilmSchedules = async (): Promise<void> => {
         f.customer_id,
         f.show_at,
         f.show_at2,
+        'free',
+        NULL,
         f."order",
         f.is_public,
         NOW(),
@@ -231,6 +262,11 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
             customer_id VARCHAR(255) NOT NULL,
             show_at TIMESTAMP,
             show_at2 TIMESTAMP,
+            show_friday BOOLEAN NOT NULL DEFAULT TRUE,
+            show_saturday BOOLEAN NOT NULL DEFAULT TRUE,
+            show_sunday BOOLEAN NOT NULL DEFAULT TRUE,
+            pricing_type VARCHAR(20) NOT NULL DEFAULT 'free',
+            price VARCHAR(40),
             "order" INTEGER,
             is_public INT DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -257,6 +293,52 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
         `
           ALTER TABLE ${TABLE_NAME}
           ADD COLUMN IF NOT EXISTS show_at2 TIMESTAMP
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_friday BOOLEAN NOT NULL DEFAULT TRUE
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_saturday BOOLEAN NOT NULL DEFAULT TRUE
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_sunday BOOLEAN NOT NULL DEFAULT TRUE
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) NOT NULL DEFAULT 'free'
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS price VARCHAR(40)
+        `,
+      );
+
+      await executeQuery(
+        `
+          UPDATE ${TABLE_NAME}
+          SET
+            show_friday = COALESCE(show_friday, TRUE),
+            show_saturday = COALESCE(show_saturday, TRUE),
+            show_sunday = COALESCE(show_sunday, TRUE),
+            pricing_type = COALESCE(pricing_type, 'free')
         `,
       );
 
@@ -456,6 +538,30 @@ export async function createCinemaFilmScreening(
       });
     }
 
+    const showFriday = screening.showFriday !== false;
+    const showSaturday = screening.showSaturday !== false;
+    const showSunday = screening.showSunday !== false;
+    const pricingType = normalizePricingType(screening.pricingType ?? (screening.price != null ? 'paid' : 'free'));
+    const price = pricingType === 'paid' ? normalizePrice(screening.price) : null;
+
+    if (!showFriday && !showSaturday && !showSunday) {
+      throw new DatabaseError({
+        code: 'INVALID_CINEMA_SCREENING_DAYS',
+        message: 'At least one screening day must be selected',
+      });
+    }
+
+    if (pricingType === 'paid') {
+      const parsedPrice = Number.parseFloat(price || '');
+
+      if (!price || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+        throw new DatabaseError({
+          code: 'INVALID_CINEMA_SCREENING_PRICE',
+          message: 'price is required when the screening is paid',
+        });
+      }
+    }
+
     const created = await queryOne<CinemaFilmScreening>(
       `
         INSERT INTO ${TABLE_NAME} (
@@ -463,12 +569,17 @@ export async function createCinemaFilmScreening(
           customer_id,
           show_at,
           show_at2,
+          show_friday,
+          show_saturday,
+          show_sunday,
+          pricing_type,
+          price,
           "order",
           is_public,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
         RETURNING ${SELECT_COLUMNS}
       `,
       [
@@ -476,6 +587,11 @@ export async function createCinemaFilmScreening(
         normalizedCustomerId,
         normalizeTimestamp(screening.showAt),
         normalizeTimestamp(screening.showAt2),
+        showFriday,
+        showSaturday,
+        showSunday,
+        pricingType,
+        price,
         normalizeNullableInteger(screening.order),
         normalizeIsPublic(screening.isPublic),
       ],
@@ -518,6 +634,47 @@ export async function updateCinemaFilmScreening(
       });
     }
 
+    const existing = await getCinemaFilmScreeningById(normalizedId);
+
+    if (!existing) {
+      throw new DatabaseError({
+        code: 'CINEMA_FILM_SCREENING_NOT_FOUND',
+        message: 'Cinema film screening not found',
+      });
+    }
+
+    const nextShowFriday = updates.showFriday !== undefined ? Boolean(updates.showFriday) : existing.showFriday !== false;
+    const nextShowSaturday =
+      updates.showSaturday !== undefined ? Boolean(updates.showSaturday) : existing.showSaturday !== false;
+    const nextShowSunday = updates.showSunday !== undefined ? Boolean(updates.showSunday) : existing.showSunday !== false;
+
+    if (nextShowFriday === false && nextShowSaturday === false && nextShowSunday === false) {
+      throw new DatabaseError({
+        code: 'INVALID_CINEMA_SCREENING_DAYS',
+        message: 'At least one screening day must be selected',
+      });
+    }
+
+    const nextPricingType = normalizePricingType(
+      updates.pricingType ??
+        (updates.price !== undefined ? 'paid' : existing.pricingType ?? (existing.price ? 'paid' : 'free')),
+    );
+    const nextPrice =
+      nextPricingType === 'paid'
+        ? normalizePrice(updates.price !== undefined ? updates.price : existing.price)
+        : null;
+
+    if (nextPricingType === 'paid') {
+      const parsedPrice = Number.parseFloat(nextPrice || '');
+
+      if (!nextPrice || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+        throw new DatabaseError({
+          code: 'INVALID_CINEMA_SCREENING_PRICE',
+          message: 'price is required when the screening is paid',
+        });
+      }
+    }
+
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -549,6 +706,34 @@ export async function updateCinemaFilmScreening(
       paramIndex += 1;
     }
 
+    if (updates.showFriday !== undefined) {
+      fields.push(`show_friday = $${paramIndex}`);
+      values.push(Boolean(updates.showFriday));
+      paramIndex += 1;
+    }
+
+    if (updates.showSaturday !== undefined) {
+      fields.push(`show_saturday = $${paramIndex}`);
+      values.push(Boolean(updates.showSaturday));
+      paramIndex += 1;
+    }
+
+    if (updates.showSunday !== undefined) {
+      fields.push(`show_sunday = $${paramIndex}`);
+      values.push(Boolean(updates.showSunday));
+      paramIndex += 1;
+    }
+
+    if (updates.pricingType !== undefined || updates.price !== undefined) {
+      fields.push(`pricing_type = $${paramIndex}`);
+      values.push(nextPricingType);
+      paramIndex += 1;
+
+      fields.push(`price = $${paramIndex}`);
+      values.push(nextPrice);
+      paramIndex += 1;
+    }
+
     if (updates.order !== undefined) {
       fields.push(`"order" = $${paramIndex}`);
       values.push(normalizeNullableInteger(updates.order));
@@ -562,15 +747,6 @@ export async function updateCinemaFilmScreening(
     }
 
     if (!fields.length) {
-      const existing = await getCinemaFilmScreeningById(normalizedId);
-
-      if (!existing) {
-        throw new DatabaseError({
-          code: 'CINEMA_FILM_SCREENING_NOT_FOUND',
-          message: 'Cinema film screening not found',
-        });
-      }
-
       return existing;
     }
 

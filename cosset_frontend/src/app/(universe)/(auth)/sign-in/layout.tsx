@@ -11,7 +11,7 @@ type Props = {
 export default function Layout({ children }: Props) {
   return (
     <GuestGuard>
-      <AuthSplitLayout>{children}</AuthSplitLayout>
+      <AuthSplitLayout mobileSection>{children}</AuthSplitLayout>
     </GuestGuard>
-    );
+  );
 }

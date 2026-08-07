@@ -2,12 +2,12 @@ import type { NextRequest } from 'next/server';
 
 import { STATUS, response, handleError } from 'src/utils/response';
 
+import { getCinemaFilmById } from 'src/models/cinema-films';
 import {
-  getCinemaFilmScreeningById,
   updateCinemaFilmScreening,
   deleteCinemaFilmScreening,
+  getCinemaFilmScreeningById,
 } from 'src/models/cinema-film-screenings';
-import { getCinemaFilmById } from 'src/models/cinema-films';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -74,6 +74,11 @@ export async function PUT(
       filmId: updates.filmId,
       showAt: updates.showAt,
       showAt2: updates.showAt2,
+      showFriday: updates.showFriday,
+      showSaturday: updates.showSaturday,
+      showSunday: updates.showSunday,
+      pricingType: updates.pricingType,
+      price: updates.price,
       order: updates.order,
       isPublic: updates.isPublic,
     });

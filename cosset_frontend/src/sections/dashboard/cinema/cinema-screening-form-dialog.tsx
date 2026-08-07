@@ -8,17 +8,21 @@ import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
+import FormGroup from '@mui/material/FormGroup';
+import FormLabel from '@mui/material/FormLabel';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import {
   createCinemaScreening,
@@ -31,7 +35,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import {
   toIsoOrNull,
   toTimeLocalValue,
-  CINEMA_WEEKLY_DAYS_LABEL,
+  getScreeningWeeklyDaySummary,
   getLocalTimeLabelFromUtcInput,
 } from './cinema-film-schedule';
 
@@ -41,6 +45,10 @@ type FormState = {
   filmId: string;
   showAt: string;
   showAt2: string;
+  showFriday: boolean;
+  showSaturday: boolean;
+  showSunday: boolean;
+  price: string;
   order: string;
 };
 
@@ -48,6 +56,10 @@ const emptyForm: FormState = {
   filmId: '',
   showAt: '',
   showAt2: '',
+  showFriday: true,
+  showSaturday: true,
+  showSunday: true,
+  price: '',
   order: '',
 };
 
@@ -107,12 +119,16 @@ export function CinemaScreeningFormDialog({
       filmId: String(screening.filmId),
       showAt: toTimeLocalValue(screening.showAt),
       showAt2: toTimeLocalValue(screening.showAt2),
+      showFriday: screening.showFriday !== false,
+      showSaturday: screening.showSaturday !== false,
+      showSunday: screening.showSunday !== false,
+      price: screening.price != null ? String(screening.price) : '',
       order: screening.order != null ? String(screening.order) : '',
     });
   }, [defaultFilmId, open, screening]);
 
   const handleFieldChange = useCallback(
-    (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setForm((prev) => ({ ...prev, [field]: event.target.value }));
     },
     [],
@@ -120,6 +136,10 @@ export function CinemaScreeningFormDialog({
 
   const handleClearField = useCallback((field: 'showAt' | 'showAt2') => {
     setForm((prev) => ({ ...prev, [field]: '' }));
+  }, []);
+
+  const handleToggleDay = useCallback((field: 'showFriday' | 'showSaturday' | 'showSunday') => {
+    setForm((prev) => ({ ...prev, [field]: !prev[field] }));
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -143,6 +163,22 @@ export function CinemaScreeningFormDialog({
       return;
     }
 
+    if (!form.showFriday && !form.showSaturday && !form.showSunday) {
+      toast.error('Please select at least one screening day.');
+      return;
+    }
+
+    const price = form.price.trim();
+
+    if (price) {
+      const parsedPrice = Number.parseFloat(price);
+
+      if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        toast.error('Please enter a valid extra fee greater than 0.');
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
 
@@ -150,6 +186,10 @@ export function CinemaScreeningFormDialog({
         filmId,
         showAt,
         showAt2,
+        showFriday: form.showFriday,
+        showSaturday: form.showSaturday,
+        showSunday: form.showSunday,
+        price: price || null,
         order: parseNullableInteger(form.order),
         isPublic: 1,
       };
@@ -208,10 +248,14 @@ export function CinemaScreeningFormDialog({
     return (
       <Box component="span" sx={{ display: 'block' }}>
         <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          Optional · {CINEMA_WEEKLY_DAYS_LABEL} each week (UTC)
+          Optional - weekly UTC time
         </Typography>
         {localLabel ? (
-          <Typography component="span" variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'info.main' }}>
+          <Typography
+            component="span"
+            variant="caption"
+            sx={{ display: 'block', fontWeight: 600, color: 'info.main' }}
+          >
             Local time: {localLabel}
           </Typography>
         ) : null}
@@ -268,6 +312,60 @@ export function CinemaScreeningFormDialog({
               InputProps={{ endAdornment: clearAdornment('showAt2', form.showAt2) }}
             />
           </Stack>
+
+          <Box>
+            <FormLabel component="legend" sx={{ display: 'block', mb: 1 }}>
+              Screen days
+            </FormLabel>
+            <FormGroup row sx={{ gap: 1, flexWrap: 'wrap' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.showFriday}
+                    onChange={() => handleToggleDay('showFriday')}
+                  />
+                }
+                label="Friday"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.showSaturday}
+                    onChange={() => handleToggleDay('showSaturday')}
+                  />
+                }
+                label="Saturday"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.showSunday}
+                    onChange={() => handleToggleDay('showSunday')}
+                  />
+                }
+                label="Sunday"
+              />
+            </FormGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Selected days: {getScreeningWeeklyDaySummary(form)}
+            </Typography>
+          </Box>
+
+          <Box>
+            <FormLabel component="legend" sx={{ display: 'block', mb: 1 }}>
+              Pricing
+            </FormLabel>
+            <TextField
+              label="Extra fee"
+              value={form.price}
+              onChange={handleFieldChange('price')}
+              fullWidth
+              type="number"
+              placeholder="Leave blank for no extra fee"
+              inputProps={{ min: 0, step: '0.01' }}
+              helperText={form.price.trim() ? 'This screening has an extra fee.' : 'Leave blank for no extra fee.'}
+            />
+          </Box>
 
           <TextField
             label="Display order"

@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       description: film.description ?? null,
       posterImage: film.posterImage ?? null,
       videoUrl: film.videoUrl.trim(),
+      duration: film.duration ?? null,
       order: film.order ?? null,
       isPublic: film.isPublic ?? 1,
     });

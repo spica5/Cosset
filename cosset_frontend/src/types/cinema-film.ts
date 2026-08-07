@@ -11,6 +11,8 @@ export type ICinemaFilm = {
   description?: string | null;
   posterImage?: string | null;
   videoUrl: string;
+  /** Film length in seconds. */
+  duration?: number | null;
   order?: number | null;
   isPublic?: number | null;
   screenings?: ICinemaFilmScreening[];

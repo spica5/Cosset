@@ -21,6 +21,21 @@ export const CINEMA_WEEKLY_DAYS_LABEL = 'Fri–Sun';
 /** Anchor date used when persisting time-only showtimes (date is ignored at runtime). */
 export const CINEMA_TIME_ANCHOR_DATE = '1970-01-01';
 
+type CinemaWeeklyDayKey = 'showFriday' | 'showSaturday' | 'showSunday';
+
+type CinemaWeeklyScreeningSchedule = Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> &
+  Partial<Record<CinemaWeeklyDayKey, boolean | null>>;
+
+const CINEMA_WEEKLY_DAY_CONFIG: Array<{
+  key: CinemaWeeklyDayKey;
+  day: number;
+  label: string;
+}> = [
+  { key: 'showFriday', day: 5, label: 'Fri' },
+  { key: 'showSaturday', day: 6, label: 'Sat' },
+  { key: 'showSunday', day: 0, label: 'Sun' },
+];
+
 type UtcClockTime = {
   hours: number;
   minutes: number;
@@ -132,6 +147,24 @@ export const toIsoOrNull = (value: string) => {
   return toAnchoredIso(clockFromInstant(parsed));
 };
 
+const hasExplicitWeeklyDaySelection = (screening: CinemaWeeklyScreeningSchedule) =>
+  CINEMA_WEEKLY_DAY_CONFIG.some(({ key }) => screening[key] !== undefined && screening[key] !== null);
+
+export const getScreeningWeeklyDayLabels = (screening: CinemaWeeklyScreeningSchedule) => {
+  if (!hasExplicitWeeklyDaySelection(screening)) {
+    return CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
+  }
+
+  const labels = CINEMA_WEEKLY_DAY_CONFIG.filter(({ key }) => screening[key] !== false).map(
+    ({ label }) => label,
+  );
+
+  return labels.length ? labels : CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
+};
+
+export const getScreeningWeeklyDaySummary = (screening: CinemaWeeklyScreeningSchedule) =>
+  getScreeningWeeklyDayLabels(screening).join(', ');
+
 /** Unique UTC clock times from showAt / showAt2 (date portion ignored). */
 export const getScreeningClockTimes = (
   screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
@@ -145,10 +178,18 @@ export const getScreeningClockTimes = (
   return clocks.filter((clock, index) => index === 0 || clockKey(clock) !== clockKey(clocks[index - 1]));
 };
 
-const isCinemaWeeklyUtcDay = (day: number) =>
-  (CINEMA_WEEKLY_UTC_DAYS as readonly number[]).includes(day);
+const isCinemaWeeklyUtcDay = (day: number, screening?: CinemaWeeklyScreeningSchedule | null) => {
+  if (!screening || !hasExplicitWeeklyDaySelection(screening)) {
+    return (CINEMA_WEEKLY_UTC_DAYS as readonly number[]).includes(day);
+  }
 
-export const isCinemaWeeklyScreeningDay = (now = new Date()) => isCinemaWeeklyUtcDay(now.getUTCDay());
+  return CINEMA_WEEKLY_DAY_CONFIG.some(({ key, day: selectedDay }) => screening[key] !== false && selectedDay === day);
+};
+
+export const isCinemaWeeklyScreeningDay = (
+  now = new Date(),
+  screening?: CinemaWeeklyScreeningSchedule | null,
+) => isCinemaWeeklyUtcDay(now.getUTCDay(), screening);
 
 const buildOccurrence = (year: number, month: number, day: number, clock: UtcClockTime) =>
   new Date(Date.UTC(year, month, day, clock.hours, clock.minutes, clock.seconds));
@@ -158,7 +199,7 @@ const buildOccurrence = (year: number, month: number, day: number, clock: UtcClo
  * The stored date on showAt/showAt2 is ignored — only the UTC clock matters.
  */
 export const getScreeningStartInstants = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
   options?: { lookBehindDays?: number; lookAheadDays?: number },
 ) => {
@@ -176,7 +217,7 @@ export const getScreeningStartInstants = (
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset),
     );
 
-    if (isCinemaWeeklyUtcDay(day.getUTCDay())) {
+    if (isCinemaWeeklyUtcDay(day.getUTCDay(), screening)) {
       clocks.forEach((clock) => {
         starts.push(
           buildOccurrence(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), clock),
@@ -197,6 +238,53 @@ const positiveDurationSeconds = (value?: number | null) =>
 
 const resolveShowDurationSeconds = (mediaDurationSeconds?: number | null) =>
   positiveDurationSeconds(mediaDurationSeconds) ?? DEFAULT_SHOW_DURATION_SECONDS;
+
+/**
+ * Probe HTML5 media duration for a direct video URL.
+ * Returns null for embeds/empty URLs or when metadata cannot be read.
+ */
+export const probeVideoDurationSeconds = (url?: string | null): Promise<number | null> => {
+  const normalized = String(url || '').trim();
+  if (!normalized) {
+    return Promise.resolve(null);
+  }
+
+  if (/youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com/i.test(normalized)) {
+    return Promise.resolve(null);
+  }
+
+  if (typeof document === 'undefined') {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    let settled = false;
+
+    const finish = (value: number | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      video.removeAttribute('src');
+      video.load();
+      video.remove();
+      resolve(value);
+    };
+
+    const timeoutId = window.setTimeout(() => finish(null), 12000);
+
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      finish(positiveDurationSeconds(duration));
+    };
+    video.onerror = () => finish(null);
+    video.src = normalized;
+  });
+};
 
 const isShowLiveAt = (
   start: Date,
@@ -221,7 +309,7 @@ const isShowLiveAt = (
 
 /** Active showtime start for the current moment, or null if none is live. */
 export const getActiveScreeningStart = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
   mediaDurationSeconds?: number | null,
 ) => {
@@ -240,7 +328,7 @@ export const getActiveScreeningStart = (
 
 /** Next upcoming Fri/Sat/Sun showtime start, or null when unscheduled. */
 export const getNextScreeningStart = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
 ) => {
   const nowMs = now.getTime();
@@ -248,7 +336,7 @@ export const getNextScreeningStart = (
 };
 
 export const getScreeningShowStatus = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
   mediaDurationSeconds?: number | null,
 ): CinemaFilmShowStatus => {
@@ -313,18 +401,18 @@ const formatClockLabel = (clock: UtcClockTime, now = new Date()) => {
 
 /** Human schedule lines (time only + weekly days — no one-off calendar date). */
 export const getScreeningScheduleLabels = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
 ) =>
   getScreeningClockTimes(screening)
     .map((clock) => {
       const timeLabel = formatClockLabel(clock, now);
-      return timeLabel ? `${CINEMA_WEEKLY_DAYS_LABEL} · ${timeLabel}` : null;
+      return timeLabel ? `${getScreeningWeeklyDaySummary(screening)} · ${timeLabel}` : null;
     })
     .filter((label): label is string => Boolean(label));
 
 export const formatScreeningSchedule = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
 ) => {
   const labels = getScreeningScheduleLabels(screening);
 
@@ -352,21 +440,22 @@ export const getCinemaFilmShowStatusLabel = (status: CinemaFilmShowStatus) => {
 
 /** True when this screening has a fixed weekly start time (shared theater timeline). */
 export const isFixedTimeScreening = (
-  screening?: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> | null,
+  screening?: CinemaWeeklyScreeningSchedule | null,
 ) => Boolean(screening && getScreeningClockTimes(screening).length);
 
 /** True when today (UTC) is a cinema screening day and this row has showtimes. */
 export const isScreeningDayToday = (
-  screening?: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> | null,
+  screening?: CinemaWeeklyScreeningSchedule | null,
   now = new Date(),
-) => Boolean(screening && isFixedTimeScreening(screening) && isCinemaWeeklyScreeningDay(now));
+) =>
+  Boolean(screening && isFixedTimeScreening(screening) && isCinemaWeeklyScreeningDay(now, screening));
 
 /**
  * Seconds into the currently live showtime for synchronized theater playback.
  * Returns null when unscheduled, between showtimes, or outside every show window.
  */
 export const getScreeningPlaybackOffsetSeconds = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
   mediaDurationSeconds?: number | null,
 ): number | null => {
@@ -384,7 +473,7 @@ export const getScreeningPlaybackOffsetSeconds = (
  * Returns null when no showtime is live right now.
  */
 export const getSyncedPlaybackSeconds = (
-  screening: Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'>,
+  screening: CinemaWeeklyScreeningSchedule,
   mediaDurationSeconds?: number | null,
   now = new Date(),
 ): number | null => {
@@ -408,26 +497,33 @@ export const getSyncedPlaybackSeconds = (
   return Math.min(offset, Math.max(0, end - 0.25));
 };
 
-export const getNextFilmScreening = (film: Pick<ICinemaFilm, 'screenings'>) => {
+export const getNextFilmScreening = (
+  film: Pick<ICinemaFilm, 'screenings'>,
+  now = new Date(),
+  mediaDurationSeconds?: number | null,
+) => {
   const screenings = film.screenings || [];
 
   if (!screenings.length) {
     return null;
   }
 
-  const now = new Date();
-  const nowShowing = screenings.find((screening) => getScreeningShowStatus(screening, now) === 'now');
+  const nowShowing = screenings.find(
+    (screening) => getScreeningShowStatus(screening, now, mediaDurationSeconds) === 'now',
+  );
   if (nowShowing) {
     return nowShowing;
   }
 
-  const upcoming = screenings.find((screening) => getScreeningShowStatus(screening, now) === 'upcoming');
+  const upcoming = screenings.find(
+    (screening) => getScreeningShowStatus(screening, now, mediaDurationSeconds) === 'upcoming',
+  );
   if (upcoming) {
     return upcoming;
   }
 
   const unscheduled = screenings.find(
-    (screening) => getScreeningShowStatus(screening, now) === 'unscheduled',
+    (screening) => getScreeningShowStatus(screening, now, mediaDurationSeconds) === 'unscheduled',
   );
   if (unscheduled) {
     return unscheduled;
@@ -438,24 +534,42 @@ export const getNextFilmScreening = (film: Pick<ICinemaFilm, 'screenings'>) => {
 
 export const getDefaultScreening = (
   screenings: ICinemaFilmScreeningWithFilm[],
+  now = new Date(),
+  mediaDurationByFilmId?: Map<number, number> | Record<number, number | null | undefined>,
 ) => {
   if (!screenings.length) {
     return null;
   }
 
-  const now = new Date();
-  const nowShowing = screenings.find((screening) => getScreeningShowStatus(screening, now) === 'now');
+  const durationFor = (filmId: number) => {
+    if (!mediaDurationByFilmId) return null;
+    if (mediaDurationByFilmId instanceof Map) {
+      return mediaDurationByFilmId.get(filmId) ?? null;
+    }
+    return mediaDurationByFilmId[filmId] ?? null;
+  };
+
+  const nowShowing = screenings.find(
+    (screening) =>
+      getScreeningShowStatus(screening, now, durationFor(Number(screening.filmId))) === 'now',
+  );
   if (nowShowing) {
     return nowShowing;
   }
 
-  const upcoming = screenings.find((screening) => getScreeningShowStatus(screening, now) === 'upcoming');
+  const upcoming = screenings.find(
+    (screening) =>
+      getScreeningShowStatus(screening, now, durationFor(Number(screening.filmId))) ===
+      'upcoming',
+  );
   if (upcoming) {
     return upcoming;
   }
 
   const unscheduled = screenings.find(
-    (screening) => getScreeningShowStatus(screening, now) === 'unscheduled',
+    (screening) =>
+      getScreeningShowStatus(screening, now, durationFor(Number(screening.filmId))) ===
+      'unscheduled',
   );
   if (unscheduled) {
     return unscheduled;

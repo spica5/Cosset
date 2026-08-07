@@ -16,6 +16,9 @@ import { alpha as hexAlpha } from '@mui/material/styles';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
+
 import { CONFIG } from 'src/config-global';
 
 import { useGetCurrentUser } from 'src/actions/user';
@@ -235,7 +238,13 @@ export function UpgradeBlock({ sx, ...other }: StackProps) {
           Power up Productivity!
         </Box>
 
-        <Button variant="contained" size="small" color="warning">
+        <Button
+          component={RouterLink}
+          href={paths.dashboard.settings.account}
+          variant="contained"
+          size="small"
+          color="warning"
+        >
           Upgrade to Pro
         </Button>
       </Stack>

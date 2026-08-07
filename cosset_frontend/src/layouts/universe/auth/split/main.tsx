@@ -24,6 +24,7 @@ export function Main({
         display: 'flex',
         flex: '1 1 auto',
         flexDirection: 'column',
+        backgroundColor: 'background.default',
         [theme.breakpoints.up(layoutQuery)]: {
           flexDirection: 'row',
         },
@@ -57,6 +58,8 @@ export function Content({
         display: 'flex',
         flexDirection: 'column',
         maxWidth: 'var(--layout-auth-content-width)',
+        position: 'relative',
+        zIndex: 1,
         [theme.breakpoints.up(layoutQuery)]: {
           py: 8,
           px: 8,

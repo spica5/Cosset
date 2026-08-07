@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { getUserById, updateUser } from '@/models/users';
+import { getCustomerBillingSummary } from '@/models/payments';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, response } from 'src/utils/response';
@@ -35,8 +36,19 @@ export async function GET(req: NextRequest) {
     }
 
     const { password: _password, ...safeUser } = user;
+    const billing = await getCustomerBillingSummary(user.id);
 
-    return response({ user: safeUser }, STATUS.OK);
+    return response(
+      {
+        user: {
+          ...safeUser,
+          // Plan remains on the user record; all other billing fields come from payments.
+          plan: billing.plan || safeUser.plan || 'FREE',
+          billing,
+        },
+      },
+      STATUS.OK,
+    );
   } catch (error) {
     console.error('[Auth - me]: ', error);
     return response('Internal server error', STATUS.ERROR);

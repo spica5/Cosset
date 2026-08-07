@@ -15,6 +15,8 @@ export interface CinemaFilm {
   description?: string | null;
   posterImage?: string | null;
   videoUrl: string;
+  /** Film length in seconds (used for live showtime windows). */
+  duration?: number | null;
   order?: number | null;
   isPublic?: number | null;
   createdAt?: Date | null;
@@ -34,6 +36,7 @@ const SELECT_COLUMNS = `
   description,
   poster_image as "posterImage",
   video_url as "videoUrl",
+  duration,
   "order",
   is_public as "isPublic",
   created_at as "createdAt",
@@ -61,6 +64,15 @@ const normalizeNullableInteger = (value: unknown): number | null => {
   }
 
   return parseInteger(value);
+};
+
+/** Duration is stored as whole seconds (> 0). */
+const normalizeDurationSeconds = (value: unknown): number | null => {
+  const parsed = normalizeNullableInteger(value);
+  if (parsed === null || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 };
 
 export const normalizeCinemaCategory = (value: unknown): CinemaFilmCategory | null => {
@@ -127,26 +139,9 @@ const ensureTable = async (): Promise<void> => {
 
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS show_at TIMESTAMP`);
       await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS show_at2 TIMESTAMP`);
-      await executeQuery(
-        `
-          DO $$
-          BEGIN
-            IF EXISTS (
-              SELECT 1
-              FROM information_schema.columns
-              WHERE table_name = '${TABLE_NAME}'
-                AND column_name = 'show_end_at'
-            ) THEN
-              EXECUTE '
-                UPDATE ${TABLE_NAME}
-                SET show_at2 = COALESCE(show_at2, show_end_at)
-                WHERE show_at2 IS NULL
-                  AND show_end_at IS NOT NULL
-              ';
-            END IF;
-          END $$;
-        `,
-      );
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS duration INTEGER`);
+      // Legacy show_end_at (timestamp) is replaced by duration (seconds).
+      await executeQuery(`ALTER TABLE ${TABLE_NAME} DROP COLUMN IF EXISTS show_end_at`);
       await executeQuery(
         `UPDATE ${TABLE_NAME} SET category = 'classic' WHERE LOWER(TRIM(category)) = 'drama'`,
       );
@@ -308,12 +303,13 @@ export async function createCinemaFilm(
           description,
           poster_image,
           video_url,
+          duration,
           "order",
           is_public,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
         RETURNING ${SELECT_COLUMNS}
       `,
       [
@@ -325,6 +321,7 @@ export async function createCinemaFilm(
         film.description ?? null,
         film.posterImage ?? null,
         film.videoUrl,
+        normalizeDurationSeconds(film.duration),
         normalizeNullableInteger(film.order),
         normalizeIsPublic(film.isPublic),
       ],
@@ -418,6 +415,12 @@ export async function updateCinemaFilm(
     if (updates.videoUrl !== undefined) {
       fields.push(`video_url = $${paramIndex}`);
       values.push(updates.videoUrl);
+      paramIndex += 1;
+    }
+
+    if (updates.duration !== undefined) {
+      fields.push(`duration = $${paramIndex}`);
+      values.push(normalizeDurationSeconds(updates.duration));
       paramIndex += 1;
     }
 
