@@ -313,7 +313,7 @@ export function OverviewUpcomingCinema() {
         <Stack spacing={0.35}>
           <Typography variant="h5">Upcoming cinema</Typography>
           <Typography variant="body2" color="text.secondary">
-            Live and upcoming screenings across Classic & Social Psychology and Action & Genre rooms.
+            Live and upcoming screenings across Emotion & Adventure and Mystery & Fantasy rooms.
           </Typography>
         </Stack>
 

@@ -18,7 +18,12 @@ type Props = {
   height?: { xs?: number; md?: number };
   showQuote?: boolean;
   showTitles?: boolean;
+  showEyebrow?: boolean;
   footer?: ReactNode;
+  /** Override banner (e.g. original hub intro on community/cinema). */
+  bannerImage?: string;
+  headline?: string;
+  subtitle?: string;
 };
 
 export function CinemaTheaterIntro({
@@ -26,9 +31,16 @@ export function CinemaTheaterIntro({
   height = { xs: 320, md: 480 },
   showQuote = true,
   showTitles = true,
+  showEyebrow = true,
   footer,
+  bannerImage,
+  headline,
+  subtitle,
 }: Props) {
   const accent = category.accent || CINEMA_GOLD;
+  const imageSrc = bannerImage || category.bannerImage;
+  const title = headline ?? category.headline;
+  const description = subtitle ?? category.subtitle;
 
   return (
     <Box
@@ -44,7 +56,7 @@ export function CinemaTheaterIntro({
     >
       <Box
         component="img"
-        src={category.bannerImage}
+        src={imageSrc}
         alt=""
         sx={{
           position: 'absolute',
@@ -81,19 +93,21 @@ export function CinemaTheaterIntro({
             zIndex: 1,
           }}
         >
-          <Typography
-            sx={{
-              fontFamily: category.fontFamily || CINEMA_SERIF,
-              color: accent,
-              letterSpacing: category.id === 'genre' ? '0.34em' : '0.28em',
-              fontSize: { xs: '0.72rem', md: '0.88rem' },
-              textTransform: 'uppercase',
-              fontWeight: 600,
-              textShadow: '0 2px 12px rgba(0,0,0,0.55)',
-            }}
-          >
-            {category.eyebrow}
-          </Typography>
+          {showEyebrow ? (
+            <Typography
+              sx={{
+                fontFamily: category.fontFamily || CINEMA_SERIF,
+                color: accent,
+                letterSpacing: category.id === 'genre' ? '0.34em' : '0.28em',
+                fontSize: { xs: '0.72rem', md: '0.88rem' },
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                textShadow: '0 2px 12px rgba(0,0,0,0.55)',
+              }}
+            >
+              {category.eyebrow}
+            </Typography>
+          ) : null}
 
           <Typography
             sx={{
@@ -111,7 +125,7 @@ export function CinemaTheaterIntro({
                   : '0 4px 22px rgba(0,0,0,0.65)',
             }}
           >
-            {category.headline}
+            {title}
           </Typography>
 
           <Typography
@@ -123,7 +137,7 @@ export function CinemaTheaterIntro({
               maxWidth: 640,
             }}
           >
-            {category.subtitle}
+            {description}
           </Typography>
         </Stack>
       ) : null}

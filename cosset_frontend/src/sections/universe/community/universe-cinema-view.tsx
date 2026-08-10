@@ -48,8 +48,9 @@ import { CinemaSeatMapDialog } from 'src/sections/dashboard/cinema/cinema-seat-m
 import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/dashboard/cinema/cinema-theater-theme';
 import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
 import {
-  isCinemaCategory,
   getCinemaCategory,
+  CINEMA_CATEGORIES,
+  resolveCinemaCategoryId,
   type CinemaCategory,
 } from 'src/sections/dashboard/cinema/cinema-categories';
 import {
@@ -103,8 +104,8 @@ type Props = {
 };
 
 const CATEGORY_TAGS: Record<CinemaCategory, string> = {
-  classic: 'Classic • Social Psychology',
-  genre: 'Action • Horror • Science • Detective',
+  classic: 'Action • Adventure • Comedy • Drama • Romance • Animation',
+  genre: 'Horror • Thriller • Mystery • Crime • Sci-Fi • Fantasy',
 };
 
 async function resolveMediaUrl(mediaUrl?: string | null) {
@@ -498,8 +499,21 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const { user, authenticated } = useAuthContext();
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const category = getCinemaCategory(categoryId);
-  const resolvedCategory = category && isCinemaCategory(categoryId) ? category.id : null;
+  const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
+    () => resolveCinemaCategoryId(categoryId) || 'classic',
+  );
+
+  useEffect(() => {
+    const nextCategory = resolveCinemaCategoryId(categoryId);
+    if (nextCategory && nextCategory !== activeCategoryId) {
+      setActiveCategoryId(nextCategory);
+    }
+    // Only sync when the route category changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId]);
+
+  const category = getCinemaCategory(activeCategoryId);
+  const resolvedCategory = category?.id ?? null;
   const canFetch = Boolean(resolvedCategory);
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -1325,6 +1339,59 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     setIsPlaying(false);
   };
 
+  const handleSelectCinemaTab = useCallback(
+    async (nextCategoryId: CinemaCategory) => {
+      if (nextCategoryId === activeCategoryId) return;
+
+      if (authenticated && user?.id && catalogOwnerId && resolvedCategory) {
+        const uid = String(user.id);
+        setParticipants((prev) => removeParticipant(prev, uid));
+        try {
+          await leaveCinemaPresence(catalogOwnerId, resolvedCategory);
+        } catch {
+          // still switch halls
+        }
+      }
+
+      const node = videoRef.current;
+      if (node) {
+        node.pause();
+        node.currentTime = 0;
+      }
+
+      setIsPlaying(false);
+      setParticipants([]);
+      setActiveFilmId(null);
+      setSelectedSeatIds([]);
+      setSeatMapOpen(false);
+      setSeatMapMode('select');
+      setViewingReservation(null);
+      setScreeningUnlocked(false);
+      setPaymentOpen(false);
+      setPaymentQuote(null);
+      setResolvedVideoUrl('');
+      setActiveCategoryId(nextCategoryId);
+
+      const params = new URLSearchParams();
+      if (ownerId) {
+        params.set('ownerId', String(ownerId));
+      }
+      const query = params.toString();
+      router.replace(
+        `${paths.dashboard.community.cinema.view(nextCategoryId)}${query ? `?${query}` : ''}`,
+      );
+    },
+    [
+      activeCategoryId,
+      authenticated,
+      catalogOwnerId,
+      ownerId,
+      resolvedCategory,
+      router,
+      user?.id,
+    ],
+  );
+
   const handleSelectFilm = (filmId: number) => {
     if (filmId !== activeFilm?.id) {
       handleClosePlayer();
@@ -1440,12 +1507,12 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: { xs: '46%', sm: '44%', md: '42%' },
+            width: { xs: '34%', sm: '32%', md: '30%' },
             textAlign: 'center',
             fontFamily: CINEMA_SERIF,
             color: accent,
             fontWeight: 700,
-            fontSize: { xs: '0.72rem', sm: '0.95rem', md: '1.35rem' },
+            fontSize: { xs: '0.68rem', sm: '0.88rem', md: '1.2rem' },
             letterSpacing: { xs: '0.04em', md: '0.06em' },
             lineHeight: 1.2,
             textTransform: activeFilm ? 'none' : 'uppercase',
@@ -1467,6 +1534,57 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             flexShrink: 0,
           }}
         >
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{
+              p: 0.4,
+              borderRadius: 999,
+              bgcolor: 'rgba(0,0,0,0.4)',
+              border: `1px solid rgba(${category.accentRgb}, 0.28)`,
+              backdropFilter: 'blur(8px)',
+              maxWidth: { xs: 210, sm: 360, md: 440 },
+            }}
+          >
+            {CINEMA_CATEGORIES.map((item) => {
+              const selected = item.id === activeCategoryId;
+              return (
+                <Button
+                  key={item.id}
+                  type="button"
+                  size="small"
+                  onClick={() => handleSelectCinemaTab(item.id)}
+                  sx={{
+                    minWidth: 0,
+                    px: { xs: 1, sm: 1.25 },
+                    py: 0.55,
+                    borderRadius: 999,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: { xs: '0.68rem', sm: '0.75rem', md: '0.8rem' },
+                    lineHeight: 1.2,
+                    color: selected ? '#1A1208' : 'rgba(255,248,231,0.82)',
+                    bgcolor: selected ? item.accent : 'transparent',
+                    border: selected ? 'none' : '1px solid transparent',
+                    whiteSpace: 'nowrap',
+                    '&:hover': {
+                      bgcolor: selected ? item.accent : 'rgba(255,255,255,0.08)',
+                      opacity: selected ? 0.94 : 1,
+                    },
+                  }}
+                >
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    {item.title}
+                  </Box>
+                  <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                    {item.shortTitle}
+                  </Box>
+                </Button>
+              );
+            })}
+          </Stack>
+
           <Button
             type="button"
             onClick={handleLeaveCinema}
@@ -1494,6 +1612,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         <>
           <UniverseCinemaParticipants participants={participants} />
           <UniverseCinemaChat
+            key={`${catalogOwnerId}-${resolvedCategory}`}
             ownerCustomerId={catalogOwnerId}
             category={resolvedCategory}
             participants={participants}

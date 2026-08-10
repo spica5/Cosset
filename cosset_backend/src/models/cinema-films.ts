@@ -78,7 +78,7 @@ const normalizeDurationSeconds = (value: unknown): number | null => {
 export const normalizeCinemaCategory = (value: unknown): CinemaFilmCategory | null => {
   const normalized = String(value || '').trim().toLowerCase();
 
-  // Legacy "drama" room is folded into classic & social psychology.
+  // Legacy "drama" room is folded into Emotion & Adventure (classic).
   if (normalized === 'drama') {
     return 'classic';
   }

@@ -12,6 +12,8 @@ export type CinemaCategoryMeta = {
   shortTitle: string;
   description: string;
   tagline: string;
+  /** Short line under the hall title in hub tabs. */
+  tabSubtitle: string;
   chips: string[];
   icon: string;
   accent: string;
@@ -30,17 +32,18 @@ export type CinemaCategoryMeta = {
   bannerImage: string;
 };
 
-const CINEMA_BANNER_BASE = `${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner`;
+const CINEMA_BANNER_BASE = `${CONFIG.universe.assetsDir}/assets/images/cinema`;
 
 export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
   {
     id: 'classic',
-    title: 'Classic & Social Psychology',
-    shortTitle: 'Classic Cinema',
+    title: 'Emotion & Adventure',
+    shortTitle: 'Cinema 1',
     description:
-      'Timeless classics and social-psychology films that linger — character, culture, and the quiet truths between people.',
-    tagline: 'Golden-age stories and the human mind',
-    chips: ['Classic', 'Social psychology'],
+      'Stories that move the heart and spark the imagination — action, adventure, comedy, drama, romance, and animation.',
+    tagline: 'Action · Adventure · Comedy · Drama · Romance · Animation',
+    tabSubtitle: 'Cinema 1',
+    chips: ['Action', 'Adventure', 'Comedy', 'Drama', 'Romance', 'Animation'],
     icon: 'solar:clapperboard-play-bold',
     accent: '#C9A227',
     accentRgb: '201, 162, 39',
@@ -50,21 +53,23 @@ export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
     textColor: '#F5E6C8',
     mutedTextColor: 'rgba(245,230,200,0.7)',
     fontFamily: '"Times New Roman", Georgia, serif',
-    eyebrow: 'Classic Hall',
-    headline: 'Movies That Stay With You',
-    subtitle: 'Classics and social psychology — emotions that linger after the lights rise.',
+    eyebrow: 'Cinema 1',
+    headline: 'Emotion & Adventure',
+    subtitle:
+      'Action, adventure, comedy, drama, romance, and animation — films that stir feeling and take you somewhere new.',
     quote: 'We watch not to escape life, but for life not to escape us.',
-    carouselTitle: 'Playing in the classic hall',
-    bannerImage: `${CINEMA_BANNER_BASE}/intro.png`,
+    carouselTitle: 'Playing in Emotion & Adventure',
+    bannerImage: `${CINEMA_BANNER_BASE}/emotion_adventure.png`,
   },
   {
     id: 'genre',
-    title: 'Action & Genre Cinema',
-    shortTitle: 'Genre Cinema',
+    title: 'Mystery & Fantasy',
+    shortTitle: 'Cinema 2',
     description:
-      'Pulse-forward nights: action, horror, science fiction, detective mysteries, and edge-of-your-seat adventures.',
-    tagline: 'Action · Horror · Science · Detective',
-    chips: ['Action', 'Horror', 'Science', 'Detective'],
+      'Shadows, secrets, and other worlds — horror, thriller, mystery, crime, sci-fi, and fantasy.',
+    tagline: 'Horror · Thriller · Mystery · Crime · Sci-Fi · Fantasy',
+    tabSubtitle: 'Cinema 2',
+    chips: ['Horror', 'Thriller', 'Mystery', 'Crime', 'Sci-Fi', 'Fantasy'],
     icon: 'solar:atom-bold',
     accent: '#FF5A6A',
     accentRgb: '255, 90, 106',
@@ -74,12 +79,13 @@ export const CINEMA_CATEGORIES: CinemaCategoryMeta[] = [
     textColor: '#EAF2FF',
     mutedTextColor: 'rgba(234,242,255,0.68)',
     fontFamily: '"Segoe UI", Helvetica, Arial, sans-serif',
-    eyebrow: 'Genre Hall',
-    headline: 'Stories That Grip the Edge',
-    subtitle: 'Action, horror, science, and detective films that keep the room leaning forward.',
+    eyebrow: 'Cinema 2',
+    headline: 'Mystery & Fantasy',
+    subtitle:
+      'Horror, thriller, mystery, crime, sci-fi, and fantasy — films that keep the room leaning into the dark.',
     quote: 'Every genre is a different way of watching the same human heart.',
-    carouselTitle: 'Now playing in genre hall',
-    bannerImage: `${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner.png`,
+    carouselTitle: 'Playing in Mystery & Fantasy',
+    bannerImage: `${CINEMA_BANNER_BASE}/mystery_fantasy.png`,
   },
 ];
 
@@ -88,7 +94,7 @@ export function getCinemaCategory(id: string) {
     .trim()
     .toLowerCase();
 
-  // Legacy drama room maps into classic & social psychology.
+  // Legacy drama room maps into Emotion & Adventure (classic).
   if (normalized === 'drama') {
     return CINEMA_CATEGORIES.find((category) => category.id === 'classic') ?? null;
   }

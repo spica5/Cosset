@@ -3,7 +3,7 @@ import { CONFIG } from 'src/config-global';
 import { CinemaCategoryView } from 'src/sections/dashboard/cinema/view';
 import { getCinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
 
-export const metadata = { title: `Classic & Social Psychology - Cinema - ${CONFIG.appName}` };
+export const metadata = { title: `Emotion & Adventure - Cinema - ${CONFIG.appName}` };
 
 export default function Page() {
   const category = getCinemaCategory('classic');

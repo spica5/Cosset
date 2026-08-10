@@ -15,6 +15,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { CONFIG } from 'src/config-global';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { toast } from 'src/components/dashboard/snackbar';
@@ -34,13 +35,14 @@ import { CinemaFilmPosterCarousel } from '../cinema-film-poster-carousel';
 import {
   CINEMA_CATEGORIES,
   cinemaShellSx,
+  type CinemaCategory,
   type CinemaCategoryMeta,
 } from '../cinema-categories';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
 import { formatScreeningSchedule, getNextFilmScreening } from '../cinema-film-schedule';
 import { CinemaSeatMapDialog } from '../cinema-seat-map-dialog';
 import { CinemaTheaterIntro } from '../cinema-theater-intro';
-import { CINEMA_CREAM, CINEMA_SERIF, cinemaPageShellSx } from '../cinema-theater-theme';
+import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF, cinemaPageShellSx } from '../cinema-theater-theme';
 
 // ----------------------------------------------------------------------
 
@@ -413,6 +415,14 @@ export function CinemaHubView() {
   const { user } = useAuthContext();
   const viewerId = String(user?.id || '');
   const classicCategory = CINEMA_CATEGORIES[0];
+  const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
+    CINEMA_CATEGORIES[0]?.id || 'classic',
+  );
+
+  const activeCategory = useMemo(
+    () => CINEMA_CATEGORIES.find((item) => item.id === activeCategoryId) || CINEMA_CATEGORIES[0],
+    [activeCategoryId],
+  );
 
   return (
     <DashboardContent>
@@ -439,31 +449,186 @@ export function CinemaHubView() {
           />
 
           <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
-            <CinemaTheaterIntro category={classicCategory} height={{ xs: 320, md: 500 }} />
-
-            <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', px: 2 }}>
-              <Typography
-                sx={{
-                  fontFamily: CINEMA_SERIF,
-                  fontWeight: 700,
-                  fontSize: { xs: '1.35rem', md: '1.7rem' },
-                  color: CINEMA_CREAM,
-                }}
-              >
-                Cinema rooms
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(245,230,200,0.72)', maxWidth: 560 }}>
-                Two cinema halls: Classic & Social Psychology, and Action & Genre (action, horror,
-                science, detective). Reserve a screening, then enter the room when you are ready.
-              </Typography>
-            </Stack>
+            <CinemaTheaterIntro
+              category={classicCategory}
+              height={{ xs: 320, md: 500 }}
+              bannerImage={`${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner/intro.png`}
+              showEyebrow={false}
+              showQuote={false}
+              headline="Movies That Stay With You."
+              subtitle="We watch not to escape life, but for life not to escape us."
+              footer={
+                <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center' }}>
+                  <Typography
+                    sx={{
+                      fontFamily: CINEMA_SERIF,
+                      fontWeight: 700,
+                      fontSize: { xs: '1.35rem', md: '1.7rem' },
+                      color: CINEMA_CREAM,
+                      textShadow: '0 2px 12px rgba(0,0,0,0.65)',
+                    }}
+                  >
+                    Cinema rooms
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(245,230,200,0.82)',
+                      maxWidth: 560,
+                      textShadow: '0 2px 10px rgba(0,0,0,0.6)',
+                    }}
+                  >
+                    Two cinema halls: Emotion & Adventure (action, adventure, comedy, drama,
+                    romance, animation), and Mystery & Fantasy (horror, thriller, mystery, crime,
+                    sci-fi, fantasy). Reserve a screening, then enter the room when you are ready.
+                  </Typography>
+                </Stack>
+              }
+            />
           </Stack>
         </Box>
 
-        <Stack spacing={3}>
-          {CINEMA_CATEGORIES.map((category) => (
-            <CinemaCategoryRoom key={category.id} category={category} viewerId={viewerId} />
-          ))}
+        <Stack spacing={2}>
+          <Stack spacing={1.5} sx={{ width: 1 }}>
+            <Typography
+              sx={{
+                fontFamily: CINEMA_SERIF,
+                fontWeight: 700,
+                fontSize: { xs: '0.78rem', sm: '0.88rem' },
+                color: CINEMA_GOLD,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Choose Your Cinema Room
+            </Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: { xs: 1.25, sm: 1.5 },
+                width: 1,
+              }}
+            >
+              {CINEMA_CATEGORIES.map((item) => {
+                const selected = item.id === activeCategoryId;
+                const tabIcon =
+                  item.id === 'genre' ? 'solar:stars-bold' : 'solar:videocamera-record-bold';
+                const accent = selected ? item.accent : 'rgba(170,170,170,0.72)';
+                const muted = selected ? 'rgba(245,230,200,0.78)' : 'rgba(170,170,170,0.62)';
+
+                return (
+                  <Button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveCategoryId(item.id)}
+                    sx={{
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      gap: { xs: 1.5, sm: 2 },
+                      width: 1,
+                      minHeight: { xs: 84, sm: 96 },
+                      height: 'auto',
+                      px: { xs: 2, sm: 2.5 },
+                      py: { xs: 1.75, sm: 2 },
+                      borderRadius: { xs: 2, md: 3 },
+                      textTransform: 'none',
+                      textAlign: 'left',
+                      color: accent,
+                      bgcolor: selected ? 'rgba(18,14,10,0.92)' : 'rgba(12,12,12,0.72)',
+                      border: selected
+                        ? `1px solid ${item.accent}`
+                        : '1px solid rgba(140,140,140,0.35)',
+                      boxShadow: selected
+                        ? `0 0 0 1px rgba(${item.accentRgb}, 0.18), 0 0 28px rgba(${item.accentRgb}, 0.22), inset 0 0 40px rgba(${item.accentRgb}, 0.08)`
+                        : 'none',
+                      overflow: 'hidden',
+                      '&:hover': {
+                        bgcolor: selected ? 'rgba(22,16,10,0.96)' : 'rgba(20,20,20,0.85)',
+                        borderColor: selected ? item.accent : 'rgba(170,170,170,0.5)',
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: { xs: 44, sm: 52 },
+                        height: { xs: 44, sm: 52 },
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: accent,
+                        border: `1.5px solid ${
+                          selected ? `rgba(${item.accentRgb}, 0.85)` : 'rgba(140,140,140,0.45)'
+                        }`,
+                        bgcolor: selected
+                          ? `rgba(${item.accentRgb}, 0.1)`
+                          : 'rgba(255,255,255,0.03)',
+                        boxShadow: selected
+                          ? `0 0 16px rgba(${item.accentRgb}, 0.25)`
+                          : 'none',
+                      }}
+                    >
+                      <Iconify icon={tabIcon} width={22} />
+                    </Box>
+
+                    <Stack spacing={0.35} alignItems="flex-start" sx={{ minWidth: 0, flex: 1, pb: 0.75 }}>
+                      <Typography
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: { xs: '0.78rem', sm: '0.95rem', md: '1.05rem' },
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: accent,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontWeight: 400,
+                          fontSize: { xs: '0.75rem', sm: '0.85rem' },
+                          color: muted,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {item.tabSubtitle}
+                      </Typography>
+                    </Stack>
+
+                    {selected ? (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: '50%',
+                          bottom: 10,
+                          transform: 'translateX(-50%)',
+                          width: 56,
+                          height: 3,
+                          borderRadius: 999,
+                          bgcolor: item.accent,
+                          boxShadow: `0 0 10px rgba(${item.accentRgb}, 0.8)`,
+                        }}
+                      />
+                    ) : null}
+                  </Button>
+                );
+              })}
+            </Box>
+          </Stack>
+
+          {activeCategory ? (
+            <CinemaCategoryRoom
+              key={activeCategory.id}
+              category={activeCategory}
+              viewerId={viewerId}
+            />
+          ) : null}
         </Stack>
       </Stack>
     </DashboardContent>
