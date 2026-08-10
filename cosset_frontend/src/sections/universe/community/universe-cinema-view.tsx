@@ -1450,101 +1450,185 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         sx={{
           position: 'relative',
           zIndex: 3,
-          px: { xs: 1.5, sm: 2, md: 4 },
-          py: { xs: 1.25, md: 2 },
+          px: { xs: 1.25, sm: 2, md: 3 },
+          py: { xs: 1, md: 1 },
           borderBottom: `1px solid rgba(${category.accentRgb}, 0.22)`,
           bgcolor: 'rgba(0,0,0,0.35)',
           backdropFilter: 'blur(10px)',
-          minHeight: { xs: 56, md: 72 },
-          display: 'flex',
-          alignItems: 'center',
         }}
       >
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{
-            minWidth: 0,
-            maxWidth: { xs: '42%', sm: '34%', md: '30%' },
-            zIndex: 1,
-            flexShrink: 1,
-          }}
-        >
-          <Iconify icon={category.icon} width={22} sx={{ color: accent, flexShrink: 0 }} />
-          <Box sx={{ minWidth: 0 }}>
+        <Stack spacing={{ xs: 1, md: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 1, sm: 1.25 },
+              minHeight: { xs: 44, md: 52 },
+            }}
+          >
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{
+                minWidth: 0,
+                flex: { xs: '1 1 auto', md: '0 1 30%' },
+                maxWidth: { md: '30%' },
+                zIndex: 1,
+              }}
+            >
+              <Iconify icon={category.icon} width={22} sx={{ color: accent, flexShrink: 0 }} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  noWrap
+                  sx={{
+                    fontFamily: CINEMA_SERIF,
+                    fontWeight: 700,
+                    fontSize: { xs: '0.88rem', sm: '1.05rem' },
+                    lineHeight: 1.25,
+                    color: accent,
+                  }}
+                >
+                  <Box component="span" sx={{ display: { xs: 'inline', sm: 'inline' } }}>
+                    {category.title}
+                  </Box>
+                </Typography>
+                <Typography
+                  variant="overline"
+                  noWrap
+                  sx={{
+                    display: { xs: 'none', md: 'block' },
+                    color: 'rgba(245,230,200,0.58)',
+                    letterSpacing: '0.18em',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {category.tagline}
+                </Typography>
+              </Box>
+            </Stack>
+
             <Typography
               noWrap
               sx={{
+                display: { xs: 'none', md: 'block' },
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '30%',
+                textAlign: 'center',
                 fontFamily: CINEMA_SERIF,
-                fontWeight: 700,
-                fontSize: { xs: '0.92rem', sm: '1.05rem' },
-                lineHeight: 1.25,
                 color: accent,
-              }}
-            >
-              {category.title}
-            </Typography>
-            <Typography
-              variant="overline"
-              noWrap
-              sx={{
-                display: { xs: 'none', sm: 'block' },
-                color: 'rgba(245,230,200,0.58)',
-                letterSpacing: '0.18em',
+                fontWeight: 700,
+                fontSize: '1.2rem',
+                letterSpacing: '0.06em',
                 lineHeight: 1.2,
+                textTransform: activeFilm ? 'none' : 'uppercase',
+                pointerEvents: 'none',
+                px: 1,
               }}
             >
-              {category.tagline}
+              {activeFilm?.title || category.headline}
             </Typography>
+
+            <Stack
+              direction="row"
+              spacing={{ xs: 0.75, sm: 1 }}
+              alignItems="center"
+              sx={{
+                ml: 'auto',
+                justifyContent: 'flex-end',
+                zIndex: 1,
+                flexShrink: 0,
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="center"
+                sx={{
+                  display: { xs: 'none', sm: 'flex' },
+                  p: 0.4,
+                  borderRadius: 999,
+                  bgcolor: 'rgba(0,0,0,0.4)',
+                  border: `1px solid rgba(${category.accentRgb}, 0.28)`,
+                  backdropFilter: 'blur(8px)',
+                  maxWidth: { sm: 360, md: 440 },
+                }}
+              >
+                {CINEMA_CATEGORIES.map((item) => {
+                  const selected = item.id === activeCategoryId;
+                  return (
+                    <Button
+                      key={item.id}
+                      type="button"
+                      size="small"
+                      onClick={() => handleSelectCinemaTab(item.id)}
+                      sx={{
+                        minWidth: 0,
+                        px: { sm: 1.25, md: 1.5 },
+                        py: 0.55,
+                        borderRadius: 999,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: { sm: '0.75rem', md: '0.8rem' },
+                        lineHeight: 1.2,
+                        color: selected ? '#1A1208' : 'rgba(255,248,231,0.82)',
+                        bgcolor: selected ? item.accent : 'transparent',
+                        border: selected ? 'none' : '1px solid transparent',
+                        whiteSpace: 'nowrap',
+                        '&:hover': {
+                          bgcolor: selected ? item.accent : 'rgba(255,255,255,0.08)',
+                          opacity: selected ? 0.94 : 1,
+                        },
+                      }}
+                    >
+                      {item.title}
+                    </Button>
+                  );
+                })}
+              </Stack>
+
+              <Button
+                type="button"
+                onClick={handleLeaveCinema}
+                startIcon={<Iconify icon="solar:logout-2-outline" width={18} />}
+                sx={{
+                  color: '#FFF8E7',
+                  bgcolor: 'rgba(0,0,0,0.45)',
+                  border: '1px solid rgba(212,176,90,0.28)',
+                  backdropFilter: 'blur(8px)',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  minWidth: { xs: 0, sm: 88 },
+                  px: { xs: 1.1, sm: 1.5 },
+                  fontSize: { xs: '0.72rem', sm: '0.8rem' },
+                  '& .MuiButton-startIcon': {
+                    mr: { xs: 0.5, sm: 0.75 },
+                  },
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
+                }}
+                disabled={authenticated ? !isPresent : false}
+              >
+                Exit
+              </Button>
+            </Stack>
           </Box>
-        </Stack>
 
-        <Typography
-          noWrap
-          sx={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: { xs: '34%', sm: '32%', md: '30%' },
-            textAlign: 'center',
-            fontFamily: CINEMA_SERIF,
-            color: accent,
-            fontWeight: 700,
-            fontSize: { xs: '0.68rem', sm: '0.88rem', md: '1.2rem' },
-            letterSpacing: { xs: '0.04em', md: '0.06em' },
-            lineHeight: 1.2,
-            textTransform: activeFilm ? 'none' : 'uppercase',
-            pointerEvents: 'none',
-            px: 1,
-          }}
-        >
-          {activeFilm?.title || category.headline}
-        </Typography>
-
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{
-            ml: 'auto',
-            justifyContent: 'flex-end',
-            zIndex: 1,
-            flexShrink: 0,
-          }}
-        >
           <Stack
             direction="row"
             spacing={0.75}
             alignItems="center"
+            justifyContent="center"
             sx={{
+              display: { xs: 'flex', sm: 'none' },
+              width: 1,
               p: 0.4,
               borderRadius: 999,
               bgcolor: 'rgba(0,0,0,0.4)',
               border: `1px solid rgba(${category.accentRgb}, 0.28)`,
               backdropFilter: 'blur(8px)',
-              maxWidth: { xs: 210, sm: 360, md: 440 },
             }}
           >
             {CINEMA_CATEGORIES.map((item) => {
@@ -1556,13 +1640,14 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   size="small"
                   onClick={() => handleSelectCinemaTab(item.id)}
                   sx={{
+                    flex: 1,
                     minWidth: 0,
-                    px: { xs: 1, sm: 1.25 },
-                    py: 0.55,
+                    px: 1,
+                    py: 0.65,
                     borderRadius: 999,
                     textTransform: 'none',
                     fontWeight: 700,
-                    fontSize: { xs: '0.68rem', sm: '0.75rem', md: '0.8rem' },
+                    fontSize: '0.72rem',
                     lineHeight: 1.2,
                     color: selected ? '#1A1208' : 'rgba(255,248,231,0.82)',
                     bgcolor: selected ? item.accent : 'transparent',
@@ -1574,37 +1659,30 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     },
                   }}
                 >
-                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                    {item.title}
-                  </Box>
-                  <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-                    {item.shortTitle}
-                  </Box>
+                  {item.shortTitle}
                 </Button>
               );
             })}
           </Stack>
 
-          <Button
-            type="button"
-            onClick={handleLeaveCinema}
-            startIcon={<Iconify icon="solar:logout-2-outline" width={18} />}
-            sx={{
-              color: '#FFF8E7',
-              bgcolor: 'rgba(0,0,0,0.45)',
-              border: '1px solid rgba(212,176,90,0.28)',
-              backdropFilter: 'blur(8px)',
-              textTransform: 'none',
-              fontWeight: 600,
-              minWidth: { xs: 72, sm: 88 },
-              px: { xs: 1, sm: 1.5 },
-              fontSize: { xs: '0.72rem', sm: '0.8rem' },
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
-            }}
-            disabled={authenticated ? !isPresent : false}
-          >
-            Exit
-          </Button>
+          {activeFilm?.title ? (
+            <Typography
+              noWrap
+              sx={{
+                display: { xs: 'block', md: 'none' },
+                textAlign: 'center',
+                fontFamily: CINEMA_SERIF,
+                color: accent,
+                fontWeight: 700,
+                fontSize: { xs: '0.82rem', sm: '0.95rem' },
+                letterSpacing: '0.03em',
+                lineHeight: 1.25,
+                px: 0.5,
+              }}
+            >
+              {activeFilm.title}
+            </Typography>
+          ) : null}
         </Stack>
       </Box>
 
@@ -1909,7 +1987,19 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                           bgcolor: accent,
                           color: '#1A1208',
                           fontWeight: 800,
-                          px: 2.5,
+                          px: { xs: 1.5, sm: 2.5 },
+                          py: { xs: 1, sm: 0.85 },
+                          maxWidth: 1,
+                          whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                          height: 'auto',
+                          minHeight: 36,
+                          lineHeight: 1.25,
+                          fontSize: { xs: '0.72rem', sm: '0.875rem' },
+                          textAlign: 'center',
+                          '& .MuiButton-endIcon': {
+                            ml: { xs: 0.75, sm: 1 },
+                            flexShrink: 0,
+                          },
                           '&:hover': { bgcolor: accent, opacity: 0.92 },
                         }}
                       >
@@ -1932,7 +2022,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                                 <Box component="span" sx={{ color: 'info.dark' }}>
                                   {localLabel}
                                 </Box>
-                                ({utcLabel} UTC)
+                                <Box
+                                  component="span"
+                                  sx={{ display: { xs: 'inline', sm: 'inline' } }}
+                                >
+                                  {' '}
+                                  ({utcLabel} UTC)
+                                </Box>
                               </>
                             );
                           }
