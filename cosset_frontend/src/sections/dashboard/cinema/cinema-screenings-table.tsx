@@ -31,6 +31,7 @@ import {
   getScreeningShowStatus,
   getScreeningScheduleLabels,
   getCinemaFilmShowStatusLabel,
+  isCinemaPreviewScreening,
 } from './cinema-film-schedule';
 
 import type { CinemaCategoryMeta } from './cinema-categories';
@@ -239,6 +240,7 @@ export function CinemaScreeningsTable({
                 const status = getScreeningShowStatus(screening, scheduleNow);
                 const statusLabel = getCinemaFilmShowStatusLabel(status);
                 const showTimeLabels = getScreeningScheduleLabels(screening);
+                const isPreview = isCinemaPreviewScreening(screening);
 
                 return (
                   <TableRow
@@ -274,31 +276,49 @@ export function CinemaScreeningsTable({
                     </TableCell>
 
                     <TableCell sx={bodyCellSx}>
-                      {statusLabel ? (
-                        <Chip
-                          size="small"
-                          label={statusLabel}
-                          color={isBanner ? 'default' : status === 'now' ? 'success' : status === 'upcoming' ? 'info' : 'default'}
-                          variant={status === 'past' ? 'outlined' : 'filled'}
-                          sx={{
-                            fontWeight: 700,
-                            ...(isBanner
-                              ? {
-                                  color: 'common.white',
-                                  bgcolor:
-                                    status === 'now'
-                                      ? 'rgba(76, 175, 80, 0.24)'
-                                      : status === 'upcoming'
-                                        ? 'rgba(33, 150, 243, 0.24)'
-                                        : 'rgba(255,255,255,0.08)',
-                                  borderColor: 'rgba(255,255,255,0.2)',
-                                }
-                              : {}),
-                          }}
-                        />
-                      ) : (
-                        '—'
-                      )}
+                      <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" alignItems="center">
+                        {statusLabel ? (
+                          <Chip
+                            size="small"
+                            label={statusLabel}
+                            color={isBanner ? 'default' : status === 'now' ? 'success' : status === 'upcoming' ? 'info' : 'default'}
+                            variant={status === 'past' ? 'outlined' : 'filled'}
+                            sx={{
+                              fontWeight: 700,
+                              ...(isBanner
+                                ? {
+                                    color: 'common.white',
+                                    bgcolor:
+                                      status === 'now'
+                                        ? 'rgba(76, 175, 80, 0.24)'
+                                        : status === 'upcoming'
+                                          ? 'rgba(33, 150, 243, 0.24)'
+                                          : 'rgba(255,255,255,0.08)',
+                                    borderColor: 'rgba(255,255,255,0.2)',
+                                  }
+                                : {}),
+                            }}
+                          />
+                        ) : null}
+                        {isPreview ? (
+                          <Chip
+                            size="small"
+                            label="Preview"
+                            color={isBanner ? 'default' : 'secondary'}
+                            sx={{
+                              fontWeight: 700,
+                              ...(isBanner
+                                ? {
+                                    color: 'common.white',
+                                    bgcolor: 'rgba(156, 39, 176, 0.35)',
+                                    borderColor: 'rgba(255,255,255,0.2)',
+                                  }
+                                : {}),
+                            }}
+                          />
+                        ) : null}
+                        {!statusLabel && !isPreview ? '—' : null}
+                      </Stack>
                     </TableCell>
 
                     {canManage ? (

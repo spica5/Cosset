@@ -94,6 +94,59 @@ export function CommentInput({
           onChange={(event) => onChange(event.target.value)}
           disabled={disabled || !authenticated || submitting}
           onKeyDown={handleKeyDown}
+          autoComplete="off"
+          inputProps={{
+            autoComplete: 'off',
+            'data-form-type': 'other',
+          }}
+          sx={{
+            '& .MuiInputBase-root': {
+              color: 'inherit',
+              bgcolor: 'transparent',
+            },
+            '& .MuiInputBase-input': {
+              color: 'inherit',
+              WebkitTextFillColor: 'currentColor',
+              caretColor: 'currentColor',
+              transition: 'background-color 99999s ease-out 0s',
+            },
+            '& .MuiInputBase-input::placeholder': {
+              color: 'inherit',
+              opacity: 0.55,
+            },
+            '& .MuiInputBase-input:-webkit-autofill': {
+              WebkitBoxShadow: '0 0 0 1000px transparent inset',
+              boxShadow: '0 0 0 1000px transparent inset',
+              WebkitTextFillColor: 'currentColor',
+              caretColor: 'currentColor',
+              transition: 'background-color 99999s ease-out 0s',
+            },
+            '& .MuiInputBase-input:-webkit-autofill:hover': {
+              WebkitBoxShadow: '0 0 0 1000px transparent inset',
+              boxShadow: '0 0 0 1000px transparent inset',
+              WebkitTextFillColor: 'currentColor',
+            },
+            '& .MuiInputBase-input:-webkit-autofill:focus': {
+              WebkitBoxShadow: '0 0 0 1000px transparent inset',
+              boxShadow: '0 0 0 1000px transparent inset',
+              WebkitTextFillColor: 'currentColor',
+            },
+            '& .MuiInputBase-input:-webkit-autofill:active': {
+              WebkitBoxShadow: '0 0 0 1000px transparent inset',
+              boxShadow: '0 0 0 1000px transparent inset',
+              WebkitTextFillColor: 'currentColor',
+            },
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'currentColor',
+              opacity: 0.35,
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              opacity: 0.5,
+            },
+            '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+              opacity: 0.7,
+            },
+          }}
         />
 
         <Button

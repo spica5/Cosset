@@ -23,6 +23,7 @@ import {
   getScreeningShowStatus,
   getScreeningScheduleLabels,
   getCinemaFilmShowStatusLabel,
+  isCinemaPreviewScreening,
 } from './cinema-film-schedule';
 
 // ----------------------------------------------------------------------
@@ -64,6 +65,7 @@ export function CinemaPosterCard({
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
   const showStatusLabel = getCinemaFilmShowStatusLabel(showStatus);
   const showScheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
+  const isPreview = isCinemaPreviewScreening(nextScreening);
 
   useEffect(() => {
     let mounted = true;
@@ -148,22 +150,41 @@ export function CinemaPosterCard({
             </Stack>
           )}
 
-          {showScheduleOverlay && showStatusLabel ? (
-            <Chip
-              size="small"
-              label={showStatusLabel}
-              sx={{
-                position: 'absolute',
-                top: 8,
-                left: 8,
-                zIndex: 1,
-                height: 22,
-                fontWeight: 700,
-                bgcolor: 'rgba(0,0,0,0.72)',
-                color: '#FFF8E7',
-                border: `1px solid ${accent}66`,
-              }}
-            />
+          {showScheduleOverlay && (showStatusLabel || isPreview) ? (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              useFlexGap
+              flexWrap="wrap"
+              sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 1 }}
+            >
+              {showStatusLabel ? (
+                <Chip
+                  size="small"
+                  label={showStatusLabel}
+                  sx={{
+                    height: 22,
+                    fontWeight: 700,
+                    bgcolor: 'rgba(0,0,0,0.72)',
+                    color: '#FFF8E7',
+                    border: `1px solid ${accent}66`,
+                  }}
+                />
+              ) : null}
+              {isPreview ? (
+                <Chip
+                  size="small"
+                  label="Preview"
+                  sx={{
+                    height: 22,
+                    fontWeight: 700,
+                    bgcolor: 'rgba(156,39,176,0.88)',
+                    color: '#FFF8E7',
+                    border: '1px solid rgba(255,255,255,0.28)',
+                  }}
+                />
+              ) : null}
+            </Stack>
           ) : null}
 
           {showScheduleOverlay && showScheduleLabels.length ? (

@@ -23,12 +23,13 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 
 import { CinemaFilmCard } from './cinema-film-card';
 import { CinemaSeatMapDialog } from './cinema-seat-map-dialog';
 import { CinemaFilmFormDialog } from './cinema-film-form-dialog';
 import { CinemaScreeningsTable } from './cinema-screenings-table';
-import { getNextFilmScreening, formatScreeningSchedule } from './cinema-film-schedule';
+import { getNextFilmScreening, formatScreeningSchedule, isFilmOnActiveSchedule, filterScreeningsForViewer } from './cinema-film-schedule';
 
 import type { CinemaCategoryMeta } from './cinema-categories';
 
@@ -57,6 +58,7 @@ export function CinemaCategoryFilmsPanel({
 }: Props) {
   const { user } = useAuthContext();
   const customerId = String(user?.id || '');
+  const isAdmin = isUserAdmin(user?.role);
   const canManage = canManageProp ?? Boolean(customerId);
   const filmOwnerId = publicCatalog || allCatalog ? null : customerId;
   const listOptions = publicCatalog
@@ -135,12 +137,12 @@ export function CinemaCategoryFilmsPanel({
       films.flatMap((film) => {
         const fromApi = screeningsByFilmId[film.id] || [];
         const nested = Array.isArray(film.screenings) ? film.screenings : [];
-        const merged = fromApi.length ? fromApi : nested;
+        const merged = filterScreeningsForViewer(fromApi.length ? fromApi : nested, { isAdmin });
 
         return merged.length ? [{ ...film, screenings: merged }] : [];
       }),
-    );
-  }, [films, scheduledOnly, screenings]);
+    ).filter((film) => isFilmOnActiveSchedule(film, new Date(), null, { isAdmin }));
+  }, [films, isAdmin, scheduledOnly, screenings]);
 
   const loading = filmsLoading || ((scheduledOnly || showScreenings) && screeningsLoading);
 

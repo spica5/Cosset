@@ -23,6 +23,7 @@ import {
   getScreeningShowStatus,
   getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
+  isCinemaPreviewScreening,
 } from './cinema-film-schedule';
 
 // ----------------------------------------------------------------------
@@ -65,6 +66,7 @@ export function CinemaFilmCard({
   const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
   const showStatusLabel = getCinemaFilmShowStatusLabel(showStatus);
   const showScheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
+  const isPreview = isCinemaPreviewScreening(nextScreening);
 
   useEffect(() => {
     let mounted = true;
@@ -132,21 +134,35 @@ export function CinemaFilmCard({
           </Stack>
         )}
 
-        {showStatusLabel ? (
-          <Chip
-            size="small"
-            label={showStatusLabel}
-            color={showStatus === 'now' ? 'success' : showStatus === 'upcoming' ? 'info' : 'default'}
-            variant={showStatus === 'past' ? 'outlined' : 'filled'}
-            sx={{
-              position: 'absolute',
-              top: 8,
-              left: 8,
-              zIndex: 1,
-              fontWeight: 700,
-              bgcolor: showStatus === 'past' ? 'rgba(0,0,0,0.72)' : undefined,
-            }}
-          />
+        {showStatusLabel || isPreview ? (
+          <Stack
+            direction="row"
+            spacing={0.5}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 1 }}
+          >
+            {showStatusLabel ? (
+              <Chip
+                size="small"
+                label={showStatusLabel}
+                color={showStatus === 'now' ? 'success' : showStatus === 'upcoming' ? 'info' : 'default'}
+                variant={showStatus === 'past' ? 'outlined' : 'filled'}
+                sx={{
+                  fontWeight: 700,
+                  bgcolor: showStatus === 'past' ? 'rgba(0,0,0,0.72)' : undefined,
+                }}
+              />
+            ) : null}
+            {isPreview ? (
+              <Chip
+                size="small"
+                label="Preview"
+                color="secondary"
+                sx={{ fontWeight: 700 }}
+              />
+            ) : null}
+          </Stack>
         ) : null}
 
         {showScheduleLabels.length ? (

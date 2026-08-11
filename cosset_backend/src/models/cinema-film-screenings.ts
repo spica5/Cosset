@@ -14,6 +14,8 @@ export interface CinemaFilmScreening {
   showFriday?: boolean | null;
   showSaturday?: boolean | null;
   showSunday?: boolean | null;
+  /** When true, showtimes run any day — for admin preview before Fri–Sun scheduling. */
+  showFlexible?: boolean | null;
   pricingType?: 'free' | 'paid' | null;
   price?: string | null;
   order?: number | null;
@@ -48,6 +50,7 @@ const SELECT_COLUMNS = `
   show_friday as "showFriday",
   show_saturday as "showSaturday",
   show_sunday as "showSunday",
+  COALESCE(show_flexible, FALSE) as "showFlexible",
   COALESCE(pricing_type, 'free') as "pricingType",
   price,
   "order",
@@ -71,6 +74,7 @@ const SELECT_WITH_FILM_COLUMNS = `
   s.show_friday as "showFriday",
   s.show_saturday as "showSaturday",
   s.show_sunday as "showSunday",
+  COALESCE(s.show_flexible, FALSE) as "showFlexible",
   COALESCE(s.pricing_type, 'free') as "pricingType",
   s.price,
   s."order",
@@ -265,6 +269,7 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
             show_friday BOOLEAN NOT NULL DEFAULT TRUE,
             show_saturday BOOLEAN NOT NULL DEFAULT TRUE,
             show_sunday BOOLEAN NOT NULL DEFAULT TRUE,
+            show_flexible BOOLEAN NOT NULL DEFAULT FALSE,
             pricing_type VARCHAR(20) NOT NULL DEFAULT 'free',
             price VARCHAR(40),
             "order" INTEGER,
@@ -320,6 +325,13 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
       await executeQuery(
         `
           ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_flexible BOOLEAN NOT NULL DEFAULT FALSE
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
           ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) NOT NULL DEFAULT 'free'
         `,
       );
@@ -338,6 +350,7 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
             show_friday = COALESCE(show_friday, TRUE),
             show_saturday = COALESCE(show_saturday, TRUE),
             show_sunday = COALESCE(show_sunday, TRUE),
+            show_flexible = COALESCE(show_flexible, FALSE),
             pricing_type = COALESCE(pricing_type, 'free')
         `,
       );
@@ -541,10 +554,11 @@ export async function createCinemaFilmScreening(
     const showFriday = screening.showFriday !== false;
     const showSaturday = screening.showSaturday !== false;
     const showSunday = screening.showSunday !== false;
+    const showFlexible = screening.showFlexible === true;
     const pricingType = normalizePricingType(screening.pricingType ?? (screening.price != null ? 'paid' : 'free'));
     const price = pricingType === 'paid' ? normalizePrice(screening.price) : null;
 
-    if (!showFriday && !showSaturday && !showSunday) {
+    if (!showFriday && !showSaturday && !showSunday && !showFlexible) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_SCREENING_DAYS',
         message: 'At least one screening day must be selected',
@@ -572,6 +586,7 @@ export async function createCinemaFilmScreening(
           show_friday,
           show_saturday,
           show_sunday,
+          show_flexible,
           pricing_type,
           price,
           "order",
@@ -579,7 +594,7 @@ export async function createCinemaFilmScreening(
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
         RETURNING ${SELECT_COLUMNS}
       `,
       [
@@ -590,6 +605,7 @@ export async function createCinemaFilmScreening(
         showFriday,
         showSaturday,
         showSunday,
+        showFlexible,
         pricingType,
         price,
         normalizeNullableInteger(screening.order),
@@ -647,8 +663,15 @@ export async function updateCinemaFilmScreening(
     const nextShowSaturday =
       updates.showSaturday !== undefined ? Boolean(updates.showSaturday) : existing.showSaturday !== false;
     const nextShowSunday = updates.showSunday !== undefined ? Boolean(updates.showSunday) : existing.showSunday !== false;
+    const nextShowFlexible =
+      updates.showFlexible !== undefined ? Boolean(updates.showFlexible) : existing.showFlexible === true;
 
-    if (nextShowFriday === false && nextShowSaturday === false && nextShowSunday === false) {
+    if (
+      nextShowFriday === false &&
+      nextShowSaturday === false &&
+      nextShowSunday === false &&
+      nextShowFlexible === false
+    ) {
       throw new DatabaseError({
         code: 'INVALID_CINEMA_SCREENING_DAYS',
         message: 'At least one screening day must be selected',
@@ -721,6 +744,12 @@ export async function updateCinemaFilmScreening(
     if (updates.showSunday !== undefined) {
       fields.push(`show_sunday = $${paramIndex}`);
       values.push(Boolean(updates.showSunday));
+      paramIndex += 1;
+    }
+
+    if (updates.showFlexible !== undefined) {
+      fields.push(`show_flexible = $${paramIndex}`);
+      values.push(Boolean(updates.showFlexible));
       paramIndex += 1;
     }
 

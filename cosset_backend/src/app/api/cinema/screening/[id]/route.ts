@@ -77,6 +77,7 @@ export async function PUT(
       showFriday: updates.showFriday,
       showSaturday: updates.showSaturday,
       showSunday: updates.showSunday,
+      showFlexible: updates.showFlexible,
       pricingType: updates.pricingType,
       price: updates.price,
       order: updates.order,

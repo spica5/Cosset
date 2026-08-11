@@ -7,6 +7,8 @@ export type ICinemaFilmScreening = {
   showFriday?: boolean | null;
   showSaturday?: boolean | null;
   showSunday?: boolean | null;
+  /** When true, showtimes run any day — for admin preview before Fri–Sun scheduling. */
+  showFlexible?: boolean | null;
   pricingType?: 'free' | 'paid' | null;
   price?: string | null;
   order?: number | null;

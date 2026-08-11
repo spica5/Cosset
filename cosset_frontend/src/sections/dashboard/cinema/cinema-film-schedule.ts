@@ -23,7 +23,7 @@ export const CINEMA_TIME_ANCHOR_DATE = '1970-01-01';
 
 type CinemaWeeklyDayKey = 'showFriday' | 'showSaturday' | 'showSunday';
 
-type CinemaWeeklyScreeningSchedule = Pick<ICinemaFilmScreening, 'showAt' | 'showAt2'> &
+type CinemaWeeklyScreeningSchedule = Pick<ICinemaFilmScreening, 'showAt' | 'showAt2' | 'showFlexible'> &
   Partial<Record<CinemaWeeklyDayKey, boolean | null>>;
 
 const CINEMA_WEEKLY_DAY_CONFIG: Array<{
@@ -148,9 +148,14 @@ export const toIsoOrNull = (value: string) => {
 };
 
 const hasExplicitWeeklyDaySelection = (screening: CinemaWeeklyScreeningSchedule) =>
+  screening.showFlexible === true ||
   CINEMA_WEEKLY_DAY_CONFIG.some(({ key }) => screening[key] !== undefined && screening[key] !== null);
 
 export const getScreeningWeeklyDayLabels = (screening: CinemaWeeklyScreeningSchedule) => {
+  if (screening.showFlexible === true) {
+    return ['Any day'];
+  }
+
   if (!hasExplicitWeeklyDaySelection(screening)) {
     return CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
   }
@@ -179,6 +184,10 @@ export const getScreeningClockTimes = (
 };
 
 const isCinemaWeeklyUtcDay = (day: number, screening?: CinemaWeeklyScreeningSchedule | null) => {
+  if (screening?.showFlexible === true) {
+    return true;
+  }
+
   if (!screening || !hasExplicitWeeklyDaySelection(screening)) {
     return (CINEMA_WEEKLY_UTC_DAYS as readonly number[]).includes(day);
   }
@@ -195,8 +204,8 @@ const buildOccurrence = (year: number, month: number, day: number, clock: UtcClo
   new Date(Date.UTC(year, month, day, clock.hours, clock.minutes, clock.seconds));
 
 /**
- * Expand showAt / showAt2 into concrete Fri/Sat/Sun UTC starts around `now`.
- * The stored date on showAt/showAt2 is ignored — only the UTC clock matters.
+ * Expand showAt / showAt2 into concrete UTC starts around `now`
+ * (Fri–Sun by default, or any day when Flexible / Preview is enabled).
  */
 export const getScreeningStartInstants = (
   screening: CinemaWeeklyScreeningSchedule,
@@ -438,6 +447,22 @@ export const getCinemaFilmShowStatusLabel = (status: CinemaFilmShowStatus) => {
   }
 };
 
+/** Flexible / Preview screenings are for admin playback testing only. */
+export const isCinemaPreviewScreening = (
+  screening?: Pick<ICinemaFilmScreening, 'showFlexible'> | null,
+) => screening?.showFlexible === true;
+
+export const filterScreeningsForViewer = <T extends Pick<ICinemaFilmScreening, 'showFlexible'>>(
+  screenings: T[],
+  options?: { isAdmin?: boolean },
+) => {
+  if (options?.isAdmin) {
+    return screenings;
+  }
+
+  return screenings.filter((screening) => !isCinemaPreviewScreening(screening));
+};
+
 /** True when this screening has a fixed weekly start time (shared theater timeline). */
 export const isFixedTimeScreening = (
   screening?: CinemaWeeklyScreeningSchedule | null,
@@ -529,7 +554,25 @@ export const getNextFilmScreening = (
     return unscheduled;
   }
 
-  return screenings[screenings.length - 1] || null;
+  return null;
+};
+
+/** True when the film still has a live, upcoming, or open screening to show in schedule lists. */
+export const isFilmOnActiveSchedule = (
+  film: Pick<ICinemaFilm, 'screenings' | 'duration'>,
+  now = new Date(),
+  mediaDurationSeconds?: number | null,
+  options?: { isAdmin?: boolean },
+) => {
+  const duration = mediaDurationSeconds ?? film.duration ?? null;
+  const screenings = filterScreeningsForViewer(film.screenings || [], options);
+  const screening = getNextFilmScreening({ screenings }, now, duration);
+  if (!screening) {
+    return false;
+  }
+
+  const status = getScreeningShowStatus(screening, now, duration);
+  return status === 'now' || status === 'upcoming' || status === 'unscheduled';
 };
 
 export const getDefaultScreening = (
@@ -575,5 +618,5 @@ export const getDefaultScreening = (
     return unscheduled;
   }
 
-  return screenings[0];
+  return null;
 };

@@ -56,6 +56,9 @@ import {
 import {
   getDefaultScreening,
   getNextFilmScreening,
+  isFilmOnActiveSchedule,
+  isCinemaPreviewScreening,
+  filterScreeningsForViewer,
   isFixedTimeScreening,
   isScreeningDayToday,
   getNextScreeningStart,
@@ -68,6 +71,7 @@ import {
 } from 'src/sections/dashboard/cinema/cinema-film-schedule';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 
 // ----------------------------------------------------------------------
 
@@ -234,6 +238,7 @@ function CinemaFilmPosterCard({
     : 'unscheduled';
   const scheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening, now) : [];
   const isToday = nextScreening ? isScreeningDayToday(nextScreening, now) : false;
+  const isPreview = isCinemaPreviewScreening(nextScreening);
   const statusLabel = isToday
     ? showStatus === 'now'
       ? 'Today · Now'
@@ -349,27 +354,53 @@ function CinemaFilmPosterCard({
             />
           ) : null}
 
-          {statusLabel ? (
-            <Chip
-              size="small"
-              label={statusLabel}
+          {statusLabel || isPreview ? (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              useFlexGap
+              flexWrap="wrap"
               sx={{
                 position: 'absolute',
                 top: 8,
                 left: 8,
+                right: isReserved ? 40 : 8,
                 zIndex: 1,
-                height: 22,
-                fontWeight: 700,
-                fontSize: '0.65rem',
-                bgcolor: isToday
-                  ? showStatus === 'now'
-                    ? 'rgba(46,125,50,0.92)'
-                    : 'rgba(25,118,210,0.9)'
-                  : 'rgba(0,0,0,0.72)',
-                color: '#FFF8E7',
-                border: `1px solid ${accent}66`,
               }}
-            />
+            >
+              {statusLabel ? (
+                <Chip
+                  size="small"
+                  label={statusLabel}
+                  sx={{
+                    height: 22,
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    bgcolor: isToday
+                      ? showStatus === 'now'
+                        ? 'rgba(46,125,50,0.92)'
+                        : 'rgba(25,118,210,0.9)'
+                      : 'rgba(0,0,0,0.72)',
+                    color: '#FFF8E7',
+                    border: `1px solid ${accent}66`,
+                  }}
+                />
+              ) : null}
+              {isPreview ? (
+                <Chip
+                  size="small"
+                  label="Preview"
+                  sx={{
+                    height: 22,
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    bgcolor: 'rgba(156,39,176,0.88)',
+                    color: '#FFF8E7',
+                    border: '1px solid rgba(255,255,255,0.28)',
+                  }}
+                />
+              ) : null}
+            </Stack>
           ) : null}
 
           {isReserved ? (
@@ -497,6 +528,7 @@ function CinemaFilmPosterCard({
 export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props) {
   const router = useRouter();
   const { user, authenticated } = useAuthContext();
+  const isAdmin = isUserAdmin(user?.role);
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
@@ -576,9 +608,14 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
   const [activeFilmId, setActiveFilmId] = useState<number | null>(initialFilmId ?? null);
   const [filmDurationById, setFilmDurationById] = useState<Record<number, number>>({});
+  const visibleScreenings = useMemo(
+    () => filterScreeningsForViewer(screenings, { isAdmin }),
+    [isAdmin, screenings],
+  );
+
   const defaultScreening = useMemo(
-    () => getDefaultScreening(screenings, new Date(nowMs), filmDurationById),
-    [filmDurationById, nowMs, screenings],
+    () => getDefaultScreening(visibleScreenings, new Date(nowMs), filmDurationById),
+    [filmDurationById, nowMs, visibleScreenings],
   );
 
   const screeningFilms = useMemo(() => {
@@ -587,6 +624,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       const time = new Date(value).getTime();
       return Number.isNaN(time) ? 0 : time;
     };
+
+    const scheduleNow = new Date(nowMs);
 
     const sortNewestFirst = <T extends { id: number; createdAt?: string | Date | null; order?: number | null }>(
       list: T[],
@@ -598,12 +637,15 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       });
 
     const filmsById = new Map(films.map((film) => [film.id, film]));
-    const screeningsByFilmId = screenings.reduce<Record<number, typeof screenings>>((acc, screening) => {
-      const list = acc[screening.filmId] || [];
-      list.push(screening);
-      acc[screening.filmId] = list;
-      return acc;
-    }, {});
+    const screeningsByFilmId = visibleScreenings.reduce<Record<number, typeof visibleScreenings>>(
+      (acc, screening) => {
+        const list = acc[screening.filmId] || [];
+        list.push(screening);
+        acc[screening.filmId] = list;
+        return acc;
+      },
+      {},
+    );
 
     const fromScreenings = Object.entries(screeningsByFilmId).flatMap(([filmId, filmScreenings]) => {
       const film = filmsById.get(Number(filmId));
@@ -611,21 +653,34 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       return [{ ...film, screenings: filmScreenings }];
     });
 
-    if (fromScreenings.length) {
-      return sortNewestFirst(fromScreenings);
-    }
+    const withScreenings = fromScreenings.length
+      ? fromScreenings
+      : films.flatMap((film) => {
+          const nested = filterScreeningsForViewer(
+            Array.isArray(film.screenings) ? film.screenings : [],
+            { isAdmin },
+          );
+          return nested.length ? [{ ...film, screenings: nested }] : [];
+        });
 
     return sortNewestFirst(
-      films.flatMap((film) => {
-        const nested = Array.isArray(film.screenings) ? film.screenings : [];
-        return nested.length ? [{ ...film, screenings: nested }] : [];
-      }),
+      withScreenings.filter((film) =>
+        isFilmOnActiveSchedule(
+          film,
+          scheduleNow,
+          filmDurationById[film.id] ?? film.duration ?? null,
+          { isAdmin },
+        ),
+      ),
     );
-  }, [films, screenings]);
+  }, [filmDurationById, films, isAdmin, nowMs, visibleScreenings]);
 
   const activeFilm = useMemo(() => {
     if (activeFilmId) {
-      return screeningFilms.find((film) => film.id === activeFilmId) || null;
+      const selected = screeningFilms.find((film) => film.id === activeFilmId);
+      if (selected) {
+        return selected;
+      }
     }
 
     if (defaultScreening) {
@@ -638,6 +693,15 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
     return screeningFilms[0] || null;
   }, [activeFilmId, defaultScreening, screeningFilms]);
+
+  useEffect(() => {
+    if (
+      activeFilmId != null &&
+      !screeningFilms.some((film) => film.id === activeFilmId)
+    ) {
+      setActiveFilmId(null);
+    }
+  }, [activeFilmId, screeningFilms]);
 
   const activeScreening = useMemo(() => {
     if (!activeFilm) return defaultScreening;
@@ -836,8 +900,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     : 'unscheduled';
   const activeScreeningFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
   const isComplimentaryLiveAccess = isPaidViewer && activeShowStatus === 'now';
+  const isAdminPreviewAccess =
+    isAdmin && isCinemaPreviewScreening(activeScreening);
   const requiresPayment =
-    activeScreeningFee > 0 && !screeningUnlocked && !isComplimentaryLiveAccess;
+    activeScreeningFee > 0 &&
+    !screeningUnlocked &&
+    !isComplimentaryLiveAccess &&
+    !isAdminPreviewAccess;
   const isLiveScheduledScreening = isSyncedScreening && activeShowStatus === 'now';
   const activeNextStart =
     activeScreening && activeShowStatus === 'upcoming'
@@ -1182,7 +1251,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     const status = activeScreening
       ? getScreeningShowStatus(activeScreening, scheduleNow, activeMediaDurationSeconds)
       : 'unscheduled';
-    if (status !== 'now' || !isPaidViewer) {
+    const isAdminPreview =
+      isAdmin && isCinemaPreviewScreening(activeScreening);
+
+    // Admins can preview Flexible screenings without payment.
+    if (!isAdminPreview && (status !== 'now' || !isPaidViewer)) {
       const baseFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
       const charge = isPaidViewer ? baseFee / 2 : baseFee;
 
@@ -1295,6 +1368,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const openPaymentDialog = useCallback(() => {
     if (!activeFilm?.title) return;
 
+    if (isAdmin && isCinemaPreviewScreening(activeScreening)) {
+      return;
+    }
+
     const baseFee = activeScreening ? parseScreeningFee(activeScreening.price) : 0;
     const charge = isPaidViewer ? baseFee / 2 : baseFee;
 
@@ -1311,6 +1388,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     activeFilm?.title,
     activeScreening,
     activeShowStatus,
+    isAdmin,
     isPaidViewer,
     viewerPlan,
   ]);
@@ -1878,24 +1956,43 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                             )}
                           </Stack>
 
-                          {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
-                            <Chip
-                              size="small"
-                              label={getCinemaFilmShowStatusLabel(activeShowStatus)}
-                              sx={{
-                                flexShrink: 0,
-                                fontWeight: 700,
-                                fontSize: { xs: '0.65rem', sm: '0.72rem' },
-                                height: 24,
-                                color: '#1A1208',
-                                bgcolor:
-                                  activeShowStatus === 'now'
-                                    ? accent
-                                    : activeShowStatus === 'upcoming'
-                                      ? 'rgba(245,230,200,0.92)'
-                                      : 'rgba(245,230,200,0.55)',
-                              }}
-                            />
+                          {getCinemaFilmShowStatusLabel(activeShowStatus) ||
+                          isCinemaPreviewScreening(activeScreening) ? (
+                            <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                              {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
+                                <Chip
+                                  size="small"
+                                  label={getCinemaFilmShowStatusLabel(activeShowStatus)}
+                                  sx={{
+                                    flexShrink: 0,
+                                    fontWeight: 700,
+                                    fontSize: { xs: '0.65rem', sm: '0.72rem' },
+                                    height: 24,
+                                    color: '#1A1208',
+                                    bgcolor:
+                                      activeShowStatus === 'now'
+                                        ? accent
+                                        : activeShowStatus === 'upcoming'
+                                          ? 'rgba(245,230,200,0.92)'
+                                          : 'rgba(245,230,200,0.55)',
+                                  }}
+                                />
+                              ) : null}
+                              {isCinemaPreviewScreening(activeScreening) ? (
+                                <Chip
+                                  size="small"
+                                  label="Preview"
+                                  sx={{
+                                    flexShrink: 0,
+                                    fontWeight: 700,
+                                    fontSize: { xs: '0.65rem', sm: '0.72rem' },
+                                    height: 24,
+                                    color: '#FFF8E7',
+                                    bgcolor: 'rgba(156,39,176,0.88)',
+                                  }}
+                                />
+                              ) : null}
+                            </Stack>
                           ) : null}
 
                           {activeRemainingLabel ? (

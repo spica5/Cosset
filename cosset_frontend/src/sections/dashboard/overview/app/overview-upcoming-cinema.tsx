@@ -39,6 +39,7 @@ import {
   getScreeningShowStatus,
   getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
+  isCinemaPreviewScreening,
 } from 'src/sections/dashboard/cinema/cinema-film-schedule';
 
 // ----------------------------------------------------------------------
@@ -72,6 +73,10 @@ function buildUpcomingItems(
   const items: UpcomingCinemaItem[] = [];
 
   screenings.forEach((screening) => {
+    if (isCinemaPreviewScreening(screening)) {
+      return;
+    }
+
     const status = getScreeningShowStatus(screening, now);
     if (status !== 'now' && status !== 'upcoming') {
       return;
@@ -95,6 +100,7 @@ function UpcomingCinemaCard({ item }: { item: UpcomingCinemaItem }) {
   const [posterUrl, setPosterUrl] = useState('');
   const scheduleLabels = getScreeningScheduleLabels(item.screening);
   const statusLabel = getCinemaFilmShowStatusLabel(item.status);
+  const isPreview = isCinemaPreviewScreening(item.screening);
   const ownerId = String(item.screening.customerId || '').trim();
   const cinemaHref = ownerId
     ? `${paths.dashboard.community.cinema.view(item.category.id)}?ownerId=${encodeURIComponent(ownerId)}`
@@ -125,7 +131,7 @@ function UpcomingCinemaCard({ item }: { item: UpcomingCinemaItem }) {
           position: 'relative',
           width: 1,
           aspectRatio: '16 / 9',
-          bgcolor: 'grey.200',
+          bgcolor: 'grey.900',
           overflow: 'hidden',
         }}
       >
@@ -134,10 +140,10 @@ function UpcomingCinemaCard({ item }: { item: UpcomingCinemaItem }) {
             component="img"
             src={posterUrl}
             alt={item.screening.filmTitle}
-            sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+            sx={{ width: 1, height: 1, objectFit: 'contain', display: 'block' }}
           />
         ) : (
-          <Stack alignItems="center" justifyContent="center" sx={{ height: 1, color: 'text.disabled' }}>
+          <Stack alignItems="center" justifyContent="center" sx={{ height: 1, color: 'grey.500' }}>
             <Iconify icon="solar:clapperboard-play-bold" width={28} />
           </Stack>
         )}
@@ -154,6 +160,17 @@ function UpcomingCinemaCard({ item }: { item: UpcomingCinemaItem }) {
               size="small"
               label={statusLabel}
               color={item.status === 'now' ? 'success' : 'warning'}
+              sx={{
+                fontWeight: 700,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              }}
+            />
+          ) : null}
+          {isPreview ? (
+            <Chip
+              size="small"
+              label="Preview"
+              color="secondary"
               sx={{
                 fontWeight: 700,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.25)',

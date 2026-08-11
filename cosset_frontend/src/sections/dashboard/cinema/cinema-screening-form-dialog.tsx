@@ -48,6 +48,7 @@ type FormState = {
   showFriday: boolean;
   showSaturday: boolean;
   showSunday: boolean;
+  showFlexible: boolean;
   price: string;
   order: string;
 };
@@ -59,6 +60,7 @@ const emptyForm: FormState = {
   showFriday: true,
   showSaturday: true,
   showSunday: true,
+  showFlexible: false,
   price: '',
   order: '',
 };
@@ -122,6 +124,7 @@ export function CinemaScreeningFormDialog({
       showFriday: screening.showFriday !== false,
       showSaturday: screening.showSaturday !== false,
       showSunday: screening.showSunday !== false,
+      showFlexible: screening.showFlexible === true,
       price: screening.price != null ? String(screening.price) : '',
       order: screening.order != null ? String(screening.order) : '',
     });
@@ -138,9 +141,12 @@ export function CinemaScreeningFormDialog({
     setForm((prev) => ({ ...prev, [field]: '' }));
   }, []);
 
-  const handleToggleDay = useCallback((field: 'showFriday' | 'showSaturday' | 'showSunday') => {
-    setForm((prev) => ({ ...prev, [field]: !prev[field] }));
-  }, []);
+  const handleToggleDay = useCallback(
+    (field: 'showFriday' | 'showSaturday' | 'showSunday' | 'showFlexible') => {
+      setForm((prev) => ({ ...prev, [field]: !prev[field] }));
+    },
+    [],
+  );
 
   const handleSubmit = useCallback(async () => {
     const filmId = Number.parseInt(form.filmId, 10);
@@ -163,7 +169,7 @@ export function CinemaScreeningFormDialog({
       return;
     }
 
-    if (!form.showFriday && !form.showSaturday && !form.showSunday) {
+    if (!form.showFriday && !form.showSaturday && !form.showSunday && !form.showFlexible) {
       toast.error('Please select at least one screening day.');
       return;
     }
@@ -189,6 +195,7 @@ export function CinemaScreeningFormDialog({
         showFriday: form.showFriday,
         showSaturday: form.showSaturday,
         showSunday: form.showSunday,
+        showFlexible: form.showFlexible,
         price: price || null,
         order: parseNullableInteger(form.order),
         isPublic: 1,
@@ -345,9 +352,21 @@ export function CinemaScreeningFormDialog({
                 }
                 label="Sunday"
               />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.showFlexible}
+                    onChange={() => handleToggleDay('showFlexible')}
+                  />
+                }
+                label="Flexible / Preview (any day)"
+              />
             </FormGroup>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
               Selected days: {getScreeningWeeklyDaySummary(form)}
+              {form.showFlexible
+                ? ' — use Flexible to test playback any day before locking Fri–Sun.'
+                : ''}
             </Typography>
           </Box>
 

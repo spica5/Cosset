@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       showFriday: screening.showFriday ?? true,
       showSaturday: screening.showSaturday ?? true,
       showSunday: screening.showSunday ?? true,
+      showFlexible: screening.showFlexible ?? false,
       pricingType: screening.pricingType ?? null,
       price: screening.price ?? null,
       order: screening.order ?? null,

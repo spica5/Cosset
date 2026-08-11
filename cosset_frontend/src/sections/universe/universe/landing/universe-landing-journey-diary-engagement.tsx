@@ -471,6 +471,24 @@ export function JourneyDiaryEngagement({
                     '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.35)' },
                     '&.Mui-focused fieldset': { borderColor: 'rgba(255,255,255,0.45)' },
                   },
+                  '& .MuiTextField-root .MuiInputBase-input': {
+                    color: 'common.white',
+                    WebkitTextFillColor: '#fff',
+                    caretColor: '#fff',
+                  },
+                  '& .MuiTextField-root .MuiInputBase-input:-webkit-autofill': {
+                    WebkitBoxShadow: '0 0 0 1000px rgba(18,18,18,0.96) inset',
+                    boxShadow: '0 0 0 1000px rgba(18,18,18,0.96) inset',
+                    WebkitTextFillColor: '#fff',
+                    caretColor: '#fff',
+                    transition: 'background-color 99999s ease-out 0s',
+                  },
+                  '& .MuiTextField-root .MuiInputBase-input:-webkit-autofill:hover, & .MuiTextField-root .MuiInputBase-input:-webkit-autofill:focus, & .MuiTextField-root .MuiInputBase-input:-webkit-autofill:active':
+                    {
+                      WebkitBoxShadow: '0 0 0 1000px rgba(18,18,18,0.96) inset',
+                      boxShadow: '0 0 0 1000px rgba(18,18,18,0.96) inset',
+                      WebkitTextFillColor: '#fff',
+                    },
                   '& .MuiTextField-root .MuiInputBase-input::placeholder': {
                     color: 'rgba(255,255,255,0.55)',
                     opacity: 1,

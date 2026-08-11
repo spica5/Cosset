@@ -23,6 +23,7 @@ import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 
 import { useGetCinemaFilms } from 'src/actions/cinema-film';
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
@@ -39,7 +40,12 @@ import {
   type CinemaCategoryMeta,
 } from '../cinema-categories';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
-import { formatScreeningSchedule, getNextFilmScreening } from '../cinema-film-schedule';
+import {
+  formatScreeningSchedule,
+  getNextFilmScreening,
+  isFilmOnActiveSchedule,
+  filterScreeningsForViewer,
+} from '../cinema-film-schedule';
 import { CinemaSeatMapDialog } from '../cinema-seat-map-dialog';
 import { CinemaTheaterIntro } from '../cinema-theater-intro';
 import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF, cinemaPageShellSx } from '../cinema-theater-theme';
@@ -49,9 +55,11 @@ import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF, cinemaPageShellSx } from '../c
 function CinemaCategoryRoom({
   category,
   viewerId,
+  isAdmin = false,
 }: {
   category: CinemaCategoryMeta;
   viewerId: string;
+  isAdmin?: boolean;
 }) {
   const { films, filmsLoading } = useGetCinemaFilms(null, category.id, { publicOnly: true });
   const { screenings, screeningsLoading } = useGetCinemaScreenings(null, category.id, {
@@ -109,16 +117,17 @@ function CinemaCategoryRoom({
       .flatMap((film) => {
         const fromApi = screeningsByFilmId[film.id] || [];
         const nested = Array.isArray(film.screenings) ? film.screenings : [];
-        const merged = fromApi.length ? fromApi : nested;
+        const merged = filterScreeningsForViewer(fromApi.length ? fromApi : nested, { isAdmin });
 
         return merged.length ? [{ ...film, screenings: merged }] : [];
       })
+      .filter((film) => isFilmOnActiveSchedule(film, new Date(), null, { isAdmin }))
       .sort((a, b) => {
         const createdDiff = getNewestTime(b.createdAt) - getNewestTime(a.createdAt);
         if (createdDiff !== 0) return createdDiff;
         return Number(b.id) - Number(a.id);
       });
-  }, [films, screenings]);
+  }, [films, isAdmin, screenings]);
 
   const universeUrl = catalogOwnerId
     ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(catalogOwnerId)}`
@@ -414,6 +423,7 @@ function CinemaCategoryRoom({
 export function CinemaHubView() {
   const { user } = useAuthContext();
   const viewerId = String(user?.id || '');
+  const isAdmin = isUserAdmin(user?.role);
   const classicCategory = CINEMA_CATEGORIES[0];
   const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
     CINEMA_CATEGORIES[0]?.id || 'classic',
@@ -627,6 +637,7 @@ export function CinemaHubView() {
               key={activeCategory.id}
               category={activeCategory}
               viewerId={viewerId}
+              isAdmin={isAdmin}
             />
           ) : null}
         </Stack>
