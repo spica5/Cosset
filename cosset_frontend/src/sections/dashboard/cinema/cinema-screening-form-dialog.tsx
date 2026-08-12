@@ -86,6 +86,31 @@ const parseNullableInteger = (value: string): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const getScreeningSaveErrorMessage = (error: unknown) => {
+  const pickMessage = (value: unknown) =>
+    typeof value === 'string' && value.trim() ? value.trim() : null;
+
+  if (typeof error === 'string') {
+    return pickMessage(error) || 'Failed to save screening.';
+  }
+
+  if (error && typeof error === 'object') {
+    const axiosMessage = pickMessage(
+      (error as { response?: { data?: { message?: unknown } } }).response?.data?.message,
+    );
+    if (axiosMessage) {
+      return axiosMessage.charAt(0).toUpperCase() + axiosMessage.slice(1);
+    }
+
+    const message = pickMessage((error as { message?: unknown }).message);
+    if (message && message !== 'Request failed with status code 400') {
+      return message.charAt(0).toUpperCase() + message.slice(1);
+    }
+  }
+
+  return 'Failed to save screening.';
+};
+
 export function CinemaScreeningFormDialog({
   open,
   category,
@@ -196,6 +221,7 @@ export function CinemaScreeningFormDialog({
         showSaturday: form.showSaturday,
         showSunday: form.showSunday,
         showFlexible: form.showFlexible,
+        pricingType: price ? ('paid' as const) : ('free' as const),
         price: price || null,
         order: parseNullableInteger(form.order),
         isPublic: 1,
@@ -220,7 +246,7 @@ export function CinemaScreeningFormDialog({
       resetForm();
     } catch (error) {
       console.error('Failed to save screening:', error);
-      toast.error('Failed to save screening.');
+      toast.error(getScreeningSaveErrorMessage(error));
     } finally {
       setSubmitting(false);
     }

@@ -680,7 +680,11 @@ export async function updateCinemaFilmScreening(
 
     const nextPricingType = normalizePricingType(
       updates.pricingType ??
-        (updates.price !== undefined ? 'paid' : existing.pricingType ?? (existing.price ? 'paid' : 'free')),
+        (updates.price !== undefined
+          ? updates.price != null && String(updates.price).trim() !== ''
+            ? 'paid'
+            : 'free'
+          : existing.pricingType ?? (existing.price ? 'paid' : 'free')),
     );
     const nextPrice =
       nextPricingType === 'paid'

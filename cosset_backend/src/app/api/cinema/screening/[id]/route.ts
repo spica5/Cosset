@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server';
 
+import { DatabaseError } from '@/db/errors';
+
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import { getCinemaFilmById } from 'src/models/cinema-films';
@@ -12,6 +14,24 @@ import {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
+
+function screeningValidationResponse(error: DatabaseError) {
+  if (String(error.code || '').startsWith('INVALID_')) {
+    return response({ message: error.message, code: error.code }, STATUS.BAD_REQUEST);
+  }
+
+  if (
+    error.code === 'CREATE_CINEMA_FILM_SCREENING_FAILED' ||
+    error.code === 'UPDATE_CINEMA_FILM_SCREENING_ERROR' ||
+    error.code === 'CINEMA_FILM_SCREENING_NOT_FOUND'
+  ) {
+    const status =
+      error.code === 'CINEMA_FILM_SCREENING_NOT_FOUND' ? STATUS.NOT_FOUND : STATUS.BAD_REQUEST;
+    return response({ message: error.message, code: error.code }, status);
+  }
+
+  return null;
+}
 
 export async function GET(
   req: NextRequest,
@@ -86,6 +106,13 @@ export async function PUT(
 
     return response({ screening }, STATUS.OK);
   } catch (error) {
+    if (error instanceof DatabaseError) {
+      const validationResponse = screeningValidationResponse(error);
+      if (validationResponse) {
+        return validationResponse;
+      }
+    }
+
     return handleError('Cinema Screening - Update', error as Error);
   }
 }
@@ -110,6 +137,13 @@ export async function DELETE(
 
     return response({ message: 'Screening deleted successfully' }, STATUS.OK);
   } catch (error) {
+    if (error instanceof DatabaseError) {
+      const validationResponse = screeningValidationResponse(error);
+      if (validationResponse) {
+        return validationResponse;
+      }
+    }
+
     return handleError('Cinema Screening - Delete', error as Error);
   }
 }

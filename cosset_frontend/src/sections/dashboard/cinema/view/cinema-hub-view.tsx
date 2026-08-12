@@ -94,9 +94,29 @@ function CinemaCategoryRoom({
     return map;
   }, [reservations]);
 
-  const reservedScreeningIds = useMemo(
-    () => new Set(reservationsByScreeningId.keys()),
-    [reservationsByScreeningId],
+  const reservationsByFilmId = useMemo(() => {
+    const map = new Map<number, ICinemaFilmReservationWithScreening>();
+    reservations.forEach((reservation) => {
+      const filmId = Number(reservation.filmId);
+      if (Number.isFinite(filmId) && !map.has(filmId)) {
+        map.set(filmId, reservation);
+      }
+    });
+    return map;
+  }, [reservations]);
+
+  const getReservationForFilm = useCallback(
+    (film: ICinemaFilm, screening?: ReturnType<typeof getNextFilmScreening> | null) => {
+      const screeningId = screening?.id != null ? Number(screening.id) : NaN;
+      if (Number.isFinite(screeningId)) {
+        const byScreening = reservationsByScreeningId.get(screeningId);
+        if (byScreening) return byScreening;
+      }
+
+      const filmId = Number(film.id);
+      return Number.isFinite(filmId) ? reservationsByFilmId.get(filmId) || null : null;
+    },
+    [reservationsByFilmId, reservationsByScreeningId],
   );
 
   const scheduledFilms = useMemo(() => {
@@ -107,19 +127,28 @@ function CinemaCategoryRoom({
     };
 
     const screeningsByFilmId = screenings.reduce<Record<number, typeof screenings>>((acc, screening) => {
-      const list = acc[screening.filmId] || [];
+      const filmId = Number(screening.filmId);
+      if (!Number.isFinite(filmId)) return acc;
+      const list = acc[filmId] || [];
       list.push(screening);
-      acc[screening.filmId] = list;
+      acc[filmId] = list;
       return acc;
     }, {});
 
     return films
       .flatMap((film) => {
-        const fromApi = screeningsByFilmId[film.id] || [];
+        const filmId = Number(film.id);
+        if (!Number.isFinite(filmId)) return [];
+        const fromApi = screeningsByFilmId[filmId] || [];
         const nested = Array.isArray(film.screenings) ? film.screenings : [];
-        const merged = filterScreeningsForViewer(fromApi.length ? fromApi : nested, { isAdmin });
+        // Once screenings have loaded, empty API results win over nested film.screenings
+        // so schedule create/update/delete actually refreshes the list.
+        const merged = filterScreeningsForViewer(
+          screeningsLoading ? (fromApi.length ? fromApi : nested) : fromApi,
+          { isAdmin },
+        );
 
-        return merged.length ? [{ ...film, screenings: merged }] : [];
+        return merged.length ? [{ ...film, id: filmId, screenings: merged }] : [];
       })
       .filter((film) => isFilmOnActiveSchedule(film, new Date(), null, { isAdmin }))
       .sort((a, b) => {
@@ -127,7 +156,7 @@ function CinemaCategoryRoom({
         if (createdDiff !== 0) return createdDiff;
         return Number(b.id) - Number(a.id);
       });
-  }, [films, isAdmin, screenings]);
+  }, [films, isAdmin, screenings, screeningsLoading]);
 
   const universeUrl = catalogOwnerId
     ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(catalogOwnerId)}`
@@ -159,7 +188,7 @@ function CinemaCategoryRoom({
   const handleOpenSeatMap = useCallback(
     (film: ICinemaFilm) => {
       const screening = getNextFilmScreening(film);
-      const existing = screening ? reservationsByScreeningId.get(screening.id) : null;
+      const existing = getReservationForFilm(film, screening);
 
       if (existing) {
         setSeatMapMode('view');
@@ -181,7 +210,7 @@ function CinemaCategoryRoom({
       setSelectedSeatIds([]);
       setSeatMapOpen(true);
     },
-    [reservationsByScreeningId],
+    [getReservationForFilm],
   );
 
   const handleCloseSeatMap = useCallback(() => {
@@ -350,7 +379,8 @@ function CinemaCategoryRoom({
             emptyMessage="No scheduled screenings yet. Admins can add showtimes in Admin → Media → Cinema."
             renderActions={(film) => {
               const screening = getNextFilmScreening(film);
-              const alreadyReserved = screening ? reservedScreeningIds.has(screening.id) : false;
+              const reservation = getReservationForFilm(film, screening);
+              const alreadyReserved = Boolean(reservation);
               const isReserving =
                 seatMapMode === 'select' &&
                 reservingFilm?.id === film.id &&
@@ -386,7 +416,7 @@ function CinemaCategoryRoom({
                     <CircularProgress size={16} color="inherit" />
                   ) : (
                     <Iconify
-                      icon={alreadyReserved ? 'solar:check-circle-bold' : 'solar:bookmark-bold'}
+                      icon={alreadyReserved ? 'solar:bookmark-bold' : 'solar:ticket-bold'}
                       width={18}
                     />
                   )}

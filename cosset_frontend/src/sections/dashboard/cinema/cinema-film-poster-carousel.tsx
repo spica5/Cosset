@@ -152,11 +152,10 @@ export function CinemaPosterCard({
 
           {showScheduleOverlay && (showStatusLabel || isPreview) ? (
             <Stack
-              direction="row"
+              direction="column"
               spacing={0.5}
-              useFlexGap
-              flexWrap="wrap"
-              sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 1 }}
+              alignItems="flex-start"
+              sx={{ position: 'absolute', top: 8, left: 8, right: 44, zIndex: 1 }}
             >
               {showStatusLabel ? (
                 <Chip

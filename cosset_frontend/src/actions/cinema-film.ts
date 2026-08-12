@@ -7,9 +7,9 @@ import useSWR, { mutate } from 'swr';
 import axios, { fetcher, endpoints } from 'src/utils/axios';
 
 const swrOptions = {
-  revalidateIfStale: false,
-  revalidateOnFocus: false,
-  revalidateOnReconnect: false,
+  revalidateIfStale: true,
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true,
 };
 
 type FilmsData = {

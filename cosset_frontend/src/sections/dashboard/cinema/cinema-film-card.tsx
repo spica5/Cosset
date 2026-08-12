@@ -136,10 +136,9 @@ export function CinemaFilmCard({
 
         {showStatusLabel || isPreview ? (
           <Stack
-            direction="row"
+            direction="column"
             spacing={0.5}
-            useFlexGap
-            flexWrap="wrap"
+            alignItems="flex-start"
             sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 1 }}
           >
             {showStatusLabel ? (
@@ -265,7 +264,7 @@ export function CinemaFilmCard({
                   isReserving ? (
                     <CircularProgress size={14} color="inherit" />
                   ) : (
-                    <Iconify icon={isReserved ? 'solar:check-circle-bold' : 'solar:bookmark-bold'} />
+                    <Iconify icon={isReserved ? 'solar:bookmark-bold' : 'solar:ticket-bold'} />
                   )
                 }
               >

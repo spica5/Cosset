@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server';
 
+import { DatabaseError } from '@/db/errors';
+
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import { getCinemaFilmById } from 'src/models/cinema-films';
@@ -51,6 +53,16 @@ export async function POST(req: NextRequest) {
 
     return response({ screening: created }, STATUS.OK);
   } catch (error) {
+    if (error instanceof DatabaseError) {
+      if (String(error.code || '').startsWith('INVALID_')) {
+        return response({ message: error.message, code: error.code }, STATUS.BAD_REQUEST);
+      }
+
+      if (error.code === 'CREATE_CINEMA_FILM_SCREENING_FAILED') {
+        return response({ message: error.message, code: error.code }, STATUS.BAD_REQUEST);
+      }
+    }
+
     return handleError('Cinema Screening - Create', error as Error);
   }
 }

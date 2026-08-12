@@ -4,6 +4,7 @@ import type ReactPlayer from 'react-player';
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { CinemaChatParticipant } from 'src/types/cinema-chat';
 import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
+import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -132,6 +133,32 @@ function isStreamEmbedUrl(url: string) {
 
 function hasReservationSeat(reservation?: ICinemaFilmReservationWithScreening | null) {
   return Boolean(reservation?.seatIds?.length);
+}
+
+function filmFromScreeningRow(
+  screening: ICinemaFilmScreeningWithFilm,
+  fallbackCategory?: CinemaCategory | null,
+): ICinemaFilm {
+  const category = resolveCinemaCategoryId(String(screening.filmCategory || '')) ||
+    fallbackCategory ||
+    'classic';
+
+  return {
+    id: Number(screening.filmId),
+    customerId: String(screening.customerId || ''),
+    category,
+    title: screening.filmTitle || 'Untitled film',
+    director: screening.filmDirector ?? null,
+    year: screening.filmYear ?? null,
+    description: screening.filmDescription ?? null,
+    posterImage: screening.filmPosterImage ?? null,
+    videoUrl: screening.filmVideoUrl || '',
+    order: screening.order ?? null,
+    isPublic: screening.isPublic ?? 1,
+    createdAt: screening.createdAt ?? null,
+    updatedAt: screening.updatedAt ?? null,
+    screenings: [],
+  };
 }
 
 type CinemaViewerPlan = 'FREE' | 'PAID' | 'EXTRA-PAID';
@@ -356,10 +383,9 @@ function CinemaFilmPosterCard({
 
           {statusLabel || isPreview ? (
             <Stack
-              direction="row"
+              direction="column"
               spacing={0.5}
-              useFlexGap
-              flexWrap="wrap"
+              alignItems="flex-start"
               sx={{
                 position: 'absolute',
                 top: 8,
@@ -547,6 +573,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const category = getCinemaCategory(activeCategoryId);
   const resolvedCategory = category?.id ?? null;
   const canFetch = Boolean(resolvedCategory);
+  const catalogListOptions = isAdmin ? { allCatalog: true } : { publicOnly: true };
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -560,13 +587,35 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const { films, filmsLoading } = useGetCinemaFilms(
     canFetch ? null : undefined,
     canFetch ? resolvedCategory : null,
-    { publicOnly: true },
+    catalogListOptions,
   );
 
   const { screenings, screeningsLoading } = useGetCinemaScreenings(
     canFetch ? null : undefined,
     canFetch ? resolvedCategory : null,
-    { publicOnly: true },
+    catalogListOptions,
+  );
+
+  // Keep film list in sync when schedule rows change (edit screening / preview flags / times).
+  const scheduleSignature = useMemo(
+    () =>
+      screenings
+        .map((screening) =>
+          [
+            screening.id,
+            screening.filmId,
+            screening.showAt ?? '',
+            screening.showAt2 ?? '',
+            screening.showFriday ? 1 : 0,
+            screening.showSaturday ? 1 : 0,
+            screening.showSunday ? 1 : 0,
+            screening.showFlexible ? 1 : 0,
+            screening.isPublic ?? 1,
+            screening.updatedAt ?? '',
+          ].join(':'),
+        )
+        .join('|'),
+    [screenings],
   );
 
   const catalogOwnerId = useMemo(() => {
@@ -625,7 +674,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       return Number.isNaN(time) ? 0 : time;
     };
 
-    const scheduleNow = new Date(nowMs);
+    // Membership should not recompute every second (that resets selection).
+    const scheduleNow = new Date();
 
     const sortNewestFirst = <T extends { id: number; createdAt?: string | Date | null; order?: number | null }>(
       list: T[],
@@ -636,80 +686,151 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         return Number(b.id) - Number(a.id);
       });
 
-    const filmsById = new Map(films.map((film) => [film.id, film]));
     const screeningsByFilmId = visibleScreenings.reduce<Record<number, typeof visibleScreenings>>(
       (acc, screening) => {
-        const list = acc[screening.filmId] || [];
+        const filmId = Number(screening.filmId);
+        if (!Number.isFinite(filmId)) return acc;
+        const list = acc[filmId] || [];
         list.push(screening);
-        acc[screening.filmId] = list;
+        acc[filmId] = list;
         return acc;
       },
       {},
     );
 
-    const fromScreenings = Object.entries(screeningsByFilmId).flatMap(([filmId, filmScreenings]) => {
-      const film = filmsById.get(Number(filmId));
-      if (!film) return [];
-      return [{ ...film, screenings: filmScreenings }];
+    const filmsById = new Map<number, ICinemaFilm>();
+    films.forEach((film) => {
+      const filmId = Number(film.id);
+      if (Number.isFinite(filmId)) {
+        filmsById.set(filmId, { ...film, id: filmId });
+      }
     });
 
-    const withScreenings = fromScreenings.length
-      ? fromScreenings
-      : films.flatMap((film) => {
-          const nested = filterScreeningsForViewer(
-            Array.isArray(film.screenings) ? film.screenings : [],
-            { isAdmin },
-          );
-          return nested.length ? [{ ...film, screenings: nested }] : [];
-        });
+    // Keep scheduled titles visible even when missing from the public film catalog.
+    visibleScreenings.forEach((screening) => {
+      const filmId = Number(screening.filmId);
+      if (!Number.isFinite(filmId) || filmsById.has(filmId)) return;
+      filmsById.set(filmId, filmFromScreeningRow(screening, resolvedCategory));
+    });
+
+    const withScreenings = [...filmsById.values()].flatMap((film) => {
+      const filmId = Number(film.id);
+      const fromApi = screeningsByFilmId[filmId] || [];
+      const nested = filterScreeningsForViewer(
+        Array.isArray(film.screenings) ? film.screenings : [],
+        { isAdmin },
+      );
+      const merged =
+        fromApi.length > 0
+          ? fromApi
+          : screeningsLoading
+            ? nested
+            : [];
+
+      return merged.length ? [{ ...film, id: filmId, screenings: merged }] : [];
+    });
 
     return sortNewestFirst(
       withScreenings.filter((film) =>
         isFilmOnActiveSchedule(
           film,
           scheduleNow,
-          filmDurationById[film.id] ?? film.duration ?? null,
+          filmDurationById[Number(film.id)] ?? film.duration ?? null,
           { isAdmin },
         ),
       ),
     );
-  }, [filmDurationById, films, isAdmin, nowMs, visibleScreenings]);
+  }, [
+    filmDurationById,
+    films,
+    isAdmin,
+    resolvedCategory,
+    scheduleSignature,
+    screeningsLoading,
+    visibleScreenings,
+  ]);
 
   const activeFilm = useMemo(() => {
-    if (activeFilmId) {
-      const selected = screeningFilms.find((film) => film.id === activeFilmId);
-      if (selected) {
-        return selected;
+    const selectedId = activeFilmId != null ? Number(activeFilmId) : null;
+
+    const attachScreenings = (base: ICinemaFilm, filmId: number) => {
+      const fromApi = visibleScreenings.filter(
+        (screening) => Number(screening.filmId) === filmId,
+      );
+      const nested = Array.isArray(base.screenings) ? base.screenings : [];
+      const merged = filterScreeningsForViewer(
+        fromApi.length > 0 ? fromApi : screeningsLoading ? nested : [],
+        { isAdmin },
+      );
+      return { ...base, id: filmId, screenings: merged };
+    };
+
+    if (selectedId != null && Number.isFinite(selectedId)) {
+      const fromSchedule = screeningFilms.find((film) => Number(film.id) === selectedId);
+      if (fromSchedule) {
+        return fromSchedule;
+      }
+
+      // Keep the user's selection even if it temporarily drops out of the schedule filter.
+      const base = films.find((film) => Number(film.id) === selectedId);
+      if (base) {
+        return attachScreenings(base, selectedId);
+      }
+
+      const fromScreening = visibleScreenings.find(
+        (screening) => Number(screening.filmId) === selectedId,
+      );
+      if (fromScreening) {
+        return attachScreenings(filmFromScreeningRow(fromScreening, resolvedCategory), selectedId);
       }
     }
 
     if (defaultScreening) {
-      return (
-        screeningFilms.find((film) => film.id === defaultScreening.filmId) ||
-        screeningFilms[0] ||
-        null
+      const defaultFilmId = Number(defaultScreening.filmId);
+      const fromSchedule =
+        screeningFilms.find((film) => Number(film.id) === defaultFilmId) || screeningFilms[0];
+      if (fromSchedule) {
+        return fromSchedule;
+      }
+
+      const base = films.find((film) => Number(film.id) === defaultFilmId);
+      if (base) {
+        return attachScreenings(base, defaultFilmId);
+      }
+
+      return attachScreenings(
+        filmFromScreeningRow(defaultScreening, resolvedCategory),
+        defaultFilmId,
       );
     }
 
     return screeningFilms[0] || null;
-  }, [activeFilmId, defaultScreening, screeningFilms]);
+  }, [
+    activeFilmId,
+    defaultScreening,
+    films,
+    isAdmin,
+    resolvedCategory,
+    screeningFilms,
+    screeningsLoading,
+    visibleScreenings,
+  ]);
 
   useEffect(() => {
-    if (
-      activeFilmId != null &&
-      !screeningFilms.some((film) => film.id === activeFilmId)
-    ) {
+    if (activeFilmId == null || !films.length) return;
+    const stillExists = films.some((film) => Number(film.id) === Number(activeFilmId));
+    if (!stillExists) {
       setActiveFilmId(null);
     }
-  }, [activeFilmId, screeningFilms]);
+  }, [activeFilmId, films]);
 
   const activeScreening = useMemo(() => {
-    if (!activeFilm) return defaultScreening;
+    if (!activeFilm) return null;
 
-    const duration = filmDurationById[activeFilm.id] ?? null;
-    // Prefer the screening that is live or next up (supports showAt + showAt2).
-    return getNextFilmScreening(activeFilm, new Date(nowMs), duration) || defaultScreening;
-  }, [activeFilm, defaultScreening, filmDurationById, nowMs]);
+    const duration = filmDurationById[activeFilm.id] ?? activeFilm.duration ?? null;
+    // Never fall back to another film's screening — that swaps the featured title/player.
+    return getNextFilmScreening(activeFilm, new Date(nowMs), duration);
+  }, [activeFilm, filmDurationById, nowMs]);
 
   const loading = filmsLoading || screeningsLoading;
   const accent = category?.accent || CINEMA_GOLD;
@@ -1471,7 +1592,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   );
 
   const handleSelectFilm = (filmId: number) => {
-    if (filmId !== activeFilm?.id) {
+    const nextId = Number(filmId);
+    if (!Number.isFinite(nextId)) return;
+
+    if (nextId !== Number(activeFilm?.id)) {
       handleClosePlayer();
       setSelectedSeatIds([]);
       setSeatMapOpen(false);
@@ -1481,7 +1605,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       setPaymentOpen(false);
       setPaymentQuote(null);
     }
-    setActiveFilmId(filmId);
+    setActiveFilmId(nextId);
   };
 
   const handleCloseSeatMap = () => {
@@ -1958,7 +2082,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
                           {getCinemaFilmShowStatusLabel(activeShowStatus) ||
                           isCinemaPreviewScreening(activeScreening) ? (
-                            <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                            <Stack direction="column" spacing={0.5} alignItems="flex-start">
                               {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
                                 <Chip
                                   size="small"
@@ -2342,15 +2466,15 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       film={film}
                       accent={accent}
                       categoryId={resolvedCategory}
-                      selected={activeFilm?.id === film.id}
+                      selected={Number(activeFilm?.id) === Number(film.id)}
                       isReserved={isReserved}
                       mediaDurationSeconds={mediaDurationSeconds}
                       scheduleNow={scheduleNow}
-                      onSelect={() => handleSelectFilm(film.id)}
+                      onSelect={() => handleSelectFilm(Number(film.id))}
                       onReserveSeat={
                         reservation
                           ? () => {
-                              handleSelectFilm(film.id);
+                              handleSelectFilm(Number(film.id));
                               handleOpenSeatSelection(reservation);
                             }
                           : undefined

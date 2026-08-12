@@ -11,9 +11,9 @@ import { revalidateCinemaFilms } from 'src/actions/cinema-film';
 // ----------------------------------------------------------------------
 
 const swrOptions = {
-  revalidateIfStale: false,
-  revalidateOnFocus: false,
-  revalidateOnReconnect: false,
+  revalidateIfStale: true,
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true,
 };
 
 type ScreeningsData = {
@@ -89,20 +89,36 @@ export async function revalidateCinemaScreenings(
   await mutate(buildCinemaScreeningListUrl(customerId, category, options));
 }
 
+/** Revalidate every mounted/cached screening list for a category (all query variants). */
+export async function revalidateCinemaScreeningsForCategory(category: CinemaCategory) {
+  const listBase = endpoints.cinema.screening.list;
+  await mutate(
+    (key) =>
+      typeof key === 'string' &&
+      (key === listBase || key.startsWith(`${listBase}?`)) &&
+      key.includes(`category=${category}`),
+    undefined,
+    { revalidate: true },
+  );
+}
+
 async function refreshCinemaCategoryData(
   customerId: string,
   category: CinemaCategory,
 ) {
-  await revalidateCinemaScreenings(customerId, category);
-  await revalidateCinemaScreenings(customerId, category, { publicOnly: true });
-  await revalidateCinemaScreenings(customerId, category, { allCatalog: true });
-  await revalidateCinemaScreenings(null, category, { publicOnly: true });
-  await revalidateCinemaScreenings(null, category, { allCatalog: true });
-  await revalidateCinemaFilms(customerId, category);
-  await revalidateCinemaFilms(customerId, category, { publicOnly: true });
-  await revalidateCinemaFilms(customerId, category, { allCatalog: true });
-  await revalidateCinemaFilms(null, category, { publicOnly: true });
-  await revalidateCinemaFilms(null, category, { allCatalog: true });
+  await Promise.all([
+    revalidateCinemaScreeningsForCategory(category),
+    revalidateCinemaScreenings(customerId, category),
+    revalidateCinemaScreenings(customerId, category, { publicOnly: true }),
+    revalidateCinemaScreenings(customerId, category, { allCatalog: true }),
+    revalidateCinemaScreenings(null, category, { publicOnly: true }),
+    revalidateCinemaScreenings(null, category, { allCatalog: true }),
+    revalidateCinemaFilms(customerId, category),
+    revalidateCinemaFilms(customerId, category, { publicOnly: true }),
+    revalidateCinemaFilms(customerId, category, { allCatalog: true }),
+    revalidateCinemaFilms(null, category, { publicOnly: true }),
+    revalidateCinemaFilms(null, category, { allCatalog: true }),
+  ]);
 }
 
 export async function createCinemaScreening(
@@ -110,11 +126,8 @@ export async function createCinemaScreening(
   context: { customerId: string; category: CinemaCategory },
 ) {
   const res = await axios.post(endpoints.cinema.screening.add, { screening });
-  const createdScreening = res.data?.screening as ICinemaFilmScreening | undefined;
 
-  if (createdScreening?.customerId) {
-    await refreshCinemaCategoryData(context.customerId, context.category);
-  }
+  await refreshCinemaCategoryData(context.customerId, context.category);
 
   return res.data;
 }
@@ -125,11 +138,8 @@ export async function updateCinemaScreening(
   context: { customerId: string; category: CinemaCategory },
 ) {
   const res = await axios.put(endpoints.cinema.screening.update(id), { updates });
-  const updatedScreening = res.data?.screening as ICinemaFilmScreening | undefined;
 
-  if (updatedScreening?.customerId || context.customerId) {
-    await refreshCinemaCategoryData(context.customerId, context.category);
-  }
+  await refreshCinemaCategoryData(context.customerId, context.category);
 
   mutate<ScreeningData>(endpoints.cinema.screening.details(id));
   return res.data;

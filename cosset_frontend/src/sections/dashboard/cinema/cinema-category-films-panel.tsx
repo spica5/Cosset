@@ -103,9 +103,29 @@ export function CinemaCategoryFilmsPanel({
     return map;
   }, [reservations]);
 
-  const reservedScreeningIds = useMemo(
-    () => new Set(reservationsByScreeningId.keys()),
-    [reservationsByScreeningId],
+  const reservationsByFilmId = useMemo(() => {
+    const map = new Map<number, ICinemaFilmReservationWithScreening>();
+    reservations.forEach((reservation) => {
+      const filmId = Number(reservation.filmId);
+      if (Number.isFinite(filmId) && !map.has(filmId)) {
+        map.set(filmId, reservation);
+      }
+    });
+    return map;
+  }, [reservations]);
+
+  const getReservationForFilm = useCallback(
+    (film: ICinemaFilm, screening?: ReturnType<typeof getNextFilmScreening> | null) => {
+      const screeningId = screening?.id != null ? Number(screening.id) : NaN;
+      if (Number.isFinite(screeningId)) {
+        const byScreening = reservationsByScreeningId.get(screeningId);
+        if (byScreening) return byScreening;
+      }
+
+      const filmId = Number(film.id);
+      return Number.isFinite(filmId) ? reservationsByFilmId.get(filmId) || null : null;
+    },
+    [reservationsByFilmId, reservationsByScreeningId],
   );
 
   const visibleFilms = useMemo(() => {
@@ -127,22 +147,31 @@ export function CinemaCategoryFilmsPanel({
     }
 
     const screeningsByFilmId = screenings.reduce<Record<number, typeof screenings>>((acc, screening) => {
-      const list = acc[screening.filmId] || [];
+      const filmId = Number(screening.filmId);
+      if (!Number.isFinite(filmId)) return acc;
+      const list = acc[filmId] || [];
       list.push(screening);
-      acc[screening.filmId] = list;
+      acc[filmId] = list;
       return acc;
     }, {});
 
     return sortNewestFirst(
       films.flatMap((film) => {
-        const fromApi = screeningsByFilmId[film.id] || [];
+        const filmId = Number(film.id);
+        if (!Number.isFinite(filmId)) return [];
+        const fromApi = screeningsByFilmId[filmId] || [];
         const nested = Array.isArray(film.screenings) ? film.screenings : [];
-        const merged = filterScreeningsForViewer(fromApi.length ? fromApi : nested, { isAdmin });
+        // Once screenings have loaded, empty API results win over nested film.screenings
+        // so schedule create/update/delete actually refreshes the list.
+        const merged = filterScreeningsForViewer(
+          screeningsLoading ? (fromApi.length ? fromApi : nested) : fromApi,
+          { isAdmin },
+        );
 
-        return merged.length ? [{ ...film, screenings: merged }] : [];
+        return merged.length ? [{ ...film, id: filmId, screenings: merged }] : [];
       }),
     ).filter((film) => isFilmOnActiveSchedule(film, new Date(), null, { isAdmin }));
-  }, [films, isAdmin, scheduledOnly, screenings]);
+  }, [films, isAdmin, scheduledOnly, screenings, screeningsLoading]);
 
   const loading = filmsLoading || ((scheduledOnly || showScreenings) && screeningsLoading);
 
@@ -206,7 +235,7 @@ export function CinemaCategoryFilmsPanel({
   const handleOpenSeatMap = useCallback(
     (film: ICinemaFilm) => {
       const screening = getNextFilmScreening(film);
-      const existing = screening ? reservationsByScreeningId.get(screening.id) : null;
+      const existing = getReservationForFilm(film, screening);
 
       if (existing) {
         setSeatMapMode('view');
@@ -228,7 +257,7 @@ export function CinemaCategoryFilmsPanel({
       setSelectedSeatIds([]);
       setSeatMapOpen(true);
     },
-    [reservationsByScreeningId],
+    [getReservationForFilm],
   );
 
   const handleCloseSeatMap = useCallback(() => {
@@ -319,7 +348,9 @@ export function CinemaCategoryFilmsPanel({
         >
           {visibleFilms.map((film) => {
             const screening = scheduledOnly ? getNextFilmScreening(film) : null;
-            const isReserved = screening ? reservedScreeningIds.has(screening.id) : false;
+            const isReserved = scheduledOnly
+              ? Boolean(getReservationForFilm(film, screening))
+              : false;
 
             return (
               <CinemaFilmCard
