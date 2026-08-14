@@ -456,9 +456,11 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
   const [resolvedImageUrls, setResolvedImageUrls] = useState<string[]>([]);
   const [selectedBackgroundIndex, setSelectedBackgroundIndex] = useState(0);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [backgroundRotationEpoch, setBackgroundRotationEpoch] = useState(0);
 
   useEffect(() => {
     setSelectedBackgroundIndex(0);
+    setBackgroundRotationEpoch(0);
   }, [rawBackground, coffeeShop?.id]);
 
   useEffect(() => {
@@ -501,6 +503,24 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
       return Math.min(i, resolvedImageUrls.length - 1);
     });
   }, [resolvedImageUrls.length]);
+
+  // Cycle multi-image backgrounds every minute (manual picks restart the timer).
+  useEffect(() => {
+    if (isGradient || resolvedImageUrls.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setSelectedBackgroundIndex((current) => (current + 1) % resolvedImageUrls.length);
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [backgroundRotationEpoch, isGradient, resolvedImageUrls.length]);
+
+  const handleSelectBackground = useCallback((index: number) => {
+    setSelectedBackgroundIndex(index);
+    setBackgroundRotationEpoch((epoch) => epoch + 1);
+  }, []);
 
   const activeImageUrl =
     !isGradient && resolvedImageUrls.length
@@ -745,7 +765,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
           imageUrls={resolvedImageUrls}
           imageFilters={backgroundImageFilters}
           selectedIndex={selectedBackgroundIndex}
-          onSelect={setSelectedBackgroundIndex}
+          onSelect={handleSelectBackground}
         />
       ) : null}
 

@@ -2,7 +2,7 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -16,6 +16,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { fNumber } from 'src/utils/format-number';
+import { getS3SignedUrl } from 'src/utils/helper';
 
 import { useGetPosts } from 'src/actions/post';
 
@@ -49,6 +50,46 @@ const getPostPreview = (post: IPostItem) => {
   if (!raw) return 'No preview available.';
   return raw.length > 120 ? `${raw.slice(0, 117)}...` : raw;
 };
+
+function PostAuthorAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+  const [src, setSrc] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const raw = String(avatarUrl || '').trim();
+
+    if (!raw) {
+      setSrc('');
+      return undefined;
+    }
+
+    if (
+      raw.startsWith('http://') ||
+      raw.startsWith('https://') ||
+      raw.startsWith('/') ||
+      raw.startsWith('public:') ||
+      raw.startsWith('data:') ||
+      raw.startsWith('blob:')
+    ) {
+      setSrc(raw.startsWith('public:') ? raw.replace(/^public:/, '') : raw);
+      return undefined;
+    }
+
+    getS3SignedUrl(raw).then((url) => {
+      if (!cancelled) setSrc(url || '');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarUrl]);
+
+  return (
+    <Avatar src={src || undefined} alt={name} sx={{ width: 40, height: 40 }}>
+      {name.charAt(0).toUpperCase()}
+    </Avatar>
+  );
+}
 
 export function OverviewRecentPosts() {
   const { posts, postsLoading } = useGetPosts(undefined, { limit: 40 });
@@ -94,71 +135,69 @@ export function OverviewRecentPosts() {
         </Stack>
       ) : recentPosts.length ? (
         <Stack spacing={1.25}>
-          {recentPosts.map((post) => (
-            <Box
-              key={post.id}
-              component={RouterLink}
-              href={paths.dashboard.community.post.list}
-              sx={{
-                p: 1.5,
-                borderRadius: 1.5,
-                border: '1px solid',
-                borderColor: 'divider',
-                textDecoration: 'none',
-                color: 'inherit',
-                transition: (theme) =>
-                  theme.transitions.create(['background-color', 'border-color'], {
-                    duration: theme.transitions.duration.shorter,
-                  }),
-                '&:hover': {
-                  bgcolor: 'action.hover',
-                  borderColor: 'primary.main',
-                },
-              }}
-            >
-              <Stack direction="row" spacing={1.25} alignItems="flex-start">
-                <Avatar
-                  src={post.customerPhotoURL || undefined}
-                  alt={getAuthorName(post)}
-                  sx={{ width: 40, height: 40 }}
-                >
-                  {getAuthorName(post).charAt(0).toUpperCase()}
-                </Avatar>
+          {recentPosts.map((post) => {
+            const authorName = getAuthorName(post);
 
-                <Stack spacing={0.35} sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="subtitle2" noWrap>
-                    {post.title?.trim() || 'Untitled post'}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {getPostPreview(post)}
-                  </Typography>
-                  <Stack direction="row" spacing={1.5} alignItems="center" useFlexGap flexWrap="wrap">
-                    <Typography variant="caption" color="text.secondary">
-                      {getAuthorName(post)}
+            return (
+              <Box
+                key={post.id}
+                component={RouterLink}
+                href={paths.dashboard.community.post.list}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  transition: (theme) =>
+                    theme.transitions.create(['background-color', 'border-color'], {
+                      duration: theme.transitions.duration.shorter,
+                    }),
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    borderColor: 'primary.main',
+                  },
+                }}
+              >
+                <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                  <PostAuthorAvatar name={authorName} avatarUrl={post.customerPhotoURL} />
+
+                  <Stack spacing={0.35} sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="subtitle2" noWrap>
+                      {post.title?.trim() || 'Untitled post'}
                     </Typography>
-                    <Typography variant="caption" color="text.disabled">
-                      {formatDate(post.createdAt)}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {getPostPreview(post)}
                     </Typography>
-                    <Stack direction="row" spacing={0.35} alignItems="center">
-                      <Iconify icon="solar:eye-bold" width={14} sx={{ color: 'text.disabled' }} />
-                      <Typography variant="caption" color="text.disabled">
-                        {fNumber(post.totalViews ?? 0)}
+                    <Stack direction="row" spacing={1.5} alignItems="center" useFlexGap flexWrap="wrap">
+                      <Typography variant="caption" color="text.secondary">
+                        {authorName}
                       </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {formatDate(post.createdAt)}
+                      </Typography>
+                      <Stack direction="row" spacing={0.35} alignItems="center">
+                        <Iconify icon="solar:eye-bold" width={14} sx={{ color: 'text.disabled' }} />
+                        <Typography variant="caption" color="text.disabled">
+                          {fNumber(post.totalViews ?? 0)}
+                        </Typography>
+                      </Stack>
                     </Stack>
                   </Stack>
                 </Stack>
-              </Stack>
-            </Box>
-          ))}
+              </Box>
+            );
+          })}
         </Stack>
       ) : (
         <EmptyContent
