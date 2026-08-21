@@ -838,8 +838,10 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const accent = category?.accent || CINEMA_GOLD;
   const videoRef = useRef<HTMLVideoElement>(null);
   const embedPlayerRef = useRef<ReactPlayer | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState('');
   const [videoLoading, setVideoLoading] = useState(false);
   const [seatMapOpen, setSeatMapOpen] = useState(false);
@@ -1549,8 +1551,49 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       node.pause();
       node.currentTime = 0;
     }
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // Ignore browsers that reject exit while already exiting.
+      });
+    }
+    setIsFullscreen(false);
     setIsPlaying(false);
   };
+
+  const handleToggleFullscreen = useCallback(async () => {
+    const container = playerContainerRef.current;
+    const video = videoRef.current;
+
+    try {
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      if (container?.requestFullscreen) {
+        await container.requestFullscreen();
+        return;
+      }
+
+      const webkitVideo = video as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+      if (webkitVideo?.webkitEnterFullscreen) {
+        webkitVideo.webkitEnterFullscreen();
+      }
+    } catch {
+      // Fullscreen may be blocked by the browser.
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+    };
+  }, []);
 
   const handleSelectCinemaTab = useCallback(
     async (nextCategoryId: CinemaCategory) => {
@@ -1930,15 +1973,35 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         <Box sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
           {isPlaying && resolvedVideoUrl ? (
             <Box
+              ref={playerContainerRef}
               sx={{
                 position: 'relative',
                 width: 1,
-                borderRadius: { xs: 2, md: 3 },
+                borderRadius: isFullscreen ? 0 : { xs: 2, md: 3 },
                 overflow: 'hidden',
-                border: `1px solid ${accent}44`,
-                boxShadow: `0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset`,
-                height: { xs: 300, md: 460 },
+                border: isFullscreen ? 'none' : `1px solid ${accent}44`,
+                boxShadow: isFullscreen
+                  ? 'none'
+                  : `0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset`,
+                height: isFullscreen ? '100%' : { xs: 300, md: 460 },
                 bgcolor: '#000',
+                '& .player-controls': {
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  transition: 'opacity 0.2s ease',
+                },
+                '&:hover .player-controls, &:focus-within .player-controls': {
+                  opacity: 1,
+                  pointerEvents: 'auto',
+                },
+                ...(isFullscreen
+                  ? {
+                      '& .player-controls': {
+                        opacity: 1,
+                        pointerEvents: 'auto',
+                      },
+                    }
+                  : null),
               }}
             >
               {useEmbedPlayer ? (
@@ -2011,22 +2074,48 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                 />
               )}
 
-              <IconButton
-                aria-label="Close player"
-                onClick={handleClosePlayer}
+              <Stack
+                className="player-controls"
+                direction="row"
+                spacing={1}
                 sx={{
                   position: 'absolute',
                   top: 12,
                   right: 12,
                   zIndex: 3,
-                  bgcolor: 'rgba(0,0,0,0.55)',
-                  color: '#F5E6C8',
-                  border: `1px solid ${accent}55`,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
                 }}
               >
-                <Iconify icon="mingcute:close-line" />
-              </IconButton>
+                <IconButton
+                  aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+                  onClick={handleToggleFullscreen}
+                  sx={{
+                    bgcolor: 'rgba(0,0,0,0.55)',
+                    color: '#F5E6C8',
+                    border: `1px solid ${accent}55`,
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
+                  }}
+                >
+                  <Iconify
+                    icon={
+                      isFullscreen
+                        ? 'solar:quit-full-screen-square-bold'
+                        : 'solar:full-screen-square-bold'
+                    }
+                  />
+                </IconButton>
+                <IconButton
+                  aria-label="Close player"
+                  onClick={handleClosePlayer}
+                  sx={{
+                    bgcolor: 'rgba(0,0,0,0.55)',
+                    color: '#F5E6C8',
+                    border: `1px solid ${accent}55`,
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
+                  }}
+                >
+                  <Iconify icon="mingcute:close-line" />
+                </IconButton>
+              </Stack>
             </Box>
           ) : (
             <CinemaTheaterIntro
