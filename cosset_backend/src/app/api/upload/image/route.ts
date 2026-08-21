@@ -1,54 +1,39 @@
 import type { NextRequest } from 'next/server';
 
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-
 import { STATUS, response, handleError } from 'src/utils/response';
+import {
+  putObject,
+  deleteObject,
+  getSignedReadUrl,
+  getSignedUploadUrl,
+} from 'src/utils/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  // Use a valid AWS-style region (e.g. "us-east-1") for signing,
-  // and point to the Vultr endpoint via the custom endpoint setting.
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
-
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    webp: "image/webp",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    m4v: "video/x-m4v",
-    webm: "video/webm",
-    pdf: "application/pdf",
-    txt: "text/plain",
-    text: "text/plain",
-    mp3: "audio/mpeg",
-    wav: "audio/wav",
-    aac: "audio/aac",
-    ogg: "audio/ogg",
-    m4a: "audio/mp4",
-    flac: "audio/flac",
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    m4v: 'video/x-m4v',
+    webm: 'video/webm',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    text: 'text/plain',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    m4a: 'audio/mp4',
+    flac: 'audio/flac',
   };
-  return map[ext.toLowerCase()] || "application/octet-stream";
+  return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
 type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'txt' | 'unsupported';
@@ -59,7 +44,7 @@ const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac'
 
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
   image: 10 * 1024 * 1024,
-  // Cinema and collection videos can exceed 500MB via direct/multipart S3 upload.
+  // Cinema and collection videos can exceed 500MB via direct/multipart storage upload.
   video: 5 * 1024 * 1024 * 1024,
   audio: 250 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
@@ -136,107 +121,19 @@ function validateSingleUploadFile(file: File): { valid: true } | { valid: false;
   return { valid: true };
 }
 
-async function uploadToS3(key: string, content: Buffer, contentType: string) {
-  if (!key) throw new Error("key is requried");
-  if (!content) throw new Error("content is requried");
-  if (!contentType) throw new Error("contentType is requried");
-
-  const bucket = requireEnv('S3_BUCKET');
-  if (!bucket) throw new Error("S3_BUCKET env var is missing");
-
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    Body: content,
-    ACL: "private",
-    ContentType: contentType,
-  });
-
-  // console.log(`key:${key} contentType:${contentType}`);
-
-  return s3.send(command);
-}
-
-async function uploadToS3Public(key: string, content: Buffer, contentType: string) {
-  if (!key) throw new Error("key is requried");
-  if (!content) throw new Error("content is requried");
-  if (!contentType) throw new Error("contentType is requried");
-
-  const bucket = requireEnv('S3_BUCKET');
-  if (!bucket) throw new Error("S3_BUCKET env var is missing");
-
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    Body: content,
-    ACL: "public-read",
-    ContentType: contentType,
-  });
-
-  // console.log(`key:${key} contentType:${contentType}`);
-
-  return s3.send(command);
-}
-
-async function getSignedImageUrl(key: string, isPublic = false, expiresInSeconds = 60 * 10) {
-  const bucket = requireEnv("S3_BUCKET");
-  if (!bucket) throw new Error("S3_BUCKET env var is missing");
-
-  if (isPublic) {
-    // Return the public URL
-    const endpoint = requireEnv('AWS_S3_ENDPOINT');
-    return `${endpoint}/${bucket}/${key}`;
-  }
-
-  // Return signed URL for private
-  const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return getSignedUrl(s3, cmd, { expiresIn: expiresInSeconds });
-}
-
-async function getSignedUploadUrl(
-  key: string,
-  contentType: string,
-  isPublic = false,
-  expiresInSeconds = 60 * 30,
-) {
-  const bucket = requireEnv('S3_BUCKET');
-  if (!bucket) throw new Error('S3_BUCKET env var is missing');
-
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ACL: isPublic ? 'public-read' : 'private',
-    ContentType: contentType,
-  });
-
-  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
-}
-
-async function deleteFromS3(key: string) {
-  if (!key) throw new Error("key is requried");
-
-  const bucket = requireEnv('S3_BUCKET');
-  if (!bucket) throw new Error("S3_BUCKET env var is missing");
-
-  const command = new DeleteObjectCommand({
-    Bucket: bucket,
-    Key: key,
-  });
-
-  return s3.send(command);
-}
-
 type UploadSingleFileParams = {
   file: File;
   key: string;
   isPublic: boolean;
 };
 
-type UploadSingleFileResult =
-  | { validationMessage: string }
-  | { key: string; url: string };
+type UploadSingleFileResult = { validationMessage: string } | { key: string; url: string };
 
-async function uploadSingleFileToS3({ file, key, isPublic }: UploadSingleFileParams): Promise<UploadSingleFileResult> {
+async function uploadSingleFile({
+  file,
+  key,
+  isPublic,
+}: UploadSingleFileParams): Promise<UploadSingleFileResult> {
   const validation = validateSingleUploadFile(file);
   if (!validation.valid) {
     return { validationMessage: validation.message };
@@ -249,35 +146,33 @@ async function uploadSingleFileToS3({ file, key, isPublic }: UploadSingleFilePar
 
   console.log(`key:${key} contentType:${contentType}`);
 
-  const result = await (isPublic ? uploadToS3Public(key, buffer, contentType) : uploadToS3(key, buffer, contentType));
+  const result = await putObject({ key, body: buffer, contentType, isPublic });
   if (result.$metadata?.httpStatusCode !== 200) {
-    throw new Error('Failed to upload file to S3');
+    throw new Error('Failed to upload file to storage');
   }
 
-  const signedUrl = await getSignedImageUrl(key, isPublic);
+  const signedUrl = await getSignedReadUrl(key, isPublic);
   return { key, url: signedUrl };
 }
 
-/**
- * Upload multiple files to S3 in parallel
- */
-async function uploadMultipleToS3(
+async function uploadMultiple(
   files: Array<{ key: string; content: Buffer; contentType: string }>,
-  isPublic = false
+  isPublic = false,
 ) {
-  const uploadPromises = files.map((file) =>
-    isPublic ? uploadToS3Public(file.key, file.content, file.contentType) : uploadToS3(file.key, file.content, file.contentType)
+  return Promise.all(
+    files.map((file) =>
+      putObject({
+        key: file.key,
+        body: file.content,
+        contentType: file.contentType,
+        isPublic,
+      }),
+    ),
   );
-
-  return Promise.all(uploadPromises);
 }
 
-/**
- * Get signed URLs for multiple keys
- */
-async function getSignedImageUrls(keys: string[], isPublic = false) {
-  const urlPromises = keys.map((key) => getSignedImageUrl(key, isPublic));
-  return Promise.all(urlPromises);
+async function getSignedReadUrls(keys: string[], isPublic = false) {
+  return Promise.all(keys.map((key) => getSignedReadUrl(key, isPublic)));
 }
 
 // ----------------------------------------------------------------------
@@ -307,8 +202,8 @@ export async function GET(req: NextRequest) {
       const requestedContentType = (searchParams.get('contentType') || '').trim();
       const contentType = requestedContentType || getMimeType(ext);
 
-      const uploadUrl = await getSignedUploadUrl(normalizedKey, contentType, isPublic);
-      const url = await getSignedImageUrl(normalizedKey, isPublic);
+      const uploadUrl = await getSignedUploadUrl(normalizedKey, contentType, isPublic, 60 * 30);
+      const url = await getSignedReadUrl(normalizedKey, isPublic);
 
       return response({ key: normalizedKey, uploadUrl, contentType, url }, STATUS.OK);
     }
@@ -318,7 +213,7 @@ export async function GET(req: NextRequest) {
       // Return the key except the "public:" prefix as URL
       url = normalizedKey.substring(7);
     } else {
-      url = await getSignedImageUrl(normalizedKey, isPublic);
+      url = await getSignedReadUrl(normalizedKey, isPublic);
     }
 
     return response({ url }, STATUS.OK);
@@ -333,13 +228,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // const { searchParams } = new URL(req.url);
-    // const isPublic = searchParams.get('public') === 'true';
-
     const isPublic = req.nextUrl.searchParams.get('public') === 'true';
 
     const formData = await req.formData();
-    
+
     // Try to get single file first
     const singleFile = formData.get('file') as File | null;
     const singleKey = formData.get('key') as string | null;
@@ -347,10 +239,10 @@ export async function POST(req: NextRequest) {
     // If single file upload
     if (singleFile && singleKey) {
       if (!singleKey.trim()) {
-    return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
+        return response({ message: 'key is required' }, STATUS.BAD_REQUEST);
       }
 
-      const uploadResult = await uploadSingleFileToS3({
+      const uploadResult = await uploadSingleFile({
         file: singleFile,
         key: singleKey.trim(),
         isPublic,
@@ -395,21 +287,21 @@ export async function POST(req: NextRequest) {
             const arrayBuffer = await file.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
             return { key: key.trim(), content: buffer, contentType };
-          })
+          }),
         );
 
       // Upload all files in parallel
-      const uploadResults = await uploadMultipleToS3(uploadData, isPublic);
+      const uploadResults = await uploadMultiple(uploadData, isPublic);
       if (uploadResults.some((r) => r.$metadata?.httpStatusCode !== 200)) {
-        throw new Error('Failed to upload one or more images to S3');
+        throw new Error('Failed to upload one or more files to storage');
       }
 
       // Get signed URLs for all uploaded files
-      const s3Keys = uploadData.map((u) => u.key);
-      const signedUrls = await getSignedImageUrls(s3Keys, isPublic);
+      const storageKeys = uploadData.map((u) => u.key);
+      const signedUrls = await getSignedReadUrls(storageKeys, isPublic);
 
       // Return results
-      const results = s3Keys.map((key, idx) => ({
+      const results = storageKeys.map((key, idx) => ({
         key,
         url: signedUrls[idx],
       }));
@@ -419,7 +311,7 @@ export async function POST(req: NextRequest) {
 
     return response(
       { message: "Either 'file' and 'key' or batch files are required" },
-      STATUS.BAD_REQUEST
+      STATUS.BAD_REQUEST,
     );
   } catch (error) {
     return handleError('Image Upload', error as Error);
@@ -442,7 +334,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    await deleteFromS3(key);
+    await deleteObject(key);
 
     return response({ ok: true, key }, STATUS.OK);
   } catch (error) {

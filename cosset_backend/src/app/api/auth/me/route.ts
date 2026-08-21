@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { getUserById, updateUser } from '@/models/users';
 import { getCustomerBillingSummary } from '@/models/payments';
+import { ensureWallet, WALLET_CURRENCY } from '@/models/wallet';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, response } from 'src/utils/response';
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
 
     const { password: _password, ...safeUser } = user;
     const billing = await getCustomerBillingSummary(user.id);
+    const wallet = await ensureWallet(user.id);
 
     return response(
       {
@@ -45,6 +47,10 @@ export async function GET(req: NextRequest) {
           // Plan remains on the user record; all other billing fields come from payments.
           plan: billing.plan || safeUser.plan || 'FREE',
           billing,
+          wallet: {
+            balanceCents: wallet.balanceCents,
+            currency: wallet.currency || WALLET_CURRENCY,
+          },
         },
       },
       STATUS.OK,

@@ -34,6 +34,17 @@ export const fetcher = async (args: string | [string, AxiosRequestConfig]) => {
 
 export const endpoints = {
   chat: '/api/chat',
+  chatCalls: {
+    root: '/api/chat/calls',
+    ice: '/api/chat/calls/ice',
+    action: (callId: string | number) => `/api/chat/calls/${callId}`,
+  },
+  wallet: {
+    root: '/api/wallet',
+    topup: '/api/wallet/topup',
+    confirm: '/api/wallet/topup/confirm',
+    charge: '/api/wallet/charge',
+  },
   auth: {
     me: '/api/auth/me',
     signIn: '/api/auth/sign-in',
@@ -54,6 +65,12 @@ export const endpoints = {
     directory: '/api/user/directory',
     details: (id: string | number) => `/api/user/${id}`,
     businessRequest: '/api/user/business-request',
+  },
+  admin: {
+    files: {
+      root: '/api/admin/files',
+      copyToR2: '/api/admin/files/copy-to-r2',
+    },
   },
   friend: {
     list: '/api/friend/list',
@@ -90,6 +107,8 @@ export const endpoints = {
   upload: {
     image: '/api/upload/image',
     file: '/api/upload/file',
+    /** Authenticated temporary presigned PUT URL (browser uploads directly to R2/S3). */
+    uploadUrl: '/api/upload-url',
     sign: '/api/upload/sign',
     multipart: '/api/upload/multipart',
     stream: '/api/upload/stream',

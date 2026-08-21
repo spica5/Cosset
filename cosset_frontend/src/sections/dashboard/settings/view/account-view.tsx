@@ -47,6 +47,8 @@ import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
+import { AccountWalletCard } from '../account-wallet';
+
 // ---------------------------------------------------------------
 
 type PlanKey = 'FREE' | 'PAID' | 'EXTRA-PAID';
@@ -307,6 +309,8 @@ export function AccountView() {
         {billingStatus === 'canceled' ? (
           <Alert severity="info">Checkout was canceled. You can try again anytime.</Alert>
         ) : null}
+
+        <AccountWalletCard provider={paymentProvider} />
 
         <Card>
           <CardContent sx={{ p: 3 }}>

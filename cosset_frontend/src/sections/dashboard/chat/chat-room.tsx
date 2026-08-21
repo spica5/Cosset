@@ -20,12 +20,19 @@ const NAV_DRAWER_WIDTH = 320;
 
 type Props = {
   loading: boolean;
+  conversationId?: string;
   participants: IChatParticipant[];
   collapseNav: UseNavCollapseReturn;
   messages: IChatConversation['messages'];
 };
 
-export function ChatRoom({ collapseNav, participants, messages, loading }: Props) {
+export function ChatRoom({
+  collapseNav,
+  participants,
+  messages,
+  loading,
+  conversationId,
+}: Props) {
   const { collapseDesktop, openMobile, onCloseMobile } = collapseNav;
 
   const isGroup = participants.length > 1;
@@ -38,9 +45,9 @@ export function ChatRoom({ collapseNav, participants, messages, loading }: Props
     <Scrollbar>
       <div>
         {isGroup ? (
-          <ChatRoomGroup participants={participants} />
+          <ChatRoomGroup participants={participants} conversationId={conversationId} />
         ) : (
-          <ChatRoomSingle participant={participants[0]} />
+          <ChatRoomSingle participant={participants[0]} conversationId={conversationId} />
         )}
 
         <ChatRoomAttachments attachments={attachments} />

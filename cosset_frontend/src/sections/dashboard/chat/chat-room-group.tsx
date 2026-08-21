@@ -17,9 +17,10 @@ import { ChatRoomParticipantDialog } from './chat-room-participant-dialog';
 
 type Props = {
   participants: IChatParticipant[];
+  conversationId?: string;
 };
 
-export function ChatRoomGroup({ participants }: Props) {
+export function ChatRoomGroup({ participants, conversationId }: Props) {
   const collapse = useBoolean(true);
 
   const [selected, setSelected] = useState<IChatParticipant | null>(null);
@@ -70,7 +71,13 @@ export function ChatRoomGroup({ participants }: Props) {
       <Collapse in={collapse.value}>{renderList}</Collapse>
 
       {selected && (
-        <ChatRoomParticipantDialog participant={selected} open={!!selected} onClose={handleClose} />
+        <ChatRoomParticipantDialog
+          participant={selected}
+          open={!!selected}
+          onClose={handleClose}
+          conversationId={conversationId}
+          allowCalls={false}
+        />
       )}
     </>
   );

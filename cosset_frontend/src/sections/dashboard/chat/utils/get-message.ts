@@ -21,6 +21,7 @@ export function getMessage({ message, participants, currentUserId }: Props) {
       };
 
   const hasImage = message.contentType === 'image';
+  const hasCall = message.contentType === 'call';
 
-  return { hasImage, me: isCurrentUser, senderDetails };
+  return { hasImage, hasCall, me: isCurrentUser, senderDetails };
 }

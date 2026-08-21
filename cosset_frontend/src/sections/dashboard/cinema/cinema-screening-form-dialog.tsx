@@ -408,7 +408,11 @@ export function CinemaScreeningFormDialog({
               type="number"
               placeholder="Leave blank for no extra fee"
               inputProps={{ min: 0, step: '0.01' }}
-              helperText={form.price.trim() ? 'This screening has an extra fee.' : 'Leave blank for no extra fee.'}
+              helperText={
+                form.price.trim()
+                  ? 'Charged from the viewer wallet in USD. Paid-plan viewers pay half.'
+                  : 'Leave blank for no extra fee. Amount is USD, e.g. 1.99'
+              }
             />
           </Box>
 

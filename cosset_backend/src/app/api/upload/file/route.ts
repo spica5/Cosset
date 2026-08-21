@@ -1,29 +1,13 @@
 import type { NextRequest } from 'next/server';
 
 import { NextResponse } from 'next/server';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
+import { getObject } from 'src/utils/storage';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
 
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
@@ -48,8 +32,7 @@ export async function GET(req: NextRequest) {
       return response({ message: 'Invalid key' }, STATUS.BAD_REQUEST);
     }
 
-    const bucket = requireEnv('S3_BUCKET');
-    const result = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const result = await getObject(key);
 
     if (!result.Body) {
       return response({ message: 'File not found' }, STATUS.NOT_FOUND);
@@ -58,7 +41,7 @@ export async function GET(req: NextRequest) {
     const bytes = await result.Body.transformToByteArray();
     const ext = key.split('.').pop()?.toLowerCase() || '';
 
-    return new NextResponse(bytes, {
+    return new NextResponse(Buffer.from(bytes), {
       status: STATUS.OK,
       headers: {
         'Content-Type': result.ContentType || getMimeType(ext),

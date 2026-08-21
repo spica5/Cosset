@@ -2,23 +2,47 @@ import type { IChatParticipant } from 'src/types/chat';
 
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
 import Collapse from '@mui/material/Collapse';
 import Typography from '@mui/material/Typography';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import { CollapseButton } from './styles';
+import { useChatCallOptional } from './chat-call-provider';
 
 // ----------------------------------------------------------------------
 
 type Props = {
   participant: IChatParticipant;
+  conversationId?: string;
 };
 
-export function ChatRoomSingle({ participant }: Props) {
+export function ChatRoomSingle({ participant, conversationId }: Props) {
   const collapse = useBoolean(true);
+  const chatCall = useChatCallOptional();
+
+  const startCall = async (mediaType: 'audio' | 'video') => {
+    if (!conversationId || !participant?.id) {
+      toast.error('Select a conversation to start a call.');
+      return;
+    }
+    if (!chatCall) {
+      toast.error('Calling is unavailable right now.');
+      return;
+    }
+
+    await chatCall.startCall({
+      conversationId,
+      calleeId: String(participant.id),
+      mediaType,
+      peerName: participant.name,
+      peerAvatarUrl: participant.avatarUrl,
+    });
+  };
 
   const renderInfo = (
     <Stack alignItems="center" sx={{ py: 5 }}>
@@ -31,6 +55,27 @@ export function ChatRoomSingle({ participant }: Props) {
       <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
         {participant?.role}
       </Typography>
+
+      <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+        <Button
+          size="small"
+          variant="soft"
+          color="success"
+          startIcon={<Iconify icon="solar:phone-bold" width={18} />}
+          onClick={() => startCall('audio')}
+        >
+          Call
+        </Button>
+        <Button
+          size="small"
+          variant="soft"
+          color="primary"
+          startIcon={<Iconify icon="solar:videocamera-record-bold" width={18} />}
+          onClick={() => startCall('video')}
+        >
+          Video
+        </Button>
+      </Stack>
     </Stack>
   );
 

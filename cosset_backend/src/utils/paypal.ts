@@ -259,6 +259,113 @@ export async function cancelPayPalSubscription(subscriptionId: string, reason?: 
   });
 }
 
+export async function createPayPalWalletOrder(params: {
+  userId: string;
+  amountCents: number;
+}) {
+  const accessToken = await getPayPalAccessToken();
+  const appUrl = getFrontendAppUrl();
+  const amountValue = (params.amountCents / 100).toFixed(2);
+
+  const order = await paypalFetch<{
+    id: string;
+    status: string;
+    links?: Array<{ rel: string; href: string }>;
+  }>('/v2/checkout/orders', {
+    method: 'POST',
+    accessToken,
+    headers: {
+      Prefer: 'return=representation',
+      'PayPal-Request-Id': `cosset-wallet-${params.userId}-${params.amountCents}-${Date.now()}`,
+    },
+    body: {
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          custom_id: params.userId,
+          description: 'Cosset wallet top-up',
+          amount: {
+            currency_code: 'USD',
+            value: amountValue,
+          },
+        },
+      ],
+      application_context: {
+        brand_name: 'Cosset',
+        locale: 'en-US',
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW',
+        return_url: `${appUrl}/dashboard/settings/account?wallet=paypal_success`,
+        cancel_url: `${appUrl}/dashboard/settings/account?wallet=canceled`,
+      },
+    },
+  });
+
+  const approveUrl = order.links?.find((link) => link.rel === 'approve')?.href;
+  if (!approveUrl) {
+    throw new Error('PayPal did not return an approval URL');
+  }
+
+  return {
+    orderId: order.id,
+    status: order.status,
+    url: approveUrl,
+  };
+}
+
+export async function capturePayPalWalletOrder(orderId: string) {
+  const accessToken = await getPayPalAccessToken();
+  const captured = await paypalFetch<{
+    id: string;
+    status: string;
+    purchase_units?: Array<{
+      custom_id?: string;
+      payments?: {
+        captures?: Array<{
+          id?: string;
+          status?: string;
+          amount?: { value?: string; currency_code?: string };
+        }>;
+      };
+    }>;
+  }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+    method: 'POST',
+    accessToken,
+    headers: {
+      Prefer: 'return=representation',
+    },
+  });
+
+  const unit = captured.purchase_units?.[0];
+  const capture = unit?.payments?.captures?.[0];
+  const amountValue = Number.parseFloat(String(capture?.amount?.value || '0'));
+  const amountCents = Number.isFinite(amountValue) ? Math.round(amountValue * 100) : 0;
+
+  return {
+    orderId: captured.id,
+    status: captured.status,
+    captureId: capture?.id || null,
+    captureStatus: capture?.status || null,
+    customerId: unit?.custom_id || null,
+    amountCents,
+    currency: (capture?.amount?.currency_code || 'USD').toLowerCase(),
+  };
+}
+
+export async function getPayPalWalletOrder(orderId: string) {
+  const accessToken = await getPayPalAccessToken();
+  return paypalFetch<{
+    id: string;
+    status: string;
+    purchase_units?: Array<{
+      custom_id?: string;
+      amount?: { value?: string; currency_code?: string };
+    }>;
+  }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    accessToken,
+  });
+}
+
 export function planFromPayPalPlanId(planId?: string | null): PaidPlanType | null {
   const normalized = String(planId || '').trim();
   if (!normalized) {

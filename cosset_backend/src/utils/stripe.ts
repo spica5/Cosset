@@ -1,6 +1,6 @@
-import Stripe from 'stripe';
-
 import type { UserPlanType } from '@/models/users';
+
+import Stripe from 'stripe';
 
 // ----------------------------------------------------------------------
 

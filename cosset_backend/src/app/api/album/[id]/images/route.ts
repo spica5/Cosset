@@ -1,12 +1,11 @@
 import type { NextRequest } from 'next/server';
 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-
+import { putObject } from 'src/utils/storage';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import {
   createAlbumImage,
-  getImagesByAlbumId,  
+  getImagesByAlbumId,
 } from 'src/models/album-images';
 
 export const dynamic = 'force-dynamic';
@@ -15,59 +14,24 @@ export const runtime = 'nodejs';
 
 // ----------------------------------------------------------------------
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
-
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    webp: "image/webp",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    pdf: "application/pdf",
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    pdf: 'application/pdf',
   };
-  return map[ext.toLowerCase()] || "application/octet-stream";
+  return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
 function getFileExtension(file: File): string {
   const name = file.name;
   const lastDot = name.lastIndexOf('.');
   return lastDot !== -1 ? name.substring(lastDot + 1) : '';
-}
-
-async function uploadToS3(key: string, content: Buffer, contentType: string) {
-  if (!key) throw new Error("key is required");
-  if (!content) throw new Error("content is required");
-  if (!contentType) throw new Error("contentType is required");
-
-  const bucket = requireEnv('S3_BUCKET');
-  if (!bucket) throw new Error("S3_BUCKET env var is missing");
-
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    Body: content,
-    ACL: "private",
-    ContentType: contentType,
-  });
-
-  return s3.send(command);
 }
 
 // ----------------------------------------------------------------------
@@ -137,25 +101,29 @@ export async function POST(
           throw new Error(`File ${file.name} exceeds 5MB limit`);
         }
 
-        // Generate S3 key: album-images/{albumId}/{timestamp}-{filename}
+        // Generate storage key: album-images/{albumId}/{timestamp}-{filename}
         const ext = getFileExtension(file);
-        const s3Key = `album-images/${albumId}/${Date.now()}-${file.name}`;
+        const storageKey = `album-images/${albumId}/${Date.now()}-${file.name}`;
         const contentType = getMimeType(ext);
 
-        // Upload to S3
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const uploadResult = await uploadToS3(s3Key, buffer, contentType);
+        const uploadResult = await putObject({
+          key: storageKey,
+          body: buffer,
+          contentType,
+          isPublic: false,
+        });
 
         if (uploadResult.$metadata?.httpStatusCode !== 200) {
-          throw new Error(`Failed to upload ${file.name} to S3`);
+          throw new Error(`Failed to upload ${file.name} to storage`);
         }
 
-        // Create album image record with S3 key
+        // Create album image record with object key
         const newImage = await createAlbumImage({
           albumId,
           imageTitle: imageTitle || file.name.replace(/\.[^.]*$/, ''),
-          fileUrl: s3Key, // Store S3 key instead of filename
+          fileUrl: storageKey,
           mimeType: file.type,
           bytes: file.size,
           description: description || '',

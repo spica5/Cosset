@@ -1,34 +1,11 @@
 import type { NextRequest } from 'next/server';
 
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import {
-  S3Client,
-  GetObjectCommand,
-  PutObjectCommand,
-  type PutObjectCommandInput,
-} from '@aws-sdk/client-s3';
-
 import { STATUS, response, handleError } from 'src/utils/response';
+import { getObjectAcl, getSignedReadUrl, getSignedUploadUrl } from 'src/utils/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
 
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
@@ -55,45 +32,6 @@ function getMimeType(ext: string) {
   return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
-function normalizeEndpoint(endpoint: string) {
-  return endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
-}
-
-async function getSignedReadUrl(key: string, isPublic: boolean, expiresInSeconds = 60 * 10) {
-  const bucket = requireEnv('S3_BUCKET');
-
-  if (isPublic) {
-    const endpoint = normalizeEndpoint(requireEnv('AWS_S3_ENDPOINT'));
-    return `${endpoint}/${bucket}/${key}`;
-  }
-
-  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
-}
-
-async function getSignedUploadUrl(
-  key: string,
-  contentType: string,
-  isPublic: boolean,
-  expiresInSeconds = 60 * 60 * 2,
-) {
-  const bucket = requireEnv('S3_BUCKET');
-
-  const input: PutObjectCommandInput = {
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-  };
-
-  if (isPublic) {
-    input.ACL = 'public-read';
-  }
-
-  const command = new PutObjectCommand(input);
-
-  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
-}
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -117,7 +55,7 @@ export async function GET(req: NextRequest) {
 
     const uploadUrl = await getSignedUploadUrl(key, contentType, isPublic);
     const url = await getSignedReadUrl(key, isPublic);
-    const acl = isPublic ? 'public-read' : 'private';
+    const acl = getObjectAcl(isPublic) || (isPublic ? 'public' : 'private');
 
     return response({ key, uploadUrl, contentType, url, acl }, STATUS.OK);
   } catch (error) {

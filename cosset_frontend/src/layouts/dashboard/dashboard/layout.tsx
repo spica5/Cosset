@@ -30,6 +30,8 @@ import { Logo } from 'src/components/dashboard/logo';
 import { Label } from 'src/components/dashboard/label';
 import { useSettingsContext } from 'src/components/dashboard/settings';
 
+import { ChatCallProvider } from 'src/sections/dashboard/chat/chat-call-provider';
+
 import { paths } from 'src/routes/paths';
 import { usePathname, useRouter } from 'src/routes/hooks';
 
@@ -407,7 +409,9 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
         ...sx,
       }}
     >
-      <Main isNavHorizontal={isNavHorizontal}>{children}</Main>
+      <ChatCallProvider>
+        <Main isNavHorizontal={isNavHorizontal}>{children}</Main>
+      </ChatCallProvider>
     </LayoutSection>
   );
 }

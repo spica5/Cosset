@@ -13,6 +13,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { ChatAvatar } from './chat-avatar';
 import { getMessage } from './utils/get-message';
+import { formatCallHistoryText, parseCallHistoryBody } from './utils/call-history';
 
 // ----------------------------------------------------------------------
 
@@ -25,7 +26,7 @@ type Props = {
 export function ChatMessageItem({ message, participants, onOpenLightbox }: Props) {
   const { user } = useAuthContext();
 
-  const { me, senderDetails, hasImage } = getMessage({
+  const { me, senderDetails, hasImage, hasCall } = getMessage({
     message,
     participants,
     currentUserId: `${user?.id}`,
@@ -34,6 +35,9 @@ export function ChatMessageItem({ message, participants, onOpenLightbox }: Props
   const { firstName, avatarUrl } = senderDetails;
 
   const { body, createdAt } = message;
+
+  const callPayload = hasCall ? parseCallHistoryBody(body) : null;
+  const callLabel = callPayload ? formatCallHistoryText(callPayload) : '';
 
   const renderInfo = (
     <Typography
@@ -45,6 +49,34 @@ export function ChatMessageItem({ message, participants, onOpenLightbox }: Props
 
       {fToNow(createdAt)}
     </Typography>
+  );
+
+  const renderCallBody = (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1}
+      sx={{
+        p: 1.5,
+        minWidth: 48,
+        maxWidth: 320,
+        borderRadius: 1,
+        typography: 'body2',
+        bgcolor: 'background.neutral',
+        ...(me && { color: 'grey.800', bgcolor: 'primary.lighter' }),
+      }}
+    >
+      <Iconify
+        width={18}
+        icon={
+          callPayload?.mediaType === 'video'
+            ? 'solar:videocamera-record-bold'
+            : 'solar:phone-bold'
+        }
+        sx={{ flexShrink: 0, color: 'text.secondary' }}
+      />
+      <Box component="span">{callLabel}</Box>
+    </Stack>
   );
 
   const renderBody = (
@@ -127,8 +159,8 @@ export function ChatMessageItem({ message, participants, onOpenLightbox }: Props
           alignItems="center"
           sx={{ position: 'relative', '&:hover': { '& .message-actions': { opacity: 1 } } }}
         >
-          {renderBody}
-          {renderActions}
+          {hasCall ? renderCallBody : renderBody}
+          {!hasCall ? renderActions : null}
         </Stack>
       </Stack>
     </Stack>

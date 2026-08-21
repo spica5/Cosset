@@ -33,6 +33,7 @@ export const paths = {
         cinema: `${ROOTS.DASHBOARD}/admin/media/cinema`,
         cinemaClassic: `${ROOTS.DASHBOARD}/admin/media/cinema/classic`,
         cinemaGenre: `${ROOTS.DASHBOARD}/admin/media/cinema/genre`,
+        files: `${ROOTS.DASHBOARD}/admin/media/files`,
       },
     },
     blog: {

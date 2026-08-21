@@ -18,7 +18,10 @@ import { fToNow } from 'src/utils/format-time';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
 
+import { toast } from 'src/components/dashboard/snackbar';
+
 import { ChatAvatar } from './chat-avatar';
+import { useChatCallOptional } from './chat-call-provider';
 import { ChatHeaderSkeleton } from './chat-skeleton';
 
 import type { UseNavCollapseReturn } from './hooks/use-collapse-nav';
@@ -27,12 +30,19 @@ import type { UseNavCollapseReturn } from './hooks/use-collapse-nav';
 
 type Props = {
   loading: boolean;
+  conversationId?: string;
   participants: IChatParticipant[];
   collapseNav: UseNavCollapseReturn;
 };
 
-export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) {
+export function ChatHeaderDetail({
+  collapseNav,
+  conversationId,
+  participants,
+  loading,
+}: Props) {
   const popover = usePopover();
+  const chatCall = useChatCallOptional();
 
   const lgUp = useResponsive('up', 'lg');
 
@@ -50,6 +60,34 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lgUp]);
+
+  const handleStartCall = useCallback(
+    async (mediaType: 'audio' | 'video') => {
+      if (group) {
+        toast.info('Group calls are not available yet.');
+        return;
+      }
+
+      if (!conversationId || !singleParticipant?.id) {
+        toast.error('Select a conversation to start a call.');
+        return;
+      }
+
+      if (!chatCall) {
+        toast.error('Calling is unavailable right now.');
+        return;
+      }
+
+      await chatCall.startCall({
+        conversationId,
+        calleeId: String(singleParticipant.id),
+        mediaType,
+        peerName: singleParticipant.name,
+        peerAvatarUrl: singleParticipant.avatarUrl,
+      });
+    },
+    [chatCall, conversationId, group, singleParticipant],
+  );
 
   const renderGroup = (
     <AvatarGroup max={3} sx={{ [`& .${avatarGroupClasses.avatar}`]: { width: 32, height: 32 } }}>
@@ -92,11 +130,19 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
       {group ? renderGroup : renderSingle}
 
       <Stack direction="row" flexGrow={1} justifyContent="flex-end">
-        <IconButton>
+        <IconButton
+          disabled={group || !conversationId || !singleParticipant}
+          onClick={() => handleStartCall('audio')}
+          aria-label="Start audio call"
+        >
           <Iconify icon="solar:phone-bold" />
         </IconButton>
 
-        <IconButton>
+        <IconButton
+          disabled={group || !conversationId || !singleParticipant}
+          onClick={() => handleStartCall('video')}
+          aria-label="Start video call"
+        >
           <Iconify icon="solar:videocamera-record-bold" />
         </IconButton>
 

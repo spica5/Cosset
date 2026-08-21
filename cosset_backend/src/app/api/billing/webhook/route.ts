@@ -7,6 +7,7 @@ import {
   syncCustomerBilling,
 } from '@/models/payments';
 
+import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import { STATUS, response, handleError } from 'src/utils/response';
 import {
   getStripe,
@@ -124,6 +125,14 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode === 'payment') {
+          try {
+            await creditWalletFromStripeSession(session);
+          } catch (error) {
+            console.error('[Billing - Webhook] Wallet top-up failed', error);
+          }
+          break;
+        }
         if (session.mode === 'subscription' && session.subscription) {
           const subscriptionId =
             typeof session.subscription === 'string'

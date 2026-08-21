@@ -9,7 +9,10 @@ import DialogContent from '@mui/material/DialogContent';
 
 import { varAlpha } from 'src/theme/dashboard/styles';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
+
+import { useChatCallOptional } from './chat-call-provider';
 
 // ----------------------------------------------------------------------
 
@@ -17,9 +20,41 @@ type Props = {
   open: boolean;
   onClose: () => void;
   participant: IChatParticipant;
+  conversationId?: string;
+  /** Group rooms cannot place 1:1 WebRTC calls in v1. */
+  allowCalls?: boolean;
 };
 
-export function ChatRoomParticipantDialog({ participant, open, onClose }: Props) {
+export function ChatRoomParticipantDialog({
+  participant,
+  open,
+  onClose,
+  conversationId,
+  allowCalls = false,
+}: Props) {
+  const chatCall = useChatCallOptional();
+
+  const startCall = async (mediaType: 'audio' | 'video') => {
+    if (!allowCalls || !conversationId) {
+      toast.info('Group calls are not available yet.');
+      return;
+    }
+
+    if (!chatCall) {
+      toast.error('Calling is unavailable right now.');
+      return;
+    }
+
+    onClose();
+    await chatCall.startCall({
+      conversationId,
+      calleeId: String(participant.id),
+      mediaType,
+      peerName: participant.name,
+      peerAvatarUrl: participant.avatarUrl,
+    });
+  };
+
   return (
     <Dialog fullWidth maxWidth="xs" open={open} onClose={onClose}>
       <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
@@ -53,6 +88,8 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
             <IconButton
               size="small"
               color="error"
+              onClick={() => startCall('audio')}
+              aria-label="Start audio call"
               sx={{
                 borderRadius: 1,
                 bgcolor: (theme) => varAlpha(theme.vars.palette.error.mainChannel, 0.08),
@@ -95,6 +132,8 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
             <IconButton
               size="small"
               color="secondary"
+              onClick={() => startCall('video')}
+              aria-label="Start video call"
               sx={{
                 borderRadius: 1,
                 bgcolor: (theme) => varAlpha(theme.vars.palette.secondary.mainChannel, 0.08),

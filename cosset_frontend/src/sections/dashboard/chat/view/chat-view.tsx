@@ -90,6 +90,7 @@ export function ChatView() {
             <ChatHeaderDetail
               collapseNav={roomNav}
               participants={participants}
+              conversationId={selectedConversationId}
               loading={conversationLoading}
             />
           ) : (
@@ -134,6 +135,7 @@ export function ChatView() {
               participants={participants}
               loading={conversationLoading}
               messages={conversation?.messages ?? []}
+              conversationId={selectedConversationId}
             />
           ),
         }}

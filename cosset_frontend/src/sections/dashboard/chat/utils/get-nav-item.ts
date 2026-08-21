@@ -1,5 +1,7 @@
 import type { IChatConversation } from 'src/types/chat';
 
+import { formatCallHistoryNavText, parseCallHistoryBody } from './call-history';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -29,7 +31,13 @@ export function getNavItem({ currentUserId, conversation }: Props) {
   if (lastMessage?.body) {
     const sender = lastMessage.senderId === currentUserId ? 'You: ' : '';
 
-    const message = lastMessage.contentType === 'image' ? 'Sent a photo' : lastMessage.body;
+    let message = lastMessage.body;
+    if (lastMessage.contentType === 'image') {
+      message = 'Sent a photo';
+    } else if (lastMessage.contentType === 'call') {
+      const payload = parseCallHistoryBody(lastMessage.body);
+      message = payload ? formatCallHistoryNavText(payload) : 'Call';
+    }
 
     displayText = `${sender}${message}`;
   } else {

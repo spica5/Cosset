@@ -2,8 +2,6 @@ import type { NextRequest } from 'next/server';
 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
-  S3Client,
-  GetObjectCommand,
   ListPartsCommand,
   UploadPartCommand,
   type CompletedPart,
@@ -13,6 +11,13 @@ import {
 } from '@aws-sdk/client-s3';
 
 import { STATUS, response, handleError } from 'src/utils/response';
+import { getAuthenticatedUser } from 'src/utils/request-auth';
+import {
+  getObjectAcl,
+  getSignedReadUrl,
+  getStorageBucket,
+  getStorageClient,
+} from 'src/utils/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,26 +26,6 @@ export const runtime = 'nodejs';
 const MAX_PARTS = 10000;
 const MAX_SIGN_PARTS_PER_REQUEST = 1;
 const DEFAULT_PART_URL_EXPIRES_SECONDS = 60 * 60 * 2;
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
-
-function normalizeEndpoint(endpoint: string) {
-  return endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
-}
 
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
@@ -66,32 +51,22 @@ function getMimeType(ext: string) {
   return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
-async function getSignedReadUrl(key: string, isPublic: boolean, expiresInSeconds = 60 * 10) {
-  const bucket = requireEnv('S3_BUCKET');
-
-  if (isPublic) {
-    const endpoint = normalizeEndpoint(requireEnv('AWS_S3_ENDPOINT'));
-    return `${endpoint}/${bucket}/${key}`;
-  }
-
-  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
-}
-
 async function createMultipartUpload(input: {
   key: string;
   contentType: string;
   isPublic: boolean;
 }) {
-  const bucket = requireEnv('S3_BUCKET');
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
   const { key, contentType, isPublic } = input;
+  const acl = getObjectAcl(isPublic);
 
-  const createResult = await s3.send(
+  const createResult = await client.send(
     new CreateMultipartUploadCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      ...(isPublic ? { ACL: 'public-read' as const } : {}),
+      ...(acl ? { ACL: acl } : {}),
     }),
   );
 
@@ -112,13 +87,14 @@ async function signMultipartParts(input: {
   uploadId: string;
   partNumbers: number[];
 }) {
-  const bucket = requireEnv('S3_BUCKET');
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
   const { key, uploadId, partNumbers } = input;
 
   const parts = await Promise.all(
     partNumbers.map(async (partNumber) => {
       const uploadUrl = await getSignedUrl(
-        s3,
+        client,
         new UploadPartCommand({
           Bucket: bucket,
           Key: key,
@@ -141,8 +117,9 @@ async function listUploadedPartsPage(
   partNumberMarker?: string,
   accumulated: CompletedPart[] = [],
 ): Promise<CompletedPart[]> {
-  const bucket = requireEnv('S3_BUCKET');
-  const listed = await s3.send(
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
+  const listed = await client.send(
     new ListPartsCommand({
       Bucket: bucket,
       Key: key,
@@ -186,7 +163,8 @@ async function completeMultipartUpload(input: {
   isPublic: boolean;
   expectedPartCount?: number;
 }) {
-  const bucket = requireEnv('S3_BUCKET');
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
   const { key, uploadId, isPublic, expectedPartCount } = input;
 
   let parts = await listUploadedParts(key, uploadId);
@@ -205,7 +183,7 @@ async function completeMultipartUpload(input: {
     );
   }
 
-  await s3.send(
+  await client.send(
     new CompleteMultipartUploadCommand({
       Bucket: bucket,
       Key: key,
@@ -221,10 +199,11 @@ async function completeMultipartUpload(input: {
 }
 
 async function abortMultipartUpload(input: { key: string; uploadId: string }) {
-  const bucket = requireEnv('S3_BUCKET');
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
   const { key, uploadId } = input;
 
-  await s3.send(
+  await client.send(
     new AbortMultipartUploadCommand({
       Bucket: bucket,
       Key: key,
@@ -247,12 +226,11 @@ function parseCompletedParts(value: unknown): CompletedPart[] | null {
     }
 
     const partNumber = Number(
-      (item as { partNumber?: unknown; PartNumber?: unknown }).partNumber
-        ?? (item as { PartNumber?: unknown }).PartNumber,
+      (item as { partNumber?: unknown; PartNumber?: unknown }).partNumber ??
+        (item as { PartNumber?: unknown }).PartNumber,
     );
     const etagRaw =
-      (item as { etag?: unknown; ETag?: unknown }).etag
-      ?? (item as { ETag?: unknown }).ETag;
+      (item as { etag?: unknown; ETag?: unknown }).etag ?? (item as { ETag?: unknown }).ETag;
     const etag = typeof etagRaw === 'string' ? etagRaw.trim() : '';
 
     if (!Number.isInteger(partNumber) || partNumber < 1 || !etag) {
@@ -292,6 +270,11 @@ function parsePartNumbers(value: unknown): number[] | null {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return response({ message: 'Unauthorized' }, STATUS.UNAUTHORIZED);
+    }
+
     const body = await req.json();
     const action = String(body?.action || '').trim().toLowerCase();
     const key = String(body?.key || '').trim();

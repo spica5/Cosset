@@ -51,3 +51,13 @@ export function userMailChannel(userId: string) {
 }
 
 export const USER_MAIL_NEW_EVENT = 'new-mail';
+
+export function userCallChannel(userId: string) {
+  return `user-call-${userId.trim().toLowerCase()}`;
+}
+
+export const USER_CALL_INVITE_EVENT = 'call-invite';
+export const USER_CALL_ACCEPTED_EVENT = 'call-accepted';
+export const USER_CALL_REJECTED_EVENT = 'call-rejected';
+export const USER_CALL_SIGNAL_EVENT = 'call-signal';
+export const USER_CALL_ENDED_EVENT = 'call-ended';

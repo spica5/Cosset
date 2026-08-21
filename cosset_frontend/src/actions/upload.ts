@@ -33,8 +33,16 @@ type CompletedUploadPart = {
   etag: string;
 };
 
-// Enable direct S3 upload by default since CORS is now configured on the bucket
-const isDirectS3UploadEnabled = process.env.NEXT_PUBLIC_ENABLE_DIRECT_S3_UPLOAD === 'true';
+// Match backend STORAGE_PROVIDER. When "r2", files must go browser → R2 (never through Vercel).
+const storageProvider = (process.env.NEXT_PUBLIC_STORAGE_PROVIDER || 's3').trim().toLowerCase();
+const isR2DirectUpload =
+  storageProvider === 'r2' ||
+  storageProvider === 'cloudflare' ||
+  storageProvider === 'cloudflare-r2';
+
+// Enable direct S3 upload (also forced when NEXT_PUBLIC_STORAGE_PROVIDER=r2)
+const isDirectS3UploadEnabled =
+  isR2DirectUpload || process.env.NEXT_PUBLIC_ENABLE_DIRECT_S3_UPLOAD === 'true';
 
 // Threshold for using direct S3 upload (5MB) to avoid Vercel's request size limit
 const DIRECT_UPLOAD_THRESHOLD = 5 * 1024 * 1024;
@@ -194,14 +202,17 @@ async function getSignedUploadPayload(
 ): Promise<SignedUploadResponse> {
   const requestedContentType = (file.type || 'application/octet-stream').trim();
 
-  const res = await axiosInstance.get(endpoints.upload.sign, {
-    params: {
+  // Authenticated API returns a short-lived presigned PUT URL.
+  // The browser then uploads bytes directly to R2/S3 (not through this Next.js API).
+  const res = await axiosInstance.post(
+    endpoints.upload.uploadUrl,
+    {
       key,
-      public: isPublic ? 'true' : 'false',
+      public: isPublic,
       contentType: requestedContentType,
     },
-    timeout: 60_000,
-  });
+    { timeout: 60_000 },
+  );
 
   const uploadUrl = String(res.data?.uploadUrl || '').trim();
   if (!uploadUrl) {
@@ -485,6 +496,26 @@ export async function uploadFileToS3({
   const normalizedKey = key.trim();
   if (!normalizedKey) {
     throw new Error('Upload key is required.');
+  }
+
+  // Cloudflare R2 (and forced direct mode): browser → storage only.
+  // Never proxy/stream file bytes through the Vercel/Next.js API.
+  if (isR2DirectUpload) {
+    if (file.size >= MULTIPART_UPLOAD_THRESHOLD) {
+      return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+    }
+
+    try {
+      return await uploadFileToS3Direct({ file, key: normalizedKey, isPublic, onProgress });
+    } catch (error) {
+      if (file.size >= MULTIPART_FALLBACK_THRESHOLD) {
+        console.warn('Direct R2 upload failed, retrying with multipart.', error);
+        reportUploadProgress(onProgress, 0);
+        return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+      }
+
+      throw error;
+    }
   }
 
   // Files above 512MB always use multipart (or server stream on local dev).

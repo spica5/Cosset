@@ -2,10 +2,14 @@ import type { NextRequest } from 'next/server';
 
 import { Readable } from 'node:stream';
 import { Upload } from '@aws-sdk/lib-storage';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
 import { STATUS, response, handleError } from 'src/utils/response';
+import {
+  getObjectAcl,
+  getSignedReadUrl,
+  getStorageBucket,
+  getStorageClient,
+} from 'src/utils/storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,26 +18,6 @@ export const maxDuration = 300;
 
 const MAX_VIDEO_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
 const STREAM_PART_SIZE = 32 * 1024 * 1024;
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-const s3 = new S3Client({
-  region: requireEnv('AWS_REGION'),
-  endpoint: requireEnv('AWS_S3_ENDPOINT'),
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
-  },
-});
-
-function normalizeEndpoint(endpoint: string) {
-  return endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
-}
 
 function getMimeType(ext: string) {
   const map: Record<string, string> = {
@@ -57,18 +41,6 @@ function getMimeType(ext: string) {
   };
 
   return map[ext.toLowerCase()] || 'application/octet-stream';
-}
-
-async function getSignedReadUrl(key: string, isPublic: boolean, expiresInSeconds = 60 * 10) {
-  const bucket = requireEnv('S3_BUCKET');
-
-  if (isPublic) {
-    const endpoint = normalizeEndpoint(requireEnv('AWS_S3_ENDPOINT'));
-    return `${endpoint}/${bucket}/${key}`;
-  }
-
-  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
 function parseUploadKey(req: NextRequest): string {
@@ -95,23 +67,25 @@ function parseContentLength(req: NextRequest): number {
   return Number.isFinite(contentLength) && contentLength > 0 ? contentLength : 0;
 }
 
-async function streamBodyToS3(input: {
+async function streamBodyToStorage(input: {
   key: string;
   contentType: string;
   isPublic: boolean;
   body: ReadableStream<Uint8Array>;
 }) {
-  const bucket = requireEnv('S3_BUCKET');
+  const client = getStorageClient();
+  const bucket = getStorageBucket();
   const { key, contentType, isPublic, body } = input;
+  const acl = getObjectAcl(isPublic);
 
   const upload = new Upload({
-    client: s3,
+    client,
     params: {
       Bucket: bucket,
       Key: key,
       Body: Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]),
       ContentType: contentType,
-      ...(isPublic ? { ACL: 'public-read' as const } : {}),
+      ...(acl ? { ACL: acl } : {}),
     },
     partSize: STREAM_PART_SIZE,
     leavePartsOnError: false,
@@ -149,7 +123,7 @@ export async function PUT(req: NextRequest) {
       return response({ message: 'File exceeds the maximum allowed upload size.' }, STATUS.BAD_REQUEST);
     }
 
-    const result = await streamBodyToS3({
+    const result = await streamBodyToStorage({
       key,
       contentType,
       isPublic,
@@ -193,7 +167,7 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = file.type || parseContentType(req, key);
-    const result = await streamBodyToS3({
+    const result = await streamBodyToStorage({
       key,
       contentType,
       isPublic,

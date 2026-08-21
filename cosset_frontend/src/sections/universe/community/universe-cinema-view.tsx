@@ -36,6 +36,12 @@ import {
   useGetCinemaReservations,
   updateCinemaReservationSeats,  
 } from 'src/actions/cinema-film-reservation';
+import {
+  chargeCinemaWatch,
+  formatWalletMoney,
+  refreshWallet,
+  useGetWallet,
+} from 'src/actions/wallet';
 
 import { Player } from 'src/components/universe/player';
 import { Iconify } from 'src/components/universe/iconify';
@@ -191,11 +197,6 @@ function parseScreeningFee(value?: string | null) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-function formatCinemaMoney(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(value)));
-}
-
-/** Compact countdown until a future instant, e.g. `2h 15m 30s`. */
 function formatRemainingUntil(target: Date, now = new Date()) {
   const remainingMs = target.getTime() - now.getTime();
   if (remainingMs <= 0) {
@@ -555,6 +556,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const router = useRouter();
   const { user, authenticated } = useAuthContext();
   const isAdmin = isUserAdmin(user?.role);
+  const { wallet } = useGetWallet(authenticated);
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
@@ -1517,11 +1519,23 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const handleConfirmPayment = useCallback(async () => {
     try {
       setPaying(true);
+      if (paymentQuote?.charge && paymentQuote.screeningId) {
+        await chargeCinemaWatch(paymentQuote.screeningId);
+        await refreshWallet();
+      }
       await finishPlayback();
+    } catch (error: any) {
+      const code = error?.code;
+      const message = error?.message || 'Unable to charge your wallet.';
+      if (code === 'WALLET_INSUFFICIENT') {
+        toast.error('Not enough wallet balance. Add money in Account settings, then try again.');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setPaying(false);
     }
-  }, [finishPlayback]);
+  }, [finishPlayback, paymentQuote?.charge, paymentQuote?.screeningId]);
 
   const handleClosePayment = useCallback(() => {
     if (paying) return;
@@ -2530,8 +2544,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           <Stack spacing={2}>
             <Alert severity={paymentQuote?.accessState === 'scheduled-live' ? 'warning' : 'info'}>
               {paymentQuote?.accessState === 'scheduled-live'
-                ? 'Paid viewers can start this scheduled screening directly. Free viewers can pay the full access fee to unlock one watch.'
-                : 'Paid viewers pay half of the screening fee. Free viewers pay the full screening fee.'}
+                ? 'Paid viewers can start this scheduled screening directly. Free viewers can pay the full access fee from their Cosset wallet.'
+                : 'Paid viewers pay half of the screening fee. Free viewers pay the full screening fee. Charged from your Cosset wallet.'}
             </Alert>
 
             <Box
@@ -2558,7 +2572,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   </Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                     {paymentQuote?.baseFee
-                      ? `${formatCinemaMoney(paymentQuote.baseFee)}`
+                      ? formatWalletMoney(Math.round(paymentQuote.baseFee * 100))
                       : 'Free'}
                   </Typography>
                 </Stack>
@@ -2568,7 +2582,17 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                     Your price
                   </Typography>
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {paymentQuote?.charge ? formatCinemaMoney(paymentQuote.charge) : 'Free'}
+                    {paymentQuote?.charge
+                      ? formatWalletMoney(Math.round(paymentQuote.charge * 100))
+                      : 'Free'}
+                  </Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="body2" color="text.secondary">
+                    Wallet balance
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {formatWalletMoney(wallet.balanceCents, wallet.currency)}
                   </Typography>
                 </Stack>
               </Stack>
@@ -2585,9 +2609,23 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           <Button onClick={handleClosePayment} disabled={paying} variant="outlined">
             Cancel
           </Button>
-          <Button onClick={handleConfirmPayment} disabled={paying} variant="contained">
-            {paymentQuote?.charge ? `Pay ${formatCinemaMoney(paymentQuote.charge)} & watch` : 'Watch now'}
-          </Button>
+          {paymentQuote?.charge &&
+          Math.round(paymentQuote.charge * 100) > (wallet.balanceCents || 0) ? (
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={paying}
+              onClick={() => router.push(paths.dashboard.settings.account)}
+            >
+              Add money
+            </Button>
+          ) : (
+            <Button onClick={handleConfirmPayment} disabled={paying} variant="contained">
+              {paymentQuote?.charge
+                ? `Pay ${formatWalletMoney(Math.round(paymentQuote.charge * 100))} & watch`
+                : 'Watch now'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
