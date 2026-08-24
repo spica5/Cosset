@@ -61,6 +61,38 @@ type Props = {
 const DOCUMENT_FILE_ACCEPT =
   '.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.md,.png,.jpg,.jpeg,.webp,.gif,.mp4,.webm,.mov,.m4v,.zip';
 
+function getUploadErrorMessage(error: unknown, fallbackMessage: string) {
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  if (error && typeof error === 'object') {
+    const data = error as {
+      message?: unknown;
+      error?: unknown;
+      details?: unknown;
+    };
+
+    if (typeof data.message === 'string' && data.message.trim()) {
+      return data.message.trim();
+    }
+
+    if (typeof data.error === 'string' && data.error.trim()) {
+      return data.error.trim();
+    }
+
+    if (typeof data.details === 'string' && data.details.trim()) {
+      return data.details.trim();
+    }
+  }
+
+  return fallbackMessage;
+}
+
 export function DocumentationFormDialog({
   open,
   document,
@@ -192,7 +224,8 @@ export function DocumentationFormDialog({
           // ignore cleanup failure
         }
       }
-      toast.error(typeof error === 'string' ? error : 'Failed to save document');
+      console.error('Failed to save document:', error);
+      toast.error(getUploadErrorMessage(error, 'Failed to save document'));
     } finally {
       setSubmitting(false);
       setUploadProgress(0);
