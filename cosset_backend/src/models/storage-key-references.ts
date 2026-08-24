@@ -23,6 +23,7 @@ const SCALAR_SOURCES: Array<{ table: string; column: string }> = [
   { table: 'bookshelf_audiobook', column: 'file_url' },
   { table: 'bookshelf_introduce', column: 'cover_image' },
   { table: 'bookshelf_introduce', column: 'file_url' },
+  { table: 'documentation_document', column: 'file_url' },
   { table: 'cinema_films', column: 'poster_image' },
   { table: 'cinema_films', column: 'video_url' },
   { table: 'cinema_chat_logs', column: 'file_url' },

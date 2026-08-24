@@ -260,6 +260,14 @@ export const endpoints = {
       update: (id: string | number) => `/api/bookshelf/borrow/${id}`,
     },
   },
+  documentation: {
+    list: '/api/documentation/list',
+    add: '/api/documentation/new',
+    usage: '/api/documentation/usage',
+    details: (id: string | number) => `/api/documentation/${id}`,
+    update: (id: string | number) => `/api/documentation/${id}`,
+    delete: (id: string | number) => `/api/documentation/${id}`,
+  },
   cinema: {
     film: {
       list: '/api/cinema/film/list',

@@ -154,6 +154,19 @@ export const navData = [
         ],
       },
       {
+        title: 'Documentation',
+        path: paths.dashboard.documentation.root,
+        icon: ICONS.file,
+        children: [
+          { title: 'Favorites', path: paths.dashboard.documentation.favorites, icon: ICONS.star },
+          { title: 'All documents', path: paths.dashboard.documentation.all },
+          { title: 'Study', path: paths.dashboard.documentation.study },
+          { title: 'Work', path: paths.dashboard.documentation.work },
+          { title: 'Life', path: paths.dashboard.documentation.life },
+          { title: 'Other', path: paths.dashboard.documentation.other },
+        ],
+      },
+      {
         title: 'Journey Diary',
         path: paths.dashboard.journeyDiary.root,
         icon: ICONS.tour,

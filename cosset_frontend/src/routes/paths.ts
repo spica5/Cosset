@@ -104,6 +104,17 @@ export const paths = {
         `${ROOTS.DASHBOARD}/bookshelf/audio-books?bookId=${bookId}`,
       borrowRequests: `${ROOTS.DASHBOARD}/bookshelf/borrow-requests`,
     },
+    documentation: {
+      root: `${ROOTS.DASHBOARD}/documentation`,
+      all: `${ROOTS.DASHBOARD}/documentation`,
+      favorites: `${ROOTS.DASHBOARD}/documentation/favorites`,
+      study: `${ROOTS.DASHBOARD}/documentation/study`,
+      work: `${ROOTS.DASHBOARD}/documentation/work`,
+      life: `${ROOTS.DASHBOARD}/documentation/life`,
+      other: `${ROOTS.DASHBOARD}/documentation/other`,
+      docWithId: (docId: string | number) =>
+        `${ROOTS.DASHBOARD}/documentation?docId=${docId}`,
+    },
     journeyDiary: {
       root: `${ROOTS.DASHBOARD}/journey-diary`,
       myJourney: `${ROOTS.DASHBOARD}/journey-diary/my-journey`,

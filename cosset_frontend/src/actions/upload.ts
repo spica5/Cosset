@@ -33,27 +33,29 @@ type CompletedUploadPart = {
   etag: string;
 };
 
-// Match backend STORAGE_PROVIDER. When "r2", files must go browser → R2 (never through Vercel).
+// Match backend STORAGE_PROVIDER. When "r2", prefer browser → R2.
 const storageProvider = (process.env.NEXT_PUBLIC_STORAGE_PROVIDER || 's3').trim().toLowerCase();
 const isR2DirectUpload =
   storageProvider === 'r2' ||
   storageProvider === 'cloudflare' ||
   storageProvider === 'cloudflare-r2';
 
-// Enable direct S3 upload (also forced when NEXT_PUBLIC_STORAGE_PROVIDER=r2)
+// Enable direct S3/R2 upload (also forced when NEXT_PUBLIC_STORAGE_PROVIDER=r2)
 const isDirectS3UploadEnabled =
   isR2DirectUpload || process.env.NEXT_PUBLIC_ENABLE_DIRECT_S3_UPLOAD === 'true';
 
 // Threshold for using direct S3 upload (5MB) to avoid Vercel's request size limit
 const DIRECT_UPLOAD_THRESHOLD = 5 * 1024 * 1024;
 
-// Use direct signed PUT up to 512MB, then multipart with smaller parts as fallback.
-const MULTIPART_UPLOAD_THRESHOLD = 512 * 1024 * 1024;
-const MULTIPART_FALLBACK_THRESHOLD = 80 * 1024 * 1024;
-const MULTIPART_PART_SIZE = 32 * 1024 * 1024;
+// Prefer multipart for large payloads. Streaming through Next.js → R2 often ETIMEDOUTs.
+const MULTIPART_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
+const MULTIPART_MEDIA_THRESHOLD = 32 * 1024 * 1024;
+const MULTIPART_FALLBACK_THRESHOLD = 32 * 1024 * 1024;
+const MULTIPART_PART_SIZE = 16 * 1024 * 1024;
 const MULTIPART_PART_MAX_RETRIES = 3;
 const UPLOAD_PART_TIMEOUT_MS = 30 * 60 * 1000;
-const SERVER_STREAM_TIMEOUT_MS = 60 * 60 * 1000;
+// When browser→R2 CORS fails, small/medium files can still go through the API.
+const BACKEND_PROXY_MAX_BYTES = 50 * 1024 * 1024;
 
 function isLocalBackend() {
   const serverUrl = CONFIG.serverUrl.trim();
@@ -62,6 +64,28 @@ function isLocalBackend() {
   }
 
   return /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(serverUrl);
+}
+
+function isLargeMediaFile(file: File) {
+  const mime = (file.type || '').trim().toLowerCase();
+  if (mime.startsWith('video/') || mime.startsWith('audio/')) {
+    return true;
+  }
+
+  return /\.(mp4|mov|m4v|webm|mkv|avi|ogv|mp3|wav|m4a|aac|flac|ogg)$/i.test(file.name || '');
+}
+
+function shouldUseMultipartUpload(file: File) {
+  if (file.size >= MULTIPART_UPLOAD_THRESHOLD) {
+    return true;
+  }
+
+  return isLargeMediaFile(file) && file.size >= MULTIPART_MEDIA_THRESHOLD;
+}
+
+function isCorsOrNetworkUploadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /cors|network|failed to fetch|ERR_FAILED|Access-Control/i.test(message);
 }
 
 const getUploadEndpoint = (isPublic: boolean) =>
@@ -176,7 +200,7 @@ async function uploadFileViaBackendStream(
     headers: {
       'Content-Type': contentType,
     },
-    timeout: SERVER_STREAM_TIMEOUT_MS,
+    timeout: 60 * 60 * 1000,
     maxBodyLength: Infinity,
     maxContentLength: Infinity,
     onUploadProgress: (event) => {
@@ -498,37 +522,40 @@ export async function uploadFileToS3({
     throw new Error('Upload key is required.');
   }
 
-  // Cloudflare R2 (and forced direct mode): browser → storage only.
-  // Never proxy/stream file bytes through the Vercel/Next.js API.
-  if (isR2DirectUpload) {
-    if (file.size >= MULTIPART_UPLOAD_THRESHOLD) {
-      return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+  const fallbackThroughBackend = async (error: unknown): Promise<UploadFileToS3Result> => {
+    // CORS blocks browser→R2. Small/medium office docs can still upload via API proxy.
+    if (file.size <= BACKEND_PROXY_MAX_BYTES) {
+      console.warn('Direct upload failed, falling back to backend proxy.', error);
+      reportUploadProgress(onProgress, 0);
+      return uploadFileViaBackendProxy(file, normalizedKey, isPublic, onProgress);
     }
 
-    try {
-      return await uploadFileToS3Direct({ file, key: normalizedKey, isPublic, onProgress });
-    } catch (error) {
-      if (file.size >= MULTIPART_FALLBACK_THRESHOLD) {
-        console.warn('Direct R2 upload failed, retrying with multipart.', error);
-        reportUploadProgress(onProgress, 0);
-        return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
-      }
+    if (isLocalBackend()) {
+      console.warn('Direct upload failed, falling back to backend stream.', error);
+      reportUploadProgress(onProgress, 0);
+      return uploadFileViaBackendStream(file, normalizedKey, isPublic, onProgress);
+    }
 
+    throw error instanceof Error
+      ? error
+      : new Error('Upload failed. Configure R2 CORS for your app origin, then retry.');
+  };
+
+  // Large videos/files: multipart (browser → storage) when possible.
+  if (shouldUseMultipartUpload(file)) {
+    try {
+      return await uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+    } catch (error) {
+      if (isCorsOrNetworkUploadError(error) || isLocalBackend()) {
+        return fallbackThroughBackend(error);
+      }
       throw error;
     }
   }
 
-  // Files above 512MB always use multipart (or server stream on local dev).
-  if (file.size >= MULTIPART_UPLOAD_THRESHOLD) {
-    if (isLocalBackend()) {
-      return uploadFileViaBackendStream(file, normalizedKey, isPublic, onProgress);
-    }
-
-    return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
-  }
-
-  // Use direct S3 upload for medium/large files to avoid Vercel's request size limit (6MB)
-  const useDirectUpload = isDirectS3UploadEnabled || file.size > DIRECT_UPLOAD_THRESHOLD;
+  // Prefer signed PUT (browser → storage). Fall back to proxy when CORS/network fails.
+  const useDirectUpload =
+    isR2DirectUpload || isDirectS3UploadEnabled || file.size > DIRECT_UPLOAD_THRESHOLD;
 
   if (!useDirectUpload) {
     return uploadFileViaBackendProxy(file, normalizedKey, isPublic, onProgress);
@@ -537,30 +564,17 @@ export async function uploadFileToS3({
   try {
     return await uploadFileToS3Direct({ file, key: normalizedKey, isPublic, onProgress });
   } catch (error) {
-    if (file.size >= MULTIPART_FALLBACK_THRESHOLD) {
-      if (isLocalBackend()) {
-        try {
-          console.warn('Direct S3 upload failed, retrying through backend stream.', error);
-          reportUploadProgress(onProgress, 0);
-          return await uploadFileViaBackendStream(file, normalizedKey, isPublic, onProgress);
-        } catch (streamError) {
-          console.warn('Backend stream upload failed, retrying with multipart.', streamError);
-          reportUploadProgress(onProgress, 0);
-          return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
-        }
-      }
-
-      console.warn('Direct S3 upload failed, retrying with multipart.', error);
+    if (file.size >= MULTIPART_FALLBACK_THRESHOLD && !isCorsOrNetworkUploadError(error)) {
+      console.warn('Direct upload failed, retrying with multipart.', error);
       reportUploadProgress(onProgress, 0);
-      return uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+      try {
+        return await uploadFileToS3Multipart({ file, key: normalizedKey, isPublic, onProgress });
+      } catch (multipartError) {
+        return fallbackThroughBackend(multipartError);
+      }
     }
 
-    if (file.size > DIRECT_UPLOAD_THRESHOLD) {
-      throw error;
-    }
-
-    console.warn('Direct S3 upload failed, falling back to backend proxy.', error);
-    return uploadFileViaBackendProxy(file, normalizedKey, isPublic, onProgress);
+    return fallbackThroughBackend(error);
   }
 }
 

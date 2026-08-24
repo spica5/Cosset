@@ -26,6 +26,15 @@ function getMimeType(ext: string) {
     pdf: 'application/pdf',
     txt: 'text/plain',
     text: 'text/plain',
+    md: 'text/markdown',
+    csv: 'text/csv',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip: 'application/zip',
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
     aac: 'audio/aac',
@@ -36,19 +45,44 @@ function getMimeType(ext: string) {
   return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
-type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'txt' | 'unsupported';
+type UploadFileKind = 'image' | 'video' | 'audio' | 'pdf' | 'txt' | 'document' | 'unsupported';
 
 const IMAGE_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm']);
 const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac', 'oga']);
+const DOCUMENT_FILE_EXTENSIONS = new Set([
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'csv',
+  'md',
+  'zip',
+]);
+
+const DOCUMENT_MIME_TYPES = new Set([
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/csv',
+  'text/markdown',
+  'application/zip',
+  'application/x-zip-compressed',
+]);
 
 const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number> = {
   image: 10 * 1024 * 1024,
   // Cinema and collection videos can exceed 500MB via direct/multipart storage upload.
   video: 5 * 1024 * 1024 * 1024,
   audio: 250 * 1024 * 1024,
-  pdf: 10 * 1024 * 1024,
-  txt: 5 * 1024 * 1024,
+  pdf: 50 * 1024 * 1024,
+  txt: 10 * 1024 * 1024,
+  document: 50 * 1024 * 1024,
 };
 
 function getUploadFileKind(file: File): UploadFileKind {
@@ -74,6 +108,10 @@ function getUploadFileKind(file: File): UploadFileKind {
     return 'txt';
   }
 
+  if (DOCUMENT_MIME_TYPES.has(mime)) {
+    return 'document';
+  }
+
   const ext = getFileExtension(file);
 
   if (IMAGE_FILE_EXTENSIONS.has(ext)) {
@@ -96,6 +134,10 @@ function getUploadFileKind(file: File): UploadFileKind {
     return 'txt';
   }
 
+  if (DOCUMENT_FILE_EXTENSIONS.has(ext)) {
+    return 'document';
+  }
+
   return 'unsupported';
 }
 
@@ -105,7 +147,8 @@ function validateSingleUploadFile(file: File): { valid: true } | { valid: false;
   if (kind === 'unsupported') {
     return {
       valid: false,
-      message: 'Only image, video, audio, PDF, or TXT files are supported',
+      message:
+        'Only image, video, audio, PDF, TXT, Office documents, CSV, Markdown, or ZIP files are supported',
     };
   }
 
