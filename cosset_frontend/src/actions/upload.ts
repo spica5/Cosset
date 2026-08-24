@@ -55,7 +55,7 @@ const MULTIPART_PART_SIZE = 16 * 1024 * 1024;
 const MULTIPART_PART_MAX_RETRIES = 3;
 const UPLOAD_PART_TIMEOUT_MS = 30 * 60 * 1000;
 // When browser→R2 CORS fails, small/medium files can still go through the API.
-const BACKEND_PROXY_MAX_BYTES = 50 * 1024 * 1024;
+const BACKEND_PROXY_MAX_BYTES = 120 * 1024 * 1024;
 
 function isLocalBackend() {
   const serverUrl = CONFIG.serverUrl.trim();

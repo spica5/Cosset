@@ -80,7 +80,7 @@ const MAX_FILE_SIZE_BYTES: Record<Exclude<UploadFileKind, 'unsupported'>, number
   // Cinema and collection videos can exceed 500MB via direct/multipart storage upload.
   video: 5 * 1024 * 1024 * 1024,
   audio: 250 * 1024 * 1024,
-  pdf: 50 * 1024 * 1024,
+  pdf: 120 * 1024 * 1024,
   txt: 10 * 1024 * 1024,
   document: 50 * 1024 * 1024,
 };
