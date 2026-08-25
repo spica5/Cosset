@@ -1,7 +1,8 @@
+import { paths } from 'src/routes/paths';
+
 import { CONFIG } from 'src/config-global';
 
 import { CollectionItemsView } from 'src/sections/dashboard/collections/view';
-import { paths } from 'src/routes/paths';
 
 // ----------------------------------------------------------------------
 

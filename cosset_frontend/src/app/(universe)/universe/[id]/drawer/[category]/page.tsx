@@ -1,7 +1,7 @@
 import { CONFIG } from 'src/config-global';
 
-import { UniverseCollectionItemListView } from 'src/sections/universe/universe/view/universe-collection-item-list-view';
 import { UniverseDrawerView } from 'src/sections/universe/universe/view/universe-drawer-view';
+import { UniverseCollectionItemListView } from 'src/sections/universe/universe/view/universe-collection-item-list-view';
 
 // ----------------------------------------------------------------------
 

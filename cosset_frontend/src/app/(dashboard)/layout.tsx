@@ -17,6 +17,7 @@ import { MotionLazy } from 'src/components/dashboard/animate/motion-lazy';
 import { SettingsDrawer, defaultSettings, SettingsProvider } from 'src/components/dashboard/settings';
 
 import { AuthProvider } from 'src/auth/context/jwt';
+import { AuthSocialProvider } from 'src/auth/components/auth-social-provider';
 
 // ----------------------------------------------------------------------
 
@@ -49,16 +50,18 @@ export default async function RootLayout({ children }: Props) {
         />
 
         <AuthProvider>
-          <SettingsProvider settings={defaultSettings}>
-            <ThemeProvider>
-              <MotionLazy>
-                <ProgressBar />
-                <SettingsDrawer />
-                <Snackbar />
-                {children}
-              </MotionLazy>
-            </ThemeProvider>
-          </SettingsProvider>
+          <AuthSocialProvider>
+            <SettingsProvider settings={defaultSettings}>
+              <ThemeProvider>
+                <MotionLazy>
+                  <ProgressBar />
+                  <SettingsDrawer />
+                  <Snackbar />
+                  {children}
+                </MotionLazy>
+              </ThemeProvider>
+            </SettingsProvider>
+          </AuthSocialProvider>
         </AuthProvider>
       </body>
     </html>

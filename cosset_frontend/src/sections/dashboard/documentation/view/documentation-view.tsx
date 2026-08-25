@@ -40,6 +40,11 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 import { DocumentationFormDialog } from '../documentation-form-dialog';
 import { DocumentationThumb } from '../documentation-thumb';
 import {
+  DOCUMENTATION_SORT_OPTIONS,
+  sortDocumentationDocuments,
+  type DocumentationSortValue,
+} from '../documentation-sort';
+import {
   DOCUMENTATION_CATEGORY_OPTIONS,
   formatBytes,
   getDocumentationCategoryLabel,
@@ -66,6 +71,7 @@ export function DocumentationView({ initialCategory = 'all' }: Props) {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(routeCategory);
+  const [sortBy, setSortBy] = useState<DocumentationSortValue>('latest');
   const [formOpen, setFormOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<IDocumentationDocument | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
@@ -85,7 +91,7 @@ export function DocumentationView({ initialCategory = 'all' }: Props) {
   const filteredDocuments = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return documents.filter((document) => {
+    const filtered = documents.filter((document) => {
       if (categoryFilter === 'favorites' && !(document.isFavorite === 1)) {
         return false;
       }
@@ -115,7 +121,9 @@ export function DocumentationView({ initialCategory = 'all' }: Props) {
 
       return haystack.includes(query);
     });
-  }, [categoryFilter, documents, searchQuery]);
+
+    return sortDocumentationDocuments(filtered, sortBy);
+  }, [categoryFilter, documents, searchQuery, sortBy]);
 
   const handleOpenCreate = useCallback(() => {
     setEditingDocument(null);
@@ -271,7 +279,7 @@ export function DocumentationView({ initialCategory = 'all' }: Props) {
             label="Filter"
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value as CategoryFilter)}
-            sx={{ minWidth: { md: 200 } }}
+            sx={{ minWidth: { md: 180 } }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="favorites">Favorites</MenuItem>
@@ -289,6 +297,19 @@ export function DocumentationView({ initialCategory = 'all' }: Props) {
             sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}
           />
         )}
+        <TextField
+          select
+          label="Sort by"
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as DocumentationSortValue)}
+          sx={{ minWidth: { md: 180 } }}
+        >
+          {DOCUMENTATION_SORT_OPTIONS.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
       </Stack>
 
       {documentsLoading ? (

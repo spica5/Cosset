@@ -144,6 +144,42 @@ export const resetPassword = async ({
 };
 
 /** **************************************
+ * Sign in with Google
+ *************************************** */
+export const signInWithGoogle = async (
+  token: string,
+  kind: 'idToken' | 'accessToken' = 'idToken',
+): Promise<void> => {
+  try {
+    const payload =
+      kind === 'accessToken' ? { accessToken: token } : { idToken: token };
+
+    const res = await axios.post(endpoints.auth.google, payload);
+
+    const { accessToken, user } = res.data;
+
+    if (!accessToken) {
+      throw new Error('Access token not found in response');
+    }
+
+    if (user) {
+      assertCustomerCanSignIn(user);
+    } else {
+      const meRes = await axios.get(endpoints.auth.me, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      assertCustomerCanSignIn(meRes.data?.user);
+    }
+
+    await setSession(accessToken);
+  } catch (error) {
+    await setSession(null);
+    console.error('Error during Google sign in:', error);
+    throw error;
+  }
+};
+
+/** **************************************
  * Sign out
  *************************************** */
 export const signOut = async (): Promise<void> => {

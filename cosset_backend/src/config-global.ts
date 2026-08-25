@@ -34,3 +34,5 @@ export const CONFIG: ConfigType = {
 export const JWT_SECRET = process.env.JWT_SECRET || 'cosset-secret-key';
 
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '3 days';
+
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '';

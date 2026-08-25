@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { paths } from 'src/routes/paths';
@@ -20,8 +19,8 @@ import {
   type ResetPasswordSchemaType,
 } from 'src/sections/universe/auth/components/schema';
 
-import { requestPasswordReset } from '../context/jwt';
 import { FormHead } from '../components/form-head';
+import { requestPasswordReset } from '../context/jwt';
 import { FormReturnLink } from '../components/form-return-link';
 
 // ----------------------------------------------------------------------

@@ -85,7 +85,24 @@ Example:
 
 ```env
 JWT_SECRET=replace-with-a-strong-random-secret
+GOOGLE_CLIENT_ID=your-google-oauth-web-client-id.apps.googleusercontent.com
 ```
+
+### Sign in with Google
+
+1. Create an OAuth 2.0 **Web client** in [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Add **Authorized JavaScript origins** for your frontend, e.g. `https://cosset.global`, `http://localhost:8083`.
+3. Set the same client ID on backend and frontend:
+
+```env
+# cosset_backend/.env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+
+# cosset_frontend/.env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+```
+
+The frontend sends a Google ID token to `POST /api/auth/google`; the backend verifies it and returns the same JWT used by email sign-in.
 
 ## Default port
 

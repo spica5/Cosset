@@ -1,36 +1,31 @@
+'use client';
+
 import type { BoxProps } from '@mui/material/Box';
 
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 
-import { GithubIcon, GoogleIcon, TwitterIcon } from 'src/assets/dashboard/icons';
+import { GoogleSignInButton } from './google-sign-in-button';
 
 // ----------------------------------------------------------------------
 
 type FormSocialsProps = BoxProps & {
-  signInWithGoogle?: () => void;
-  singInWithGithub?: () => void;
-  signInWithTwitter?: () => void;
+  onGoogleCredential?: (token: string, kind?: 'idToken' | 'accessToken') => void | Promise<void>;
+  googleSignInLoading?: boolean;
 };
 
 export function FormSocials({
   sx,
-  signInWithGoogle,
-  singInWithGithub,
-  signInWithTwitter,
+  onGoogleCredential,
+  googleSignInLoading = false,
   ...other
 }: FormSocialsProps) {
   return (
-    <Box gap={1.5} display="flex" justifyContent="center" sx={sx} {...other}>
-      <IconButton color="inherit" onClick={signInWithGoogle}>
-        <GoogleIcon width={22} />
-      </IconButton>
-      <IconButton color="inherit" onClick={singInWithGithub}>
-        <GithubIcon width={22} />
-      </IconButton>
-      <IconButton color="inherit" onClick={signInWithTwitter}>
-        <TwitterIcon width={22} />
-      </IconButton>
+    <Box gap={1.5} display="flex" justifyContent="center" alignItems="center" sx={sx} {...other}>
+      <GoogleSignInButton
+        onCredential={onGoogleCredential || (() => undefined)}
+        disabled={googleSignInLoading || !onGoogleCredential}
+        variant="dashboard"
+      />
     </Box>
   );
 }

@@ -24,9 +24,10 @@ import { Form, Field } from 'src/components/dashboard/hook-form';
 import { useAuthContext } from '../hooks';
 import { FormHead } from '../components/form-head';
 import { signInWithPassword } from '../context/jwt';
+import { getDashboardHomePath } from '../utils/role';
 import { FormSocials } from '../components/form-socials';
 import { FormDivider } from '../components/form-divider';
-import { getDashboardHomePath } from '../utils/role';
+import { useGoogleSignIn } from '../hooks/use-google-sign-in';
 
 // ----------------------------------------------------------------------
 
@@ -48,6 +49,7 @@ export const SignInSchema = zod.object({
 export function SignInView() {
   const { checkUserSession } = useAuthContext();
   const router = useRouter();
+  const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
 
   const password = useBoolean();
 
@@ -146,9 +148,8 @@ export function SignInView() {
       <FormDivider />
 
       <FormSocials
-        signInWithGoogle={() => {}}
-        singInWithGithub={() => {}}
-        signInWithTwitter={() => {}}
+        onGoogleCredential={handleGoogleCredential}
+        googleSignInLoading={googleSignInLoading || isSubmitting}
       />
     </>
   );

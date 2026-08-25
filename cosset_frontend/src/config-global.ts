@@ -20,6 +20,7 @@ export type ConfigValue = {
     skip: boolean;
     redirectPath: string;
   };
+  googleClientId: string;
   googleMapApiKey: string;
   mapboxApiKey: string;
   firebase: {
@@ -68,6 +69,7 @@ export const CONFIG: ConfigValue = {
     skip: false,
     redirectPath: paths.dashboard.preview,
   },
+  googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   /**
    * Google Map
    */

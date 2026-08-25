@@ -12,6 +12,7 @@ import { Form } from 'src/components/universe/hook-form';
 import { signUp } from 'src/auth/context/jwt/action';
 import { useAuthContext } from 'src/auth/hooks/use-auth-context';
 import { getDashboardHomePath } from 'src/auth/utils/role';
+import { useGoogleSignIn } from 'src/auth/hooks/use-google-sign-in';
 import { acceptFriendInviteLink } from 'src/actions/friend';
 
 import { FormHead } from './components/form-head';
@@ -29,6 +30,7 @@ export function SignUpView() {
   const { checkUserSession } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
   const prefilledEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
 
   const defaultValues = {
@@ -93,7 +95,10 @@ export function SignUpView() {
         }}
       />
 
-      <FormSocials />
+      <FormSocials
+        onGoogleCredential={handleGoogleCredential}
+        googleSignInLoading={googleSignInLoading}
+      />
 
       <FormDivider label="OR" />
 

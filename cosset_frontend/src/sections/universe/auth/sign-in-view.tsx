@@ -13,6 +13,7 @@ import { Form } from 'src/components/universe/hook-form';
 import { useAuthContext } from 'src/auth/hooks';
 import { signInWithPassword } from 'src/auth/context/jwt';
 import { getDashboardHomePath } from 'src/auth/utils/role';
+import { useGoogleSignIn } from 'src/auth/hooks/use-google-sign-in';
 
 import { FormHead } from './components/form-head';
 import { SignInSchema } from './components/schema';
@@ -27,6 +28,7 @@ import type { SignInSchemaType } from './components/schema';
 export function SignInView() {
   const { checkUserSession } = useAuthContext();
   const router = useRouter();
+  const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
 
   const defaultValues = {
     email: '',
@@ -71,7 +73,10 @@ export function SignInView() {
         }}
       />
 
-      <FormSocials />
+      <FormSocials
+        onGoogleCredential={handleGoogleCredential}
+        googleSignInLoading={googleSignInLoading}
+      />
 
       <FormDivider label="OR" />
 
