@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+
+import Alert from '@mui/material/Alert';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -25,10 +28,30 @@ import type { SignInSchemaType } from './components/schema';
 
 // ----------------------------------------------------------------------
 
+function getSignInFeedbackMessage(error: unknown) {
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return 'Unable to sign in.';
+}
+
 export function SignInView() {
   const { checkUserSession } = useAuthContext();
   const router = useRouter();
   const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const defaultValues = {
     email: '',
@@ -44,6 +67,7 @@ export function SignInView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
+      setErrorMessage(null);
       await signInWithPassword({
         email: data.email,
         password: data.password,
@@ -54,7 +78,25 @@ export function SignInView() {
       reset();
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : 'Unable to sign in.');
+
+      if (
+        error &&
+        typeof error === 'object' &&
+        'requiresVerification' in error &&
+        (error as { requiresVerification?: boolean }).requiresVerification
+      ) {
+        const email =
+          String((error as { email?: string }).email || data.email)
+            .trim()
+            .toLowerCase() || data.email;
+        router.push(`${paths.auth.verifyEmail}?email=${encodeURIComponent(email)}`);
+        toast.error('Please verify your email before signing in.');
+        return;
+      }
+
+      const message = getSignInFeedbackMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     }
   });
 
@@ -72,6 +114,12 @@ export function SignInView() {
           textAlign: { xs: 'center', md: 'left' },
         }}
       />
+
+      {!!errorMessage && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {errorMessage}
+        </Alert>
+      )}
 
       <FormSocials
         onGoogleCredential={handleGoogleCredential}

@@ -75,6 +75,34 @@ function buildResetEmailContent(email: string, code: string) {
   };
 }
 
+function buildEmailVerificationContent(email: string, code: string) {
+  const appUrl = getAppUrl();
+  const verifyUrl = `${appUrl}/verify-email?email=${encodeURIComponent(email)}`;
+
+  return {
+    subject: 'Verify your Cosset email address',
+    text: [
+      'Welcome to Cosset!',
+      '',
+      'Please verify your email address to finish creating your account.',
+      '',
+      `Your verification code is: ${code}`,
+      '',
+      `Or open this link to verify: ${verifyUrl}`,
+      '',
+      'This code expires in 15 minutes. If you did not create an account, you can ignore this email.',
+    ].join('\n'),
+    html: `
+      <p>Welcome to Cosset!</p>
+      <p>Please verify your email address to finish creating your account.</p>
+      <p><strong>Your verification code is:</strong></p>
+      <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+      <p>Or <a href="${verifyUrl}">click here</a> to verify your email.</p>
+      <p style="color:#666;font-size:12px;">This code expires in 15 minutes. If you did not create an account, you can ignore this email.</p>
+    `,
+  };
+}
+
 function createSmtpTransporter(port: number, connection: SmtpConnection): nodemailer.Transporter {
   const user = trimEnv(process.env.SMTP_USER);
   const pass = trimEnv(process.env.SMTP_PASSWORD) || trimEnv(process.env.SMTP_PASS);
@@ -336,4 +364,51 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
   }
 
   throw new Error(errors.join(' | ') || 'Failed to send password reset email');
+}
+
+export async function sendEmailVerificationEmail(
+  email: string,
+  code: string,
+): Promise<EmailSendResult> {
+  const { subject, text, html } = buildEmailVerificationContent(email, code);
+  const errors: string[] = [];
+
+  if (isResendConfigured()) {
+    try {
+      await sendViaResend(email, subject, text, html);
+      console.info(`[Email Verification] Email sent via Resend to ${email}`);
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Resend failed';
+      errors.push(message);
+      console.warn('[Email Verification] Resend failed:', error);
+    }
+  }
+
+  if (isSmtpConfigured()) {
+    try {
+      await sendViaSmtp(email, subject, text, html);
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SMTP failed';
+      errors.push(message);
+      console.error('[Email Verification] SMTP failed:', error);
+    }
+  }
+
+  if (!isSmtpConfigured() && !isResendConfigured()) {
+    logDevFallback(email, code);
+    return { sent: false, devMode: true };
+  }
+
+  if (isDevEnvironment()) {
+    logDevFallback(email, code);
+    return {
+      sent: false,
+      devMode: true,
+      error: errors.join(' | '),
+    };
+  }
+
+  throw new Error(errors.join(' | ') || 'Failed to send email verification email');
 }

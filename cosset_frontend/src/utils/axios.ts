@@ -50,6 +50,8 @@ export const endpoints = {
     signIn: '/api/auth/sign-in',
     signUp: '/api/auth/sign-up',
     google: '/api/auth/google',
+    verifyEmail: '/api/auth/verify-email',
+    resendVerification: '/api/auth/resend-verification',
     forgotPassword: '/api/auth/forgot-password',
     resetPassword: '/api/auth/reset-password',
   },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSearchParams } from 'next/navigation';
@@ -23,6 +24,25 @@ import { UpdatePasswordForm } from './components/update-password-form';
 import type { UpdatePasswordSchemaType } from './components/schema';
 
 // ----------------------------------------------------------------------
+
+function getAuthFeedbackMessage(error: unknown, fallback: string) {
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
 
 export function UpdatePasswordView() {
   const router = useRouter();
@@ -58,15 +78,20 @@ export function UpdatePasswordView() {
         password: data.password,
       });
 
-      router.push(paths.auth.signIn);
+      const message = 'Password updated successfully. You can sign in with your new password.';
+      setSuccessMessage(message);
+      toast.success(message);
+
+      window.setTimeout(() => {
+        router.push(paths.auth.signIn);
+      }, 1500);
     } catch (error) {
-      const message =
-        typeof error === 'string'
-          ? error
-          : error instanceof Error
-            ? error.message
-            : 'Unable to reset password. Please check your code and try again.';
+      const message = getAuthFeedbackMessage(
+        error,
+        'Unable to reset password. Please check your code and try again.',
+      );
       setErrorMessage(message);
+      toast.error(message);
     }
   });
 
@@ -74,7 +99,9 @@ export function UpdatePasswordView() {
     const email = getValues('email').trim().toLowerCase();
 
     if (!email) {
-      setErrorMessage('Enter your email address before requesting a new code.');
+      const message = 'Enter your email address before requesting a new code.';
+      setErrorMessage(message);
+      toast.error(message);
       return;
     }
 
@@ -84,19 +111,15 @@ export function UpdatePasswordView() {
       setSuccessMessage(null);
       const result = await requestPasswordReset({ email });
 
-      if (result.devCode) {
-        setSuccessMessage(`Email is not configured. Your new code is: ${result.devCode}`);
-      } else {
-        setSuccessMessage('A new verification code has been sent to your email.');
-      }
+      const message = result.devCode
+        ? `Email is not configured. Your new code is: ${result.devCode}`
+        : 'A new verification code has been sent to your email.';
+      setSuccessMessage(message);
+      toast.success(message);
     } catch (error) {
-      const message =
-        typeof error === 'string'
-          ? error
-          : error instanceof Error
-            ? error.message
-            : 'Unable to resend code. Please try again.';
+      const message = getAuthFeedbackMessage(error, 'Unable to resend code. Please try again.');
       setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsResending(false);
     }

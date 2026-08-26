@@ -1,8 +1,12 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+import Alert from '@mui/material/Alert';
 
 import { paths } from 'src/routes/paths';
 
@@ -10,10 +14,7 @@ import { Logo } from 'src/components/universe/logo';
 import { Form } from 'src/components/universe/hook-form';
 
 import { signUp } from 'src/auth/context/jwt/action';
-import { useAuthContext } from 'src/auth/hooks/use-auth-context';
-import { getDashboardHomePath } from 'src/auth/utils/role';
 import { useGoogleSignIn } from 'src/auth/hooks/use-google-sign-in';
-import { acceptFriendInviteLink } from 'src/actions/friend';
 
 import { FormHead } from './components/form-head';
 import { SignUpSchema } from './components/schema';
@@ -26,12 +27,31 @@ import type { SignUpSchemaType } from './components/schema';
 
 // ----------------------------------------------------------------------
 
+function getSignUpErrorMessage(error: unknown) {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return 'Unable to create account. Please try again.';
+}
+
 export function SignUpView() {
-  const { checkUserSession } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
   const prefilledEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const defaultValues = {
     firstName: '',
@@ -51,32 +71,38 @@ export function SignUpView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await signUp({
+      setErrorMessage(null);
+
+      const result = await signUp({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
         role: data.accountType === 'business' ? 'business' : 'user',
       });
-          
+
       reset();
-      const sessionUser = await checkUserSession?.();
 
-      // Process invite link if present
-      const inviteFrom = String(searchParams.get('inviteFrom') || '').trim();
-      const inviteEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
-
-      if (inviteFrom && inviteEmail) {
-        try {
-          await acceptFriendInviteLink(inviteFrom, inviteEmail);
-        } catch (inviteError) {
-          console.error('Failed to process invite after sign-up', inviteError);
-        }
+      const params = new URLSearchParams({ email: result.email });
+      if (result.devCode) {
+        params.set('devCode', result.devCode);
       }
 
-      router.replace(getDashboardHomePath(sessionUser?.role));
+      const inviteFrom = String(searchParams.get('inviteFrom') || '').trim();
+      const inviteEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
+      if (inviteFrom) {
+        params.set('inviteFrom', inviteFrom);
+      }
+      if (inviteEmail) {
+        params.set('inviteEmail', inviteEmail);
+      }
+
+      router.replace(`${paths.auth.verifyEmail}?${params.toString()}`);
     } catch (error) {
       console.error(error);
+      const message = getSignUpErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     }
   });
 
@@ -94,6 +120,12 @@ export function SignUpView() {
           textAlign: { xs: 'center', md: 'left' },
         }}
       />
+
+      {!!errorMessage && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {errorMessage}
+        </Alert>
+      )}
 
       <FormSocials
         onGoogleCredential={handleGoogleCredential}

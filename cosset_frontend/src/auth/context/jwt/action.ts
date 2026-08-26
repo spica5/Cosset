@@ -19,6 +19,13 @@ export type SignUpParams = {
   role?: 'user' | 'business';
 };
 
+export type SignUpResult = {
+  requiresVerification: boolean;
+  email: string;
+  message?: string;
+  devCode?: string;
+};
+
 const INACTIVE_CUSTOMER_MESSAGE = "Your account isn't active and can't log in. Please contact support.";
 
 function getCustomerState(user: Record<string, any> | null | undefined) {
@@ -29,6 +36,13 @@ function assertCustomerCanSignIn(user: Record<string, any> | null | undefined) {
   if (getCustomerState(user) !== 'active') {
     throw new Error(INACTIVE_CUSTOMER_MESSAGE);
   }
+}
+
+function getErrorPayload(error: unknown): Record<string, any> | null {
+  if (error && typeof error === 'object') {
+    return error as Record<string, any>;
+  }
+  return null;
 }
 
 /** **************************************
@@ -59,9 +73,39 @@ export const signInWithPassword = async ({ email, password }: SignInParams): Pro
   } catch (error) {
     await setSession(null);
     console.error('Error during sign in:', error);
-    throw error;
+
+    const payload = getErrorPayload(error);
+    if (payload?.requiresVerification) {
+      const verificationError = new Error(
+        String(payload.message || 'Please verify your email before signing in.'),
+      ) as Error & { requiresVerification?: boolean; email?: string };
+      verificationError.requiresVerification = true;
+      verificationError.email = String(payload.email || email);
+      throw verificationError;
+    }
+
+    throw new Error(getSignInErrorMessage(error));
   }
 };
+
+function getSignInErrorMessage(error: unknown) {
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return 'Unable to sign in.';
+}
 
 /** **************************************
  * Sign up
@@ -72,7 +116,7 @@ export const signUp = async ({
   firstName,
   lastName,
   role = 'user',
-}: SignUpParams): Promise<void> => {
+}: SignUpParams): Promise<SignUpResult> => {
   const params = {
     email,
     password,
@@ -83,16 +127,77 @@ export const signUp = async ({
 
   try {
     const res = await axios.post(endpoints.auth.signUp, params);
+    const data = res.data || {};
 
-    const { accessToken } = res.data;
+    // Email/password signup requires verification; do not expect an access token here.
+    return {
+      requiresVerification: Boolean(data.requiresVerification ?? true),
+      email: String(data.email || email).trim().toLowerCase(),
+      message: data.message,
+      devCode: data.devCode,
+    };
+  } catch (error) {
+    console.error('Error during sign up:', error);
+    const payload = getErrorPayload(error);
+    const message =
+      typeof error === 'string'
+        ? error
+        : error instanceof Error
+          ? error.message
+          : String(payload?.message || 'Unable to create account. Please try again.');
+    throw new Error(message);
+  }
+};
+
+export type VerifyEmailParams = {
+  email: string;
+  code: string;
+};
+
+export type ResendVerificationParams = {
+  email: string;
+};
+
+export type ResendVerificationResult = {
+  message?: string;
+  devCode?: string;
+};
+
+/** **************************************
+ * Verify email
+ *************************************** */
+export const verifyEmail = async ({ email, code }: VerifyEmailParams): Promise<void> => {
+  try {
+    const res = await axios.post(endpoints.auth.verifyEmail, { email, code });
+    const { accessToken, user } = res.data;
 
     if (!accessToken) {
       throw new Error('Access token not found in response');
     }
 
+    if (user) {
+      assertCustomerCanSignIn(user);
+    }
+
     await setSession(accessToken);
   } catch (error) {
-    console.error('Error during sign up:', error);
+    await setSession(null);
+    console.error('Error during email verification:', error);
+    throw error;
+  }
+};
+
+/** **************************************
+ * Resend verification
+ *************************************** */
+export const resendEmailVerification = async ({
+  email,
+}: ResendVerificationParams): Promise<ResendVerificationResult> => {
+  try {
+    const res = await axios.post(endpoints.auth.resendVerification, { email });
+    return res.data as ResendVerificationResult;
+  } catch (error) {
+    console.error('Error during resend verification:', error);
     throw error;
   }
 };
@@ -139,7 +244,15 @@ export const resetPassword = async ({
     await axios.post(endpoints.auth.resetPassword, { email, code, password });
   } catch (error) {
     console.error('Error during password reset:', error);
-    throw error;
+    const message =
+      typeof error === 'string'
+        ? error
+        : error instanceof Error
+          ? error.message
+          : error && typeof error === 'object' && 'message' in error
+            ? String((error as { message?: unknown }).message || 'Unable to reset password.')
+            : 'Unable to reset password.';
+    throw new Error(message);
   }
 };
 

@@ -13,6 +13,7 @@ import { ThemeProvider } from 'src/theme/universe/theme-provider';
 
 import { ProgressBar } from 'src/components/universe/progress-bar';
 import { MotionLazy } from 'src/components/universe/animate/motion-lazy';
+import { Snackbar } from 'src/components/dashboard/snackbar';
 import { SettingsDrawer, defaultSettings, SettingsProvider } from 'src/components/universe/settings';
 
 import { AuthProvider } from 'src/auth/context/jwt';
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: Props) {
                   <MotionLazy>
                     <ProgressBar />
                     <SettingsDrawer />
+                    <Snackbar />
                     {children}
                   </MotionLazy>
                 </ThemeProvider>

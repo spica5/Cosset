@@ -2,16 +2,26 @@ import type { NextRequest } from 'next/server';
 
 import bcrypt from 'bcryptjs';
 import { uuidv4 } from '@/utils/uuidv4';
-import { createUser, userExistsByEmail } from '@/models/users';
+import {
+  createUser,
+  getUserByEmail,
+  updateUser,
+  updateUserPassword,
+} from '@/models/users';
+import { createEmailVerificationCode } from '@/models/email-verification-codes';
 
-import { sign } from 'src/utils/jwt';
+import { sendEmailVerificationEmail } from 'src/utils/email';
 import { STATUS, response } from 'src/utils/response';
-
-import { JWT_SECRET, JWT_EXPIRES_IN } from 'src/config-global';
 
 // ----------------------------------------------------------------------
 
-// export const runtime = 'edge';
+function generateVerificationCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function getAccountState(user: { state?: string | null }) {
+  return String(user.state || 'active').trim().toLowerCase();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,55 +29,84 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
+    const rawPassword = String(password || '');
 
-    // Check if user already exists in database
-    const existUser = await userExistsByEmail(normalizedEmail);
-
-    if (existUser) {
-      return response(
-        'There already exists an account with the given email address.',
-        STATUS.CONFLICT
-      );
+    if (!normalizedEmail) {
+      return response({ message: 'Email is required.' }, STATUS.BAD_REQUEST);
     }
 
+    if (rawPassword.length < 6) {
+      return response({ message: 'Password must be at least 6 characters.' }, STATUS.BAD_REQUEST);
+    }
+
+    const existingUser = await getUserByEmail(normalizedEmail);
     const requestedRole = String(role || accountType || 'user')
       .trim()
       .toLowerCase();
     const signupRole =
       requestedRole === 'business' ? ('business' as const) : ('user' as const);
 
-    // Hash password before storing
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
-    const newUser = {
-      id: uuidv4(),
-      email: normalizedEmail,
-      password: hashedPassword,
-      firstName: firstName || undefined,
-      lastName: lastName || undefined,
-      photoURL: undefined,
-      plan: 'FREE' as const,
-      role: signupRole,
-      phoneNumber: undefined,
-      country: undefined,
-      address: undefined,
-      state: undefined,
-      city: undefined,
-      zipCode: undefined,
-      about: undefined,
-      isPublic: false,
-    };
+    if (existingUser) {
+      const accountState = getAccountState(existingUser);
 
-    // Create user in database
-    const createdUser = await createUser(newUser);
+      if (accountState !== 'pending') {
+        return response(
+          { message: 'There already exists an account with the given email address.' },
+          STATUS.CONFLICT,
+        );
+      }
 
-    const accessToken = await sign({ userId: createdUser.id }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
+      // Pending account: update credentials and resend verification code.
+      await updateUserPassword(existingUser.id, hashedPassword);
+      await updateUser(existingUser.id, {
+        firstName: firstName || existingUser.firstName || null,
+        lastName: lastName || existingUser.lastName || null,
+        state: 'pending',
+      });
+    } else {
+      await createUser({
+        id: uuidv4(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        photoURL: undefined,
+        plan: 'FREE',
+        role: signupRole,
+        phoneNumber: undefined,
+        country: undefined,
+        address: undefined,
+        state: 'pending',
+        city: undefined,
+        zipCode: undefined,
+        about: undefined,
+        isPublic: false,
+      });
+    }
 
-    return response({ user: createdUser, accessToken }, STATUS.OK);
+    const code = generateVerificationCode();
+    await createEmailVerificationCode(normalizedEmail, code);
+
+    const emailResult = await sendEmailVerificationEmail(normalizedEmail, code);
+    const devCode = emailResult.devMode ? code : undefined;
+
+    return response(
+      {
+        requiresVerification: true,
+        email: normalizedEmail,
+        message: devCode
+          ? 'Could not send email (SMTP unreachable). Use the verification code shown below.'
+          : 'We sent a verification code to your email. Enter it to finish creating your account.',
+        ...(devCode ? { devCode } : {}),
+      },
+      STATUS.OK,
+    );
   } catch (error) {
     console.error('[Auth - sign up]: ', error);
-    return response('Internal server error', STATUS.ERROR);
+    const message =
+      error instanceof Error ? error.message : 'Unable to create account.';
+    return response({ message }, STATUS.ERROR);
   }
 }

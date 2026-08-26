@@ -18,6 +18,7 @@ export const paths = {
     signUp: '/sign-up',
     resetPassword: '/reset-password',
     updatePassword: '/update-password',
+    verifyEmail: '/verify-email',
   },
   // DASHBOARD
   dashboard: {
@@ -169,6 +170,7 @@ export const paths = {
       signUp: `${ROOTS.DASHBOARD}/sign-up`,
       resetPassword: `${ROOTS.DASHBOARD}/reset-password`,
       updatePassword: `${ROOTS.DASHBOARD}/update-password`,
+      verifyEmail: `${ROOTS.DASHBOARD}/verify-email`,
     },
   },
   // UNIVERSE

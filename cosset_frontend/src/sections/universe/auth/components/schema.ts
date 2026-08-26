@@ -82,8 +82,13 @@ export const UpdatePasswordSchema = zod
 export type VerifySchemaType = zod.infer<typeof VerifySchema>;
 
 export const VerifySchema = zod.object({
+  email: zod
+    .string()
+    .min(1, { message: 'Email is required!' })
+    .email({ message: 'Email must be a valid email address!' }),
   code: zod
     .string()
     .min(1, { message: 'Code is required!' })
-    .min(6, { message: 'Code must be at least 6 characters!' }),
+    .min(6, { message: 'Code must be at least 6 characters!' })
+    .max(6, { message: 'Code must be 6 characters!' }),
 });

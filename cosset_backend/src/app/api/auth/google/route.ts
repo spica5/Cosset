@@ -129,31 +129,47 @@ export async function POST(req: NextRequest) {
         phoneNumber: undefined,
         country: undefined,
         address: undefined,
-        state: undefined,
+        state: 'active',
         city: undefined,
         zipCode: undefined,
         about: undefined,
         isPublic: false,
       });
     } else {
-      if (getCustomerState(user) !== 'active') {
-        return response({ message: INACTIVE_CUSTOMER_MESSAGE }, STATUS.UNAUTHORIZED);
-      }
+      const accountState = getCustomerState(user);
 
-      const profileUpdates: Parameters<typeof updateUser>[1] = {};
+      if (accountState === 'pending') {
+        const profileUpdates: Parameters<typeof updateUser>[1] = { state: 'active' };
 
-      if (!user.photoURL && profile.picture) {
-        profileUpdates.photoURL = profile.picture;
-      }
-      if (!user.firstName && profile.givenName) {
-        profileUpdates.firstName = profile.givenName;
-      }
-      if (!user.lastName && profile.familyName) {
-        profileUpdates.lastName = profile.familyName;
-      }
+        if (!user.photoURL && profile.picture) {
+          profileUpdates.photoURL = profile.picture;
+        }
+        if (!user.firstName && profile.givenName) {
+          profileUpdates.firstName = profile.givenName;
+        }
+        if (!user.lastName && profile.familyName) {
+          profileUpdates.lastName = profile.familyName;
+        }
 
-      if (Object.keys(profileUpdates).length > 0) {
         user = await updateUser(user.id, profileUpdates);
+      } else if (accountState !== 'active') {
+        return response({ message: INACTIVE_CUSTOMER_MESSAGE }, STATUS.UNAUTHORIZED);
+      } else {
+        const profileUpdates: Parameters<typeof updateUser>[1] = {};
+
+        if (!user.photoURL && profile.picture) {
+          profileUpdates.photoURL = profile.picture;
+        }
+        if (!user.firstName && profile.givenName) {
+          profileUpdates.firstName = profile.givenName;
+        }
+        if (!user.lastName && profile.familyName) {
+          profileUpdates.lastName = profile.familyName;
+        }
+
+        if (Object.keys(profileUpdates).length > 0) {
+          user = await updateUser(user.id, profileUpdates);
+        }
       }
     }
 

@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
+import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import LoadingButton from '@mui/lab/LoadingButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -21,9 +24,7 @@ import { AnimateLogo2 } from 'src/components/dashboard/animate';
 import { Form, Field } from 'src/components/dashboard/hook-form';
 
 import { signUp } from '../context/jwt';
-import { useAuthContext } from '../hooks';
 import { FormHead } from '../components/form-head';
-import { getDashboardHomePath } from '../utils/role';
 import { FormSocials } from '../components/form-socials';
 import { FormDivider } from '../components/form-divider';
 import { SignUpTerms } from '../components/sign-up-terms';
@@ -51,10 +52,29 @@ export const SignUpSchema = zod.object({
 
 // ----------------------------------------------------------------------
 
+function getSignUpErrorMessage(error: unknown) {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return 'Unable to create account. Please try again.';
+}
+
 export function SignUpView() {
-  const { checkUserSession } = useAuthContext();
   const router = useRouter();
   const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const password = useBoolean();
 
@@ -78,7 +98,9 @@ export function SignUpView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await signUp({
+      setErrorMessage(null);
+
+      const result = await signUp({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
@@ -86,10 +108,17 @@ export function SignUpView() {
         role: data.accountType === 'business' ? 'business' : 'user',
       });
 
-      const sessionUser = await checkUserSession?.();
-      router.push(getDashboardHomePath(sessionUser?.role));
+      const params = new URLSearchParams({ email: result.email });
+      if (result.devCode) {
+        params.set('devCode', result.devCode);
+      }
+
+      router.push(`${paths.dashboard.auth.verifyEmail}?${params.toString()}`);
     } catch (error) {
       console.error(error);
+      const message = getSignUpErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     }
   });
 
@@ -160,6 +189,12 @@ export function SignUpView() {
           </>
         }
       />
+
+      {!!errorMessage && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {errorMessage}
+        </Alert>
+      )}
 
       <Form methods={methods} onSubmit={onSubmit}>
         {renderForm}
