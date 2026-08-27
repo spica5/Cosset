@@ -1,8 +1,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-import { getUserById, type UserPlanType } from './users';
 import { getCinemaFilmById } from './cinema-films';
+import { getUserById, type UserPlanType } from './users';
 import { getCinemaFilmScreeningById } from './cinema-film-screenings';
 
 const WALLETS_TABLE = 'user_wallets';

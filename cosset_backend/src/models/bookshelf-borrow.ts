@@ -233,9 +233,8 @@ export async function createBookshelfBorrowRequest(input: {
 
   const borrowerCustomerId = String(input.borrowerCustomerId || '').trim();
   const ownerCustomerId = String(input.ownerCustomerId || '').trim();
-  const bookKind = input.bookKind;
-  const bookId = parseInteger(input.bookId);
-  const { borrowPeriodDays: rawBorrowPeriodDays } = input;
+  const { bookKind, bookId: rawBookId, borrowPeriodDays: rawBorrowPeriodDays } = input;
+  const bookId = parseInteger(rawBookId);
   const normalizedBorrowPeriodDays = normalizeBorrowPeriodDays(rawBorrowPeriodDays);
 
   if (!borrowerCustomerId || !ownerCustomerId) {

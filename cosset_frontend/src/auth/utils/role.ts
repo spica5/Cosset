@@ -47,6 +47,10 @@ export function isBusinessAllowedDashboardPath(pathname: string): boolean {
     paths.dashboard.auth.signUp,
     paths.dashboard.auth.resetPassword,
     paths.dashboard.auth.updatePassword,
+    paths.dashboard.auth.verifyEmail,
+    paths.dashboard.auth.recoverAccount,
+    paths.dashboard.auth.recoverVerify,
+    paths.dashboard.auth.recoverNewEmail,
   ];
 
   return allowedPrefixes.some(

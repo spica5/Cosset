@@ -19,6 +19,9 @@ export const paths = {
     resetPassword: '/reset-password',
     updatePassword: '/update-password',
     verifyEmail: '/verify-email',
+    recoverAccount: '/recover-account',
+    recoverVerify: '/recover-verify',
+    recoverNewEmail: '/recover-new-email',
   },
   // DASHBOARD
   dashboard: {
@@ -163,7 +166,8 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/settings`,
       profile: `${ROOTS.DASHBOARD}/settings/profile`,
       appearance: `${ROOTS.DASHBOARD}/settings/appearance`,
-      account: `${ROOTS.DASHBOARD}/settings/account`,      
+      account: `${ROOTS.DASHBOARD}/settings/account`,
+      passwordRecovery: `${ROOTS.DASHBOARD}/settings/password-recovery`,
     },
     auth: {
       signIn: `${ROOTS.DASHBOARD}/sign-in`,
@@ -171,6 +175,9 @@ export const paths = {
       resetPassword: `${ROOTS.DASHBOARD}/reset-password`,
       updatePassword: `${ROOTS.DASHBOARD}/update-password`,
       verifyEmail: `${ROOTS.DASHBOARD}/verify-email`,
+      recoverAccount: `${ROOTS.DASHBOARD}/recover-account`,
+      recoverVerify: `${ROOTS.DASHBOARD}/recover-verify`,
+      recoverNewEmail: `${ROOTS.DASHBOARD}/recover-new-email`,
     },
   },
   // UNIVERSE

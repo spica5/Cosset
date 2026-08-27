@@ -68,4 +68,9 @@ export const _account = [
     href: paths.dashboard.settings.account,
     icon: <Iconify icon="solar:settings-bold-duotone" />,
   },
+  {
+    label: 'Password & Recovery',
+    href: paths.dashboard.settings.passwordRecovery,
+    icon: <Iconify icon="solar:lock-password-bold-duotone" />,
+  },
 ];

@@ -213,6 +213,7 @@ export const navData = [
           { title: 'Profile', path: paths.dashboard.settings.profile },
           { title: 'Appearance', path: paths.dashboard.settings.appearance },
           { title: 'Account', path: paths.dashboard.settings.account },
+          { title: 'Password & Recovery', path: paths.dashboard.settings.passwordRecovery },
           
         ],
       }
@@ -265,6 +266,7 @@ export const businessNavData = [
           { title: 'Profile', path: paths.dashboard.settings.profile },
           { title: 'Appearance', path: paths.dashboard.settings.appearance },
           { title: 'Account', path: paths.dashboard.settings.account },
+          { title: 'Password & Recovery', path: paths.dashboard.settings.passwordRecovery },
         ],
       },
     ],

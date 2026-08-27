@@ -3,8 +3,8 @@ import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 import {
   appendMessage,
-  getConversationById,
   listParticipants,
+  getConversationById,
   userIsConversationParticipant,
 } from 'src/models/chat';
 

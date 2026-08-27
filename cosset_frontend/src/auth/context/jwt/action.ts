@@ -256,6 +256,183 @@ export const resetPassword = async ({
   }
 };
 
+export type ChangePasswordParams = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+/** **************************************
+ * Change password (authenticated)
+ *************************************** */
+export const changePassword = async ({
+  currentPassword,
+  newPassword,
+}: ChangePasswordParams): Promise<{ message?: string }> => {
+  try {
+    const res = await axios.post(endpoints.auth.changePassword, {
+      currentPassword,
+      newPassword,
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error during password change:', error);
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to change password.'));
+  }
+};
+
+/** **************************************
+ * Account recovery (lost email)
+ *************************************** */
+
+function getAuthApiErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) {
+      return message;
+    }
+  }
+  return fallback;
+}
+
+export type RecoveryStatus = {
+  phoneNumber?: string | null;
+  phoneMasked?: string | null;
+  phoneVerified: boolean;
+  questionsConfigured: boolean;
+  questionCount: number;
+  questionIds?: string[];
+};
+
+export async function getRecoveryStatus(): Promise<RecoveryStatus> {
+  try {
+    const res = await axios.get(endpoints.auth.recovery.status);
+    return res.data as RecoveryStatus;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to load recovery status.'));
+  }
+}
+
+export async function getSecurityQuestionsCatalog(): Promise<
+  Array<{ id: string; prompt: string }>
+> {
+  try {
+    const res = await axios.get(endpoints.auth.recovery.securityQuestionsCatalog);
+    return (res.data?.questions || []) as Array<{ id: string; prompt: string }>;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to load security questions.'));
+  }
+}
+
+export async function sendRecoveryPhoneSetupCode(phone?: string): Promise<{
+  message?: string;
+  phone?: string;
+  devCode?: string;
+}> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.phoneSendCode, { phone });
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to send phone code.'));
+  }
+}
+
+export async function verifyRecoveryPhoneSetup(params: {
+  phone?: string;
+  code: string;
+}): Promise<{ message?: string; phoneVerified?: boolean }> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.phoneVerify, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to verify phone.'));
+  }
+}
+
+export async function saveSecurityQuestions(
+  questions: Array<{ questionId: string; answer: string }>,
+): Promise<{ message?: string }> {
+  try {
+    const res = await axios.put(endpoints.auth.recovery.securityQuestions, { questions });
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to save security questions.'));
+  }
+}
+
+export async function startAccountRecovery(params: {
+  method: 'phone' | 'questions';
+  phone?: string;
+  email?: string;
+}): Promise<{
+  message?: string;
+  method?: string;
+  email?: string;
+  questions?: Array<{ id: string; prompt: string }>;
+  devCode?: string;
+}> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.start, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to start recovery.'));
+  }
+}
+
+export async function verifyRecoveryPhone(params: {
+  phone: string;
+  code: string;
+}): Promise<{ recoveryToken: string; message?: string }> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.verifyPhone, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to verify phone recovery.'));
+  }
+}
+
+export async function verifyRecoveryQuestions(params: {
+  email: string;
+  answers: Array<{ questionId: string; answer: string }>;
+}): Promise<{ recoveryToken: string; message?: string }> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.verifyQuestions, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to verify security answers.'));
+  }
+}
+
+export async function requestRecoveryNewEmail(params: {
+  recoveryToken: string;
+  newEmail: string;
+}): Promise<{ message?: string; newEmail?: string; devCode?: string }> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.requestNewEmail, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to request new email verification.'));
+  }
+}
+
+export async function confirmRecoveryNewEmail(params: {
+  recoveryToken: string;
+  newEmail: string;
+  code: string;
+}): Promise<{ message?: string; email?: string }> {
+  try {
+    const res = await axios.post(endpoints.auth.recovery.confirmNewEmail, params);
+    return res.data;
+  } catch (error) {
+    throw new Error(getAuthApiErrorMessage(error, 'Unable to confirm new email.'));
+  }
+}
+
 /** **************************************
  * Sign in with Google
  *************************************** */

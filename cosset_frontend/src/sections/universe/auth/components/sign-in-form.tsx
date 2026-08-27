@@ -72,6 +72,16 @@ export function SignInForm({ sx }: SignUpFormProps) {
       >
         Sign in
       </LoadingButton>
+
+      <Link
+        component={RouterLink}
+        href={paths.auth.recoverAccount}
+        variant="body2"
+        color="inherit"
+        sx={{ alignSelf: 'center' }}
+      >
+        Lost access to your email?
+      </Link>
     </Stack>
   );
 }

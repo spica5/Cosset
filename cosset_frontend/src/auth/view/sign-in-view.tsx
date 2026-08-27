@@ -165,6 +165,16 @@ export function SignInView() {
       >
         Sign in
       </LoadingButton>
+
+      <Link
+        component={RouterLink}
+        href={paths.dashboard.auth.recoverAccount}
+        variant="body2"
+        color="inherit"
+        sx={{ alignSelf: 'center' }}
+      >
+        Lost access to your email?
+      </Link>
     </Box>
   );
 

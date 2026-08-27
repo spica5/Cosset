@@ -53,6 +53,8 @@ export interface User {
   role: UserRoleType;
   /** Phone number (optional) */
   phoneNumber?: string;
+  /** When the phone number was verified for account recovery */
+  phoneVerifiedAt?: Date | null;
   /** First name (optional) */
   firstName?: string;
   /** Last name (optional) */
@@ -88,6 +90,7 @@ const USER_SELECT_FIELDS = `
   plan as "plan",
   role as "role",
   phone_number as "phoneNumber",
+  phone_verified_at as "phoneVerifiedAt",
   first_name as "firstName",
   last_name as "lastName",
   photo_url as "photoURL",
@@ -110,6 +113,9 @@ const ensureUserBusinessColumns = async (): Promise<void> => {
     ensureUserBusinessColumnsPromise = (async () => {
       await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS business_account_requested_at TIMESTAMP NULL`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP NULL`,
       );
 
       // Move legacy billing provider fields out of cosset_users and into the dedicated
@@ -189,6 +195,138 @@ export async function getUserByEmail(email: string): Promise<User | null> {
       throw new DatabaseError({
         code: 'GET_USER_BY_EMAIL_ERROR',
         message: `Failed to fetch user by email: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Normalize phone to digits with optional leading + for storage/lookup consistency.
+ */
+export function normalizePhoneNumber(phone: string): string {
+  const raw = String(phone || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const hasPlus = raw.startsWith('+');
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) {
+    return '';
+  }
+
+  return hasPlus ? `+${digits}` : digits;
+}
+
+export async function getUserByPhone(phone: string): Promise<User | null> {
+  try {
+    await ensureUserBusinessColumns();
+
+    const normalized = normalizePhoneNumber(phone);
+    if (!normalized) {
+      return null;
+    }
+
+    const digitsOnly = normalized.replace(/\D/g, '');
+
+    const user = await queryOne<User>(
+      `
+        SELECT
+          ${USER_SELECT_FIELDS}
+        FROM ${TABLE_NAME}
+        WHERE regexp_replace(COALESCE(phone_number, ''), '\\D', '', 'g') = $1
+        LIMIT 1
+      `,
+      [digitsOnly],
+    );
+
+    return user;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_USER_BY_PHONE_ERROR',
+        message: `Failed to fetch user by phone: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function updateUserEmail(id: string, email: string): Promise<User> {
+  try {
+    await ensureUserBusinessColumns();
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET email = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          ${USER_SELECT_FIELDS}
+      `,
+      [id, normalizedEmail],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_EMAIL_FAILED',
+        message: 'Failed to update email: User not found',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'UPDATE_USER_EMAIL_ERROR',
+        message: `Failed to update user email: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function setUserPhoneVerified(
+  id: string,
+  phoneNumber: string,
+  verifiedAt: Date | null = new Date(),
+): Promise<User> {
+  try {
+    await ensureUserBusinessColumns();
+
+    const normalized = normalizePhoneNumber(phoneNumber);
+    const updatedUser = await queryOne<User>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET
+          phone_number = $2,
+          phone_verified_at = $3,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          ${USER_SELECT_FIELDS}
+      `,
+      [id, normalized || null, verifiedAt],
+    );
+
+    if (!updatedUser) {
+      throw new DatabaseError({
+        code: 'SET_USER_PHONE_VERIFIED_FAILED',
+        message: 'Failed to update phone verification: User not found',
+      });
+    }
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'SET_USER_PHONE_VERIFIED_ERROR',
+        message: `Failed to set phone verification: ${error.message}`,
         detail: error.detail,
       });
     }
@@ -683,7 +821,7 @@ export async function updateUser(
 ): Promise<User> {
   try {
     const fields: string[] = [];
-    const values: (string | boolean | null)[] = [];
+    const values: (string | boolean | null | Date)[] = [];
     let paramIndex = 2; // Start from $2 since $1 is the id
     const nextParam = () => {
       const currentParam = paramIndex;
@@ -695,6 +833,14 @@ export async function updateUser(
     if (updates.phoneNumber !== undefined) {
       fields.push(`phone_number = $${nextParam()}`);
       values.push(updates.phoneNumber || null);
+      // Changing phone invalidates prior verification unless set via setUserPhoneVerified.
+      if (updates.phoneVerifiedAt === undefined) {
+        fields.push(`phone_verified_at = NULL`);
+      }
+    }
+    if (updates.phoneVerifiedAt !== undefined) {
+      fields.push(`phone_verified_at = $${nextParam()}`);
+      values.push(updates.phoneVerifiedAt || null);
     }
     if (updates.firstName !== undefined) {
       fields.push(`first_name = $${nextParam()}`);

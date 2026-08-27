@@ -1,7 +1,7 @@
-import dns from 'dns/promises';
-import { Resolver } from 'dns';
-
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+
+import { Resolver } from 'dns';
+import dns from 'dns/promises';
 import nodemailer from 'nodemailer';
 import { promisify } from 'node:util';
 
@@ -99,6 +99,25 @@ function buildEmailVerificationContent(email: string, code: string) {
       <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
       <p>Or <a href="${verifyUrl}">click here</a> to verify your email.</p>
       <p style="color:#666;font-size:12px;">This code expires in 15 minutes. If you did not create an account, you can ignore this email.</p>
+    `,
+  };
+}
+
+function buildEmailChangeContent(email: string, code: string) {
+  return {
+    subject: 'Confirm your new Cosset email address',
+    text: [
+      'You requested to replace the email on your Cosset account.',
+      '',
+      `Your verification code is: ${code}`,
+      '',
+      'This code expires in 15 minutes. If you did not request this, you can ignore this email.',
+    ].join('\n'),
+    html: `
+      <p>You requested to replace the email on your Cosset account.</p>
+      <p><strong>Your verification code is:</strong></p>
+      <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+      <p style="color:#666;font-size:12px;">This code expires in 15 minutes. If you did not request this, you can ignore this email.</p>
     `,
   };
 }
@@ -411,4 +430,51 @@ export async function sendEmailVerificationEmail(
   }
 
   throw new Error(errors.join(' | ') || 'Failed to send email verification email');
+}
+
+export async function sendEmailChangeVerificationEmail(
+  email: string,
+  code: string,
+): Promise<EmailSendResult> {
+  const { subject, text, html } = buildEmailChangeContent(email, code);
+  const errors: string[] = [];
+
+  if (isResendConfigured()) {
+    try {
+      await sendViaResend(email, subject, text, html);
+      console.info(`[Email Change] Email sent via Resend to ${email}`);
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Resend failed';
+      errors.push(message);
+      console.warn('[Email Change] Resend failed:', error);
+    }
+  }
+
+  if (isSmtpConfigured()) {
+    try {
+      await sendViaSmtp(email, subject, text, html);
+      return { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SMTP failed';
+      errors.push(message);
+      console.error('[Email Change] SMTP failed:', error);
+    }
+  }
+
+  if (!isSmtpConfigured() && !isResendConfigured()) {
+    logDevFallback(email, code);
+    return { sent: false, devMode: true };
+  }
+
+  if (isDevEnvironment()) {
+    logDevFallback(email, code);
+    return {
+      sent: false,
+      devMode: true,
+      error: errors.join(' | '),
+    };
+  }
+
+  throw new Error(errors.join(' | ') || 'Failed to send email change verification email');
 }
