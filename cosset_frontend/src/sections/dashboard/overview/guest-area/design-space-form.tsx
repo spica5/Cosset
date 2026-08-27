@@ -71,14 +71,14 @@ type Props = {
 // Template images for design space
 const templateImages = [
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default.png`, name: 'Default1' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/cosset_default4.png`, name: 'Default2' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template1.png`, name: 'Template1' },
+    { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template1.png`, name: 'Template1' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template2.png`, name: 'Template2' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template3.png`, name: 'Template3' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template4.png`, name: 'Template4' },
   { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template5.png`, name: 'Template5' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/scenery1.jpg`, name: 'Template6' },
-  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/scenery2.jpg`, name: 'Template7' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template6.png`, name: 'Template6' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template7.png`, name: 'Template7' },
+  { url: `${CONFIG.dashboard.assetsDir}/assets/images/design-space/Template8.png`, name: 'Template8' },
 ];
 
 const reorderArray = <T,>(array: T[], fromIndex: number, toIndex: number) => {
