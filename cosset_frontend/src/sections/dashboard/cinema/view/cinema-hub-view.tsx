@@ -375,6 +375,7 @@ function CinemaCategoryRoom({
             title="Scheduled films"
             accent={accent}
             films={scheduledFilms}
+            layout="grid"
             showRibbon={false}
             emptyMessage="No scheduled screenings yet. Admins can add showtimes in Admin → Media → Cinema."
             renderActions={(film) => {

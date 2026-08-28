@@ -37,7 +37,12 @@ export async function fetchCinemaChat(
 export async function sendCinemaChatMessage(
   ownerCustomerId: string,
   category: string,
-  body: { message: string; displayName?: string },
+  body: {
+    message: string;
+    displayName?: string;
+    chatMode?: 'public' | 'friend' | 'private';
+    receiverId?: string | null;
+  },
 ): Promise<{ chatMessage?: CinemaChatMessage }> {
   const res = await axios.post(endpoints.cinema.chat(ownerCustomerId, category), body);
   return res.data as { chatMessage?: CinemaChatMessage };

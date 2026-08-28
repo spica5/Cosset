@@ -1,25 +1,31 @@
 'use client';
 
-import type { CinemaChatMessage, CinemaChatParticipant } from 'src/types/cinema-chat';
+import type {
+  CinemaChatMode,
+  CinemaChatMessage,
+  CinemaChatParticipant,
+} from 'src/types/cinema-chat';
 
 import Pusher from 'pusher-js';
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Badge from '@mui/material/Badge';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import { CONFIG } from 'src/config-global';
 import { formatCoffeeShopChatSentAt } from 'src/utils/format-time';
 import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
 
+import { useGetFriends } from 'src/actions/friend';
 import {
   fetchCinemaChat,
   joinCinemaPresence,
@@ -53,6 +59,8 @@ type Props = {
   onParticipantJoin: (participant: CinemaChatParticipant) => void;
   onParticipantLeave: (userId: string) => void;
   isPresent: boolean;
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CinemaChatParticipant | null) => void;
 };
 
 function enrichCinemaParticipant(
@@ -108,6 +116,34 @@ function resolveMessageAvatar(
   return null;
 }
 
+function canClientViewRealtimeMessage(
+  message: CinemaChatMessage,
+  currentUserId: string,
+  friendIdSet: Set<string>,
+): boolean {
+  const mode = message.chatMode || 'public';
+  const authorId = message.userId?.trim().toLowerCase() || '';
+  const receiverId = message.receiverId?.trim().toLowerCase() || '';
+
+  if (!authorId || mode === 'public') {
+    return true;
+  }
+
+  if (authorId === currentUserId) {
+    return true;
+  }
+
+  if (mode === 'private') {
+    return Boolean(currentUserId && receiverId === currentUserId);
+  }
+
+  if (mode === 'friend') {
+    return Boolean(currentUserId && friendIdSet.has(authorId));
+  }
+
+  return false;
+}
+
 const CHAT_NATIVE_INPUT_STYLE = {
   color: '#FFF8E7',
   caretColor: '#FFF8E7',
@@ -158,17 +194,21 @@ export function UniverseCinemaChat({
   onParticipantJoin,
   onParticipantLeave,
   isPresent,
+  selectedPrivateReceiverId = null,
+  onSelectPrivateReceiver,
 }: Props) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { authenticated, user } = useAuthContext();
+  const userIdStr = user?.id != null ? String(user.id) : undefined;
+  const { friends: acceptedFriends } = useGetFriends(userIdStr, 'accepted', Boolean(userIdStr));
 
-  const [open, setOpen] = useState(!isMobile);
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<CinemaChatMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<CinemaChatMode>('public');
 
   const listRef = useRef<HTMLDivElement>(null);
   const seenIds = useRef<Set<string>>(new Set());
@@ -176,6 +216,46 @@ export function UniverseCinemaChat({
   openRef.current = open;
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
+  const friendIdSetRef = useRef<Set<string>>(new Set());
+
+  const friendIdSet = useMemo(() => {
+    const set = new Set<string>();
+    const current = userIdStr?.trim().toLowerCase() || '';
+    (acceptedFriends || []).forEach((friend) => {
+      const a = String(friend.userId1 || '')
+        .trim()
+        .toLowerCase();
+      const b = String(friend.userId2 || '')
+        .trim()
+        .toLowerCase();
+      if (!a || !b || !current) {
+        return;
+      }
+      if (a === current) {
+        set.add(b);
+      } else if (b === current) {
+        set.add(a);
+      }
+    });
+    return set;
+  }, [acceptedFriends, userIdStr]);
+
+  friendIdSetRef.current = friendIdSet;
+
+  const selectedPrivateReceiverKey = selectedPrivateReceiverId?.trim().toLowerCase() || '';
+
+  const privateFriendParticipants = useMemo(
+    () =>
+      participants.filter((p) => {
+        if (p.leftAt) {
+          return false;
+        }
+        const id = p.userId.trim().toLowerCase();
+        const current = userIdStr?.trim().toLowerCase() || '';
+        return Boolean(id && id !== current && friendIdSet.has(id));
+      }),
+    [friendIdSet, participants, userIdStr],
+  );
 
   const enrichParticipant = useCallback(
     (participant: CinemaChatParticipant) => enrichCinemaParticipant(participant, user),
@@ -189,14 +269,28 @@ export function UniverseCinemaChat({
   const hasClientPusherConfig = Boolean(CONFIG.pusher.key && CONFIG.pusher.cluster);
 
   useEffect(() => {
-    setOpen(!isMobile);
-  }, [isMobile]);
-
-  useEffect(() => {
     if (open) {
       setUnreadCount(0);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (selectedPrivateReceiverKey) {
+      setChatMode('private');
+      setOpen(true);
+    }
+  }, [selectedPrivateReceiverKey]);
+
+  useEffect(() => {
+    if (chatMode !== 'private' || selectedPrivateReceiverKey || !onSelectPrivateReceiver) {
+      return;
+    }
+
+    const firstFriend = privateFriendParticipants[0];
+    if (firstFriend) {
+      onSelectPrivateReceiver(firstFriend);
+    }
+  }, [chatMode, selectedPrivateReceiverKey, privateFriendParticipants, onSelectPrivateReceiver]);
 
   useEffect(() => {
     if (!authenticated || !ownerCustomerId || !category) {
@@ -277,12 +371,17 @@ export function UniverseCinemaChat({
       if (!payload?.id || seenIds.current.has(payload.id)) {
         return;
       }
+
+      const currentUserId = user?.id != null ? String(user.id).trim().toLowerCase() : '';
+      if (!canClientViewRealtimeMessage(payload, currentUserId, friendIdSetRef.current)) {
+        return;
+      }
+
       seenIds.current.add(payload.id);
       const authorAvatar = resolveMessageAvatar(payload, participantsRef.current, user);
       setMessages((prev) => [...prev, { ...payload, authorAvatar }]);
 
       const authorId = payload.userId?.trim().toLowerCase();
-      const currentUserId = user?.id != null ? String(user.id).trim().toLowerCase() : '';
       const isOwnMessage = Boolean(authorId && currentUserId && authorId === currentUserId);
       if (!isOwnMessage) {
         playChatNotificationSound();
@@ -309,22 +408,97 @@ export function UniverseCinemaChat({
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
-  }, [
-    channelName,
-    hasClientPusherConfig,
-    onParticipantJoin,
-    onParticipantLeave,
-    user,
-  ]);
+  }, [channelName, hasClientPusherConfig, onParticipantJoin, onParticipantLeave, user]);
+
+  const filteredMessages = useMemo(() => {
+    const currentUserId = userIdStr?.trim().toLowerCase() || '';
+
+    if (chatMode === 'public') {
+      return messages.filter((m) => (m.chatMode || 'public') === 'public');
+    }
+
+    if (chatMode === 'friend') {
+      return messages.filter((m) => {
+        const authorId = m.userId?.trim().toLowerCase() || '';
+        return (
+          m.chatMode === 'friend' &&
+          ((authorId && friendIdSet.has(authorId)) || authorId === currentUserId)
+        );
+      });
+    }
+
+    return messages.filter((m) => {
+      const authorId = m.userId?.trim().toLowerCase() || '';
+      const receiverId = m.receiverId?.trim().toLowerCase() || '';
+
+      if (!currentUserId || m.chatMode !== 'private') {
+        return false;
+      }
+
+      if (!selectedPrivateReceiverKey) {
+        return authorId === currentUserId || receiverId === currentUserId;
+      }
+
+      return (
+        (authorId === currentUserId && receiverId === selectedPrivateReceiverKey) ||
+        (authorId === selectedPrivateReceiverKey && receiverId === currentUserId)
+      );
+    });
+  }, [chatMode, friendIdSet, messages, selectedPrivateReceiverKey, userIdStr]);
 
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [messages, open]);
+  }, [filteredMessages, open]);
+
+  const selectedPrivateReceiverName = useMemo(() => {
+    if (!selectedPrivateReceiverKey) {
+      return '';
+    }
+
+    return (
+      participants.find((p) => p.userId.trim().toLowerCase() === selectedPrivateReceiverKey)?.name ||
+      ''
+    );
+  }, [participants, selectedPrivateReceiverKey]);
+
+  const chatModeTitle =
+    chatMode === 'public'
+      ? 'Cinema chat'
+      : chatMode === 'friend'
+        ? 'Friends chat'
+        : selectedPrivateReceiverName
+          ? `Private · ${selectedPrivateReceiverName}`
+          : 'Private chat';
+
+  const emptyMessageLabel =
+    chatMode === 'friend'
+      ? 'No friend messages yet. Chat with accepted friends here.'
+      : chatMode === 'private'
+        ? selectedPrivateReceiverName
+          ? `No private messages with ${selectedPrivateReceiverName} yet.`
+          : 'Select a friend in the audience for private chat.'
+        : 'Say hello to the audience.';
+
+  const placeholder =
+    chatMode === 'friend'
+      ? 'Message friends'
+      : chatMode === 'private'
+        ? selectedPrivateReceiverName
+          ? `Private message to ${selectedPrivateReceiverName}`
+          : 'Select a friend first'
+        : authenticated
+          ? 'Message the audience'
+          : 'Sign in to chat';
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || sending || !isPresent) return;
+
+    if (chatMode === 'private' && !selectedPrivateReceiverId) {
+      setSendError('Select a friend for private chat.');
+      return;
+    }
 
     try {
       setSending(true);
@@ -332,6 +506,8 @@ export function UniverseCinemaChat({
       const res = await sendCinemaChatMessage(ownerCustomerId, category, {
         message: text,
         displayName: user?.displayName,
+        chatMode,
+        receiverId: chatMode === 'private' ? selectedPrivateReceiverId : null,
       });
       if (res.chatMessage?.id && !seenIds.current.has(res.chatMessage.id)) {
         seenIds.current.add(res.chatMessage.id);
@@ -344,7 +520,25 @@ export function UniverseCinemaChat({
     } finally {
       setSending(false);
     }
-  }, [category, draft, isPresent, ownerCustomerId, sending, user]);
+  }, [
+    category,
+    chatMode,
+    draft,
+    isPresent,
+    ownerCustomerId,
+    selectedPrivateReceiverId,
+    sending,
+    user,
+  ]);
+
+  const modeButtonSx = (active: boolean, activeColor: string) => ({
+    color: active ? activeColor : 'rgba(255,255,255,0.45)',
+    border: active ? '1px solid' : '1px solid transparent',
+    borderColor: active ? activeColor : 'transparent',
+    bgcolor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+    minWidth: 34,
+    height: 28,
+  });
 
   const chatPanel = open ? (
     <Paper
@@ -362,26 +556,84 @@ export function UniverseCinemaChat({
       }}
     >
       <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
+        spacing={0.75}
         sx={{
           px: 1.5,
           py: 1,
           borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}
       >
-        <Typography variant="subtitle2" sx={{ color: '#F5E6C8' }}>
-          Cinema chat
-        </Typography>
-        <IconButton
-          size="small"
-          onClick={() => setOpen(false)}
-          sx={{ color: 'rgba(255,255,255,0.7)' }}
-          aria-label="Close chat"
-        >
-          <Iconify icon="mingcute:close-line" width={18} />
-        </IconButton>
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Typography variant="subtitle2" sx={{ color: '#F5E6C8' }}>
+            {chatModeTitle}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => setOpen(false)}
+            sx={{ color: 'rgba(255,255,255,0.7)' }}
+            aria-label="Close chat"
+          >
+            <Iconify icon="mingcute:close-line" width={18} />
+          </IconButton>
+        </Stack>
+
+        <Stack direction="row" spacing={0.75}>
+          <Tooltip title="Public">
+            <IconButton
+              size="small"
+              onClick={() => setChatMode('public')}
+              sx={modeButtonSx(chatMode === 'public', CINEMA_GOLD)}
+            >
+              <Iconify icon="solar:users-group-rounded-bold" width={16} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Friends">
+            <IconButton
+              size="small"
+              onClick={() => setChatMode('friend')}
+              sx={modeButtonSx(chatMode === 'friend', '#7DDEA2')}
+            >
+              <Iconify icon="solar:heart-bold" width={16} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Private">
+            <IconButton
+              size="small"
+              onClick={() => setChatMode('private')}
+              sx={modeButtonSx(chatMode === 'private', '#F29C9C')}
+            >
+              <Iconify icon="solar:lock-bold" width={16} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+
+        {chatMode === 'private' && authenticated ? (
+          <Stack direction="row" spacing={0.75} sx={{ overflowX: 'auto', pb: 0.25 }}>
+            {privateFriendParticipants.length ? (
+              privateFriendParticipants.map((friend) => {
+                const selected =
+                  friend.userId.trim().toLowerCase() === selectedPrivateReceiverKey;
+                return (
+                  <Chip
+                    key={friend.userId}
+                    size="small"
+                    label={friend.name}
+                    onClick={() => onSelectPrivateReceiver?.(friend)}
+                    sx={{
+                      color: selected ? '#0B0705' : '#F5E6C8',
+                      bgcolor: selected ? CINEMA_GOLD : 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  />
+                );
+              })
+            ) : (
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                No friends in this room yet.
+              </Typography>
+            )}
+          </Stack>
+        ) : null}
       </Stack>
 
       <Box
@@ -394,8 +646,8 @@ export function UniverseCinemaChat({
           minHeight: 160,
         }}
       >
-        {messages.length ? (
-          messages.map((m) => {
+        {filteredMessages.length ? (
+          filteredMessages.map((m) => {
             const isSelf =
               user?.id &&
               m.userId &&
@@ -406,6 +658,7 @@ export function UniverseCinemaChat({
                 m.userId &&
                 p.userId.trim().toLowerCase() === String(m.userId).trim().toLowerCase(),
             );
+            const mode = m.chatMode || 'public';
 
             return (
               <Stack
@@ -426,9 +679,16 @@ export function UniverseCinemaChat({
                 ) : null}
                 <Box sx={{ maxWidth: '78%' }}>
                   {!isSelf ? (
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', pl: 0.5 }}>
-                      {m.authorName}
-                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ pl: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                        {m.authorName}
+                      </Typography>
+                      {mode !== 'public' ? (
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {mode === 'friend' ? '👥' : '🔒'}
+                        </Typography>
+                      ) : null}
+                    </Stack>
                   ) : null}
                   <Box
                     sx={{
@@ -461,8 +721,11 @@ export function UniverseCinemaChat({
             );
           })
         ) : (
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', py: 3 }}>
-            Say hello to the audience.
+          <Typography
+            variant="body2"
+            sx={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', py: 3 }}
+          >
+            {emptyMessageLabel}
           </Typography>
         )}
       </Box>
@@ -478,9 +741,14 @@ export function UniverseCinemaChat({
           fullWidth
           multiline
           maxRows={3}
-          placeholder={authenticated ? 'Message the audience' : 'Sign in to chat'}
+          placeholder={placeholder}
           value={draft}
-          disabled={!authenticated || !isPresent || sending}
+          disabled={
+            !authenticated ||
+            !isPresent ||
+            sending ||
+            (chatMode === 'private' && !selectedPrivateReceiverId)
+          }
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -495,7 +763,13 @@ export function UniverseCinemaChat({
                 <IconButton
                   size="small"
                   onClick={handleSend}
-                  disabled={!authenticated || !isPresent || sending || !draft.trim()}
+                  disabled={
+                    !authenticated ||
+                    !isPresent ||
+                    sending ||
+                    !draft.trim() ||
+                    (chatMode === 'private' && !selectedPrivateReceiverId)
+                  }
                   sx={{ color: '#D4B05A' }}
                 >
                   <Iconify icon="eva:paper-plane-fill" />

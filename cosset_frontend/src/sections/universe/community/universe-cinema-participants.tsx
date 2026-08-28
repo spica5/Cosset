@@ -11,6 +11,10 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 
+import { useGetFriends } from 'src/actions/friend';
+
+import { useAuthContext } from 'src/auth/hooks';
+
 import { Iconify } from 'src/components/universe/iconify';
 import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-shop-chat-avatar';
 
@@ -25,6 +29,8 @@ import {
 
 type Props = {
   participants: CinemaChatParticipant[];
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CinemaChatParticipant | null) => void;
 };
 
 const THIRTY_MIN = 30 * 60 * 1000;
@@ -48,9 +54,118 @@ const formatJoinTime = (joinedAtStr?: string): string => {
   });
 };
 
-export function UniverseCinemaParticipants({ participants }: Props) {
+type AudienceItemProps = {
+  participant: CinemaChatParticipant;
+  userIdStr?: string;
+  friendIdSet: Set<string>;
+  selectedPrivateReceiverId?: string | null;
+  onSelectPrivateReceiver?: (participant: CinemaChatParticipant | null) => void;
+};
+
+function AudienceItem({
+  participant: p,
+  userIdStr,
+  friendIdSet,
+  selectedPrivateReceiverId,
+  onSelectPrivateReceiver,
+}: AudienceItemProps) {
+  const joinTimeStr = formatJoinTime(p.joinedAt);
+  const participantKey = p.userId.trim().toLowerCase();
+  const isSelf =
+    Boolean(userIdStr) && participantKey === String(userIdStr).trim().toLowerCase();
+  const isFriend = friendIdSet.has(participantKey);
+  const isSelected =
+    Boolean(selectedPrivateReceiverId) &&
+    participantKey === String(selectedPrivateReceiverId).trim().toLowerCase();
+  const canPrivateChat = Boolean(onSelectPrivateReceiver && isFriend && !isSelf && !p.leftAt);
+
+  const tooltipTitle = `${p.name}${isFriend ? ' · Friend' : ''}${
+    joinTimeStr ? ` · Joined ${joinTimeStr}` : ''
+  }${canPrivateChat ? ' · Tap for private chat' : ''}`;
+
+  return (
+    <Tooltip title={tooltipTitle} placement="left">
+      <Box
+        role={canPrivateChat ? 'button' : undefined}
+        tabIndex={canPrivateChat ? 0 : undefined}
+        onClick={() => {
+          if (!canPrivateChat || !onSelectPrivateReceiver) {
+            return;
+          }
+          onSelectPrivateReceiver(isSelected ? null : p);
+        }}
+        onKeyDown={(event) => {
+          if (!canPrivateChat || !onSelectPrivateReceiver) {
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelectPrivateReceiver(isSelected ? null : p);
+          }
+        }}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 56,
+          height: 56,
+          p: 0,
+          m: 0,
+          boxSizing: 'border-box',
+          borderRadius: '50%',
+          border: '2px solid',
+          borderColor: isSelected ? CINEMA_GOLD : 'transparent',
+          bgcolor: 'transparent',
+          cursor: canPrivateChat ? 'pointer' : 'default',
+          lineHeight: 0,
+        }}
+      >
+        <CoffeeShopChatAvatar
+          photoKeyOrUrl={p.photoURL}
+          name={p.name}
+          size={48}
+          showTooltip={false}
+          status={!p.leftAt ? 'online' : 'left'}
+          isFriend={isFriend && !isSelf}
+          isCurrentUser={isSelf}
+        />
+      </Box>
+    </Tooltip>
+  );
+}
+
+export function UniverseCinemaParticipants({
+  participants,
+  selectedPrivateReceiverId = null,
+  onSelectPrivateReceiver,
+}: Props) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const { user } = useAuthContext();
+  const userIdStr = user?.id != null ? String(user.id) : undefined;
+  const { friends: acceptedFriends } = useGetFriends(userIdStr, 'accepted', Boolean(userIdStr));
+
+  const friendIdSet = useMemo(() => {
+    const set = new Set<string>();
+    const current = userIdStr?.trim().toLowerCase() || '';
+    (acceptedFriends || []).forEach((friend) => {
+      const a = String(friend.userId1 || '')
+        .trim()
+        .toLowerCase();
+      const b = String(friend.userId2 || '')
+        .trim()
+        .toLowerCase();
+      if (!a || !b || !current) {
+        return;
+      }
+      if (a === current) {
+        set.add(b);
+      } else if (b === current) {
+        set.add(a);
+      }
+    });
+    return set;
+  }, [acceptedFriends, userIdStr]);
 
   const visibleParticipants = useMemo(
     () =>
@@ -96,24 +211,16 @@ export function UniverseCinemaParticipants({ participants }: Props) {
               Audience
             </Typography>
 
-            {visibleParticipants.map((p) => {
-              const joinTimeStr = formatJoinTime(p.joinedAt);
-              const tooltipTitle = `${p.name}${joinTimeStr ? ` • Joined ${joinTimeStr}` : ''}`;
-
-              return (
-                <Tooltip key={p.userId} title={tooltipTitle} placement="left">
-                  <Box component="span" sx={{ display: 'inline-flex' }}>
-                    <CoffeeShopChatAvatar
-                      photoKeyOrUrl={p.photoURL}
-                      name={p.name}
-                      size={48}
-                      showTooltip={false}
-                      status={!p.leftAt ? 'online' : 'left'}
-                    />
-                  </Box>
-                </Tooltip>
-              );
-            })}
+            {visibleParticipants.map((p) => (
+              <AudienceItem
+                key={p.userId}
+                participant={p}
+                userIdStr={userIdStr}
+                friendIdSet={friendIdSet}
+                selectedPrivateReceiverId={selectedPrivateReceiverId}
+                onSelectPrivateReceiver={onSelectPrivateReceiver}
+              />
+            ))}
           </Stack>
         ) : null}
 

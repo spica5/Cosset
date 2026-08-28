@@ -1,3 +1,5 @@
+export type CinemaChatMode = 'public' | 'friend' | 'private';
+
 export type CinemaChatMessage = {
   id: string;
   ownerCustomerId: string;
@@ -6,8 +8,9 @@ export type CinemaChatMessage = {
   authorName: string;
   authorAvatar?: string | null;
   userId: string | null;
+  receiverId?: string | null;
   sentAt: string;
-  chatMode?: 'public';
+  chatMode?: CinemaChatMode;
   kind?: 'text' | 'system';
   messageType?: 'text' | 'file';
 };

@@ -340,9 +340,9 @@ export function CinemaCategoryFilmsPanel({
             display: 'grid',
             gap: 2,
             gridTemplateColumns: {
-              xs: 'repeat(2, 1fr)',
-              sm: 'repeat(3, 1fr)',
-              md: compact ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)',
+              xs: 'repeat(2, minmax(0, 1fr))',
+              sm: 'repeat(3, minmax(0, 1fr))',
+              md: scheduledOnly || compact ? 'repeat(6, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
             },
           }}
         >

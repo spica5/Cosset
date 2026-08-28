@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { JWT_SECRET } from 'src/config-global';
 import { verify } from 'src/utils/jwt';
 import { normalizeCinemaCategory } from 'src/models/cinema-films';
+import { getUserFriends } from 'src/models/user-friends';
 import { getUserById, getUserPhotoURLsByIds } from 'src/models/users';
 import { touchCinemaPresence } from 'src/models/cinema-presence';
 import { listCinemaChatLogs, createCinemaChatLog } from 'src/models/cinema-chat-logs';
@@ -17,6 +18,9 @@ export const runtime = 'nodejs';
 
 const MAX_MESSAGE_LEN = 2000;
 const MAX_DISPLAY_NAME_LEN = 80;
+
+const isLikelyUuid = (value: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 
 const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> => {
   const authorization = req.headers.get('authorization');
@@ -80,6 +84,58 @@ const parseRoom = async (params: Promise<{ ownerId: string; category: string }>)
   return { room: { ownerCustomerId, category } };
 };
 
+/**
+ * Visibility rules (same as coffee shop):
+ * - Public: everyone
+ * - Friend: sender + accepted friends
+ * - Private: sender + chosen receiver only
+ */
+const canViewMessage = async (
+  messageAuthorId: string | null,
+  receiverId: string | null,
+  messageMode: 'public' | 'friend' | 'private',
+  viewerId: string | null,
+): Promise<boolean> => {
+  const authorKey = messageAuthorId?.trim().toLowerCase() || null;
+  const receiverKey = receiverId?.trim().toLowerCase() || null;
+  const viewerKey = viewerId?.trim().toLowerCase() || null;
+
+  if (!authorKey) {
+    return true;
+  }
+
+  if (viewerKey === authorKey) {
+    return true;
+  }
+
+  if (messageMode === 'public') {
+    return true;
+  }
+
+  if (messageMode === 'private') {
+    return Boolean(viewerKey && receiverKey && viewerKey === receiverKey);
+  }
+
+  if (messageMode === 'friend') {
+    if (!viewerId) {
+      return false;
+    }
+
+    try {
+      const friends = await getUserFriends(viewerId, 'accepted', 1000, 0);
+      return friends.some((f) => {
+        const userId1 = f.userId1.trim().toLowerCase();
+        const userId2 = f.userId2.trim().toLowerCase();
+        return userId1 === authorKey || userId2 === authorKey;
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+};
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ ownerId: string; category: string }> },
@@ -91,6 +147,7 @@ export async function GET(
     }
 
     const { room } = parsed;
+    const viewerId = await getUserIdFromRequest(_req);
     const [rows, participants] = await Promise.all([
       listCinemaChatLogs(room),
       listCinemaParticipants(room, true),
@@ -101,12 +158,26 @@ export async function GET(
       .filter((fId): fId is string => typeof fId === 'string' && Boolean(fId.trim()));
     const photoByUserId = await getUserPhotoURLsByIds(senderIds);
 
-    const messages = rows.map((r) => {
+    const filteredRows = (
+      await Promise.all(
+        rows.map(async (r) => {
+          const userId = r.senderId?.trim() || null;
+          const receiverId = r.receiverId?.trim() || null;
+          const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
+          const canView = await canViewMessage(userId, receiverId, messageMode, viewerId);
+          return canView ? r : null;
+        }),
+      )
+    ).filter((r): r is (typeof rows)[0] => r !== null);
+
+    const messages = filteredRows.map((r) => {
       const userId = r.senderId?.trim() || null;
+      const receiverId = r.receiverId?.trim() || null;
       const authorAvatar =
         userId && photoByUserId.has(userId.toLowerCase())
           ? photoByUserId.get(userId.toLowerCase())!
           : null;
+      const messageMode = (r.chatMode as 'public' | 'friend' | 'private') || 'public';
 
       return {
         id: r.id,
@@ -116,7 +187,8 @@ export async function GET(
         authorName: r.senderName?.trim() || 'Unknown',
         authorAvatar,
         userId,
-        chatMode: 'public' as const,
+        receiverId,
+        chatMode: messageMode,
         messageType: (r.messageType as 'text' | 'file') || 'text',
         fileUrl: r.fileUrl ?? null,
         fileName: r.fileName ?? null,
@@ -159,6 +231,14 @@ export async function POST(
     const userId = await getUserIdFromRequest(req);
     let authorName = trimDisplayName(body?.displayName);
     let authorAvatar: string | null = null;
+    const chatMode =
+      typeof body?.chatMode === 'string' && ['public', 'friend', 'private'].includes(body.chatMode)
+        ? (body.chatMode as 'public' | 'friend' | 'private')
+        : 'public';
+    const receiverId =
+      typeof body?.receiverId === 'string' && isLikelyUuid(body.receiverId)
+        ? body.receiverId.trim().toLowerCase()
+        : null;
 
     if (userId) {
       const user = await getUserById(userId);
@@ -174,13 +254,61 @@ export async function POST(
       return response({ message: 'Sign in or provide a display name' }, STATUS.BAD_REQUEST);
     }
 
+    if (chatMode === 'friend' && !userId) {
+      return response({ message: 'Sign in to send friend messages' }, STATUS.BAD_REQUEST);
+    }
+
+    if (chatMode === 'private') {
+      if (!userId) {
+        return response({ message: 'Sign in to send private messages' }, STATUS.BAD_REQUEST);
+      }
+
+      if (!receiverId) {
+        return response({ message: 'Private messages require a receiver' }, STATUS.BAD_REQUEST);
+      }
+
+      if (receiverId === userId.trim().toLowerCase()) {
+        return response(
+          { message: 'Choose another participant for private chat' },
+          STATUS.BAD_REQUEST,
+        );
+      }
+
+      const participants = await listCinemaParticipants(room, false);
+      const receiverIsPresent = participants.some(
+        (p) => p.userId.trim().toLowerCase() === receiverId,
+      );
+
+      if (!receiverIsPresent) {
+        return response(
+          { message: 'Private receiver is not in this cinema room' },
+          STATUS.BAD_REQUEST,
+        );
+      }
+
+      const friends = await getUserFriends(userId, 'accepted', 1000, 0);
+      const receiverIsFriend = friends.some((f) => {
+        const userId1 = f.userId1.trim().toLowerCase();
+        const userId2 = f.userId2.trim().toLowerCase();
+        return userId1 === receiverId || userId2 === receiverId;
+      });
+
+      if (!receiverIsFriend) {
+        return response(
+          { message: 'Private receiver must be an accepted friend' },
+          STATUS.BAD_REQUEST,
+        );
+      }
+    }
+
     const inserted = await createCinemaChatLog({
       room,
       senderId: userId,
       senderName: authorName,
+      receiverId: chatMode === 'private' ? receiverId : null,
       messageType: 'text',
       message: rawMessage,
-      chatMode: 'public',
+      chatMode,
     });
 
     const payload = {
@@ -191,7 +319,8 @@ export async function POST(
       authorName,
       authorAvatar,
       userId,
-      chatMode: 'public' as const,
+      receiverId: chatMode === 'private' ? receiverId : null,
+      chatMode,
       messageType: 'text' as const,
       sentAt: toUtcIsoTimestamp(inserted.createdAt),
     };

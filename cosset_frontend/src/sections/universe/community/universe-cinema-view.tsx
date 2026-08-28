@@ -47,12 +47,14 @@ import { Player } from 'src/components/universe/player';
 import { Iconify } from 'src/components/universe/iconify';
 import { toast } from 'src/components/dashboard/snackbar';
 
-import { CinemaRibbonTitle } from 'src/sections/dashboard/cinema/cinema-ribbon-title';
 import { formatCinemaSeatLabels } from 'src/sections/dashboard/cinema/cinema-seat-map';
 import { CinemaTheaterIntro } from 'src/sections/dashboard/cinema/cinema-theater-intro';
 import { UniverseCinemaChat } from 'src/sections/universe/community/universe-cinema-chat';
 import { CinemaSeatMapDialog } from 'src/sections/dashboard/cinema/cinema-seat-map-dialog';
-import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/dashboard/cinema/cinema-theater-theme';
+import {
+  CINEMA_GOLD,
+  CINEMA_SERIF,
+} from 'src/sections/dashboard/cinema/cinema-theater-theme';
 import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
 import {
   getCinemaCategory,
@@ -299,7 +301,7 @@ function CinemaFilmPosterCard({
       role="button"
       tabIndex={0}
       sx={{
-        width: { xs: 136, sm: 146, md: 154 },
+        width: '100%',
         flexShrink: 0,
         p: 0,
         border: 'none',
@@ -308,7 +310,6 @@ function CinemaFilmPosterCard({
         textAlign: 'left',
         color: 'inherit',
         outline: 'none',
-        scrollSnapAlign: 'start',
         transition: (theme) =>
           theme.transitions.create(['transform', 'opacity', 'box-shadow'], {
             duration: theme.transitions.duration.shorter,
@@ -558,6 +559,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const isAdmin = isUserAdmin(user?.role);
   const { wallet } = useGetWallet(authenticated);
   const [participants, setParticipants] = useState<CinemaChatParticipant[]>([]);
+  const [selectedPrivateReceiverId, setSelectedPrivateReceiverId] = useState<string | null>(null);
+  const [filmListOpen, setFilmListOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [activeCategoryId, setActiveCategoryId] = useState<CinemaCategory>(
     () => resolveCinemaCategoryId(categoryId) || 'classic',
@@ -576,7 +579,6 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const resolvedCategory = category?.id ?? null;
   const canFetch = Boolean(resolvedCategory);
   const catalogListOptions = isAdmin ? { allCatalog: true } : { publicOnly: true };
-  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -843,6 +845,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState('');
+  const [resolvedPosterUrl, setResolvedPosterUrl] = useState('');
   const [videoLoading, setVideoLoading] = useState(false);
   const [seatMapOpen, setSeatMapOpen] = useState(false);
   const [seatMapMode, setSeatMapMode] = useState<'select' | 'view'>('select');
@@ -975,6 +978,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           : p,
       );
     });
+    setSelectedPrivateReceiverId((prev) =>
+      prev && prev.trim().toLowerCase() === userId.trim().toLowerCase() ? null : prev,
+    );
+  }, []);
+
+  const handleSelectPrivateReceiver = useCallback((participant: CinemaChatParticipant | null) => {
+    setSelectedPrivateReceiverId(participant?.userId || null);
   }, []);
 
   const handleLeaveCinema = useCallback(async () => {
@@ -987,6 +997,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
         // still navigate away
       }
     }
+    setSelectedPrivateReceiverId(null);
     router.push(paths.dashboard.community.cinema.root);
   }, [authenticated, catalogOwnerId, resolvedCategory, router, user?.id]);
 
@@ -1155,6 +1166,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     let mounted = true;
     setIsPlaying(false);
     setResolvedVideoUrl('');
+    setResolvedPosterUrl('');
     setSelectedSeatIds([]);
     setSeatMapOpen(false);
     setSeatMapMode('select');
@@ -1163,7 +1175,12 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     setPaymentOpen(false);
     setPaymentQuote(null);
 
-    const loadVideo = async () => {
+    const loadMedia = async () => {
+      if (activeFilm?.posterImage) {
+        const posterUrl = await resolveMediaUrl(activeFilm.posterImage);
+        if (mounted) setResolvedPosterUrl(posterUrl);
+      }
+
       if (!activeFilm?.videoUrl) return;
 
       setVideoLoading(true);
@@ -1175,12 +1192,13 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
       }
     };
 
-    loadVideo();
+    loadMedia();
 
     return () => {
       mounted = false;
     };
-  }, [activeFilm?.id, activeFilm?.videoUrl]);
+  }, [activeFilm?.id, activeFilm?.posterImage, activeFilm?.videoUrl]);
+
 
   useEffect(() => {
     if (!isPlaying || useEmbedPlayer) return undefined;
@@ -1617,6 +1635,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
       setIsPlaying(false);
       setParticipants([]);
+      setSelectedPrivateReceiverId(null);
       setActiveFilmId(null);
       setSelectedSeatIds([]);
       setSeatMapOpen(false);
@@ -1673,13 +1692,6 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
     if (seatMapMode === 'view') {
       setSeatMapMode('select');
     }
-  };
-
-  const scrollCarousel = (direction: 'prev' | 'next') => {
-    const node = carouselRef.current;
-    if (!node) return;
-    const amount = Math.min(380, node.clientWidth * 0.72);
-    node.scrollBy({ left: direction === 'next' ? amount : -amount, behavior: 'smooth' });
   };
 
   if (!category || !resolvedCategory) {
@@ -1947,7 +1959,11 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
 
       {canFetch && authenticated && resolvedCategory && catalogOwnerId ? (
         <>
-          <UniverseCinemaParticipants participants={participants} />
+          <UniverseCinemaParticipants
+            participants={participants}
+            selectedPrivateReceiverId={selectedPrivateReceiverId}
+            onSelectPrivateReceiver={handleSelectPrivateReceiver}
+          />
           <UniverseCinemaChat
             key={`${catalogOwnerId}-${resolvedCategory}`}
             ownerCustomerId={catalogOwnerId}
@@ -1957,6 +1973,8 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             onParticipantJoin={handleParticipantJoin}
             onParticipantLeave={handleParticipantLeave}
             isPresent={isPresent}
+            selectedPrivateReceiverId={selectedPrivateReceiverId}
+            onSelectPrivateReceiver={handleSelectPrivateReceiver}
           />
         </>
       ) : null}
@@ -1970,7 +1988,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           py: { xs: 2, md: 3 },
         }}
       >
-        <Box sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
+        <Box sx={{ width: 'min(1280px, 100%)', mx: 'auto' }}>
           {isPlaying && resolvedVideoUrl ? (
             <Box
               ref={playerContainerRef}
@@ -1983,7 +2001,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                 boxShadow: isFullscreen
                   ? 'none'
                   : `0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset`,
-                height: isFullscreen ? '100%' : { xs: 300, md: 460 },
+                height: isFullscreen ? '100%' : { xs: 400, md: 620 },
                 bgcolor: '#000',
                 '& .player-controls': {
                   opacity: 0,
@@ -2120,7 +2138,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           ) : (
             <CinemaTheaterIntro
               category={category}
-              height={{ xs: 300, md: 460 }}
+              height={{ xs: 400, md: 620 }}
               showTitles={false}
               showQuote={false}
               footer={
@@ -2128,253 +2146,275 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   <Stack alignItems="center">
                     <CircularProgress size={26} sx={{ color: accent }} />
                   </Stack>
-                ) : activeFilm ? (
-                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', width: 1, px: 1 }}>
-                    <Typography
-                      sx={{
-                        fontFamily: CINEMA_SERIF,
-                        fontWeight: 700,
-                        fontSize: { xs: '0.98rem', sm: '1.2rem', md: '1.45rem' },
-                        lineHeight: 1.25,
-                        color: '#FFF8E7',
-                        textShadow: '0 3px 14px rgba(0,0,0,0.7)',
-                        maxWidth: 1,
-                        px: 0.5,
-                      }}
-                    >
-                      {activeFilm.title}
-                    </Typography>
+                ) : activeFilm?.videoUrl ? (
+                  <Stack spacing={1.5} alignItems="center" sx={{ width: 1 }}>
+                    {(() => {
+                      const isReserved = hasReservationSeat(activeReservation);
+                      const isToday = activeScreening
+                        ? isScreeningDayToday(activeScreening, scheduleNow)
+                        : false;
+                      const isPreview = isCinemaPreviewScreening(activeScreening);
+                      const statusLabel = isToday
+                        ? activeShowStatus === 'now'
+                          ? 'Today · Now'
+                          : activeShowStatus === 'past'
+                            ? 'Today · Ended'
+                            : 'Today'
+                        : getCinemaFilmShowStatusLabel(activeShowStatus);
+                      const posterWidth = { xs: 148, sm: 180, md: 210 };
+                      const posterHeight = { xs: 220, sm: 268, md: 312 };
 
-                    {activeScheduleLabels.length || activeScreening ? (
-                      <Stack spacing={0.35} alignItems="center" sx={{ width: 1, maxWidth: 420 }}>
-                        <Stack
-                          direction="row"
-                          spacing={{ xs: 1.25, sm: 1.75 }}
-                          alignItems="center"
-                          justifyContent="center"
+                      return (
+                        <Box
+                          sx={{
+                            position: 'relative',
+                            width: posterWidth,
+                            height: posterHeight,
+                            borderRadius: 1.5,
+                            overflow: 'hidden',
+                            border: isReserved
+                              ? '1px solid rgba(76,175,80,0.85)'
+                              : isToday
+                                ? `1px solid ${accent}88`
+                                : `1px solid ${accent}66`,
+                            bgcolor: '#17110D',
+                            boxShadow: isReserved
+                              ? '0 14px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(76,175,80,0.35)'
+                              : `0 14px 40px rgba(0,0,0,0.55), 0 0 0 1px ${accent}33`,
+                          }}
                         >
-                          <Stack spacing={0.15} alignItems="flex-start">
-                            {activeScheduleLabels.length ? (
-                              activeScheduleLabels.map((label) => (
-                                <Typography
-                                  key={label}
-                                  variant="caption"
-                                  sx={{
-                                    color: 'rgba(245,230,200,0.75)',
-                                    fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                                    lineHeight: 1.35,
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {label}
-                                </Typography>
-                              ))
-                            ) : (
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: 'rgba(245,230,200,0.75)',
-                                  fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                                  lineHeight: 1.35,
-                                }}
-                              >
-                                No fixed showtime
-                              </Typography>
-                            )}
-                          </Stack>
+                          {resolvedPosterUrl ? (
+                            <Box
+                              component="img"
+                              src={resolvedPosterUrl}
+                              alt={activeFilm.title}
+                              sx={{
+                                position: 'absolute',
+                                inset: 0,
+                                width: 1,
+                                height: 1,
+                                objectFit: 'cover',
+                              }}
+                            />
+                          ) : (
+                            <Stack
+                              alignItems="center"
+                              justifyContent="center"
+                              sx={{
+                                position: 'absolute',
+                                inset: 0,
+                                color: 'rgba(255,255,255,0.35)',
+                              }}
+                            >
+                              <Iconify icon="solar:clapperboard-play-bold" width={40} />
+                            </Stack>
+                          )}
 
-                          {getCinemaFilmShowStatusLabel(activeShowStatus) ||
-                          isCinemaPreviewScreening(activeScreening) ? (
-                            <Stack direction="column" spacing={0.5} alignItems="flex-start">
-                              {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
+                          {statusLabel || isPreview ? (
+                            <Stack
+                              direction="column"
+                              spacing={0.5}
+                              alignItems="flex-start"
+                              sx={{
+                                position: 'absolute',
+                                top: 10,
+                                left: 10,
+                                right: isReserved ? 44 : 10,
+                                zIndex: 1,
+                              }}
+                            >
+                              {statusLabel ? (
                                 <Chip
                                   size="small"
-                                  label={getCinemaFilmShowStatusLabel(activeShowStatus)}
+                                  label={statusLabel}
                                   sx={{
-                                    flexShrink: 0,
-                                    fontWeight: 700,
-                                    fontSize: { xs: '0.65rem', sm: '0.72rem' },
                                     height: 24,
-                                    color: '#1A1208',
-                                    bgcolor:
-                                      activeShowStatus === 'now'
-                                        ? accent
-                                        : activeShowStatus === 'upcoming'
-                                          ? 'rgba(245,230,200,0.92)'
-                                          : 'rgba(245,230,200,0.55)',
+                                    fontWeight: 700,
+                                    fontSize: '0.68rem',
+                                    bgcolor: isToday
+                                      ? activeShowStatus === 'now'
+                                        ? 'rgba(46,125,50,0.92)'
+                                        : 'rgba(25,118,210,0.9)'
+                                      : 'rgba(0,0,0,0.72)',
+                                    color: '#FFF8E7',
+                                    border: `1px solid ${accent}66`,
                                   }}
                                 />
                               ) : null}
-                              {isCinemaPreviewScreening(activeScreening) ? (
+                              {isPreview ? (
                                 <Chip
                                   size="small"
                                   label="Preview"
                                   sx={{
-                                    flexShrink: 0,
-                                    fontWeight: 700,
-                                    fontSize: { xs: '0.65rem', sm: '0.72rem' },
                                     height: 24,
-                                    color: '#FFF8E7',
+                                    fontWeight: 700,
+                                    fontSize: '0.68rem',
                                     bgcolor: 'rgba(156,39,176,0.88)',
+                                    color: '#FFF8E7',
+                                    border: '1px solid rgba(255,255,255,0.28)',
                                   }}
                                 />
                               ) : null}
                             </Stack>
                           ) : null}
 
-                          {activeRemainingLabel ? (
-                            <Typography
-                              variant="caption"
+                          {isReserved ? (
+                            <Box
                               sx={{
-                                flexShrink: 0,
-                                color: 'info.light',
-                                fontWeight: 700,
-                                fontSize: { xs: '0.65rem', sm: '0.72rem' },
-                                whiteSpace: 'nowrap',
+                                position: 'absolute',
+                                top: 10,
+                                right: 10,
+                                zIndex: 1,
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                display: 'grid',
+                                placeItems: 'center',
+                                bgcolor: 'rgba(46,125,50,0.92)',
+                                border: '1px solid rgba(129,199,132,0.7)',
+                                color: '#FFF8E7',
                               }}
                             >
-                              {activeRemainingLabel === 'now'
-                                ? 'starting now'
-                                : `${activeRemainingLabel} left`}
-                            </Typography>
+                              <Iconify icon="solar:bookmark-bold" width={15} />
+                            </Box>
                           ) : null}
-                        </Stack>
 
-                        {isLiveScheduledScreening ? (
-                          <Typography
-                            variant="caption"
-                            sx={{ color: 'rgba(245,230,200,0.75)', fontSize: { xs: '0.65rem', sm: '0.72rem' } }}
-                          >
-                            Live synced screening
-                          </Typography>
-                        ) : null}
-                      </Stack>
-                    ) : null}
+                          {activeScheduleLabels.length ? (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 1,
+                                px: 1.1,
+                                pt: 2.75,
+                                pb: 1,
+                                background:
+                                  'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 72%)',
+                              }}
+                            >
+                              <Stack spacing={0.15}>
+                                {activeScheduleLabels.map((label) => (
+                                  <Typography
+                                    key={label}
+                                    variant="caption"
+                                    sx={{
+                                      display: 'block',
+                                      color: isToday || isReserved ? accent : '#F5E6C8',
+                                      fontWeight: 700,
+                                      lineHeight: 1.25,
+                                      fontSize: '0.68rem',
+                                    }}
+                                  >
+                                    {label}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          ) : null}
+                        </Box>
+                      );
+                    })()}
 
-                    {activeFilm.description ? (
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          maxWidth: 560,
-                          color: 'rgba(245,230,200,0.82)',
-                          lineHeight: 1.7,
-                          textShadow: '0 2px 10px rgba(0,0,0,0.7)',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          px: 1,
-                        }}
-                      >
-                        {activeFilm.description}
-                      </Typography>
-                    ) : null}
+                    <Button
+                      onClick={() => {
+                        if (requiresPayment) {
+                          openPaymentDialog();
+                          return;
+                        }
 
-                    {activeFilm.videoUrl ? (
-                      <Button
-                        onClick={() => {
-                          if (requiresPayment) {
-                            openPaymentDialog();
-                            return;
+                        if (isSyncedScreening && activeShowStatus === 'past') {
+                          toast.info('This screening has ended.');
+                          return;
+                        }
+
+                        if (
+                          activeShowStatus === 'unscheduled' ||
+                          (isSyncedScreening && activeShowStatus === 'upcoming')
+                        ) {
+                          if (activeReservation && hasReservationSeat(activeReservation)) {
+                            handleViewReservation(activeReservation);
+                          } else {
+                            handleOpenSeatSelection(activeReservation);
+                          }
+                          return;
+                        }
+
+                        if (activeReservation?.seatIds?.[0]) {
+                          handleStartPlayback();
+                          return;
+                        }
+
+                        handleOpenSeatSelection(activeReservation);
+                      }}
+                      variant="contained"
+                      disabled={isSyncedScreening && activeShowStatus === 'past'}
+                      endIcon={<Iconify icon="solar:play-bold" />}
+                      sx={{
+                        bgcolor: accent,
+                        color: '#1A1208',
+                        fontWeight: 800,
+                        px: { xs: 1.5, sm: 2.5 },
+                        py: { xs: 1, sm: 0.85 },
+                        maxWidth: 1,
+                        whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                        height: 'auto',
+                        minHeight: 36,
+                        lineHeight: 1.25,
+                        fontSize: { xs: '0.72rem', sm: '0.875rem' },
+                        textAlign: 'center',
+                        '& .MuiButton-endIcon': {
+                          ml: { xs: 0.75, sm: 1 },
+                          flexShrink: 0,
+                        },
+                        '&:hover': { bgcolor: accent, opacity: 0.92 },
+                      }}
+                    >
+                      {(() => {
+                        if (isSyncedScreening && activeShowStatus === 'upcoming') {
+                          const localLabel = activeNextStart
+                            ? fTime(activeNextStart, formatStr.dateTime)
+                            : null;
+                          const utcLabel = activeNextStart
+                            ? fDateTimeFromUtc(activeNextStart, formatStr.time)
+                            : null;
+
+                          if (!localLabel || !utcLabel) {
+                            return 'Starts soon';
                           }
 
-                          if (isSyncedScreening && activeShowStatus === 'past') {
-                            toast.info('This screening has ended.');
-                            return;
-                          }
+                          return (
+                            <>
+                              Starts at{' '}
+                              <Box component="span" sx={{ color: 'info.dark' }}>
+                                {localLabel}
+                              </Box>
+                              <Box component="span">
+                                {' '}
+                                ({utcLabel} UTC)
+                              </Box>
+                            </>
+                          );
+                        }
 
-                          // Upcoming fixed-time or open (no showtime): show screening / seat info.
-                          if (
-                            activeShowStatus === 'unscheduled' ||
-                            (isSyncedScreening && activeShowStatus === 'upcoming')
-                          ) {
-                            if (activeReservation && hasReservationSeat(activeReservation)) {
-                              handleViewReservation(activeReservation);
-                            } else {
-                              handleOpenSeatSelection(activeReservation);
-                            }
-                            return;
-                          }
+                        if (isSyncedScreening && activeShowStatus === 'past') {
+                          return 'Screening ended';
+                        }
 
-                          if (activeReservation?.seatIds?.[0]) {
-                            handleStartPlayback();
-                            return;
-                          }
-
-                          handleOpenSeatSelection(activeReservation);
-                        }}
-                        variant="contained"
-                        disabled={isSyncedScreening && activeShowStatus === 'past'}
-                        endIcon={<Iconify icon="solar:play-bold" />}
-                        sx={{
-                          mt: 0.5,
-                          bgcolor: accent,
-                          color: '#1A1208',
-                          fontWeight: 800,
-                          px: { xs: 1.5, sm: 2.5 },
-                          py: { xs: 1, sm: 0.85 },
-                          maxWidth: 1,
-                          whiteSpace: { xs: 'normal', sm: 'nowrap' },
-                          height: 'auto',
-                          minHeight: 36,
-                          lineHeight: 1.25,
-                          fontSize: { xs: '0.72rem', sm: '0.875rem' },
-                          textAlign: 'center',
-                          '& .MuiButton-endIcon': {
-                            ml: { xs: 0.75, sm: 1 },
-                            flexShrink: 0,
-                          },
-                          '&:hover': { bgcolor: accent, opacity: 0.92 },
-                        }}
-                      >
-                        {(() => {
-                          if (isSyncedScreening && activeShowStatus === 'upcoming') {
-                            const localLabel = activeNextStart
-                              ? fTime(activeNextStart, formatStr.dateTime)
-                              : null;
-                            const utcLabel = activeNextStart
-                              ? fDateTimeFromUtc(activeNextStart, formatStr.time)
-                              : null;
-
-                            if (!localLabel || !utcLabel) {
-                              return 'Starts soon';
-                            }
-
-                            return (
-                              <>
-                                Starts at{' '}
-                                <Box component="span" sx={{ color: 'info.dark' }}>
-                                  {localLabel}
-                                </Box>
-                                <Box
-                                  component="span"
-                                  sx={{ display: { xs: 'inline', sm: 'inline' } }}
-                                >
-                                  {' '}
-                                  ({utcLabel} UTC)
-                                </Box>
-                              </>
-                            );
-                          }
-
-                          if (isSyncedScreening && activeShowStatus === 'past') {
-                            return 'Screening ended';
-                          }
-
-                          if (isSyncedScreening && activeShowStatus === 'now') {
-                            return headerSeatLabel
-                              ? `Join screening · ${headerSeatLabel}`
-                              : 'Join screening';
-                          }
-
+                        if (isSyncedScreening && activeShowStatus === 'now') {
                           return headerSeatLabel
-                            ? `Screening info · ${headerSeatLabel}`
-                            : 'Screening info';
-                        })()}
-                      </Button>
-                    ) : null}
+                            ? `Join screening · ${headerSeatLabel}`
+                            : 'Join screening';
+                        }
+
+                        return headerSeatLabel
+                          ? `Screening info · ${headerSeatLabel}`
+                          : 'Screening info';
+                      })()}
+                    </Button>
                   </Stack>
-                ) : (
+                ) : !activeFilm ? (
                   <Typography
                     variant="body2"
                     sx={{
@@ -2386,67 +2426,47 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   >
                     {category.description}
                   </Typography>
-                )
+                ) : null
               }
             />
           )}
-        </Box>
 
-        <Stack
-          spacing={0}
-          sx={{
-            width: 'min(1120px, 100%)',
-            mx: 'auto',
-            mt: 1,
-          }}
-        >
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1.5,
-              px: { xs: 0.5, sm: 0 },
-              pr: { xs: 0.5, sm: 1 },
+              mt: 1.5,
+              px: { xs: 0.25, sm: 0.5 },
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: 'auto 1fr auto',
+                sm: 'minmax(120px, 160px) minmax(0, 1fr) minmax(120px, 160px)',
+              },
+              alignItems: 'start',
+              columnGap: { xs: 1, sm: 2 },
+              rowGap: { xs: 1.25, sm: 0 },
             }}
           >
-            <CinemaRibbonTitle title="Film List" accent={accent} align="left" />
-
-            {activeFilm ? (
+            <Box sx={{ gridColumn: '1', gridRow: '1', justifySelf: 'start' }}>
               <Button
                 size="small"
-                onClick={() => {
-                  if (activeReservation && hasReservationSeat(activeReservation)) {
-                    handleViewReservation(activeReservation);
-                    return;
-                  }
-
-                  handleOpenSeatSelection(activeReservation);
-                }}
-                startIcon={
-                  <Iconify
-                    icon={headerSeatLabel ? 'solar:bookmark-bold' : 'solar:ticket-bold'}
-                    width={16}
-                  />
-                }
+                onClick={() => setFilmListOpen((value) => !value)}
+                aria-label={filmListOpen ? 'Hide film list' : 'Show film list'}
+                startIcon={<Iconify icon="solar:clapperboard-play-bold" width={16} />}
                 sx={{
                   flexShrink: 0,
                   minWidth: 0,
-                  maxWidth: { xs: 140, sm: 180 },
+                  maxWidth: { xs: 140, sm: 160 },
                   px: 1.25,
                   py: 0.75,
                   borderRadius: 1.5,
-                  bgcolor: headerSeatLabel ? 'rgba(46,125,50,0.88)' : 'rgba(18,12,8,0.88)',
-                  color: headerSeatLabel ? '#FFF8E7' : accent,
-                  border: headerSeatLabel
-                    ? '1px solid rgba(129,199,132,0.55)'
-                    : `1px solid ${accent}66`,
+                  bgcolor: filmListOpen ? 'rgba(30,20,12,0.95)' : 'rgba(18,12,8,0.88)',
+                  color: accent,
+                  border: `1px solid ${accent}66`,
                   fontWeight: 700,
                   fontSize: { xs: '0.68rem', sm: '0.75rem' },
                   textTransform: 'none',
                   justifyContent: 'flex-start',
                   '&:hover': {
-                    bgcolor: headerSeatLabel ? 'rgba(56,142,60,0.96)' : 'rgba(30,20,12,0.95)',
+                    bgcolor: 'rgba(30,20,12,0.95)',
                   },
                 }}
               >
@@ -2461,7 +2481,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       letterSpacing: '0.04em',
                     }}
                   >
-                    Seat
+                    Film List
                   </Typography>
                   <Typography
                     noWrap
@@ -2471,13 +2491,274 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                       lineHeight: 1.2,
                     }}
                   >
-                    {headerSeatLabel || 'No seat'}
+                    {filmListOpen ? 'Open' : 'Browse'}
                   </Typography>
                 </Box>
               </Button>
+            </Box>
+
+            {activeFilm ? (
+              <Stack
+                spacing={0.75}
+                alignItems="center"
+                sx={{
+                  minWidth: 0,
+                  gridColumn: { xs: '1 / -1', sm: '2' },
+                  gridRow: { xs: '2', sm: '1' },
+                  textAlign: 'center',
+                  px: { sm: 1 },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontFamily: CINEMA_SERIF,
+                    fontWeight: 700,
+                    fontSize: { xs: '1.05rem', sm: '1.25rem', md: '1.4rem' },
+                    lineHeight: 1.25,
+                    color: '#FFF8E7',
+                  }}
+                >
+                  {activeFilm.title}
+                </Typography>
+
+                {activeScheduleLabels.length || activeScreening ? (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    flexWrap="wrap"
+                    useFlexGap
+                  >
+                    {activeScheduleLabels.length ? (
+                      activeScheduleLabels.map((label) => (
+                        <Typography
+                          key={label}
+                          variant="caption"
+                          sx={{
+                            color: 'rgba(245,230,200,0.75)',
+                            fontSize: { xs: '0.7rem', sm: '0.78rem' },
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {label}
+                        </Typography>
+                      ))
+                    ) : (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'rgba(245,230,200,0.75)',
+                          fontSize: { xs: '0.7rem', sm: '0.78rem' },
+                        }}
+                      >
+                        No fixed showtime
+                      </Typography>
+                    )}
+
+                    {getCinemaFilmShowStatusLabel(activeShowStatus) ? (
+                      <Chip
+                        size="small"
+                        label={getCinemaFilmShowStatusLabel(activeShowStatus)}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          height: 22,
+                          color: '#1A1208',
+                          bgcolor:
+                            activeShowStatus === 'now'
+                              ? accent
+                              : activeShowStatus === 'upcoming'
+                                ? 'rgba(245,230,200,0.92)'
+                                : 'rgba(245,230,200,0.55)',
+                        }}
+                      />
+                    ) : null}
+
+                    {isCinemaPreviewScreening(activeScreening) ? (
+                      <Chip
+                        size="small"
+                        label="Preview"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          height: 22,
+                          color: '#FFF8E7',
+                          bgcolor: 'rgba(156,39,176,0.88)',
+                        }}
+                      />
+                    ) : null}
+
+                    {activeRemainingLabel ? (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'info.light',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                        }}
+                      >
+                        {activeRemainingLabel === 'now'
+                          ? 'starting now'
+                          : `${activeRemainingLabel} left`}
+                      </Typography>
+                    ) : null}
+
+                    {isLiveScheduledScreening ? (
+                      <Typography
+                        variant="caption"
+                        sx={{ color: 'rgba(245,230,200,0.75)', fontSize: '0.72rem' }}
+                      >
+                        Live synced screening
+                      </Typography>
+                    ) : null}
+                  </Stack>
+                ) : null}
+
+                {activeFilm.description ? (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      maxWidth: 720,
+                      color: 'rgba(245,230,200,0.78)',
+                      lineHeight: 1.65,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {activeFilm.description}
+                  </Typography>
+                ) : null}
+              </Stack>
+            ) : (
+              <Box sx={{ display: { xs: 'none', sm: 'block' }, gridColumn: '2' }} />
+            )}
+
+            {activeFilm ? (
+              <Box
+                sx={{
+                  gridColumn: '3',
+                  gridRow: '1',
+                  justifySelf: 'end',
+                }}
+              >
+                <Button
+                  size="small"
+                  onClick={() => {
+                    if (activeReservation && hasReservationSeat(activeReservation)) {
+                      handleViewReservation(activeReservation);
+                      return;
+                    }
+
+                    handleOpenSeatSelection(activeReservation);
+                  }}
+                  startIcon={
+                    <Iconify
+                      icon={headerSeatLabel ? 'solar:bookmark-bold' : 'solar:ticket-bold'}
+                      width={16}
+                    />
+                  }
+                  sx={{
+                    flexShrink: 0,
+                    minWidth: 0,
+                    maxWidth: { xs: 180, sm: 200 },
+                    px: 1.25,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    bgcolor: headerSeatLabel ? 'rgba(46,125,50,0.88)' : 'rgba(18,12,8,0.88)',
+                    color: headerSeatLabel ? '#FFF8E7' : accent,
+                    border: headerSeatLabel
+                      ? '1px solid rgba(129,199,132,0.55)'
+                      : `1px solid ${accent}66`,
+                    fontWeight: 700,
+                    fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                    textTransform: 'none',
+                    justifyContent: 'flex-start',
+                    '&:hover': {
+                      bgcolor: headerSeatLabel ? 'rgba(56,142,60,0.96)' : 'rgba(30,20,12,0.95)',
+                    },
+                  }}
+                >
+                  <Box sx={{ minWidth: 0, textAlign: 'left' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        lineHeight: 1.1,
+                        opacity: 0.82,
+                        fontSize: '0.62rem',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      Seat
+                    </Typography>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: 'inherit',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {headerSeatLabel || 'No seat'}
+                    </Typography>
+                  </Box>
+                </Button>
+              </Box>
             ) : null}
           </Box>
+        </Box>
+      </Stack>
 
+      <Dialog
+        open={filmListOpen}
+        onClose={() => setFilmListOpen(false)}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: 'rgba(10, 8, 6, 0.96)',
+            border: `1px solid ${accent}44`,
+            backgroundImage: 'none',
+            maxHeight: 'min(88dvh, 860px)',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            position: 'relative',
+            pr: 6,
+            py: 1.5,
+            color: '#F5E6C8',
+            fontFamily: CINEMA_SERIF,
+            fontWeight: 700,
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          Film List
+          <IconButton
+            aria-label="Close film list"
+            onClick={() => setFilmListOpen(false)}
+            sx={{ position: 'absolute', right: 12, top: 10, color: 'rgba(255,255,255,0.7)' }}
+          >
+            <Iconify icon="mingcute:close-line" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent
+          sx={{
+            px: { xs: 1.5, sm: 2.5 },
+            pb: { xs: 2, sm: 2.5 },
+            overflowY: 'auto',
+            '&.MuiDialogContent-root': {
+              paddingTop: { xs: 2, sm: 2.5 },
+            },
+          }}
+        >
           {loading ? (
             <Stack alignItems="center" sx={{ py: 6 }}>
               <CircularProgress sx={{ color: accent }} />
@@ -2485,118 +2766,70 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
           ) : screeningFilms.length ? (
             <Box
               sx={{
-                position: 'relative',
-                borderRadius: 2,
-                border: `1px solid ${accent}28`,
-                bgcolor: 'rgba(8,5,3,0.42)',
-                px: { xs: 1, sm: 2 },
-                py: { xs: 1.5, md: 1.75 },
-                overflowY: 'visible',
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  sm: 'repeat(3, minmax(0, 1fr))',
+                  md: 'repeat(6, minmax(0, 1fr))',
+                },
+                gap: { xs: 1.5, sm: 2.25, md: 3 },
               }}
             >
-              <IconButton
-                aria-label="Previous films"
-                onClick={() => scrollCarousel('prev')}
-                sx={{
-                  position: 'absolute',
-                  left: { xs: 2, md: -6 },
-                  top: '42%',
-                  zIndex: 2,
-                  width: 42,
-                  height: 42,
-                  bgcolor: 'rgba(18,12,8,0.88)',
-                  border: `1px solid ${accent}88`,
-                  color: accent,
-                  display: { xs: 'none', sm: 'inline-flex' },
-                  boxShadow: `0 0 16px ${accent}33`,
-                  '&:hover': { bgcolor: 'rgba(30,20,12,0.96)', borderColor: accent },
-                }}
-              >
-                <Iconify icon="eva:arrow-ios-back-fill" />
-              </IconButton>
+              {screeningFilms.map((film) => {
+                const mediaDurationSeconds = filmDurationById[film.id] ?? null;
+                const nextScreening = getNextFilmScreening(
+                  film,
+                  scheduleNow,
+                  mediaDurationSeconds,
+                );
+                const reservation =
+                  (nextScreening && reservationsByScreeningId.get(nextScreening.id)) ||
+                  reservationsByFilmId.get(film.id) ||
+                  null;
+                const isReserved = Boolean(reservation);
 
-              <IconButton
-                aria-label="Next films"
-                onClick={() => scrollCarousel('next')}
-                sx={{
-                  position: 'absolute',
-                  right: { xs: 2, md: -6 },
-                  top: '42%',
-                  zIndex: 2,
-                  width: 42,
-                  height: 42,
-                  bgcolor: 'rgba(18,12,8,0.88)',
-                  border: `1px solid ${accent}88`,
-                  color: accent,
-                  display: { xs: 'none', sm: 'inline-flex' },
-                  boxShadow: `0 0 16px ${accent}33`,
-                  '&:hover': { bgcolor: 'rgba(30,20,12,0.96)', borderColor: accent },
-                }}
-              >
-                <Iconify icon="eva:arrow-ios-forward-fill" />
-              </IconButton>
-
-              <Stack
-                ref={carouselRef}
-                direction="row"
-                spacing={2.25}
-                sx={{
-                  overflowX: 'auto',
-                  overflowY: 'visible',
-                  px: { xs: 0.5, sm: 4 },
-                  py: 1.25,
-                  scrollSnapType: 'x mandatory',
-                  scrollbarWidth: 'none',
-                  '&::-webkit-scrollbar': { display: 'none' },
-                }}
-              >
-                {screeningFilms.map((film) => {
-                  const mediaDurationSeconds = filmDurationById[film.id] ?? null;
-                  const nextScreening = getNextFilmScreening(
-                    film,
-                    scheduleNow,
-                    mediaDurationSeconds,
-                  );
-                  const reservation =
-                    (nextScreening && reservationsByScreeningId.get(nextScreening.id)) ||
-                    reservationsByFilmId.get(film.id) ||
-                    null;
-                  const isReserved = Boolean(reservation);
-
-                  return (
-                    <CinemaFilmPosterCard
-                      key={film.id}
-                      film={film}
-                      accent={accent}
-                      categoryId={resolvedCategory}
-                      selected={Number(activeFilm?.id) === Number(film.id)}
-                      isReserved={isReserved}
-                      mediaDurationSeconds={mediaDurationSeconds}
-                      scheduleNow={scheduleNow}
-                      onSelect={() => handleSelectFilm(Number(film.id))}
-                      onReserveSeat={
-                        reservation
-                          ? () => {
-                              handleSelectFilm(Number(film.id));
-                              handleOpenSeatSelection(reservation);
-                            }
-                          : undefined
-                      }
-                    />
-                  );
-                })}
-              </Stack>
+                return (
+                  <CinemaFilmPosterCard
+                    key={film.id}
+                    film={film}
+                    accent={accent}
+                    categoryId={resolvedCategory}
+                    selected={Number(activeFilm?.id) === Number(film.id)}
+                    isReserved={isReserved}
+                    mediaDurationSeconds={mediaDurationSeconds}
+                    scheduleNow={scheduleNow}
+                    onSelect={() => {
+                      handleSelectFilm(Number(film.id));
+                      setFilmListOpen(false);
+                    }}
+                    onReserveSeat={
+                      reservation
+                        ? () => {
+                            handleSelectFilm(Number(film.id));
+                            setFilmListOpen(false);
+                            handleOpenSeatSelection(reservation);
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </Box>
           ) : (
             <Typography
               variant="body2"
-              sx={{ color: 'rgba(245,230,200,0.68)', textAlign: 'center', py: 4, lineHeight: 1.8 }}
+              sx={{
+                color: 'rgba(245,230,200,0.68)',
+                textAlign: 'center',
+                py: 6,
+                lineHeight: 1.8,
+              }}
             >
               No screening films in this room yet.
             </Typography>
           )}
-        </Stack>
-      </Stack>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={paymentOpen && Boolean(paymentQuote)}

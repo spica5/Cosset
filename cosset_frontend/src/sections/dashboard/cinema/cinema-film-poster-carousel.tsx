@@ -49,6 +49,8 @@ type PosterCardProps = {
   showScheduleOverlay?: boolean;
   onClick?: () => void;
   actions?: ReactNode;
+  /** Stretch to fill a CSS grid cell instead of fixed carousel width. */
+  fillWidth?: boolean;
 };
 
 export function CinemaPosterCard({
@@ -59,6 +61,7 @@ export function CinemaPosterCard({
   showScheduleOverlay = true,
   onClick,
   actions,
+  fillWidth = false,
 }: PosterCardProps) {
   const [posterUrl, setPosterUrl] = useState('');
   const nextScreening = screening ?? getNextFilmScreening(film);
@@ -80,10 +83,10 @@ export function CinemaPosterCard({
   return (
     <Box
       sx={{
-        width: { xs: 148, sm: 168, md: 180 },
-        flexShrink: 0,
+        width: fillWidth ? '100%' : { xs: 148, sm: 168, md: 180 },
+        flexShrink: fillWidth ? undefined : 0,
         position: 'relative',
-        scrollSnapAlign: 'start',
+        scrollSnapAlign: fillWidth ? undefined : 'start',
       }}
     >
       {actions ? (
@@ -271,6 +274,8 @@ type CarouselProps = {
   emptyMessage?: string;
   headerAction?: ReactNode;
   showRibbon?: boolean;
+  /** `grid` shows 6 posters per row on desktop; `carousel` keeps horizontal scroll. */
+  layout?: 'carousel' | 'grid';
   renderActions?: (film: ICinemaFilm) => ReactNode;
   onSelectFilm?: (film: ICinemaFilm) => void;
 };
@@ -282,10 +287,12 @@ export function CinemaFilmPosterCarousel({
   emptyMessage = 'No films added yet.',
   headerAction,
   showRibbon = true,
+  layout = 'carousel',
   renderActions,
   onSelectFilm,
 }: CarouselProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const isGrid = layout === 'grid';
 
   const scrollCarousel = (direction: 'prev' | 'next') => {
     const node = carouselRef.current;
@@ -355,58 +362,16 @@ export function CinemaFilmPosterCarousel({
       ) : null}
 
       {films.length ? (
-        <Box sx={{ position: 'relative' }}>
-          <IconButton
-            aria-label="Previous films"
-            onClick={() => scrollCarousel('prev')}
+        isGrid ? (
+          <Box
             sx={{
-              position: 'absolute',
-              left: { xs: -4, md: -14 },
-              top: '34%',
-              zIndex: 2,
-              width: 42,
-              height: 42,
-              bgcolor: 'rgba(18,12,8,0.82)',
-              border: `1px solid ${accent}66`,
-              color: CINEMA_CREAM,
-              display: { xs: 'none', sm: 'inline-flex' },
-              '&:hover': { bgcolor: 'rgba(30,20,12,0.95)' },
-            }}
-          >
-            <Iconify icon="eva:arrow-ios-back-fill" />
-          </IconButton>
-
-          <IconButton
-            aria-label="Next films"
-            onClick={() => scrollCarousel('next')}
-            sx={{
-              position: 'absolute',
-              right: { xs: -4, md: -14 },
-              top: '34%',
-              zIndex: 2,
-              width: 42,
-              height: 42,
-              bgcolor: 'rgba(18,12,8,0.82)',
-              border: `1px solid ${accent}66`,
-              color: CINEMA_CREAM,
-              display: { xs: 'none', sm: 'inline-flex' },
-              '&:hover': { bgcolor: 'rgba(30,20,12,0.95)' },
-            }}
-          >
-            <Iconify icon="eva:arrow-ios-forward-fill" />
-          </IconButton>
-
-          <Stack
-            ref={carouselRef}
-            direction="row"
-            spacing={2.25}
-            sx={{
-              overflowX: 'auto',
-              px: { xs: 0.5, sm: 3 },
-              py: 1,
-              scrollSnapType: 'x mandatory',
-              scrollbarWidth: 'none',
-              '&::-webkit-scrollbar': { display: 'none' },
+              display: 'grid',
+              gap: { xs: 1.5, sm: 2, md: 2.25 },
+              gridTemplateColumns: {
+                xs: 'repeat(2, minmax(0, 1fr))',
+                sm: 'repeat(3, minmax(0, 1fr))',
+                md: 'repeat(6, minmax(0, 1fr))',
+              },
             }}
           >
             {films.map((film) => (
@@ -414,12 +379,79 @@ export function CinemaFilmPosterCarousel({
                 key={film.id}
                 film={film}
                 accent={accent}
+                fillWidth
                 onClick={onSelectFilm ? () => onSelectFilm(film) : undefined}
                 actions={renderActions?.(film)}
               />
             ))}
-          </Stack>
-        </Box>
+          </Box>
+        ) : (
+          <Box sx={{ position: 'relative' }}>
+            <IconButton
+              aria-label="Previous films"
+              onClick={() => scrollCarousel('prev')}
+              sx={{
+                position: 'absolute',
+                left: { xs: -4, md: -14 },
+                top: '34%',
+                zIndex: 2,
+                width: 42,
+                height: 42,
+                bgcolor: 'rgba(18,12,8,0.82)',
+                border: `1px solid ${accent}66`,
+                color: CINEMA_CREAM,
+                display: { xs: 'none', sm: 'inline-flex' },
+                '&:hover': { bgcolor: 'rgba(30,20,12,0.95)' },
+              }}
+            >
+              <Iconify icon="eva:arrow-ios-back-fill" />
+            </IconButton>
+
+            <IconButton
+              aria-label="Next films"
+              onClick={() => scrollCarousel('next')}
+              sx={{
+                position: 'absolute',
+                right: { xs: -4, md: -14 },
+                top: '34%',
+                zIndex: 2,
+                width: 42,
+                height: 42,
+                bgcolor: 'rgba(18,12,8,0.82)',
+                border: `1px solid ${accent}66`,
+                color: CINEMA_CREAM,
+                display: { xs: 'none', sm: 'inline-flex' },
+                '&:hover': { bgcolor: 'rgba(30,20,12,0.95)' },
+              }}
+            >
+              <Iconify icon="eva:arrow-ios-forward-fill" />
+            </IconButton>
+
+            <Stack
+              ref={carouselRef}
+              direction="row"
+              spacing={2.25}
+              sx={{
+                overflowX: 'auto',
+                px: { xs: 0.5, sm: 3 },
+                py: 1,
+                scrollSnapType: 'x mandatory',
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
+              }}
+            >
+              {films.map((film) => (
+                <CinemaPosterCard
+                  key={film.id}
+                  film={film}
+                  accent={accent}
+                  onClick={onSelectFilm ? () => onSelectFilm(film) : undefined}
+                  actions={renderActions?.(film)}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )
       ) : (
         <Typography
           variant="body2"
