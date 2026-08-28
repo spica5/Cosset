@@ -1,7 +1,7 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-import { updateUserPlan, type UserPlanType } from './users';
+import { getUserById, updateUserPlan, type UserPlanType } from './users';
 import {
   getCustomerBillingAccount,
   upsertCustomerBillingAccount,
@@ -463,13 +463,31 @@ export async function getLatestProviderCustomerId(
   return row?.providerCustomerId || null;
 }
 
+function normalizeBillingPlan(value: unknown): UserPlanType {
+  const normalized = String(value || 'FREE')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '-');
+
+  if (normalized === 'PAID' || normalized === 'EXTRA-PAID') {
+    return normalized;
+  }
+
+  return 'FREE';
+}
+
 export async function getCustomerBillingSummary(
   customerId: string,
 ): Promise<CustomerBillingSummary> {
   const payment = await getActiveCustomerPayment(customerId);
-  const plan = String(payment?.plan || 'FREE').toUpperCase() as UserPlanType;
-  const normalizedPlan: UserPlanType =
-    plan === 'PAID' || plan === 'EXTRA-PAID' ? plan : 'FREE';
+
+  let normalizedPlan: UserPlanType;
+  if (payment) {
+    normalizedPlan = normalizeBillingPlan(payment.plan);
+  } else {
+    const user = await getUserById(customerId);
+    normalizedPlan = normalizeBillingPlan(user?.plan);
+  }
 
   const provider = payment?.provider || null;
   const billingAccount = provider ? await getCustomerBillingAccount(customerId, provider) : null;

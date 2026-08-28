@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
       {
         user: {
           ...safeUser,
-          // Plan remains on the user record; all other billing fields come from payments.
-          plan: billing.plan || safeUser.plan || 'FREE',
+          // Effective plan: active subscription when present, otherwise cosset_users.plan.
+          plan: billing.plan,
           billing,
           wallet: {
             balanceCents: wallet.balanceCents,

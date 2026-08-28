@@ -72,6 +72,28 @@ function normalizePlan(value: unknown): PlanKey {
   return 'FREE';
 }
 
+function resolveAccountPlan(
+  user?: Record<string, any> | null,
+  billingSummary?: Record<string, any> | null,
+): PlanKey {
+  const userPlan = normalizePlan(user?.plan);
+  const billingPlan = normalizePlan(billingSummary?.plan);
+  const hasActiveBilling = Boolean(
+    billingSummary?.payment &&
+      (billingSummary.status === 'active' || billingSummary.status === 'completed'),
+  );
+
+  if (hasActiveBilling) {
+    return billingPlan;
+  }
+
+  if (userPlan !== 'FREE') {
+    return userPlan;
+  }
+
+  return billingPlan;
+}
+
 function getBusinessRequestAt(user?: Record<string, any> | null) {
   return user?.businessAccountRequestedAt || user?.business_account_requested_at || null;
 }
@@ -126,7 +148,7 @@ export function AccountView() {
   const [paymentProvider, setPaymentProvider] = useState<BillingProvider>('stripe');
 
   const billingSummary = billing || user?.billing || null;
-  const plan = normalizePlan(billingSummary?.plan || user?.plan);
+  const plan = resolveAccountPlan(user, billingSummary);
   const accountType = PLAN_LABELS[plan];
   const billingEmail = user?.email || '';
   const billingCycle = plan === 'FREE' ? '—' : 'Monthly';
