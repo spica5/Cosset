@@ -313,9 +313,34 @@ export function CinemaCategoryFilmsPanel({
         spacing={1.5}
         sx={{ mb: 2 }}
       >
-        <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ fontWeight: 700 }}>
-          {scheduledOnly ? 'Scheduled films' : 'Screening playlist'}
-        </Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ fontWeight: 700 }}>
+            {scheduledOnly ? 'Scheduled films' : 'Screening playlist'}
+          </Typography>
+          {scheduledOnly ? (
+            <Box
+              sx={{
+                mt: 1,
+                px: 1.5,
+                py: 1.1,
+                borderRadius: 1.5,
+                maxWidth: 760,
+                bgcolor: 'warning.lighter',
+                border: '1px solid',
+                borderColor: 'warning.main',
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{ color: 'warning.darker', fontWeight: 700, lineHeight: 1.55 }}
+              >
+                Click the ticket icon on a poster to choose a seat and reserve that screening. Your
+                reservation appears under Reserved screenings — open the cinema room when you are
+                ready to watch.
+              </Typography>
+            </Box>
+          ) : null}
+        </Box>
 
         {canManage ? (
           <Button
@@ -323,7 +348,7 @@ export function CinemaCategoryFilmsPanel({
             size={compact ? 'small' : 'medium'}
             variant="contained"
             startIcon={<Iconify icon="mingcute:add-line" />}
-            sx={{ fontWeight: 700 }}
+            sx={{ fontWeight: 700, flexShrink: 0 }}
           >
             Add film
           </Button>

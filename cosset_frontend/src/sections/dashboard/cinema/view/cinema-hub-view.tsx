@@ -377,6 +377,7 @@ function CinemaCategoryRoom({
             films={scheduledFilms}
             layout="grid"
             showRibbon={false}
+            description="Click the ticket icon on a poster to choose a seat and reserve that screening. Your reservation appears under Reserved screenings above — open Enter Cinema Room when you are ready to watch."
             emptyMessage="No scheduled screenings yet. Admins can add showtimes in Admin → Media → Cinema."
             renderActions={(film) => {
               const screening = getNextFilmScreening(film);

@@ -272,6 +272,7 @@ type CarouselProps = {
   accent?: string;
   films: ICinemaFilm[];
   emptyMessage?: string;
+  description?: string;
   headerAction?: ReactNode;
   showRibbon?: boolean;
   /** `grid` shows 6 posters per row on desktop; `carousel` keeps horizontal scroll. */
@@ -285,6 +286,7 @@ export function CinemaFilmPosterCarousel({
   accent = CINEMA_GOLD,
   films,
   emptyMessage = 'No films added yet.',
+  description,
   headerAction,
   showRibbon = true,
   layout = 'carousel',
@@ -300,6 +302,51 @@ export function CinemaFilmPosterCarousel({
     const amount = Math.min(360, node.clientWidth * 0.7);
     node.scrollBy({ left: direction === 'next' ? amount : -amount, behavior: 'smooth' });
   };
+
+  const titleBlock =
+    title || description ? (
+      <Box sx={{ minWidth: 0 }}>
+        {title ? (
+          <Typography
+            sx={{
+              fontFamily: CINEMA_SERIF,
+              fontWeight: 700,
+              fontSize: '1.15rem',
+              color: CINEMA_CREAM,
+            }}
+          >
+            {title}
+          </Typography>
+        ) : null}
+        {description ? (
+          <Box
+            sx={{
+              mt: title ? 1 : 0,
+              px: 1.5,
+              py: 1.1,
+              borderRadius: 1.5,
+              maxWidth: 760,
+              bgcolor: `${accent}18`,
+              border: `1px solid ${accent}66`,
+              boxShadow: `0 0 0 1px ${accent}22 inset`,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                color: accent,
+                fontWeight: 700,
+                lineHeight: 1.55,
+              }}
+            >
+              {description}
+            </Typography>
+          </Box>
+        ) : null}
+      </Box>
+    ) : (
+      <Box />
+    );
 
   return (
     <Stack spacing={2.5}>
@@ -336,29 +383,42 @@ export function CinemaFilmPosterCarousel({
 
           {headerAction}
         </Stack>
-      ) : headerAction || title ? (
+      ) : headerAction || title || description ? (
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           alignItems={{ xs: 'flex-start', sm: 'center' }}
           justifyContent="space-between"
           spacing={1.5}
         >
-          {title ? (
-            <Typography
-              sx={{
-                fontFamily: CINEMA_SERIF,
-                fontWeight: 700,
-                fontSize: '1.15rem',
-                color: CINEMA_CREAM,
-              }}
-            >
-              {title}
-            </Typography>
-          ) : (
-            <Box />
-          )}
+          {titleBlock}
           {headerAction}
         </Stack>
+      ) : null}
+
+      {showRibbon && description ? (
+        <Box
+          sx={{
+            px: 1.5,
+            py: 1.1,
+            borderRadius: 1.5,
+            maxWidth: 760,
+            bgcolor: `${accent}18`,
+            border: `1px solid ${accent}66`,
+            boxShadow: `0 0 0 1px ${accent}22 inset`,
+            mt: -1,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              color: accent,
+              fontWeight: 700,
+              lineHeight: 1.55,
+            }}
+          >
+            {description}
+          </Typography>
+        </Box>
       ) : null}
 
       {films.length ? (

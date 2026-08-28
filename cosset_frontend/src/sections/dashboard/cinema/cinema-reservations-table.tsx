@@ -87,8 +87,32 @@ export function CinemaReservationsTable({
     : { fontWeight: 700 };
 
   const headerDescriptionSx = isBanner
-    ? { color: 'rgba(245,230,200,0.68)' }
-    : { color: 'text.secondary' };
+    ? {
+        mt: 1,
+        px: 1.5,
+        py: 1.1,
+        borderRadius: 1.5,
+        maxWidth: 760,
+        color: accent,
+        fontWeight: 700,
+        lineHeight: 1.55,
+        bgcolor: `${accent}18`,
+        border: `1px solid ${accent}66`,
+        boxShadow: `0 0 0 1px ${accent}22 inset`,
+      }
+    : {
+        mt: 1,
+        px: 1.5,
+        py: 1.1,
+        borderRadius: 1.5,
+        maxWidth: 760,
+        color: 'warning.darker',
+        fontWeight: 700,
+        lineHeight: 1.55,
+        bgcolor: 'warning.lighter',
+        border: '1px solid',
+        borderColor: 'warning.main',
+      };
 
   const tableSx = isBanner
     ? {
@@ -206,7 +230,9 @@ export function CinemaReservationsTable({
               Reserved screenings
             </Typography>
             <Typography variant="body2" sx={headerDescriptionSx}>
-              Reserve a scheduled film below, then open the cinema when you are ready to watch.
+              Reserve a scheduled film below with the ticket icon, pick a seat, then open the cinema
+              room when you are ready to watch. You can change or cancel a seat anytime from this
+              list.
             </Typography>
           </Box>
         </Stack>
