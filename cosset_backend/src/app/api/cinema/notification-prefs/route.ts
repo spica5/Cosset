@@ -7,6 +7,8 @@ import {
   getCinemaNotificationPref,
   setCinemaNotificationPref,
 } from 'src/models/cinema-notification-prefs';
+import { sendCinemaNotifyTestToUser } from 'src/utils/cinema-schedule-notify';
+import { hasEnabledPushSubscriptionForOrigin } from 'src/models/push-subscriptions';
 
 // ----------------------------------------------------------------------
 
@@ -29,7 +31,7 @@ const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> =>
   }
 };
 
-/** GET /api/cinema/notification-prefs */
+/** GET /api/cinema/notification-prefs?origin=... */
 export async function GET(req: NextRequest) {
   try {
     const userId = await getUserIdFromRequest(req);
@@ -38,12 +40,17 @@ export async function GET(req: NextRequest) {
     }
 
     const pref = await getCinemaNotificationPref(userId);
+    const origin = (req.nextUrl.searchParams.get('origin') || '').trim();
+    const pushReady = origin
+      ? await hasEnabledPushSubscriptionForOrigin(userId, origin)
+      : false;
 
     return response(
       {
         pref: {
           customerId: userId,
           notifySchedule: Boolean(pref?.notifySchedule),
+          pushReady,
         },
       },
       STATUS.OK,
@@ -53,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** PATCH /api/cinema/notification-prefs  body: { notifySchedule: boolean } */
+/** PATCH /api/cinema/notification-prefs  body: { notifySchedule, sendTest? } */
 export async function PATCH(req: NextRequest) {
   try {
     const userId = await getUserIdFromRequest(req);
@@ -68,12 +75,23 @@ export async function PATCH(req: NextRequest) {
 
     const pref = await setCinemaNotificationPref(userId, body.notifySchedule);
 
+    let testSent = false;
+    if (body.notifySchedule && body.sendTest) {
+      try {
+        await sendCinemaNotifyTestToUser(userId);
+        testSent = true;
+      } catch (error) {
+        console.error('[Cinema Notification Prefs] test notify failed', error);
+      }
+    }
+
     return response(
       {
         pref: {
           customerId: pref.customerId,
           notifySchedule: pref.notifySchedule,
         },
+        testSent,
       },
       STATUS.OK,
     );

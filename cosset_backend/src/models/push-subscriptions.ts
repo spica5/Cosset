@@ -11,6 +11,7 @@ export type PushSubscriptionRecord = {
   endpoint: string;
   p256dh: string;
   auth: string;
+  origin: string | null;
   enabled: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +30,7 @@ const ensurePushSubscriptionsTable = async (): Promise<void> => {
             endpoint TEXT NOT NULL,
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
+            origin TEXT NULL,
             enabled BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -40,8 +42,17 @@ const ensurePushSubscriptionsTable = async (): Promise<void> => {
       );
 
       await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS origin TEXT NULL`,
+      );
+
+      await executeQuery(
         `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_customer_enabled
           ON ${TABLE_NAME} (customer_id, enabled)`,
+      );
+
+      await executeQuery(
+        `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_customer_origin
+          ON ${TABLE_NAME} (customer_id, origin)`,
       );
     })().catch((error) => {
       ensureTablePromise = null;
@@ -52,39 +63,49 @@ const ensurePushSubscriptionsTable = async (): Promise<void> => {
   await ensureTablePromise;
 };
 
+const subscriptionSelect = `
+  id,
+  customer_id as "customerId",
+  endpoint,
+  p256dh,
+  auth,
+  origin,
+  enabled,
+  created_at as "createdAt",
+  updated_at as "updatedAt"
+`;
+
 export async function upsertPushSubscription(input: {
   customerId: string;
   endpoint: string;
   p256dh: string;
   auth: string;
+  origin?: string | null;
+  replaceOtherOrigins?: boolean;
 }): Promise<PushSubscriptionRecord> {
   try {
     await ensurePushSubscriptionsTable();
 
+    const origin = (input.origin || '').trim() || null;
+
     const row = await queryOne<PushSubscriptionRecord>(
       `
         INSERT INTO ${TABLE_NAME} (
-          customer_id, endpoint, p256dh, auth, enabled, created_at, updated_at
+          customer_id, endpoint, p256dh, auth, origin, enabled, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
         ON CONFLICT (endpoint)
         DO UPDATE SET
           customer_id = EXCLUDED.customer_id,
           p256dh = EXCLUDED.p256dh,
           auth = EXCLUDED.auth,
+          origin = COALESCE(EXCLUDED.origin, ${TABLE_NAME}.origin),
           enabled = TRUE,
           updated_at = NOW()
         RETURNING
-          id,
-          customer_id as "customerId",
-          endpoint,
-          p256dh,
-          auth,
-          enabled,
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          ${subscriptionSelect}
       `,
-      [input.customerId, input.endpoint, input.p256dh, input.auth],
+      [input.customerId, input.endpoint, input.p256dh, input.auth, origin],
     );
 
     if (!row) {
@@ -92,6 +113,22 @@ export async function upsertPushSubscription(input: {
         code: 'UPSERT_PUSH_SUBSCRIPTION_FAILED',
         message: 'Failed to save push subscription',
       });
+    }
+
+    // Keep only this site's subscriptions so localhost test endpoints don't steal alerts.
+    if (input.replaceOtherOrigins !== false && origin) {
+      await executeQuery(
+        `
+          DELETE FROM ${TABLE_NAME}
+          WHERE customer_id = $1
+            AND endpoint <> $2
+            AND (
+              origin IS NULL
+              OR origin <> $3
+            )
+        `,
+        [input.customerId, input.endpoint, origin],
+      );
     }
 
     return row;
@@ -191,14 +228,7 @@ export async function listEnabledPushSubscriptionsForUser(
     return await queryMany<PushSubscriptionRecord>(
       `
         SELECT
-          id,
-          customer_id as "customerId",
-          endpoint,
-          p256dh,
-          auth,
-          enabled,
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          ${subscriptionSelect}
         FROM ${TABLE_NAME}
         WHERE customer_id = $1
           AND enabled = TRUE
@@ -237,6 +267,39 @@ export async function hasEnabledPushSubscription(customerId: string): Promise<bo
     throw new DatabaseError({
       code: 'HAS_PUSH_SUBSCRIPTION_ERROR',
       message: `Failed to check push subscription: ${message}`,
+    });
+  }
+}
+
+export async function hasEnabledPushSubscriptionForOrigin(
+  customerId: string,
+  origin: string,
+): Promise<boolean> {
+  try {
+    await ensurePushSubscriptionsTable();
+
+    const normalized = origin.trim();
+    if (!normalized) return await hasEnabledPushSubscription(customerId);
+
+    const row = await queryOne<{ id: number }>(
+      `
+        SELECT id
+        FROM ${TABLE_NAME}
+        WHERE customer_id = $1
+          AND enabled = TRUE
+          AND origin = $2
+        LIMIT 1
+      `,
+      [customerId, normalized],
+    );
+
+    return !!row;
+  } catch (error) {
+    if (error instanceof DatabaseError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new DatabaseError({
+      code: 'HAS_PUSH_SUBSCRIPTION_ORIGIN_ERROR',
+      message: `Failed to check push subscription for origin: ${message}`,
     });
   }
 }

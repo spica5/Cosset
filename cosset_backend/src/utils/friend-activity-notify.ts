@@ -1,6 +1,7 @@
+import { sendWebPushToUser } from 'src/utils/web-push';
+
 import { createNotification } from 'src/models/notifications';
 import { listEnabledSubscribersForFriend } from 'src/models/friend-activity-notify';
-import { sendWebPushToUser } from 'src/utils/web-push';
 
 // ----------------------------------------------------------------------
 

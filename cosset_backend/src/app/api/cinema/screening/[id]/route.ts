@@ -10,6 +10,7 @@ import {
   deleteCinemaFilmScreening,
   getCinemaFilmScreeningById,
 } from 'src/models/cinema-film-screenings';
+import { notifyCinemaScheduleSubscribers } from 'src/utils/cinema-schedule-notify';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -90,6 +91,8 @@ export async function PUT(
       }
     }
 
+    const before = await getCinemaFilmScreeningById(screeningId);
+
     const screening = await updateCinemaFilmScreening(screeningId, {
       filmId: updates.filmId,
       showAt: updates.showAt,
@@ -103,6 +106,35 @@ export async function PUT(
       order: updates.order,
       isPublic: updates.isPublic,
     });
+
+    // Notify when a public schedule is saved/updated (most admin edits use PUT).
+    if (Number(screening.isPublic ?? 1) === 1) {
+      try {
+        const scheduleTouched =
+          updates.showAt !== undefined ||
+          updates.showAt2 !== undefined ||
+          updates.showFriday !== undefined ||
+          updates.showSaturday !== undefined ||
+          updates.showSunday !== undefined ||
+          updates.showFlexible !== undefined ||
+          updates.isPublic !== undefined ||
+          updates.filmId !== undefined;
+
+        const becamePublic =
+          before && Number(before.isPublic ?? 0) !== 1 && Number(screening.isPublic ?? 0) === 1;
+
+        if (scheduleTouched || becamePublic) {
+          const film = await getCinemaFilmById(Number(screening.filmId));
+          await notifyCinemaScheduleSubscribers({
+            filmTitle: film?.title,
+            filmPosterImage: film?.posterImage,
+            screeningId: screening.id,
+          });
+        }
+      } catch (notificationError) {
+        console.error('[Cinema Screening] failed update notifications', notificationError);
+      }
+    }
 
     return response({ screening }, STATUS.OK);
   } catch (error) {

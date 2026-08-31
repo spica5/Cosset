@@ -12,7 +12,7 @@ self.addEventListener('push', (event) => {
   let payload = {
     title: 'Cosset',
     body: 'Something new is happening on Cosset.',
-    url: '/dashboard/preview',
+    url: '/dashboard/community/cinema',
     tag: 'cosset',
   };
 
@@ -29,31 +29,40 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const origin = self.location.origin;
+  const icon = `${origin}/icons/cosset-192.png`;
+
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Cosset', {
       body: payload.body,
-      icon: '/icons/cosset-192.png',
-      badge: '/icons/cosset-192.png',
+      icon,
+      badge: icon,
       tag: payload.tag || 'cosset',
-      data: { url: payload.url || '/dashboard/preview' },
+      renotify: true,
+      vibrate: [120, 60, 120],
+      requireInteraction: true,
+      data: { url: payload.url || '/dashboard/community/cinema' },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard/preview';
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard/community/cinema';
+  const absoluteUrl = targetUrl.startsWith('http')
+    ? targetUrl
+    : `${self.location.origin}${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          client.navigate(absoluteUrl);
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
+        return self.clients.openWindow(absoluteUrl);
       }
       return undefined;
     }),

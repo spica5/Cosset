@@ -9,7 +9,9 @@ type CinemaNotificationPrefResponse = {
   pref: {
     customerId: string;
     notifySchedule: boolean;
+    pushReady?: boolean;
   };
+  testSent?: boolean;
 };
 
 const swrOptions = {
@@ -18,8 +20,14 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
+const buildPrefsUrl = () => {
+  if (typeof window === 'undefined') return endpoints.cinema.notificationPrefs;
+  const params = new URLSearchParams({ origin: window.location.origin });
+  return `${endpoints.cinema.notificationPrefs}?${params.toString()}`;
+};
+
 export function useGetCinemaNotificationPrefs(enabled: boolean = true) {
-  const url = enabled ? endpoints.cinema.notificationPrefs : null;
+  const url = enabled ? buildPrefsUrl() : null;
 
   const { data, isLoading, error, isValidating } = useSWR<CinemaNotificationPrefResponse>(
     url,
@@ -30,16 +38,20 @@ export function useGetCinemaNotificationPrefs(enabled: boolean = true) {
   return useMemo(
     () => ({
       notifySchedule: Boolean(data?.pref?.notifySchedule),
+      pushReady: Boolean(data?.pref?.pushReady),
       prefsLoading: isLoading,
       prefsError: error,
       prefsValidating: isValidating,
     }),
-    [data?.pref?.notifySchedule, error, isLoading, isValidating],
+    [data?.pref?.notifySchedule, data?.pref?.pushReady, error, isLoading, isValidating],
   );
 }
 
-export async function setCinemaNotifySchedule(notifySchedule: boolean) {
-  const res = await axiosInstance.patch(endpoints.cinema.notificationPrefs, { notifySchedule });
-  await mutate(endpoints.cinema.notificationPrefs);
+export async function setCinemaNotifySchedule(notifySchedule: boolean, sendTest: boolean = false) {
+  const res = await axiosInstance.patch(endpoints.cinema.notificationPrefs, {
+    notifySchedule,
+    sendTest,
+  });
+  await mutate(buildPrefsUrl());
   return res.data as CinemaNotificationPrefResponse;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -31,39 +31,59 @@ type Props = {
 };
 
 export function CinemaNotificationSettings({ enabled = true }: Props) {
-  const { notifySchedule, prefsLoading } = useGetCinemaNotificationPrefs(enabled);
+  const { notifySchedule, pushReady, prefsLoading } = useGetCinemaNotificationPrefs(enabled);
   const [busy, setBusy] = useState(false);
+  const [localPushReady, setLocalPushReady] = useState(pushReady);
+
+  useEffect(() => {
+    setLocalPushReady(pushReady);
+  }, [pushReady]);
 
   const handleToggle = useCallback(async (_: unknown, checked: boolean) => {
     try {
       setBusy(true);
 
+      let phonePushOk = false;
       if (checked) {
         const support = getBrowserPushSupport();
-        if (support.supported) {
+        if (!support.supported) {
+          toast.warning(support.reason || 'Phone push is not available on this device/browser.');
+        } else {
           try {
+            await enablePhoneNotifications();
             const status = await getPushStatus();
-            if (!status.enabled) {
-              await enablePhoneNotifications();
-            }
-          } catch {
-            // Cinema in-app alerts still work without phone push.
+            phonePushOk = Boolean(status.enabled);
+            setLocalPushReady(phonePushOk);
+          } catch (error) {
+            toast.warning(
+              error instanceof Error
+                ? `${error.message} In-app bell alerts will still work.`
+                : 'Could not enable phone push. In-app bell alerts will still work.',
+            );
           }
         }
       }
 
-      await setCinemaNotifySchedule(checked);
-      toast.success(
-        checked
-          ? 'You will be notified about new cinema schedules and upcoming movies'
-          : 'Cinema schedule notifications are off',
-      );
+      const result = await setCinemaNotifySchedule(checked, checked);
+      if (checked && result.testSent) {
+        toast.success(
+          phonePushOk || localPushReady
+            ? 'Cinema alerts on — check your phone notification and the bell icon'
+            : 'Cinema alerts on — check the bell icon (phone push not ready on this device)',
+        );
+      } else {
+        toast.success(
+          checked
+            ? 'You will be notified about new cinema schedules and upcoming movies'
+            : 'Cinema schedule notifications are off',
+        );
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not update cinema notifications');
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [localPushReady]);
 
   return (
     <Box
@@ -104,8 +124,23 @@ export function CinemaNotificationSettings({ enabled = true }: Props) {
               sx={{ color: 'rgba(245,230,200,0.68)', display: 'block', lineHeight: 1.4 }}
             >
               Get notified when a new cinema schedule is posted and when upcoming movies are added.
-              Off by default.
+              Off by default. Use Chrome/Edge (or installed Cosset app) on the phone.
             </Typography>
+            {notifySchedule ? (
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  mt: 0.5,
+                  color: localPushReady ? 'success.light' : 'warning.light',
+                  fontWeight: 600,
+                }}
+              >
+                {localPushReady
+                  ? 'Phone push ready for this device'
+                  : 'Phone push not ready — alerts still appear in the Cosset bell'}
+              </Typography>
+            ) : null}
           </Box>
         </Stack>
 

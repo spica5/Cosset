@@ -24,6 +24,8 @@ const hasPushManagerApi = () =>
     (typeof ServiceWorkerRegistration !== 'undefined' &&
       'pushManager' in ServiceWorkerRegistration.prototype));
 
+const currentOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
+
 export function getBrowserPushSupport(): BrowserPushSupport {
   if (typeof window === 'undefined') {
     return { supported: false, reason: 'Notifications are only available in the browser.' };
@@ -71,10 +73,25 @@ export async function registerCossetServiceWorker() {
 }
 
 export async function getPushStatus() {
-  const res = await axiosInstance.get(endpoints.push.subscribe);
-  return res.data as { configured?: boolean; publicKey?: string | null; enabled?: boolean };
+  const params = new URLSearchParams();
+  const origin = currentOrigin();
+  if (origin) params.set('origin', origin);
+
+  const res = await axiosInstance.get(
+    `${endpoints.push.subscribe}${params.toString() ? `?${params.toString()}` : ''}`,
+  );
+  return res.data as {
+    configured?: boolean;
+    publicKey?: string | null;
+    enabled?: boolean;
+    origin?: string | null;
+  };
 }
 
+/**
+ * Always register a push subscription for the *current* site origin
+ * (e.g. https://cosset.global), and replace leftover localhost subscriptions.
+ */
 export async function enablePhoneNotifications() {
   const support = getBrowserPushSupport();
   if (!support.supported) {
@@ -90,7 +107,9 @@ export async function enablePhoneNotifications() {
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
-    throw new Error('Notification permission was blocked. Allow notifications for Cosset in the browser settings.');
+    throw new Error(
+      'Notification permission was blocked. Allow notifications for Cosset in the browser settings.',
+    );
   }
 
   const registration = await registerCossetServiceWorker();
@@ -122,6 +141,8 @@ export async function enablePhoneNotifications() {
   await axiosInstance.post(endpoints.push.subscribe, {
     endpoint: json.endpoint,
     keys: json.keys,
+    origin: currentOrigin(),
+    replaceOtherOrigins: true,
   });
 
   return true;

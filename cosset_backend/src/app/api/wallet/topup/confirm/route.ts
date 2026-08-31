@@ -2,16 +2,17 @@ import type { NextRequest } from 'next/server';
 
 import { DatabaseError } from '@/db/errors';
 
-import { STATUS, response, handleError } from 'src/utils/response';
 import { getAuthenticatedUser } from 'src/utils/request-auth';
-import { creditWallet } from 'src/models/wallet';
-import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import { getStripe, isStripeConfigured } from 'src/utils/stripe';
+import { STATUS, response, handleError } from 'src/utils/response';
+import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import {
-  capturePayPalWalletOrder,
-  getPayPalWalletOrder,
   isPayPalConfigured,
+  getPayPalWalletOrder,
+  capturePayPalWalletOrder,
 } from 'src/utils/paypal';
+
+import { creditWallet } from 'src/models/wallet';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

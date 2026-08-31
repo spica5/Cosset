@@ -2,12 +2,13 @@ import type { NextRequest } from 'next/server';
 
 import { DatabaseError } from '@/db/errors';
 
-import { STATUS, response, handleError } from 'src/utils/response';
 import { getAuthenticatedUser } from 'src/utils/request-auth';
+import { STATUS, response, handleError } from 'src/utils/response';
+
 import {
   ensureWallet,
-  listWalletLedger,
   WALLET_CURRENCY,
+  listWalletLedger,
 } from 'src/models/wallet';
 
 export const dynamic = 'force-dynamic';

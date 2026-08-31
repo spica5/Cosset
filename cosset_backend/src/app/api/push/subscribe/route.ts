@@ -7,6 +7,7 @@ import { getVapidPublicKey, isWebPushConfigured } from 'src/utils/web-push';
 import {
   deletePushSubscription,
   hasEnabledPushSubscription,
+  hasEnabledPushSubscriptionForOrigin,
   setPushSubscriptionsEnabled,
   upsertPushSubscription,
 } from 'src/models/push-subscriptions';
@@ -32,18 +33,26 @@ const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> =>
   }
 };
 
-/** GET /api/push/vapid-public-key — also returns enabled status when authenticated */
+/** GET /api/push/subscribe?origin=https://cosset.global */
 export async function GET(req: NextRequest) {
   try {
     const publicKey = getVapidPublicKey();
     const userId = await getUserIdFromRequest(req);
-    const enabled = userId ? await hasEnabledPushSubscription(userId) : false;
+    const origin = (req.nextUrl.searchParams.get('origin') || '').trim();
+
+    let enabled = false;
+    if (userId) {
+      enabled = origin
+        ? await hasEnabledPushSubscriptionForOrigin(userId, origin)
+        : await hasEnabledPushSubscription(userId);
+    }
 
     return response(
       {
         configured: isWebPushConfigured(),
         publicKey,
         enabled,
+        origin: origin || null,
       },
       STATUS.OK,
     );
@@ -73,6 +82,8 @@ export async function POST(req: NextRequest) {
       body?.keys?.p256dh || body?.subscription?.keys?.p256dh || '',
     ).trim();
     const auth = String(body?.keys?.auth || body?.subscription?.keys?.auth || '').trim();
+    const origin = String(body?.origin || '').trim() || null;
+    const replaceOtherOrigins = body?.replaceOtherOrigins !== false;
 
     if (!endpoint || !p256dh || !auth) {
       return response(
@@ -86,9 +97,11 @@ export async function POST(req: NextRequest) {
       endpoint,
       p256dh,
       auth,
+      origin,
+      replaceOtherOrigins,
     });
 
-    return response({ subscription, enabled: true }, STATUS.OK);
+    return response({ subscription, enabled: true, origin }, STATUS.OK);
   } catch (error) {
     return handleError('Push - Subscribe', error as Error);
   }
