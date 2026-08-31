@@ -6,6 +6,7 @@ export type IFriendCard = {
   relationStatus?: 'accepted' | 'pending';
   pendingDirection?: 'incoming' | 'outgoing';
   requestMessage?: string;
+  activityNotifyEnabled?: boolean;
   name: string;
   email?: string;
   phoneNumber?: string;

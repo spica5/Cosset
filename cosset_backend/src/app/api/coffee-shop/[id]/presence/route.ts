@@ -26,6 +26,11 @@ import {
   COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
   COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
 } from 'src/utils/pusher';
+import { getUserById } from 'src/models/users';
+import {
+  FRIEND_ACTIVITY_NOTIFICATION_TYPE,
+  notifyFriendActivitySubscribers,
+} from 'src/utils/friend-activity-notify';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -124,6 +129,30 @@ export async function POST(
         COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
         participant,
       );
+    }
+
+    // Notify friends who opted in to this user's Cosset activity.
+    try {
+      const wasAlreadyHere = previousShops.includes(coffeeShopId);
+      if (!wasAlreadyHere) {
+        const user = await getUserById(userId);
+        const userName =
+          `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'A friend';
+        const shop = await getCoffeeShopById(coffeeShopId);
+        const shopName = shop?.title || shop?.name || 'a coffee shop';
+
+        await notifyFriendActivitySubscribers({
+          actorUserId: userId,
+          type: FRIEND_ACTIVITY_NOTIFICATION_TYPE.coffeeShop,
+          avatarUrl: user?.photoURL || null,
+          title: `<p><strong>${userName}</strong> is at the coffee shop</p>`,
+          content: `${userName} is at ${shopName}`,
+          url: '/dashboard/community/coffee-shop',
+          tag: `friend-coffee-${userId}`,
+        });
+      }
+    } catch (notificationError) {
+      console.error('[Coffee Shop Presence] failed to notify friends', notificationError);
     }
 
     return response({ participant, participants }, STATUS.OK);

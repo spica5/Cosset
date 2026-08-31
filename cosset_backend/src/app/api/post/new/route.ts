@@ -4,10 +4,12 @@ import { STATUS, response, handleError } from 'src/utils/response';
 
 import { createCommunityPost } from 'src/models/community-posts';
 import { getUserById } from 'src/models/users';
-import { getUserFriends } from 'src/models/user-friends';
-import { createNotification } from 'src/models/notifications';
 import { verify } from 'src/utils/jwt';
 import { JWT_SECRET } from 'src/config-global';
+import {
+  FRIEND_ACTIVITY_NOTIFICATION_TYPE,
+  notifyFriendActivitySubscribers,
+} from 'src/utils/friend-activity-notify';
 
 // ----------------------------------------------------------------------
 
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
       comments: normalizedComments,
     });
 
-    // Notify accepted friends about the new community post.
+    // Notify only friends who opted in to this author's activity.
     if (authorId) {
       try {
         const author = await getUserById(authorId);
@@ -83,38 +85,16 @@ export async function POST(req: NextRequest) {
           author?.email ||
           'A friend';
         const postTitle = (created.title || 'a new post').trim() || 'a new post';
-        const friends = await getUserFriends(authorId, 'accepted', 1000, 0);
-        const recipientIds = [
-          ...new Set(
-            friends
-              .map((friend) =>
-                friend.userId1 === authorId ? friend.userId2 : friend.userId1,
-              )
-              .filter((id) => id && id !== authorId),
-          ),
-        ];
 
-        await Promise.all(
-          recipientIds.map(async (recipientId) => {
-            try {
-              await createNotification({
-                customerId: recipientId,
-                avatarUrl: author?.photoURL || null,
-                type: 10,
-                category: 1,
-                isUnRead: true,
-                isArchived: false,
-                title: `<p><strong>${authorName}</strong> shared a new community post</p>`,
-                content: `${authorName} shared "${postTitle}"`,
-              });
-            } catch (notificationError) {
-              console.error(
-                `[Post - Create] failed to notify friend ${recipientId}`,
-                notificationError,
-              );
-            }
-          }),
-        );
+        await notifyFriendActivitySubscribers({
+          actorUserId: authorId,
+          type: FRIEND_ACTIVITY_NOTIFICATION_TYPE.post,
+          avatarUrl: author?.photoURL || null,
+          title: `<p><strong>${authorName}</strong> shared a new community post</p>`,
+          content: `${authorName} shared "${postTitle}"`,
+          url: '/dashboard/community/posts',
+          tag: `friend-post-${authorId}`,
+        });
       } catch (notificationError) {
         console.error('[Post - Create] failed to create post notifications', notificationError);
       }

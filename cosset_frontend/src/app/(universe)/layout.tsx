@@ -33,7 +33,17 @@ export const metadata: Metadata = {
       rel: 'icon',
       url: `${CONFIG.universe.assetsDir}/favicon.ico`,
     },
+    {
+      rel: 'apple-touch-icon',
+      url: '/icons/cosset-192.png',
+    },
   ],
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Cosset',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 type Props = {

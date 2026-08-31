@@ -14,21 +14,28 @@ import {
   rejectFriendRequest,
   cancelFriendRequest,
 } from 'src/actions/friend';
+import {
+  setFriendActivityNotify,
+  useGetFriendActivityNotifyPrefs,
+} from 'src/actions/friend-activity-notify';
 import { useGetGuestAreas } from 'src/actions/guestarea';
 
 import { useAuthContext } from 'src/auth/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { FriendCardList } from '../friend-card-list';
+import { FriendNotifySetupBanner } from '../friend-notify-setup-banner';
 
 // ----------------------------------------------------------------------
 
 export function FriendCardsView() {
   const [processingRelationId, setProcessingRelationId] = useState<number | null>(null);
+  const [processingNotifyFriendId, setProcessingNotifyFriendId] = useState<string | null>(null);
 
   const { user: currentUser } = useAuthContext();
   const currentUserId = String(currentUser?.id || '').trim();
@@ -42,6 +49,10 @@ export function FriendCardsView() {
   const { friends: pendingRelations, friendsLoading: pendingFriendsLoading } = useGetFriends(
     currentUserId,
     'pending',
+    canLoadFriends
+  );
+  const { enabledFriendIds, prefsLoading } = useGetFriendActivityNotifyPrefs(
+    currentUserId,
     canLoadFriends
   );
   const { users, usersLoading } = useGetCommunityUsers(200, 0, canLoadFriends);
@@ -105,30 +116,32 @@ export function FriendCardsView() {
   const mappedAcceptedFriends = users
     .filter((user) => acceptedFriendUserIds.has(String(user.id)))
     .map((user) => {
-    const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
-    const guestArea = guestAreaByCustomerId[String(user.id)];
+      const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+      const guestArea = guestAreaByCustomerId[String(user.id)];
+      const friendId = String(user.id);
 
-    return {
-      id: user.id,
-        relationId: acceptedRelationIdByOtherUserId.get(String(user.id)),
+      return {
+        id: user.id,
+        relationId: acceptedRelationIdByOtherUserId.get(friendId),
         relationStatus: 'accepted' as const,
-      name: fullName || user.email || 'Unknown User',
-      email: user.email,
-      phoneNumber: user.phoneNumber || '',
-      plan: user.plan || 'FREE',
-      country: user.country || '',
-      city: user.city || '',
-      universeName: guestArea?.title || 'No guest area title',
-      mood: guestArea?.mood || 'No guest area mood',
-      motif: guestArea?.motif || 'No guest area motif',
-      role: user.role || 'user',
-      coverUrl: guestArea?.coverUrl || '',
-      avatarUrl: user.photoURL || '',
-      connections: 0,
-      ratingNumber: 0,
-      openness: user.isPublic ? 'Public' : 'Private',
-    };
-  });
+        activityNotifyEnabled: enabledFriendIds.has(friendId),
+        name: fullName || user.email || 'Unknown User',
+        email: user.email,
+        phoneNumber: user.phoneNumber || '',
+        plan: user.plan || 'FREE',
+        country: user.country || '',
+        city: user.city || '',
+        universeName: guestArea?.title || 'No guest area title',
+        mood: guestArea?.mood || 'No guest area mood',
+        motif: guestArea?.motif || 'No guest area motif',
+        role: user.role || 'user',
+        coverUrl: guestArea?.coverUrl || '',
+        avatarUrl: user.photoURL || '',
+        connections: 0,
+        ratingNumber: 0,
+        openness: user.isPublic ? 'Public' : 'Private',
+      };
+    });
 
   const mappedPendingFriends = users
     .filter((user) => pendingUserIds.has(String(user.id)))
@@ -218,6 +231,26 @@ export function FriendCardsView() {
     [currentUserId]
   );
 
+  const handleToggleActivityNotify = useCallback(
+    async (friendId: string, enabled: boolean) => {
+      if (!currentUserId || !friendId) return;
+      setProcessingNotifyFriendId(friendId);
+      try {
+        await setFriendActivityNotify(currentUserId, friendId, enabled);
+        toast.success(
+          enabled
+            ? 'You will be notified about this friend\'s Cosset activity'
+            : 'Notifications for this friend are off',
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not update notification preference');
+      } finally {
+        setProcessingNotifyFriendId(null);
+      }
+    },
+    [currentUserId]
+  );
+
   return (
     <DashboardContent>
       <CustomBreadcrumbs
@@ -225,12 +258,18 @@ export function FriendCardsView() {
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Friends', href: paths.dashboard.community.friend },
-          { name: 'List' }
+          { name: 'List' },
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 
-      {acceptedFriendsLoading || pendingFriendsLoading || usersLoading || guestAreasLoading ? (
+      <FriendNotifySetupBanner />
+
+      {acceptedFriendsLoading ||
+      pendingFriendsLoading ||
+      usersLoading ||
+      guestAreasLoading ||
+      prefsLoading ? (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Loading friends...
         </Typography>
@@ -245,10 +284,14 @@ export function FriendCardsView() {
         <FriendCardList
           friends={friends}
           processingRelationId={processingRelationId}
+          processingNotifyFriendId={processingNotifyFriendId}
           onAccept={(friend) => handleAccept(friend.relationId)}
           onReject={(friend) => handleReject(friend.relationId)}
           onCancel={(friend) => handleCancel(friend.relationId)}
           onRemove={(friend) => handleRemove(friend.relationId)}
+          onToggleActivityNotify={(friend, enabled) =>
+            handleToggleActivityNotify(String(friend.id), enabled)
+          }
         />
       )}
     </DashboardContent>

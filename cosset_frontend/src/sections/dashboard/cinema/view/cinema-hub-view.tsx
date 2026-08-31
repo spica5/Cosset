@@ -39,6 +39,8 @@ import {
   type CinemaCategory,
   type CinemaCategoryMeta,
 } from '../cinema-categories';
+import { CinemaHubTodayPanel } from '../cinema-hub-today-panel';
+import { CinemaNotificationSettings } from '../cinema-notification-settings';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
 import {
   formatScreeningSchedule,
@@ -461,6 +463,30 @@ export function CinemaHubView() {
     CINEMA_CATEGORIES[0]?.id || 'classic',
   );
 
+  const { screenings: classicScreenings, screeningsLoading: classicLoading } =
+    useGetCinemaScreenings(null, 'classic', { publicOnly: true });
+  const { screenings: genreScreenings, screeningsLoading: genreLoading } = useGetCinemaScreenings(
+    null,
+    'genre',
+    { publicOnly: true },
+  );
+
+  const hubScreenings = useMemo(() => {
+    const merged = [...(classicScreenings || []), ...(genreScreenings || [])];
+    const seen = new Set<number>();
+
+    return merged.filter((screening) => {
+      const id = Number(screening.id);
+      if (!Number.isFinite(id) || seen.has(id)) {
+        return false;
+      }
+      seen.add(id);
+      return true;
+    });
+  }, [classicScreenings, genreScreenings]);
+
+  const hubScreeningsLoading = classicLoading || genreLoading;
+
   const activeCategory = useMemo(
     () => CINEMA_CATEGORIES.find((item) => item.id === activeCategoryId) || CINEMA_CATEGORIES[0],
     [activeCategoryId],
@@ -478,6 +504,10 @@ export function CinemaHubView() {
         sx={{ mb: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}
       />
 
+      <Stack spacing={2} sx={{ mb: { xs: 2, md: 2.5 } }}>
+        <CinemaNotificationSettings enabled={Boolean(viewerId)} />
+      </Stack>
+
       <Stack spacing={3.5}>
         <Box sx={{ ...cinemaPageShellSx, p: { xs: 2, md: 3 } }}>
           <Box
@@ -493,19 +523,25 @@ export function CinemaHubView() {
           <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
             <CinemaTheaterIntro
               category={classicCategory}
-              height={{ xs: 320, md: 500 }}
+              height={{ xs: 560, md: 620 }}
               bannerImage={`${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner/intro.png`}
               showEyebrow={false}
               showQuote={false}
               headline="Movies That Stay With You."
               subtitle="We watch not to escape life, but for life not to escape us."
+              middle={
+                <CinemaHubTodayPanel
+                  screenings={hubScreenings}
+                  loading={hubScreeningsLoading}
+                />
+              }
               footer={
                 <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center' }}>
                   <Typography
                     sx={{
                       fontFamily: CINEMA_SERIF,
                       fontWeight: 700,
-                      fontSize: { xs: '1.35rem', md: '1.7rem' },
+                      fontSize: { xs: '1.15rem', md: '1.45rem' },
                       color: CINEMA_CREAM,
                       textShadow: '0 2px 12px rgba(0,0,0,0.65)',
                     }}
@@ -517,7 +553,9 @@ export function CinemaHubView() {
                     sx={{
                       color: 'rgba(245,230,200,0.82)',
                       maxWidth: 560,
+                      fontSize: { xs: '0.78rem', md: '0.875rem' },
                       textShadow: '0 2px 10px rgba(0,0,0,0.6)',
+                      display: { xs: 'none', sm: 'block' },
                     }}
                   >
                     Two cinema halls: Emotion & Adventure (action, adventure, comedy, drama,

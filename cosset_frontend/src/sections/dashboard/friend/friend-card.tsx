@@ -7,12 +7,15 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import CloseIcon from '@mui/icons-material/Close';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -62,7 +65,9 @@ type Props = CardProps & {
   onReject?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   onRemove?: () => void | Promise<void>;
+  onToggleActivityNotify?: (enabled: boolean) => void | Promise<void>;
   actionLoading?: boolean;
+  notifyLoading?: boolean;
 };
 
 export function FriendCard({
@@ -71,7 +76,9 @@ export function FriendCard({
   onReject,
   onCancel,
   onRemove,
+  onToggleActivityNotify,
   actionLoading = false,
+  notifyLoading = false,
   sx,
   ...other
 }: Props) {
@@ -290,7 +297,28 @@ export function FriendCard({
       ) : null}
 
       {friend.relationStatus === 'accepted' && !isCurrentUser ? (
-        <Box sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'center' }}>
+        <Stack spacing={1} sx={{ px: 2, pb: 2 }} alignItems="center">
+          <FormControlLabel
+            sx={{ mx: 0, width: 1, justifyContent: 'space-between' }}
+            labelPlacement="start"
+            control={
+              <Switch
+                size="small"
+                color="warning"
+                checked={Boolean(friend.activityNotifyEnabled)}
+                disabled={actionLoading || notifyLoading}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(_, checked) => {
+                  onToggleActivityNotify?.(checked);
+                }}
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                Notify me about activity
+              </Typography>
+            }
+          />
           <Button
             size="small"
             variant="outlined"
@@ -304,7 +332,7 @@ export function FriendCard({
           >
             Remove Friend
           </Button>
-        </Box>
+        </Stack>
       ) : null}
 
       <Dialog

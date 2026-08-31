@@ -61,6 +61,8 @@ type NotificationsData = {
   8: 'mail',
   9: 'delivery',
   10: 'community',
+  11: 'chat',
+  12: 'order',
 };
 
 const CATEGORY_LABEL: Record<number, string> = {

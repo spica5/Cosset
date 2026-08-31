@@ -12,19 +12,23 @@ import { FriendCard } from './friend-card';
 type Props = {
   friends: IFriendCard[];
   processingRelationId?: number | null;
+  processingNotifyFriendId?: string | null;
   onAccept?: (friend: IFriendCard) => void | Promise<void>;
   onReject?: (friend: IFriendCard) => void | Promise<void>;
   onCancel?: (friend: IFriendCard) => void | Promise<void>;
   onRemove?: (friend: IFriendCard) => void | Promise<void>;
+  onToggleActivityNotify?: (friend: IFriendCard, enabled: boolean) => void | Promise<void>;
 };
 
 export function FriendCardList({
   friends,
   processingRelationId = null,
+  processingNotifyFriendId = null,
   onAccept,
   onReject,
   onCancel,
   onRemove,
+  onToggleActivityNotify,
 }: Props) {
   const [page, setPage] = useState(1);
 
@@ -48,10 +52,12 @@ export function FriendCardList({
               key={`${friend.id}-${friend.relationId ?? 'accepted'}`}
               friend={friend}
               actionLoading={friend.relationId != null && processingRelationId === friend.relationId}
+              notifyLoading={processingNotifyFriendId === friend.id}
               onAccept={() => onAccept?.(friend)}
               onReject={() => onReject?.(friend)}
               onCancel={() => onCancel?.(friend)}
               onRemove={() => onRemove?.(friend)}
+              onToggleActivityNotify={(enabled) => onToggleActivityNotify?.(friend, enabled)}
             />
           ))}
       </Box>

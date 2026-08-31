@@ -93,6 +93,7 @@ export const endpoints = {
     new: '/api/friend/new',
     inviteAccept: '/api/friend/invite/accept',
     details: (id: string | number) => `/api/friend/${id}`,
+    activityNotify: '/api/friend/activity-notify',
   },
   mail: {
     list: '/api/mail/list',
@@ -112,6 +113,9 @@ export const endpoints = {
     list: '/api/notification/list',
     new: '/api/notification/new',
     details: (id: string | number) => `/api/notification/${id}`,
+  },
+  push: {
+    subscribe: '/api/push/subscribe',
   },
   guestArea: {
     root: '/api/guest-area',
@@ -305,6 +309,7 @@ export const endpoints = {
       details: (id: string | number) => `/api/cinema/reservation/${id}`,
       delete: (id: string | number) => `/api/cinema/reservation/${id}`,
     },
+    notificationPrefs: '/api/cinema/notification-prefs',
     presence: (ownerId: string, category: string) =>
       `/api/cinema/${encodeURIComponent(ownerId)}/${encodeURIComponent(category)}/presence`,
     chat: (ownerId: string, category: string) =>
