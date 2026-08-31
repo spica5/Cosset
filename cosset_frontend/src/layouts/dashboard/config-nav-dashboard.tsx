@@ -76,6 +76,7 @@ export const navData = [
         icon: ICONS.video,
         children: [
           { title: 'Cinema', path: paths.dashboard.admin.media.cinema },
+          { title: 'Intro video', path: paths.dashboard.admin.media.introVideo },
           { title: 'Files', path: paths.dashboard.admin.media.files },
         ],
       },

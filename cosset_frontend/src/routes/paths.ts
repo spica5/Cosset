@@ -38,6 +38,7 @@ export const paths = {
         cinemaClassic: `${ROOTS.DASHBOARD}/admin/media/cinema/classic`,
         cinemaGenre: `${ROOTS.DASHBOARD}/admin/media/cinema/genre`,
         files: `${ROOTS.DASHBOARD}/admin/media/files`,
+        introVideo: `${ROOTS.DASHBOARD}/admin/media/intro-video`,
       },
     },
     blog: {

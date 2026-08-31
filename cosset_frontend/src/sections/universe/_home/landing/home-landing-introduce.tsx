@@ -3,16 +3,23 @@
 import type { BoxProps } from '@mui/material/Box';
 
 import Fade from 'embla-carousel-fade';
+import { useState, useCallback } from 'react';
 import Autoplay from 'embla-carousel-autoplay';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
+import Dialog from '@mui/material/Dialog';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogContent from '@mui/material/DialogContent';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { CONFIG } from 'src/config-global';
+import { useGetIntroVideo } from 'src/actions/intro-video';
 
+import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/universe/iconify';
 import { SvgColor } from 'src/components/universe/svg-color';
 import { Carousel, useCarousel, CarouselDotButtons } from 'src/components/universe/carousel';
@@ -50,6 +57,8 @@ const INTRODUCTIONS = [
 
 export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
   const containerOffset = 'calc((100vw - 1200px) / 2)';
+  const { introVideo, introVideoLoading } = useGetIntroVideo(true);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   const carousel = useCarousel(
     {
@@ -58,6 +67,21 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     },
     [Autoplay({ playOnInit: true, delay: 4500 }), Fade()]
   );
+
+  const handleWatchVideo = useCallback(() => {
+    if (introVideoLoading) return;
+
+    if (!introVideo?.playbackUrl) {
+      toast.info('Introduction video is not available yet.');
+      return;
+    }
+
+    setVideoOpen(true);
+  }, [introVideo?.playbackUrl, introVideoLoading]);
+
+  const handleCloseVideo = useCallback(() => {
+    setVideoOpen(false);
+  }, []);
 
   const renderList = (
     <Container sx={{ textAlign: 'center' }}>
@@ -146,17 +170,28 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
       </Typography>
 
       <Box
+        component="button"
+        type="button"
+        onClick={handleWatchVideo}
         gap={1}
         display="flex"
         alignItems="center"
         sx={{
-          cursor: 'pointer',
+          border: 0,
+          background: 'transparent',
+          p: 0,
+          cursor: introVideoLoading ? 'wait' : 'pointer',
           color: 'primary.main',
           typography: { xs: 'body2', sm: 'subtitle1' },
           '&:hover': { opacity: 0.72 },
         }}
       >
-        <Iconify width={20} icon="solar:play-outline" /> Watch video
+        {introVideoLoading ? (
+          <CircularProgress size={18} color="inherit" />
+        ) : (
+          <Iconify width={20} icon="solar:play-outline" />
+        )}
+        Watch video
       </Box>
     </Card>
   );
@@ -229,6 +264,51 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
       {renderTexts}
       {renderImage}
       {renderList}
+
+      <Dialog
+        open={videoOpen}
+        onClose={handleCloseVideo}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'common.black',
+            overflow: 'hidden',
+          },
+        }}
+      >
+        <Box sx={{ position: 'relative' }}>
+          <IconButton
+            aria-label="Close video"
+            onClick={handleCloseVideo}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 2,
+              color: 'common.white',
+              bgcolor: 'rgba(0,0,0,0.45)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.65)' },
+            }}
+          >
+            <Iconify icon="mingcute:close-line" />
+          </IconButton>
+
+          <DialogContent sx={{ p: 0 }}>
+            {introVideo?.playbackUrl ? (
+              <Box
+                component="video"
+                key={introVideo.playbackUrl}
+                src={introVideo.playbackUrl}
+                controls
+                autoPlay
+                playsInline
+                sx={{ width: 1, maxHeight: '80vh', display: 'block', bgcolor: 'common.black' }}
+              />
+            ) : null}
+          </DialogContent>
+        </Box>
+      </Dialog>
     </Box>
   );
 }

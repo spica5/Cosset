@@ -88,6 +88,9 @@ export const endpoints = {
       copyToR2: '/api/admin/files/copy-to-r2',
     },
   },
+  siteSettings: {
+    introVideo: '/api/site-settings/intro-video',
+  },
   friend: {
     list: '/api/friend/list',
     new: '/api/friend/new',
