@@ -192,13 +192,11 @@ function ScrapbookPolaroid({
   mediaKey,
   title,
   rotation = 0,
-  palette,
 }: {
   imageUrl: string;
   mediaKey?: string | null;
   title: string;
   rotation?: number;
-  palette: JourneyPalette;
 }) {
   const isVideo = isVideoMediaPath(imageUrl) || isVideoMediaPath(mediaKey);
   return (
@@ -260,7 +258,7 @@ function ScrapbookPolaroid({
             textAlign: 'center',
             fontFamily: '"Caveat", "Segoe Script", cursive',
             fontSize: '1.05rem',
-            color: palette.ink,
+            color: '#1F2A44',
             lineHeight: 1.2,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -384,7 +382,6 @@ function TimelineEntry({
                 mediaKey={picture.imageKey}
                 title={title}
                 rotation={((index % 3) - 1) * 1.5}
-                palette={palette}
               />
             ) : null}
 

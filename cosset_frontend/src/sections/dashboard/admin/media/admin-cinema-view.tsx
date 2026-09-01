@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -18,8 +18,11 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
+import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
+
 import { CINEMA_CATEGORIES } from 'src/sections/dashboard/cinema/cinema-categories';
 import { CinemaCategoryFilmsPanel } from 'src/sections/dashboard/cinema/cinema-category-films-panel';
+import { CinemaHubTodayPanel } from 'src/sections/dashboard/cinema/cinema-hub-today-panel';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -30,6 +33,30 @@ export function AdminCinemaView() {
   const router = useRouter();
   const { user, loading } = useAuthContext();
   const isAdmin = isUserAdmin(user?.role);
+
+  const { screenings: classicScreenings, screeningsLoading: classicLoading } =
+    useGetCinemaScreenings(null, 'classic', { allCatalog: true });
+  const { screenings: genreScreenings, screeningsLoading: genreLoading } = useGetCinemaScreenings(
+    null,
+    'genre',
+    { allCatalog: true },
+  );
+
+  const scheduleScreenings = useMemo(() => {
+    const merged = [...(classicScreenings || []), ...(genreScreenings || [])];
+    const seen = new Set<number>();
+
+    return merged.filter((screening) => {
+      const id = Number(screening.id);
+      if (!Number.isFinite(id) || seen.has(id)) {
+        return false;
+      }
+      seen.add(id);
+      return true;
+    });
+  }, [classicScreenings, genreScreenings]);
+
+  const scheduleLoading = classicLoading || genreLoading;
 
   useEffect(() => {
     if (!loading && user && !isAdmin) {
@@ -111,6 +138,15 @@ export function AdminCinemaView() {
               </Typography>
             </Box>
           </Stack>
+        </Card>
+
+        <Card sx={{ p: { xs: 1.5, md: 2 }, overflow: 'hidden' }}>
+          <CinemaHubTodayPanel
+            screenings={scheduleScreenings}
+            loading={scheduleLoading}
+            mode="all"
+            showCalendar
+          />
         </Card>
 
         {CINEMA_CATEGORIES.map((category) => (

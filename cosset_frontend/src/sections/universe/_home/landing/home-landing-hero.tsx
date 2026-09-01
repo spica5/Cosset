@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { bgBlur, varAlpha } from 'src/theme/universe/styles';
 
 import { Iconify } from 'src/components/universe/iconify';
+import { InstallCossetAppButton } from 'src/components/install-cosset-app';
 import {
   Carousel,
   useCarousel,
@@ -164,9 +165,32 @@ function CarouselItem({ slide, sx, ...other }: CarouselItemProps) {
           {slide.caption}
         </Typography>
 
-        <Button variant="contained" size="large" color="primary">
-          Visit now
-        </Button>
+        <Box
+          gap={1.5}
+          display="flex"
+          flexWrap="wrap"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Button variant="contained" size="large" color="primary">
+            Visit now
+          </Button>
+          <InstallCossetAppButton
+            variant="hero"
+            size="large"
+            color="inherit"
+            buttonVariant="outlined"
+            label="Install Cosset app"
+            sx={{
+              borderColor: 'common.white',
+              color: 'common.white',
+              '&:hover': {
+                borderColor: 'common.white',
+                bgcolor: 'rgba(255,255,255,0.12)',
+              },
+            }}
+          />
+        </Box>
       </Box>
 
       <Box

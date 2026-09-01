@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserByEmail, updateUser } from '@/models/users';
+import { updateUser, getUserByEmail } from '@/models/users';
 import { verifyEmailVerificationCode } from '@/models/email-verification-codes';
 
 import { sign } from 'src/utils/jwt';
@@ -11,7 +11,8 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from 'src/config-global';
 // ----------------------------------------------------------------------
 
 function sanitizeUser<T extends { password?: string }>(user: T) {
-  const { password: _password, ...safeUser } = user;
+  const safeUser = { ...user };
+  delete safeUser.password;
   return safeUser;
 }
 

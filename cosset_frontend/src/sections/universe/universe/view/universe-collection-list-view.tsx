@@ -21,12 +21,13 @@ import { RouterLink } from 'src/routes/components';
 import { useGetGuestArea } from 'src/actions/guestarea';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetCollectionItems } from 'src/actions/collection-item';
-
-import { useAuthContext } from 'src/auth/hooks';
 import { recordActivityNotification } from 'src/actions/notification';
-import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
 
 import { Iconify } from 'src/components/universe/iconify';
+
+import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 

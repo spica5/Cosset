@@ -3,15 +3,14 @@
 import type { CoffeeShopChatMessage, CoffeeShopChatParticipant } from 'src/types/coffee-shop-chat';
 
 import { createPortal } from 'react-dom';
-
 import { useRef, useMemo, useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 
 import Box from '@mui/material/Box';
-import Badge from '@mui/material/Badge';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
+import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
 import { useTheme } from '@mui/material/styles';
@@ -22,7 +21,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { CONFIG } from 'src/config-global';
-
 import {
   joinCoffeeShopPresence,
   touchCoffeeShopActivity,
@@ -56,17 +54,17 @@ import { CoffeeShopChatAvatar } from 'src/sections/universe/community/coffee-sho
 import {
   COFFEE_SHOP_CHAT_EVENT,
   COFFEE_SHOP_CHAT_DELETED_EVENT,
-  COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
   COFFEE_SHOP_PARTICIPANT_LEFT_EVENT,
+  COFFEE_SHOP_PARTICIPANT_JOINED_EVENT,
 } from 'src/types/coffee-shop-chat';
 
 import {
-  COFFEE_SHOP_MOBILE_PANEL_EVENT,
+  type CoffeeShopMobilePanel,
   bumpCoffeeShopChatUnread,
   clearCoffeeShopChatUnread,
   closeCoffeeShopMobilePanel,
   coffeeShopMobileChatFormBoxSx,
-  type CoffeeShopMobilePanel,
+  COFFEE_SHOP_MOBILE_PANEL_EVENT,
 } from './coffee-shop-mobile-panels';
 
 // ----------------------------------------------------------------------

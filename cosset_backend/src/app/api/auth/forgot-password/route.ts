@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { getUserByEmail } from '@/models/users';
 import { createPasswordResetCode } from '@/models/password-reset-codes';
 
-import { sendPasswordResetEmail } from 'src/utils/email';
 import { STATUS, response } from 'src/utils/response';
+import { sendPasswordResetEmail } from 'src/utils/email';
 
 // ----------------------------------------------------------------------
 

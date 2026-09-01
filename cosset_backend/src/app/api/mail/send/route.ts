@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { sendUserMail } from 'src/utils/email';
+import { notifyMailReceived } from 'src/utils/mail-notifications';
 import { STATUS, response, handleError } from 'src/utils/response';
 import {
   stripHtml,
@@ -16,8 +17,6 @@ import {
 import { createUserMail } from 'src/models/user-mails';
 import { getUserById, getUserByEmail } from 'src/models/users';
 import { isMailBackgroundImageKeyAllowed } from 'src/models/mail-background-images';
-
-import { notifyMailReceived } from 'src/utils/mail-notifications';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

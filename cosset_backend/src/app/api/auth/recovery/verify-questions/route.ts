@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 
+import { getUserByEmail } from '@/models/users';
 import { createRecoverySession } from '@/models/account-recovery-sessions';
 import { verifyUserSecurityAnswers } from '@/models/user-security-questions';
-import { getUserByEmail } from '@/models/users';
 
 import { STATUS, response } from 'src/utils/response';
 

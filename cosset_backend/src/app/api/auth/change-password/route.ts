@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getUserById, updateUserPassword } from '@/models/users';
 
-import { getAuthenticatedUser } from 'src/utils/request-auth';
 import { STATUS, response } from 'src/utils/response';
+import { getAuthenticatedUser } from 'src/utils/request-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

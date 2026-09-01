@@ -10,13 +10,25 @@ import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
-import { useBoolean } from 'src/hooks/use-boolean';
+import { paths } from 'src/routes/paths';
+import { useRouter, usePathname } from 'src/routes/hooks';
 
-import { useGetCollections } from 'src/actions/collection';
+import { useBoolean } from 'src/hooks/use-boolean';
+import { useMailNotifications } from 'src/hooks/use-mail-notifications';
+
 import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetPostUnreadCount } from 'src/actions/post';
-import { useGetNotifications } from 'src/actions/notification';
+import { useGetCollections } from 'src/actions/collection';
 import { useGetMyBrandStore } from 'src/actions/brand-store';
+import { useGetNotifications } from 'src/actions/notification';
+
+import { Logo } from 'src/components/dashboard/logo';
+import { Label } from 'src/components/dashboard/label';
+import { useSettingsContext } from 'src/components/dashboard/settings';
+import { InstallCossetAppButton } from 'src/components/install-cosset-app';
+
+import { ChatCallProvider } from 'src/sections/dashboard/chat/chat-call-provider';
+
 import { useAuthContext } from 'src/auth/hooks';
 import {
   isUserAdmin,
@@ -24,16 +36,6 @@ import {
   getDashboardHomePath,
   isBusinessAllowedDashboardPath,
 } from 'src/auth/utils/role';
-import { useMailNotifications } from 'src/hooks/use-mail-notifications';
-
-import { Logo } from 'src/components/dashboard/logo';
-import { Label } from 'src/components/dashboard/label';
-import { useSettingsContext } from 'src/components/dashboard/settings';
-
-import { ChatCallProvider } from 'src/sections/dashboard/chat/chat-call-provider';
-
-import { paths } from 'src/routes/paths';
-import { usePathname, useRouter } from 'src/routes/hooks';
 
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
@@ -47,11 +49,11 @@ import { HeaderSection } from '../core/header-section';
 import { StyledDivider, useNavColorVars } from './styles';
 import { AccountDrawer } from '../components/account-drawer';
 import { ContactsPopover } from '../components/contacts-popover';
-import {
-  navData as dashboardNavData,
-  businessNavData,
-} from '../config-nav-dashboard';
 import { NotificationsDrawer } from '../components/notifications-drawer';
+import {
+  businessNavData,
+  navData as dashboardNavData,
+} from '../config-nav-dashboard';
 
 // ----------------------------------------------------------------------
 
@@ -344,6 +346,10 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
             ),
             rightArea: (
               <Box display="flex" alignItems="center" gap={{ xs: 0, sm: 0.75 }}>
+                <InstallCossetAppButton
+                  variant="icon"
+                  sx={sceneHeaderIconSx}
+                />
                 {/* -- Notifications popover -- */}
                 <NotificationsDrawer
                   data={notifications}

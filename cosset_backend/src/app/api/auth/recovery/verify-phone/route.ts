@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 
+import { getUserByPhone, normalizePhoneNumber } from '@/models/users';
 import { createRecoverySession } from '@/models/account-recovery-sessions';
 import { verifyPhoneVerificationCode } from '@/models/phone-verification-codes';
-import { getUserByPhone, normalizePhoneNumber } from '@/models/users';
 
 import { STATUS, response } from 'src/utils/response';
 

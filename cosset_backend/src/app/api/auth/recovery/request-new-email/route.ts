@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
 
-import {
-  getRecoverySessionByToken,
-  setRecoveryPendingEmail,
-} from '@/models/account-recovery-sessions';
 import { getUserByEmail } from '@/models/users';
+import {
+  setRecoveryPendingEmail,
+  getRecoverySessionByToken,
+} from '@/models/account-recovery-sessions';
 
-import { sendEmailChangeVerificationEmail } from 'src/utils/email';
 import { STATUS, response } from 'src/utils/response';
+import { sendEmailChangeVerificationEmail } from 'src/utils/email';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -4,9 +4,8 @@ import type { ReactNode } from 'react';
 
 import Box from '@mui/material/Box';
 
-import { DesignSpaceThemeProvider, useDesignSpaceTheme } from '../landing/design-space-theme-context';
-
 import { useCustomerDesignSpaceType } from './use-customer-design-space-type';
+import { useDesignSpaceTheme, DesignSpaceThemeProvider } from '../landing/design-space-theme-context';
 
 // ----------------------------------------------------------------------
 

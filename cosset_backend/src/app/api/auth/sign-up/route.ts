@@ -2,16 +2,16 @@ import type { NextRequest } from 'next/server';
 
 import bcrypt from 'bcryptjs';
 import { uuidv4 } from '@/utils/uuidv4';
+import { createEmailVerificationCode } from '@/models/email-verification-codes';
 import {
   createUser,
-  getUserByEmail,
   updateUser,
+  getUserByEmail,
   updateUserPassword,
 } from '@/models/users';
-import { createEmailVerificationCode } from '@/models/email-verification-codes';
 
-import { sendEmailVerificationEmail } from 'src/utils/email';
 import { STATUS, response } from 'src/utils/response';
+import { sendEmailVerificationEmail } from 'src/utils/email';
 
 // ----------------------------------------------------------------------
 

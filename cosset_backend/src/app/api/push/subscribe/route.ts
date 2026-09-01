@@ -1,15 +1,16 @@
 import type { NextRequest } from 'next/server';
 
 import { verify } from 'src/utils/jwt';
-import { JWT_SECRET } from 'src/config-global';
 import { STATUS, response, handleError } from 'src/utils/response';
 import { getVapidPublicKey, isWebPushConfigured } from 'src/utils/web-push';
+
+import { JWT_SECRET } from 'src/config-global';
 import {
   deletePushSubscription,
-  hasEnabledPushSubscription,
-  hasEnabledPushSubscriptionForOrigin,
-  setPushSubscriptionsEnabled,
   upsertPushSubscription,
+  hasEnabledPushSubscription,
+  setPushSubscriptionsEnabled,
+  hasEnabledPushSubscriptionForOrigin,
 } from 'src/models/push-subscriptions';
 
 // ----------------------------------------------------------------------

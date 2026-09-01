@@ -3,24 +3,18 @@
 import type { BoxProps } from '@mui/material/Box';
 
 import Fade from 'embla-carousel-fade';
-import { useState, useCallback } from 'react';
 import Autoplay from 'embla-carousel-autoplay';
+import { useEffect, useRef } from 'react';
 
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Dialog from '@mui/material/Dialog';
 import Container from '@mui/material/Container';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { CONFIG } from 'src/config-global';
 import { useGetIntroVideo } from 'src/actions/intro-video';
 
-import { toast } from 'src/components/dashboard/snackbar';
-import { Iconify } from 'src/components/universe/iconify';
 import { SvgColor } from 'src/components/universe/svg-color';
 import { Carousel, useCarousel, CarouselDotButtons } from 'src/components/universe/carousel';
 
@@ -53,12 +47,103 @@ const INTRODUCTIONS = [
   },
 ];
 
+function IntroVideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return undefined;
+
+    const playFromStart = () => {
+      try {
+        video.currentTime = 0;
+      } catch {
+        // ignore seek errors before metadata is ready
+      }
+      video.muted = true;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => undefined);
+      }
+    };
+
+    const stopPlayback = () => {
+      video.pause();
+      try {
+        video.currentTime = 0;
+      } catch {
+        // ignore seek errors before metadata is ready
+      }
+    };
+
+    const onLoadedData = () => {
+      // Only auto-start if the player is already on screen.
+      const rect = container.getBoundingClientRect();
+      const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+      const ratio = rect.height > 0 ? visibleHeight / rect.height : 0;
+      if (ratio >= 0.35) {
+        playFromStart();
+      } else {
+        stopPlayback();
+      }
+    };
+
+    video.addEventListener('loadeddata', onLoadedData);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+          playFromStart();
+        } else {
+          stopPlayback();
+        }
+      },
+      { threshold: [0, 0.15, 0.35, 0.6, 1] },
+    );
+
+    observer.observe(container);
+
+    return () => {
+      video.removeEventListener('loadeddata', onLoadedData);
+      observer.disconnect();
+      stopPlayback();
+    };
+  }, [src]);
+
+  return (
+    <Box ref={containerRef} sx={{ width: 1, height: 1 }}>
+      <Box
+        component="video"
+        ref={videoRef}
+        key={src}
+        src={src}
+        muted
+        loop
+        playsInline
+        controls
+        preload="auto"
+        sx={{
+          width: 1,
+          height: 1,
+          display: 'block',
+          objectFit: 'cover',
+          bgcolor: 'common.black',
+        }}
+      />
+    </Box>
+  );
+}
+
 // ----------------------------------------------------------------------
 
 export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
   const containerOffset = 'calc((100vw - 1200px) / 2)';
   const { introVideo, introVideoLoading } = useGetIntroVideo(true);
-  const [videoOpen, setVideoOpen] = useState(false);
 
   const carousel = useCarousel(
     {
@@ -67,21 +152,6 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     },
     [Autoplay({ playOnInit: true, delay: 4500 }), Fade()]
   );
-
-  const handleWatchVideo = useCallback(() => {
-    if (introVideoLoading) return;
-
-    if (!introVideo?.playbackUrl) {
-      toast.info('Introduction video is not available yet.');
-      return;
-    }
-
-    setVideoOpen(true);
-  }, [introVideo?.playbackUrl, introVideoLoading]);
-
-  const handleCloseVideo = useCallback(() => {
-    setVideoOpen(false);
-  }, []);
 
   const renderList = (
     <Container sx={{ textAlign: 'center' }}>
@@ -138,62 +208,56 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     </Container>
   );
 
-  const renderCard = (
-    <Card
-      sx={(theme) => ({
-        p: { xs: 2, sm: 3, md: 5 },
+  const renderIntroVideo = (
+    <Box
+      sx={{
         top: { xs: 16, sm: 24, md: 32, lg: 40 },
         left: { xs: 16, sm: 24, md: 32, lg: 40 },
         zIndex: 9,
-        right: 'auto',
-        bottom: 'auto',
-        maxWidth: { xs: 200, sm: 260, md: 320 },
-        width: { xs: '58%', sm: 'auto' },
-        display: 'flex',
-        textAlign: { xs: 'center', sm: 'unset' },
         position: 'absolute',
-        alignItems: { xs: 'center', sm: 'unset' },
-        flexDirection: 'column',
-        justifyContent: 'center',
-      })}
+        width: { xs: 'calc(100% - 32px)', sm: '48%', md: '40%' },
+        maxWidth: { xs: 1, md: 'none' },
+        borderRadius: 2,
+        overflow: 'hidden',
+        bgcolor: 'common.black',
+        boxShadow: '0 16px 40px rgba(0,0,0,0.35)',
+        aspectRatio: '16 / 9',
+      }}
     >
-      <Typography variant="overline" sx={{ color: 'text.disabled', fontSize: { xs: 10, sm: undefined } }}>
-        Device
-      </Typography>
-
-      <Typography
-        component="h6"
-        variant="h4"
-        sx={{ my: { xs: 1.25, sm: 2, md: 3 }, typography: { xs: 'subtitle1', sm: 'h6', md: 'h4' } }}
-      >
-        The more important the work
-      </Typography>
-
-      <Box
-        component="button"
-        type="button"
-        onClick={handleWatchVideo}
-        gap={1}
-        display="flex"
-        alignItems="center"
-        sx={{
-          border: 0,
-          background: 'transparent',
-          p: 0,
-          cursor: introVideoLoading ? 'wait' : 'pointer',
-          color: 'primary.main',
-          typography: { xs: 'body2', sm: 'subtitle1' },
-          '&:hover': { opacity: 0.72 },
-        }}
-      >
-        {introVideoLoading ? (
-          <CircularProgress size={18} color="inherit" />
-        ) : (
-          <Iconify width={20} icon="solar:play-outline" />
-        )}
-        Watch video
-      </Box>
-    </Card>
+      {introVideoLoading ? (
+        <Box
+          sx={{
+            width: 1,
+            height: 1,
+            minHeight: { xs: 140, sm: 160 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CircularProgress size={28} sx={{ color: 'common.white' }} />
+        </Box>
+      ) : introVideo?.playbackUrl ? (
+        <IntroVideoPlayer src={introVideo.playbackUrl} />
+      ) : (
+        <Box
+          sx={{
+            width: 1,
+            height: 1,
+            minHeight: { xs: 140, sm: 160 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            px: 2,
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }}>
+            Introduction video coming soon
+          </Typography>
+        </Box>
+      )}
+    </Box>
   );
 
   const renderImage = (
@@ -206,7 +270,7 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
         [theme.breakpoints.up('lg')]: { px: 3 },
       })}
     >
-      {renderCard}
+      {renderIntroVideo}
 
       <Box
         sx={(theme) => ({
@@ -264,51 +328,6 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
       {renderTexts}
       {renderImage}
       {renderList}
-
-      <Dialog
-        open={videoOpen}
-        onClose={handleCloseVideo}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: 'common.black',
-            overflow: 'hidden',
-          },
-        }}
-      >
-        <Box sx={{ position: 'relative' }}>
-          <IconButton
-            aria-label="Close video"
-            onClick={handleCloseVideo}
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              zIndex: 2,
-              color: 'common.white',
-              bgcolor: 'rgba(0,0,0,0.45)',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.65)' },
-            }}
-          >
-            <Iconify icon="mingcute:close-line" />
-          </IconButton>
-
-          <DialogContent sx={{ p: 0 }}>
-            {introVideo?.playbackUrl ? (
-              <Box
-                component="video"
-                key={introVideo.playbackUrl}
-                src={introVideo.playbackUrl}
-                controls
-                autoPlay
-                playsInline
-                sx={{ width: 1, maxHeight: '80vh', display: 'block', bgcolor: 'common.black' }}
-              />
-            ) : null}
-          </DialogContent>
-        </Box>
-      </Dialog>
     </Box>
   );
 }

@@ -19,6 +19,8 @@ type Props = {
   showQuote?: boolean;
   showTitles?: boolean;
   showEyebrow?: boolean;
+  /** Content rendered above the banner title (e.g. today's date). */
+  top?: ReactNode;
   /** Content rendered in the vertical middle of the banner (e.g. calendar). */
   middle?: ReactNode;
   footer?: ReactNode;
@@ -34,6 +36,7 @@ export function CinemaTheaterIntro({
   showQuote = true,
   showTitles = true,
   showEyebrow = true,
+  top,
   middle,
   footer,
   bannerImage,
@@ -86,6 +89,21 @@ export function CinemaTheaterIntro({
           pointerEvents: 'none',
         }}
       />
+
+      {top ? (
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            pt: { xs: 1.25, md: 1.5 },
+            px: 2,
+          }}
+        >
+          {top}
+        </Box>
+      ) : null}
 
       {showTitles ? (
         <Stack

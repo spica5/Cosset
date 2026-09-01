@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserById } from 'src/models/users';
-import { deleteMailBackgroundImage } from 'src/models/mail-background-images';
 import { getUserIdFromMailRequest } from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
+
+import { getUserById } from 'src/models/users';
+import { deleteMailBackgroundImage } from 'src/models/mail-background-images';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

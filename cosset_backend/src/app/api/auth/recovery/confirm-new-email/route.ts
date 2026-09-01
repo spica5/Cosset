@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server';
 
+import { getUserByEmail, updateUserEmail } from '@/models/users';
 import {
   consumeRecoverySession,
   getRecoverySessionByToken,
   verifyRecoveryPendingEmailCode,
 } from '@/models/account-recovery-sessions';
-import { getUserByEmail, updateUserEmail } from '@/models/users';
 
 import { STATUS, response } from 'src/utils/response';
 

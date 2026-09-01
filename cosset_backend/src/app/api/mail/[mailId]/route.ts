@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
 
-import { deleteUserMail } from 'src/models/user-mails';
 import { getUserIdFromMailRequest } from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
+
+import { deleteUserMail } from 'src/models/user-mails';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

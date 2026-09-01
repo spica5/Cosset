@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
 
 import {
-  getUserSecurityQuestionCount,
   getUserSecurityQuestions,
+  getUserSecurityQuestionCount,
 } from '@/models/user-security-questions';
 
-import { getAuthenticatedUser } from 'src/utils/request-auth';
 import { STATUS, response } from 'src/utils/response';
+import { getAuthenticatedUser } from 'src/utils/request-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

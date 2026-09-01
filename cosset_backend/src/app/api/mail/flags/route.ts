@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserPhotoURLsByIds } from 'src/models/users';
-import { updateUserMailFlags } from 'src/models/user-mails';
-
+import { STATUS, response, handleError } from 'src/utils/response';
 import {
   mapUserMailToApi,
   buildPhotoByEmailForRows,
   getUserIdFromMailRequest,
 } from 'src/utils/mail';
-import { STATUS, response, handleError } from 'src/utils/response';
+
+import { getUserPhotoURLsByIds } from 'src/models/users';
+import { updateUserMailFlags } from 'src/models/user-mails';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

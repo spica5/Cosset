@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { getUserByEmail } from '@/models/users';
 import { createEmailVerificationCode } from '@/models/email-verification-codes';
 
-import { sendEmailVerificationEmail } from 'src/utils/email';
 import { STATUS, response } from 'src/utils/response';
+import { sendEmailVerificationEmail } from 'src/utils/email';
 
 // ----------------------------------------------------------------------
 

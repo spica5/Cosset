@@ -5,9 +5,9 @@ import { createHash } from 'node:crypto';
 import { verify } from 'src/utils/jwt';
 
 import { JWT_SECRET } from 'src/config-global';
+import { STATUS, response, handleError } from 'src/utils/response';
 import { getAlbumById, incrementAlbumViews } from 'src/models/albums';
 import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
-import { STATUS, response, handleError } from 'src/utils/response';
 
 // ----------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
 
-import { listMailBackgroundImages } from 'src/models/mail-background-images';
 import { getUserIdFromMailRequest } from 'src/utils/mail';
 import { STATUS, response, handleError } from 'src/utils/response';
+
+import { listMailBackgroundImages } from 'src/models/mail-background-images';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

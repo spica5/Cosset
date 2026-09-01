@@ -2,6 +2,9 @@ import type { NextRequest } from 'next/server';
 
 import { createHash } from 'node:crypto';
 
+import { verify } from 'src/utils/jwt';
+import { STATUS, response, handleError } from 'src/utils/response';
+
 import { JWT_SECRET } from 'src/config-global';
 import { markPostAsViewed, getViewedPostIdsByCustomer } from 'src/models/post-reactions';
 import {
@@ -9,8 +12,6 @@ import {
   getUnreadCommunityPostCount,
   incrementCommunityPostViews,
 } from 'src/models/community-posts';
-import { verify } from 'src/utils/jwt';
-import { STATUS, response, handleError } from 'src/utils/response';
 
 // ----------------------------------------------------------------------
 

@@ -3,8 +3,8 @@
 import type ReactPlayer from 'react-player';
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { CinemaChatParticipant } from 'src/types/cinema-chat';
-import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
+import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -14,13 +14,13 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import Divider from '@mui/material/Divider';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -37,10 +37,10 @@ import {
   updateCinemaReservationSeats,  
 } from 'src/actions/cinema-film-reservation';
 import {
+  useGetWallet,
+  refreshWallet,
   chargeCinemaWatch,
   formatWalletMoney,
-  refreshWallet,
-  useGetWallet,
 } from 'src/actions/wallet';
 
 import { Player } from 'src/components/universe/player';
@@ -57,26 +57,26 @@ import {
 } from 'src/sections/dashboard/cinema/cinema-theater-theme';
 import { UniverseCinemaParticipants } from 'src/sections/universe/community/universe-cinema-participants';
 import {
+  type CinemaCategory,
   getCinemaCategory,
   CINEMA_CATEGORIES,
   resolveCinemaCategoryId,
-  type CinemaCategory,
 } from 'src/sections/dashboard/cinema/cinema-categories';
 import {
+  isScreeningDayToday,
   getDefaultScreening,
   getNextFilmScreening,
-  isFilmOnActiveSchedule,
-  isCinemaPreviewScreening,
-  filterScreeningsForViewer,
   isFixedTimeScreening,
-  isScreeningDayToday,
   getNextScreeningStart,
   getScreeningShowStatus,
+  isFilmOnActiveSchedule,
   formatScreeningSchedule,
   getSyncedPlaybackSeconds,
+  isCinemaPreviewScreening,
+  filterScreeningsForViewer,
   probeVideoDurationSeconds,
-  getCinemaFilmShowStatusLabel,
   getScreeningScheduleLabels,
+  getCinemaFilmShowStatusLabel,
 } from 'src/sections/dashboard/cinema/cinema-film-schedule';
 
 import { useAuthContext } from 'src/auth/hooks';

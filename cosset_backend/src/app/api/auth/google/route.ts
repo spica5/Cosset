@@ -3,12 +3,12 @@ import type { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { uuidv4 } from '@/utils/uuidv4';
 import { OAuth2Client } from 'google-auth-library';
-import { createUser, getUserByEmail, updateUser } from '@/models/users';
+import { createUser, updateUser, getUserByEmail } from '@/models/users';
 
 import { sign } from 'src/utils/jwt';
 import { STATUS, response } from 'src/utils/response';
 
-import { GOOGLE_CLIENT_ID, JWT_SECRET, JWT_EXPIRES_IN } from 'src/config-global';
+import { JWT_SECRET, JWT_EXPIRES_IN, GOOGLE_CLIENT_ID } from 'src/config-global';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,7 +30,8 @@ function getCustomerState(user: { state?: string | null }) {
 }
 
 function sanitizeUser<T extends { password?: string }>(user: T) {
-  const { password: _password, ...safeUser } = user;
+  const safeUser = { ...user };
+  delete safeUser.password;
   return safeUser;
 }
 

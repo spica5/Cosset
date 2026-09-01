@@ -1,15 +1,15 @@
 import type { NextRequest } from 'next/server';
 
 import { createPhoneVerificationCode } from '@/models/phone-verification-codes';
+import { getUserByEmail, getUserByPhone, normalizePhoneNumber } from '@/models/users';
 import {
-  getUserSecurityQuestionCount,
   getUserSecurityQuestions,
   getSecurityQuestionPrompt,
+  getUserSecurityQuestionCount,
 } from '@/models/user-security-questions';
-import { getUserByEmail, getUserByPhone, normalizePhoneNumber } from '@/models/users';
 
-import { sendPhoneVerificationSms } from 'src/utils/sms';
 import { STATUS, response } from 'src/utils/response';
+import { sendPhoneVerificationSms } from 'src/utils/sms';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -2,8 +2,8 @@ import type { IMail } from 'src/types/mail';
 
 import { useState, useEffect, useCallback } from 'react';
 
-import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Portal from '@mui/material/Portal';
@@ -23,16 +23,16 @@ import { Editor } from 'src/components/dashboard/editor';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import {
-  DEFAULT_MAIL_PAPER_STYLE,
   type MailPaperStyleId,
+  DEFAULT_MAIL_PAPER_STYLE,
 } from 'src/constants/mail-paper-styles';
 
 import { MailWritingFonts } from './mail-writing-fonts';
 import { MailPaperBackgroundPickerMenu } from './mail-paper-background-picker';
 import {
-  buildQuotedMessage,
-  buildReplySubject,
   getReplyRecipient,
+  buildReplySubject,
+  buildQuotedMessage,
   hasMailMessageContent,
 } from './mail-compose-utils';
 import { mailComposeEditorSx, mailComposePaperSx } from './mail-compose-layout';

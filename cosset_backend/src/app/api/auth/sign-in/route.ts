@@ -15,7 +15,8 @@ function getAccountState(user: { state?: string | null }) {
 }
 
 function sanitizeUser<T extends { password?: string }>(user: T) {
-  const { password: _password, ...safeUser } = user;
+  const safeUser = { ...user };
+  delete safeUser.password;
   return safeUser;
 }
 

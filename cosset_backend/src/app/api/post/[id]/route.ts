@@ -4,9 +4,9 @@ import type { CommunityPost } from 'src/models/community-posts';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import {
-  getCommunityPostById,
   updateCommunityPost,
   deleteCommunityPost,
+  getCommunityPostById,
 } from 'src/models/community-posts';
 
 // ----------------------------------------------------------------------

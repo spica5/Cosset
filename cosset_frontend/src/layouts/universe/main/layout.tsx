@@ -8,6 +8,7 @@ import Alert from '@mui/material/Alert';
 import { usePathname } from 'src/routes/hooks';
 
 import { Logo } from 'src/components/universe/logo';
+import { InstallCossetAppButton } from 'src/components/install-cosset-app';
 
 import { Main } from './main';
 import { Footer } from './footer';
@@ -56,7 +57,24 @@ export function MainLayout({ sx, children, header }: MainLayoutProps) {
               </>
             ),
             rightArea: (
-              <Box gap={{ [layoutQuery]: 1 }} display="flex" alignItems="center">
+              <Box gap={{ xs: 0.5, [layoutQuery]: 1 }} display="flex" alignItems="center">
+                <InstallCossetAppButton
+                  variant="button"
+                  size="small"
+                  color="inherit"
+                  buttonVariant="outlined"
+                  label="Install app"
+                  sx={{
+                    display: { xs: 'none', sm: 'inline-flex' },
+                    borderColor: 'currentColor',
+                    color: 'inherit',
+                    whiteSpace: 'nowrap',
+                  }}
+                />
+                <InstallCossetAppButton
+                  variant="icon"
+                  sx={{ display: { xs: 'inline-flex', sm: 'none' }, color: 'inherit' }}
+                />
                 {/* -- Searchbar -- */}
                 <Searchbar />
                 {/* -- Account Navbar -- */}

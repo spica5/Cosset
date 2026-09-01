@@ -27,6 +27,7 @@ import { RouterLink } from 'src/routes/components';
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import { useGetCollection } from 'src/actions/collection';
+import { updatePostCommentVisibility } from 'src/actions/post';
 import { recordActivityNotification } from 'src/actions/notification';
 import {
   reactToCollectionItem,
@@ -35,19 +36,19 @@ import {
 } from 'src/actions/reaction';
 import {
   useGetCollectionItems,
-  useGetViewedCollectionItemIds,
   recordCollectionItemView,
   useGetCollectionItemComments,
+  useGetViewedCollectionItemIds,
 } from 'src/actions/collection-item';
-import { updatePostCommentVisibility } from 'src/actions/post';
 
 import { Label } from 'src/components/universe/label';
 import { Iconify } from 'src/components/universe/iconify';
 import { Lightbox, useLightBox } from 'src/components/dashboard/lightbox';
 import { CommentsSection } from 'src/components/universe/comment-section';
 
-import { useAuthContext } from 'src/auth/hooks';
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 

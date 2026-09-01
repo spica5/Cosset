@@ -1,15 +1,15 @@
 import type { NextRequest } from 'next/server';
 
-import { STATUS, response, handleError } from 'src/utils/response';
-
-import { createCommunityPost } from 'src/models/community-posts';
-import { getUserById } from 'src/models/users';
 import { verify } from 'src/utils/jwt';
-import { JWT_SECRET } from 'src/config-global';
+import { STATUS, response, handleError } from 'src/utils/response';
 import {
-  FRIEND_ACTIVITY_NOTIFICATION_TYPE,
   notifyFriendActivitySubscribers,
+  FRIEND_ACTIVITY_NOTIFICATION_TYPE,
 } from 'src/utils/friend-activity-notify';
+
+import { getUserById } from 'src/models/users';
+import { JWT_SECRET } from 'src/config-global';
+import { createCommunityPost } from 'src/models/community-posts';
 
 // ----------------------------------------------------------------------
 

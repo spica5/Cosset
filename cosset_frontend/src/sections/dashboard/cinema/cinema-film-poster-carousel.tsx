@@ -47,10 +47,13 @@ type PosterCardProps = {
   metaLabel?: string;
   screening?: ICinemaFilmScreening | null;
   showScheduleOverlay?: boolean;
+  referenceDate?: Date;
   onClick?: () => void;
   actions?: ReactNode;
   /** Stretch to fill a CSS grid cell instead of fixed carousel width. */
   fillWidth?: boolean;
+  /** Smaller poster card for compact layouts (about two-thirds size). */
+  compact?: boolean;
 };
 
 export function CinemaPosterCard({
@@ -59,13 +62,16 @@ export function CinemaPosterCard({
   metaLabel,
   screening,
   showScheduleOverlay = true,
+  referenceDate,
   onClick,
   actions,
   fillWidth = false,
+  compact = false,
 }: PosterCardProps) {
   const [posterUrl, setPosterUrl] = useState('');
   const nextScreening = screening ?? getNextFilmScreening(film);
-  const showStatus = nextScreening ? getScreeningShowStatus(nextScreening) : 'unscheduled';
+  const statusNow = referenceDate ?? new Date();
+  const showStatus = nextScreening ? getScreeningShowStatus(nextScreening, statusNow) : 'unscheduled';
   const showStatusLabel = getCinemaFilmShowStatusLabel(showStatus);
   const showScheduleLabels = nextScreening ? getScreeningScheduleLabels(nextScreening) : [];
   const isPreview = isCinemaPreviewScreening(nextScreening);
@@ -122,11 +128,11 @@ export function CinemaPosterCard({
         <Box
           sx={{
             position: 'relative',
-            pt: '148%',
-            borderRadius: 1.5,
+            pt: compact ? '99%' : '148%',
+            borderRadius: compact ? 1.25 : 1.5,
             overflow: 'hidden',
             border: `1px solid ${accent}38`,
-            boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
+            boxShadow: compact ? '0 8px 18px rgba(0,0,0,0.4)' : '0 12px 28px rgba(0,0,0,0.45)',
             bgcolor: '#1A1410',
           }}
         >
@@ -224,27 +230,30 @@ export function CinemaPosterCard({
           ) : null}
         </Box>
 
-        <Stack spacing={0.45} sx={{ mt: 1.25, px: 0.25 }}>
+        <Stack spacing={compact ? 0.35 : 0.45} sx={{ mt: compact ? 0.85 : 1.25, px: 0.25 }}>
           <Typography
             sx={{
               fontFamily: CINEMA_SERIF,
               fontWeight: 600,
-              fontSize: '0.95rem',
+              fontSize: compact ? '0.82rem' : '0.95rem',
               color: CINEMA_CREAM,
               lineHeight: 1.3,
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              minHeight: '2.5em',
+              minHeight: compact ? '2em' : '2.5em',
             }}
           >
             {film.title}
           </Typography>
 
           <Stack direction="row" spacing={0.5} alignItems="center">
-            <Iconify icon="solar:star-bold" width={13} sx={{ color: accent }} />
-            <Typography variant="caption" sx={{ color: accent, fontWeight: 700 }}>
+            <Iconify icon="solar:star-bold" width={compact ? 11 : 13} sx={{ color: accent }} />
+            <Typography
+              variant="caption"
+              sx={{ color: accent, fontWeight: 700, fontSize: compact ? '0.68rem' : undefined }}
+            >
               {film.year || '—'}
             </Typography>
           </Stack>
@@ -253,6 +262,7 @@ export function CinemaPosterCard({
             variant="caption"
             sx={{
               color: 'rgba(245, 230, 200, 0.62)',
+              fontSize: compact ? '0.68rem' : undefined,
               display: '-webkit-box',
               WebkitLineClamp: 1,
               WebkitBoxOrient: 'vertical',

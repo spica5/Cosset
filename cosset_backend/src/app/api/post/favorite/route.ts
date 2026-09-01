@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
 
-import { JWT_SECRET } from 'src/config-global';
 import { verify } from 'src/utils/jwt';
 import { STATUS, response, handleError } from 'src/utils/response';
 
+import { JWT_SECRET } from 'src/config-global';
 import {
   toggleCommunityPostFavorite,
   getUserCommunityPostFavorites,

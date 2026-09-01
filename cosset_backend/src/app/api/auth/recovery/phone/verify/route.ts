@@ -1,10 +1,10 @@
 import type { NextRequest } from 'next/server';
 
-import { verifyPhoneVerificationCode } from '@/models/phone-verification-codes';
 import { normalizePhoneNumber, setUserPhoneVerified } from '@/models/users';
+import { verifyPhoneVerificationCode } from '@/models/phone-verification-codes';
 
-import { getAuthenticatedUser } from 'src/utils/request-auth';
 import { STATUS, response } from 'src/utils/response';
+import { getAuthenticatedUser } from 'src/utils/request-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

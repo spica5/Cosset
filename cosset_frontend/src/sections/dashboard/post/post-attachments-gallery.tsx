@@ -1,8 +1,9 @@
 'use client';
 
 import type { Slide } from 'yet-another-react-lightbox';
+import type { SxProps, Theme } from '@mui/material/styles';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -11,9 +12,10 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
+import { getS3SignedUrl } from 'src/utils/helper';
+
 import { Iconify } from 'src/components/dashboard/iconify';
 import { Lightbox } from 'src/components/dashboard/lightbox';
-import { getS3SignedUrl } from 'src/utils/helper';
 
 // ----------------------------------------------------------------------
 
@@ -33,6 +35,12 @@ type Props = {
   allowRemove?: boolean;
   onRemoveAttachment?: (key: string) => void;
   onPreview?: () => void;
+};
+
+type PostAttachmentVideoProps = {
+  src: string;
+  stopPropagation?: boolean;
+  sx?: SxProps<Theme>;
 };
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
@@ -95,6 +103,98 @@ const getVideoMimeType = (value: string) => {
 
   return 'video/mp4';
 };
+
+function PostAttachmentVideo({ src, stopPropagation = false, sx }: PostAttachmentVideoProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) {
+      return undefined;
+    }
+
+    const playWhenVisible = () => {
+      video.muted = true;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => undefined);
+      }
+    };
+
+    const stopPlayback = () => {
+      video.pause();
+      try {
+        video.currentTime = 0;
+      } catch {
+        // ignore seek errors before metadata is ready
+      }
+    };
+
+    const isEnoughVisible = () => {
+      const rect = container.getBoundingClientRect();
+      const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+      return rect.height > 0 ? visibleHeight / rect.height >= 0.35 : false;
+    };
+
+    const onLoadedData = () => {
+      if (isEnoughVisible()) {
+        playWhenVisible();
+      } else {
+        stopPlayback();
+      }
+    };
+
+    video.addEventListener('loadeddata', onLoadedData);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) {
+          return;
+        }
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+          playWhenVisible();
+        } else {
+          stopPlayback();
+        }
+      },
+      { threshold: [0, 0.15, 0.35, 0.6, 1] },
+    );
+
+    observer.observe(container);
+
+    return () => {
+      video.removeEventListener('loadeddata', onLoadedData);
+      observer.disconnect();
+      stopPlayback();
+    };
+  }, [src]);
+
+  return (
+    <Box ref={containerRef} sx={{ width: 1 }}>
+      <Box
+        component="video"
+        ref={videoRef}
+        key={src}
+        src={src}
+        muted
+        loop
+        playsInline
+        controls
+        preload="metadata"
+        onClick={(event) => {
+          if (stopPropagation) {
+            event.stopPropagation();
+          }
+        }}
+        sx={sx}
+      />
+    </Box>
+  );
+}
 
 // ----------------------------------------------------------------------
 
@@ -344,15 +444,9 @@ export function PostAttachmentsGallery({
               }}
             >
               {removeButton}
-              <Box
-                component="video"
+              <PostAttachmentVideo
                 src={url}
-                controls
-                onClick={(event) => {
-                  if (stopPropagation) {
-                    event.stopPropagation();
-                  }
-                }}
+                stopPropagation={stopPropagation}
                 sx={{
                   width: '100%',
                   borderRadius: 1,

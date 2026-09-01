@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 
-import { getAllNotifications } from 'src/models/notifications';
 import { STATUS, response, handleError } from 'src/utils/response';
+
+import { getAllNotifications } from 'src/models/notifications';
 
 // ----------------------------------------------------------------------
 

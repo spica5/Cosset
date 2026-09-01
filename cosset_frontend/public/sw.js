@@ -1,4 +1,4 @@
-/* Cosset PWA service worker — handles installable shortcut + push notifications */
+/* Cosset PWA service worker — installable app + push notifications */
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -6,6 +6,11 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+// Required for Chromium installability: SW must handle fetch.
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
 });
 
 self.addEventListener('push', (event) => {
@@ -48,7 +53,8 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard/community/cinema';
+  const targetUrl =
+    (event.notification.data && event.notification.data.url) || '/dashboard/community/cinema';
   const absoluteUrl = targetUrl.startsWith('http')
     ? targetUrl
     : `${self.location.origin}${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;

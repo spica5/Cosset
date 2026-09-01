@@ -39,7 +39,7 @@ import {
   type CinemaCategory,
   type CinemaCategoryMeta,
 } from '../cinema-categories';
-import { CinemaHubTodayPanel } from '../cinema-hub-today-panel';
+import { CinemaHubTodayPanel, CinemaTodayDateLabel } from '../cinema-hub-today-panel';
 import { CinemaNotificationSettings } from '../cinema-notification-settings';
 import { CinemaReservationsTable } from '../cinema-reservations-table';
 import {
@@ -523,16 +523,19 @@ export function CinemaHubView() {
           <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
             <CinemaTheaterIntro
               category={classicCategory}
-              height={{ xs: 560, md: 620 }}
+              height={{ xs: 430, md: 510 }}
               bannerImage={`${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner/intro.png`}
               showEyebrow={false}
               showQuote={false}
               headline="Movies That Stay With You."
               subtitle="We watch not to escape life, but for life not to escape us."
+              top={<CinemaTodayDateLabel />}
               middle={
                 <CinemaHubTodayPanel
                   screenings={hubScreenings}
                   loading={hubScreeningsLoading}
+                  mode="rooms"
+                  showCalendar={false}
                 />
               }
               footer={

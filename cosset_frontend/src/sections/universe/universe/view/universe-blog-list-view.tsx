@@ -25,26 +25,25 @@ import { useGetBlogs } from 'src/actions/blog';
 import { useGetReactionSummary } from 'src/actions/reaction';
 import { recordActivityNotification } from 'src/actions/notification';
 
-import {
-  BLOG_CATEGORY_OPTIONS,
-  getBlogCategoryLabel,
-} from 'src/sections/dashboard/blog/blog-categories';
-
-import { useAuthContext } from 'src/auth/hooks';
+import { Iconify } from 'src/components/universe/iconify';
 
 import { useUniverseHomeSpaceAccess } from 'src/sections/universe/universe/view/use-universe-home-space-access';
+import {
+  getBlogCategoryLabel,
+  BLOG_CATEGORY_OPTIONS,
+} from 'src/sections/dashboard/blog/blog-categories';
 import { useDesignSpaceTheme, getDesignSpaceCardSx } from 'src/sections/universe/universe/landing/design-space-theme-context';
 import {
   getBlogContentFontSx,
   getBlogContentFontColor,
   isBlogContentFontPreset,
   getBlogContentAppearance,
+  normalizeBlogContentText,
   getBlogContentBackgroundSx,
   isBlogContentBackgroundPreset,
-  normalizeBlogContentText,
 } from 'src/sections/dashboard/blog/blog-content-style';
 
-import { Iconify } from 'src/components/universe/iconify';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -106,12 +105,10 @@ const normalizeCounterValue = (value: unknown): number => {
 
 type BlogReactionStatProps = {
   blogId: string | number;
-  totalViews?: number | null;
 };
 
-function BlogReactionStat({ blogId, totalViews }: BlogReactionStatProps) {
+function BlogReactionStat({ blogId }: BlogReactionStatProps) {
   const { reactionSummary } = useGetReactionSummary('blog', blogId);
-  const safeViews = normalizeCounterValue(totalViews);
   const safeReactions = normalizeCounterValue(reactionSummary?.totalCount);
 
   return (
@@ -414,7 +411,7 @@ export function UniverseBlogListView({ customerId }: Props) {
                           </Typography>
                         </Stack>
 
-                        <BlogReactionStat blogId={blog.id} totalViews={blog.totalViews} />
+                        <BlogReactionStat blogId={blog.id} />
 
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <Iconify width={16} icon="eva:clock-outline" sx={{ color: 'warning.main' }} />

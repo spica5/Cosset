@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { getUserById, updateUser } from '@/models/users';
+import { updateUser, getUserById } from '@/models/users';
 import { getCustomerBillingSummary } from '@/models/payments';
 import { ensureWallet, WALLET_CURRENCY } from '@/models/wallet';
 
@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
       return response('Invalid authorization token', STATUS.UNAUTHORIZED);
     }
 
-    const { password: _password, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete (safeUser as { password?: string }).password;
     const billing = await getCustomerBillingSummary(user.id);
     const wallet = await ensureWallet(user.id);
 
