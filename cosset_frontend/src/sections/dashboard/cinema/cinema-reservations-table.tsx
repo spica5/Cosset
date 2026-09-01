@@ -2,7 +2,7 @@
 
 import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -20,6 +20,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+
+import { getS3SignedUrl } from 'src/utils/helper';
 
 import {
   cancelCinemaReservation,
@@ -42,6 +44,77 @@ import {
 
 import type { CinemaCategoryMeta } from './cinema-categories';
 
+// ----------------------------------------------------------------------
+
+async function resolvePosterImage(posterImage?: string | null) {
+  const normalized = (posterImage || '').trim();
+  if (!normalized) return '';
+  if (
+    normalized.startsWith('http://') ||
+    normalized.startsWith('https://') ||
+    normalized.startsWith('/')
+  ) {
+    return normalized;
+  }
+  return (await getS3SignedUrl(normalized)) || normalized;
+}
+
+export function ReservationPosterThumb({
+  posterImage,
+  title,
+  accent,
+  width = 44,
+  height = 64,
+}: {
+  posterImage?: string | null;
+  title: string;
+  accent: string;
+  width?: number;
+  height?: number;
+}) {
+  const [posterUrl, setPosterUrl] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    resolvePosterImage(posterImage).then((url) => {
+      if (mounted) setPosterUrl(url);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [posterImage]);
+
+  return (
+    <Box
+      sx={{
+        width,
+        height,
+        flexShrink: 0,
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: '#17110D',
+        border: `1px solid ${accent}55`,
+      }}
+    >
+      {posterUrl ? (
+        <Box
+          component="img"
+          src={posterUrl}
+          alt={title}
+          sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          sx={{ width: 1, height: 1, color: 'rgba(255,255,255,0.35)' }}
+        >
+          <Iconify icon="solar:clapperboard-play-bold" width={18} />
+        </Stack>
+      )}
+    </Box>
+  );
+}
 
 // ----------------------------------------------------------------------
 
@@ -272,24 +345,34 @@ export function CinemaReservationsTable({
                       }
                     >
                       <TableCell sx={cellSx}>
-                        <Typography
-                          variant="subtitle2"
-                          sx={isBanner ? { color: CINEMA_CREAM } : undefined}
-                        >
-                          {reservation.filmTitle}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={
-                            isBanner
-                              ? { color: 'rgba(245,230,200,0.62)' }
-                              : { color: 'text.secondary' }
-                          }
-                        >
-                          {[reservation.filmDirector, reservation.filmYear]
-                            .filter(Boolean)
-                            .join(' · ') || 'Feature film'}
-                        </Typography>
+                        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                          <ReservationPosterThumb
+                            posterImage={reservation.filmPosterImage}
+                            title={reservation.filmTitle}
+                            accent={accent}
+                          />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="subtitle2"
+                              noWrap
+                              sx={isBanner ? { color: CINEMA_CREAM } : undefined}
+                            >
+                              {reservation.filmTitle}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={
+                                isBanner
+                                  ? { color: 'rgba(245,230,200,0.62)' }
+                                  : { color: 'text.secondary' }
+                              }
+                            >
+                              {[reservation.filmDirector, reservation.filmYear]
+                                .filter(Boolean)
+                                .join(' · ') || 'Feature film'}
+                            </Typography>
+                          </Box>
+                        </Stack>
                       </TableCell>
 
                       <TableCell sx={cellSx}>

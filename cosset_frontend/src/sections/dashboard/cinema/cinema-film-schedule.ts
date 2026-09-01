@@ -395,17 +395,57 @@ export const getLocalTimeLabelFromUtcInput = (value: string, now = new Date()) =
   return localLabel || null;
 };
 
-/** Format: `localtime(UTC time` e.g. `7:00 pm(2:00 am UTC)`. */
-const formatClockLabel = (clock: UtcClockTime, now = new Date()) => {
-  const occurrence = getDisplayOccurrenceForClock(clock, now);
-  const utcLabel = fDateTimeFromUtc(occurrence, formatStr.time);
-  const localLabel = dayjs(occurrence).format(formatStr.time);
+const formatStartInstantLabel = (start: Date) => {
+  const utcLabel = fDateTimeFromUtc(start, formatStr.time);
+  const localLabel = dayjs(start).format(formatStr.time);
 
   if (!utcLabel || utcLabel === 'Invalid time value' || !localLabel) {
     return null;
   }
 
   return `${localLabel}(${utcLabel} UTC)`;
+};
+
+/** Format: `localtime(UTC time` e.g. `7:00 pm(2:00 am UTC)`. */
+const formatClockLabel = (clock: UtcClockTime, now = new Date()) => {
+  const occurrence = getDisplayOccurrenceForClock(clock, now);
+  return formatStartInstantLabel(occurrence);
+};
+
+/** Nearest showtime to now: active screening first, otherwise next upcoming. */
+export const formatNearestScreeningTime = (
+  screening: CinemaWeeklyScreeningSchedule,
+  now = new Date(),
+  mediaDurationSeconds?: number | null,
+) => {
+  const active = getActiveScreeningStart(screening, now, mediaDurationSeconds);
+  if (active) {
+    return formatStartInstantLabel(active);
+  }
+
+  const next = getNextScreeningStart(screening, now);
+  if (next) {
+    return formatStartInstantLabel(next);
+  }
+
+  const starts = getScreeningStartInstants(screening, now);
+  if (!starts.length) {
+    return null;
+  }
+
+  const nowMs = now.getTime();
+  let nearest = starts[0];
+  let nearestDiff = Math.abs(nearest.getTime() - nowMs);
+
+  starts.forEach((start) => {
+    const diff = Math.abs(start.getTime() - nowMs);
+    if (diff < nearestDiff) {
+      nearest = start;
+      nearestDiff = diff;
+    }
+  });
+
+  return formatStartInstantLabel(nearest);
 };
 
 /** Human schedule lines (time only + weekly days — no one-off calendar date). */

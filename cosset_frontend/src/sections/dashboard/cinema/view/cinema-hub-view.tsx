@@ -6,6 +6,7 @@ import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-
 import { useMemo, useCallback, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -39,12 +40,15 @@ import {
   type CinemaCategory,
   type CinemaCategoryMeta,
 } from '../cinema-categories';
-import { CinemaHubTodayPanel, CinemaTodayDateLabel } from '../cinema-hub-today-panel';
 import { CinemaNotificationSettings } from '../cinema-notification-settings';
-import { CinemaReservationsTable } from '../cinema-reservations-table';
+import { CinemaReservationsTable, ReservationPosterThumb } from '../cinema-reservations-table';
 import {
   formatScreeningSchedule,
   getNextFilmScreening,
+  getNextScreeningStart,
+  formatNearestScreeningTime,
+  getScreeningShowStatus,
+  getCinemaFilmShowStatusLabel,
   isFilmOnActiveSchedule,
   filterScreeningsForViewer,
 } from '../cinema-film-schedule';
@@ -159,6 +163,29 @@ function CinemaCategoryRoom({
         return Number(b.id) - Number(a.id);
       });
   }, [films, isAdmin, screenings, screeningsLoading]);
+
+  const featuredFilm = useMemo(() => {
+    const now = new Date();
+
+    const ranked = scheduledFilms
+      .map((film) => {
+        const screening = getNextFilmScreening(film, now);
+        const status = screening ? getScreeningShowStatus(screening, now) : 'unscheduled';
+        return { film, screening, status };
+      })
+      .filter((item) => item.status === 'now' || item.status === 'upcoming')
+      .sort((a, b) => {
+        const rank = (status: typeof a.status) => (status === 'now' ? 0 : 1);
+        const rankDiff = rank(a.status) - rank(b.status);
+        if (rankDiff !== 0) return rankDiff;
+
+        const aStart = a.screening ? getNextScreeningStart(a.screening, now)?.getTime() ?? 0 : 0;
+        const bStart = b.screening ? getNextScreeningStart(b.screening, now)?.getTime() ?? 0 : 0;
+        return aStart - bStart;
+      });
+
+    return ranked[0] || null;
+  }, [scheduledFilms]);
 
   const universeUrl = catalogOwnerId
     ? `${paths.dashboard.community.cinema.view(category.id)}?ownerId=${encodeURIComponent(catalogOwnerId)}`
@@ -278,12 +305,12 @@ function CinemaCategoryRoom({
 
       <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
+          direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          alignItems={{ xs: 'stretch', md: 'center' }}
           justifyContent="space-between"
         >
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: { md: 1 } }}>
             <Box
               sx={{
                 width: 44,
@@ -340,24 +367,114 @@ function CinemaCategoryRoom({
             </Box>
           </Stack>
 
-          <Button
-            component={RouterLink}
-            href={universeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            size="small"
-            variant="contained"
-            endIcon={<Iconify icon="solar:play-bold" />}
-            sx={{
-              flexShrink: 0,
-              bgcolor: accent,
-              color: '#1A1208',
-              fontWeight: 800,
-              '&:hover': { bgcolor: accent, opacity: 0.92 },
-            }}
+          <Stack
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
+            justifyContent={{ xs: 'space-between', md: 'flex-end' }}
+            sx={{ flexShrink: 0, minWidth: 0, width: { xs: 1, md: 'auto' } }}
           >
-            Enter Cinema Room
-          </Button>
+            {featuredFilm ? (
+              <Stack
+                direction="row"
+                spacing={1.25}
+                alignItems="center"
+                sx={{
+                  minWidth: 0,
+                  maxWidth: { xs: 1, sm: 320 },
+                  flex: { xs: 1, md: 'none' },
+                  px: 1.25,
+                  py: 0.85,
+                  borderRadius: 1.5,
+                  border: `1px solid rgba(${category.accentRgb}, 0.35)`,
+                  bgcolor: `rgba(${category.accentRgb}, 0.08)`,
+                }}
+              >
+                <ReservationPosterThumb
+                  posterImage={featuredFilm.film.posterImage}
+                  title={featuredFilm.film.title}
+                  accent={accent}
+                  width={56}
+                  height={80}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Chip
+                    size="small"
+                    label={getCinemaFilmShowStatusLabel(featuredFilm.status) || 'Scheduled'}
+                    sx={{
+                      height: 20,
+                      mb: 0.5,
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      bgcolor:
+                        featuredFilm.status === 'now'
+                          ? accent
+                          : 'rgba(25,118,210,0.82)',
+                      color: featuredFilm.status === 'now' ? '#1A1208' : CINEMA_CREAM,
+                    }}
+                  />
+                  <Typography
+                    noWrap
+                    sx={{
+                      fontFamily: CINEMA_SERIF,
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      color: CINEMA_CREAM,
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {featuredFilm.film.title}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'rgba(245,230,200,0.68)', display: 'block' }}
+                  >
+                    {featuredFilm.film.year || category.shortTitle}
+                  </Typography>
+                  {featuredFilm.screening ? (
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      sx={{
+                        color: 'rgba(245,230,200,0.78)',
+                        display: 'block',
+                        mt: 0.35,
+                        lineHeight: 1.35,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {formatNearestScreeningTime(
+                        featuredFilm.screening,
+                        new Date(),
+                        featuredFilm.film.duration ?? null,
+                      ) || 'Scheduled screening'}
+                    </Typography>
+                  ) : null}
+                </Box>
+              </Stack>
+            ) : (
+              <Box sx={{ flex: 1 }} />
+            )}
+
+            <Button
+              component={RouterLink}
+              href={universeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="small"
+              variant="contained"
+              endIcon={<Iconify icon="solar:play-bold" />}
+              sx={{
+                flexShrink: 0,
+                bgcolor: accent,
+                color: '#1A1208',
+                fontWeight: 800,
+                '&:hover': { bgcolor: accent, opacity: 0.92 },
+              }}
+            >
+              Enter Cinema Room
+            </Button>
+          </Stack>
         </Stack>
 
         <CinemaReservationsTable
@@ -463,30 +580,6 @@ export function CinemaHubView() {
     CINEMA_CATEGORIES[0]?.id || 'classic',
   );
 
-  const { screenings: classicScreenings, screeningsLoading: classicLoading } =
-    useGetCinemaScreenings(null, 'classic', { publicOnly: true });
-  const { screenings: genreScreenings, screeningsLoading: genreLoading } = useGetCinemaScreenings(
-    null,
-    'genre',
-    { publicOnly: true },
-  );
-
-  const hubScreenings = useMemo(() => {
-    const merged = [...(classicScreenings || []), ...(genreScreenings || [])];
-    const seen = new Set<number>();
-
-    return merged.filter((screening) => {
-      const id = Number(screening.id);
-      if (!Number.isFinite(id) || seen.has(id)) {
-        return false;
-      }
-      seen.add(id);
-      return true;
-    });
-  }, [classicScreenings, genreScreenings]);
-
-  const hubScreeningsLoading = classicLoading || genreLoading;
-
   const activeCategory = useMemo(
     () => CINEMA_CATEGORIES.find((item) => item.id === activeCategoryId) || CINEMA_CATEGORIES[0],
     [activeCategoryId],
@@ -523,21 +616,12 @@ export function CinemaHubView() {
           <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
             <CinemaTheaterIntro
               category={classicCategory}
-              height={{ xs: 430, md: 510 }}
+              height={{ xs: 340, md: 420 }}
               bannerImage={`${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner/intro.png`}
               showEyebrow={false}
               showQuote={false}
               headline="Movies That Stay With You."
               subtitle="We watch not to escape life, but for life not to escape us."
-              top={<CinemaTodayDateLabel />}
-              middle={
-                <CinemaHubTodayPanel
-                  screenings={hubScreenings}
-                  loading={hubScreeningsLoading}
-                  mode="rooms"
-                  showCalendar={false}
-                />
-              }
               footer={
                 <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center' }}>
                   <Typography
