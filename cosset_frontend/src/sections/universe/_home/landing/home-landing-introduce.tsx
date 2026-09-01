@@ -187,36 +187,12 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     </Container>
   );
 
-  const renderTexts = (
-    <Container>
-      <Stack
-        spacing={3}
-        sx={{
-          maxWidth: 480,
-          mx: { xs: 'auto', md: 'unset' },
-          textAlign: { xs: 'center', md: 'unset' },
-        }}
-      >
-        <Typography variant="h2">Welcome to Cosset</Typography>
-
-        <Typography sx={{ color: 'text.secondary' }}>
-          A Place for Retreat -
-          Your personal sanctuary for memories, connections, and creativity. Store your precious
-          moments, connect with friends and neighbors, and explore a world of shared experiences.
-        </Typography>
-      </Stack>
-    </Container>
-  );
-
   const renderIntroVideo = (
     <Box
       sx={{
-        top: { xs: 16, sm: 24, md: 32, lg: 40 },
-        left: { xs: 16, sm: 24, md: 32, lg: 40 },
-        zIndex: 9,
-        position: 'absolute',
-        width: { xs: 'calc(100% - 32px)', sm: '48%', md: '40%' },
-        maxWidth: { xs: 1, md: 'none' },
+        width: 1,
+        maxWidth: { xs: 480, md: 'none' },
+        mx: { xs: 'auto', md: 0 },
         borderRadius: 2,
         overflow: 'hidden',
         bgcolor: 'common.black',
@@ -260,18 +236,44 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
     </Box>
   );
 
+  const renderHero = (
+    <Container>
+      <Box
+        display="grid"
+        alignItems="center"
+        gap={{ xs: 3, md: 4, lg: 6 }}
+        gridTemplateColumns={{ xs: '1fr', md: '1fr 1.1fr' }}
+      >
+        <Stack
+          spacing={3}
+          sx={{
+            maxWidth: 480,
+            mx: { xs: 'auto', md: 'unset' },
+            textAlign: { xs: 'center', md: 'unset' },
+          }}
+        >
+          <Typography variant="h2">Welcome to Cosset</Typography>
+
+          <Typography sx={{ color: 'text.secondary' }}>
+            A Place for Retreat -
+            Your personal sanctuary for memories, connections, and creativity. Store your precious
+            moments, connect with friends and neighbors, and explore a world of shared experiences.
+          </Typography>
+        </Stack>
+
+        {renderIntroVideo}
+      </Box>
+    </Container>
+  );
+
   const renderImage = (
     <Container
       sx={(theme) => ({
-        px: 0,
+        px: { xs: 2, sm: 0 },
         my: { xs: 4, md: 7 },
-        position: 'relative',
-        [theme.breakpoints.up('sm')]: { px: 0 },
         [theme.breakpoints.up('lg')]: { px: 3 },
       })}
     >
-      {renderIntroVideo}
-
       <Box
         sx={(theme) => ({
           position: 'relative',
@@ -325,7 +327,7 @@ export function HomeLandingIntroduce({ sx, ...other }: BoxProps) {
       }}
       {...other}
     >
-      {renderTexts}
+      {renderHero}
       {renderImage}
       {renderList}
     </Box>
