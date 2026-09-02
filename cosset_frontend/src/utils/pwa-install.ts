@@ -164,6 +164,8 @@ async function hasActiveServiceWorker() {
 async function inferInstalledWithoutPrompt() {
   if (typeof window === 'undefined') return false;
   if (deferredPrompt || !window.isSecureContext) return false;
+  // Never infer on iOS — install is Add to Home Screen only.
+  if (isIosDevice()) return false;
   if (!isChromiumBrowser() || !isBrowserTabContext()) return false;
 
   return hasActiveServiceWorker();
@@ -419,27 +421,34 @@ export async function getPwaInstallUnavailableReason() {
   }
 
   if (await checkPwaAlreadyInstalled({ allowInference: true })) {
-    return 'Cosset is already installed. Use Open in app in Chrome’s address bar to launch it.';
+    return getPwaInstalledMessage();
   }
 
-  if (isIosSafari()) {
-    return 'Safari cannot trigger install automatically. Tap Share, then Add to Home Screen.';
+  if (isIosDevice()) {
+    return 'On iPhone, tap Share, then Add to Home Screen to install Cosset.';
   }
 
   return 'Install is not ready yet. Browse Cosset for a few seconds, then try again — or use the install icon in Chrome’s address bar.';
 }
 
-export function isIosSafari() {
+/** All iOS browsers (Safari, Chrome, Firefox, Edge) use WebKit and lack beforeinstallprompt. */
+export function isIosDevice() {
   if (typeof window === 'undefined') return false;
   const ua = window.navigator.userAgent;
-  const iOS =
+  return (
     /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const webkit = /WebKit/.test(ua);
-  const chromeOrCriOS = /CriOS|Chrome|Firefox|EdgiOS/.test(ua);
-  return iOS && webkit && !chromeOrCriOS;
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
+/** @deprecated Prefer isIosDevice — every iOS browser needs Add to Home Screen help. */
+export function isIosSafari() {
+  return isIosDevice();
 }
 
 export function getPwaInstalledMessage() {
+  if (isIosDevice()) {
+    return 'Cosset is already on your Home Screen. Open it from there.';
+  }
   return 'Cosset is already installed. Use Open in app in Chrome’s address bar to launch it.';
 }

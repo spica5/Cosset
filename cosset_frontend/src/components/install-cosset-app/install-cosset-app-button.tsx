@@ -19,7 +19,7 @@ import {
   getPwaInstallState,
   getPwaInstalledMessage,
   getPwaInstallUnavailableReason,
-  isIosSafari,
+  isIosDevice,
   promptInstallCossetApp,
   refreshPwaInstallState,
   subscribePwaInstallState,
@@ -68,15 +68,22 @@ export function InstallCossetAppButton({
   }, []);
 
   const handleInstall = useCallback(async () => {
+    // iPhone/iPad: no programmatic install — always show Add to Home Screen steps.
+    if (isIosDevice()) {
+      if (await checkPwaAlreadyInstalled()) {
+        setInstalled(true);
+        setCanInstall(false);
+        toast.success(getPwaInstalledMessage());
+        return;
+      }
+      setIosHelpOpen(true);
+      return;
+    }
+
     if (await checkPwaAlreadyInstalled({ allowInference: true })) {
       setInstalled(true);
       setCanInstall(false);
       toast.success(getPwaInstalledMessage());
-      return;
-    }
-
-    if (isIosSafari()) {
-      setIosHelpOpen(true);
       return;
     }
 
@@ -187,12 +194,16 @@ export function InstallCossetAppButton({
         <DialogTitle>Install Cosset on iPhone</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 1.5 }}>
-            Safari does not allow websites to trigger install automatically. Add Cosset like this:
+            iPhone cannot install Cosset with one tap. Add it to your Home Screen like this:
           </Typography>
-          <Typography variant="body2" component="ol" sx={{ pl: 2.5, m: 0 }}>
-            <li>Tap the Share button</li>
-            <li>Choose Add to Home Screen</li>
+          <Typography variant="body2" component="ol" sx={{ pl: 2.5, m: 0, mb: 1.5 }}>
+            <li>Tap the Share button (square with an arrow)</li>
+            <li>Scroll and choose Add to Home Screen</li>
             <li>Tap Add</li>
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Works best in Safari. In Chrome on iPhone, open Share from the menu, then Add to Home
+            Screen — or open cosset.global in Safari and tap Install again.
           </Typography>
         </DialogContent>
         <DialogActions>
