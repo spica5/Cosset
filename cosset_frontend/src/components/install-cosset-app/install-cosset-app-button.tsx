@@ -16,11 +16,12 @@ import DialogActions from '@mui/material/DialogActions';
 
 import {
   getPwaInstallState,
+  getPwaInstallUnavailableReason,
   isIosSafari,
   promptInstallCossetApp,
   subscribePwaInstallState,
+  waitForInstallPrompt,
 } from 'src/utils/pwa-install';
-import { registerCossetServiceWorker } from 'src/utils/web-push-client';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -52,8 +53,6 @@ export function InstallCossetAppButton({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    registerCossetServiceWorker().catch(() => undefined);
-
     const sync = () => {
       const state = getPwaInstallState();
       setCanInstall(state.canInstall);
@@ -77,6 +76,13 @@ export function InstallCossetAppButton({
 
     try {
       setBusy(true);
+
+      const ready = await waitForInstallPrompt({ timeoutMs: 12000 });
+      if (!ready) {
+        toast.error(getPwaInstallUnavailableReason());
+        return;
+      }
+
       const outcome = await promptInstallCossetApp();
 
       if (outcome === 'accepted') {
@@ -91,26 +97,7 @@ export function InstallCossetAppButton({
         return;
       }
 
-      // Prompt not ready yet — wait briefly for beforeinstallprompt after SW is ready.
-      await registerCossetServiceWorker().catch(() => undefined);
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const retry = await promptInstallCossetApp();
-
-      if (retry === 'accepted') {
-        setInstalled(true);
-        setCanInstall(false);
-        toast.success('Cosset app installed');
-        return;
-      }
-
-      if (retry === 'dismissed') {
-        toast.info('Install cancelled');
-        return;
-      }
-
-      toast.error(
-        'Direct install is not available in this browser yet. Use Chrome/Edge on HTTPS, or open the browser install icon in the address bar.',
-      );
+      toast.error(getPwaInstallUnavailableReason());
     } finally {
       setBusy(false);
     }
@@ -161,7 +148,7 @@ export function InstallCossetAppButton({
         ...sx,
       }}
     >
-      {installed ? 'Cosset installed' : busy ? 'Installing…' : label}
+      {installed ? 'Cosset installed' : busy ? 'Preparing install…' : label}
     </Button>
   );
 

@@ -14,7 +14,7 @@ import { ThemeProvider } from 'src/theme/dashboard/theme-provider';
 import { Snackbar } from 'src/components/dashboard/snackbar';
 import { ProgressBar } from 'src/components/dashboard/progress-bar';
 import { MotionLazy } from 'src/components/dashboard/animate/motion-lazy';
-import { InstallCossetAppBootstrap } from 'src/components/install-cosset-app';
+import { InstallCossetAppBootstrap, PwaInstallHeadScript } from 'src/components/install-cosset-app';
 import { SettingsDrawer, defaultSettings, SettingsProvider } from 'src/components/dashboard/settings';
 
 import { AuthProvider } from 'src/auth/context/jwt';
@@ -55,6 +55,7 @@ export default async function RootLayout({ children }: Props) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <PwaInstallHeadScript />
         <InitColorSchemeScript
           defaultMode={schemeConfig.defaultMode}
           modeStorageKey={schemeConfig.modeStorageKey}
