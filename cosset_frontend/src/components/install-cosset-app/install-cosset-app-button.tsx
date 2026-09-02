@@ -17,6 +17,7 @@ import DialogActions from '@mui/material/DialogActions';
 import {
   checkPwaAlreadyInstalled,
   getPwaInstallState,
+  getPwaInstalledMessage,
   getPwaInstallUnavailableReason,
   isIosSafari,
   promptInstallCossetApp,
@@ -67,10 +68,10 @@ export function InstallCossetAppButton({
   }, []);
 
   const handleInstall = useCallback(async () => {
-    if (await checkPwaAlreadyInstalled()) {
+    if (await checkPwaAlreadyInstalled({ allowInference: true })) {
       setInstalled(true);
       setCanInstall(false);
-      toast.success('Cosset is already installed on this device.');
+      toast.success(getPwaInstalledMessage());
       return;
     }
 
@@ -82,15 +83,22 @@ export function InstallCossetAppButton({
     try {
       setBusy(true);
 
-      const status = await waitForInstallPrompt({ timeoutMs: 12000 });
+      const status = await waitForInstallPrompt({ timeoutMs: 8000 });
       if (status === 'installed') {
         setInstalled(true);
         setCanInstall(false);
-        toast.success('Cosset is already installed on this device.');
+        toast.success(getPwaInstalledMessage());
         return;
       }
 
       if (status !== 'ready') {
+        if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+          setInstalled(true);
+          setCanInstall(false);
+          toast.success(getPwaInstalledMessage());
+          return;
+        }
+
         toast.error(await getPwaInstallUnavailableReason());
         return;
       }
@@ -109,11 +117,18 @@ export function InstallCossetAppButton({
         return;
       }
 
+      if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+        setInstalled(true);
+        setCanInstall(false);
+        toast.success(getPwaInstalledMessage());
+        return;
+      }
+
       toast.error(await getPwaInstallUnavailableReason());
     } finally {
       setBusy(false);
     }
-  }, [installed]);
+  }, []);
 
   if (installed && hideWhenUnavailable) {
     return null;

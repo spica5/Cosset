@@ -26,6 +26,11 @@
     notify();
   }
 
+  function isChromium() {
+    var ua = navigator.userAgent;
+    return /Chrome|Edg\//.test(ua) && !/OPR|Opera|Brave/i.test(ua);
+  }
+
   function detectStandaloneInstalled() {
     var modes = ['standalone', 'minimal-ui', 'fullscreen'];
     var standalone = modes.some(function (mode) {
@@ -39,11 +44,20 @@
     try {
       if (localStorage.getItem(STORAGE_KEY) === '1') {
         state.installed = true;
+        notify();
         return true;
       }
     } catch (e) {}
 
     return false;
+  }
+
+  function inferInstalledWithoutPrompt() {
+    if (state.deferredPrompt || !window.isSecureContext) return false;
+    if (!isChromium()) return false;
+    if (!window.matchMedia || !window.matchMedia('(display-mode: browser)').matches) return false;
+    if (!('serviceWorker' in navigator)) return false;
+    return Boolean(navigator.serviceWorker.controller);
   }
 
   detectStandaloneInstalled();
@@ -61,6 +75,7 @@
 
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();
+    state.installed = false;
     state.deferredPrompt = event;
     notify();
   });
@@ -71,5 +86,14 @@
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+
+    navigator.serviceWorker.ready
+      .then(function () {
+        if (state.installed || state.deferredPrompt) return;
+        if (inferInstalledWithoutPrompt()) {
+          markInstalled();
+        }
+      })
+      .catch(function () {});
   }
 })();

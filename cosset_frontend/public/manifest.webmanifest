@@ -4,7 +4,7 @@
   "description": "A place to pause, breathe, and belong — get notified about friends and Cosset cinema.",
   "start_url": "/home/",
   "scope": "/",
-  "id": "/",
+  "id": "/home/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0B0B0F",
@@ -34,5 +34,12 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "/manifest.webmanifest"
+    }
+  ],
+  "prefer_related_applications": false
 }

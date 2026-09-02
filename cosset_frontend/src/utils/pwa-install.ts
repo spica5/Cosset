@@ -94,6 +94,17 @@ export function getStandaloneInstalled() {
   return Boolean(displayModeInstalled || iosStandalone);
 }
 
+function isChromiumBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /Chrome|Edg\//.test(ua) && !/OPR|Opera|Brave/i.test(ua);
+}
+
+function isBrowserTabContext() {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: browser)')?.matches ?? true;
+}
+
 function getInstalledRelatedAppsApi() {
   if (typeof navigator === 'undefined') return undefined;
 
@@ -104,24 +115,63 @@ function getInstalledRelatedAppsApi() {
   return getInstalledRelatedApps;
 }
 
+function isSameOriginWebApp(app: InstalledRelatedWebApp) {
+  if (app.platform !== 'webapp') return false;
+
+  const origin = window.location.origin;
+  const { url, id } = app;
+  const candidate = url || id || '';
+
+  if (!candidate) return true;
+
+  try {
+    return new URL(candidate, origin).origin === origin;
+  } catch {
+    return candidate.includes(origin.replace(/^https?:\/\//, ''));
+  }
+}
+
 async function detectInstalledRelatedApp() {
   if (typeof window === 'undefined') return false;
 
   const getInstalledRelatedApps = getInstalledRelatedAppsApi();
-
   if (!getInstalledRelatedApps) {
     return false;
   }
 
   try {
     const apps = await getInstalledRelatedApps.call(navigator);
-    return apps.some((app) => app.platform === 'webapp');
+    return apps.some(isSameOriginWebApp);
   } catch {
     return false;
   }
 }
 
-export async function checkPwaAlreadyInstalled() {
+async function hasActiveServiceWorker() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return false;
+  }
+
+  const registration = await navigator.serviceWorker.ready.catch(() => null);
+  return Boolean(registration?.active);
+}
+
+/**
+ * Chrome suppresses beforeinstallprompt when the PWA is already installed and
+ * shows "Open in app" in the address bar instead. Legacy installs may not be
+ * reported by getInstalledRelatedApps when manifest ids differ.
+ */
+async function inferInstalledWithoutPrompt() {
+  if (typeof window === 'undefined') return false;
+  if (deferredPrompt || !window.isSecureContext) return false;
+  if (!isChromiumBrowser() || !isBrowserTabContext()) return false;
+
+  return hasActiveServiceWorker();
+}
+
+export async function checkPwaAlreadyInstalled(options?: { allowInference?: boolean }) {
+  const allowInference = options?.allowInference ?? false;
+
   if (installed || getStandaloneInstalled()) {
     if (!installed) {
       markInstalled();
@@ -130,30 +180,20 @@ export async function checkPwaAlreadyInstalled() {
     return true;
   }
 
-  const getInstalledRelatedApps = getInstalledRelatedAppsApi();
-
-  if (getInstalledRelatedApps) {
-    const relatedInstalled = await detectInstalledRelatedApp();
-    if (relatedInstalled) {
-      markInstalled();
-      notify();
-      return true;
-    }
-
-    if (isInstalledLocally()) {
-      try {
-        localStorage.removeItem(INSTALLED_STORAGE_KEY);
-      } catch {
-        // ignore storage errors
-      }
-      installed = false;
-      notify();
-    }
-
-    return false;
+  if (isInstalledLocally()) {
+    markInstalled();
+    notify();
+    return true;
   }
 
-  if (isInstalledLocally()) {
+  const relatedInstalled = await detectInstalledRelatedApp();
+  if (relatedInstalled) {
+    markInstalled();
+    notify();
+    return true;
+  }
+
+  if (allowInference && (await inferInstalledWithoutPrompt())) {
     markInstalled();
     notify();
     return true;
@@ -172,6 +212,20 @@ export async function refreshPwaInstallState() {
   await installedCheckPromise;
 }
 
+function scheduleInstalledInference() {
+  if (typeof window === 'undefined') return;
+
+  window.setTimeout(() => {
+    if (deferredPrompt || installed) return;
+
+    checkPwaAlreadyInstalled({ allowInference: true })
+      .then((isInstalled) => {
+        if (isInstalled) notify();
+      })
+      .catch(() => undefined);
+  }, 4000);
+}
+
 export function ensurePwaInstallListeners() {
   if (typeof window === 'undefined' || listening) {
     return;
@@ -183,10 +237,12 @@ export function ensurePwaInstallListeners() {
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
+    installed = false;
     deferredPrompt = event as BeforeInstallPromptEvent;
 
     const global = getGlobalState();
     if (global) {
+      global.installed = false;
       global.deferredPrompt = deferredPrompt;
     }
 
@@ -204,6 +260,7 @@ export function ensurePwaInstallListeners() {
   });
 
   refreshPwaInstallState().catch(() => undefined);
+  scheduleInstalledInference();
 }
 
 export function subscribePwaInstallState(listener: Listener) {
@@ -228,7 +285,7 @@ export function getPwaInstallState() {
 export async function waitForInstallPrompt(
   options?: { timeoutMs?: number },
 ): Promise<'ready' | 'installed' | 'unavailable'> {
-  const timeoutMs = options?.timeoutMs ?? 12000;
+  const timeoutMs = options?.timeoutMs ?? 8000;
 
   ensurePwaInstallListeners();
   syncFromGlobal();
@@ -251,10 +308,14 @@ export async function waitForInstallPrompt(
     return 'ready';
   }
 
+  if (await checkPwaAlreadyInstalled()) {
+    return 'installed';
+  }
+
   return new Promise((resolve) => {
     let settled = false;
 
-    const finish = async (value: 'ready' | 'installed' | 'unavailable') => {
+    const finish = (value: 'ready' | 'installed' | 'unavailable') => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -287,7 +348,7 @@ export async function waitForInstallPrompt(
         await check();
 
         if (Date.now() >= deadline) {
-          if (await checkPwaAlreadyInstalled()) {
+          if (await checkPwaAlreadyInstalled({ allowInference: true })) {
             finish('installed');
             return;
           }
@@ -311,7 +372,7 @@ export async function promptInstallCossetApp(): Promise<'accepted' | 'dismissed'
   ensurePwaInstallListeners();
   syncFromGlobal();
 
-  if (await checkPwaAlreadyInstalled()) {
+  if (await checkPwaAlreadyInstalled({ allowInference: true })) {
     return 'accepted';
   }
 
@@ -357,8 +418,8 @@ export async function getPwaInstallUnavailableReason() {
     return 'Install requires HTTPS (or localhost). Open Cosset on a secure connection, then try again.';
   }
 
-  if (await checkPwaAlreadyInstalled()) {
-    return 'Cosset is already installed on this device.';
+  if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+    return 'Cosset is already installed. Use Open in app in Chrome’s address bar to launch it.';
   }
 
   if (isIosSafari()) {
@@ -377,4 +438,8 @@ export function isIosSafari() {
   const webkit = /WebKit/.test(ua);
   const chromeOrCriOS = /CriOS|Chrome|Firefox|EdgiOS/.test(ua);
   return iOS && webkit && !chromeOrCriOS;
+}
+
+export function getPwaInstalledMessage() {
+  return 'Cosset is already installed. Use Open in app in Chrome’s address bar to launch it.';
 }
