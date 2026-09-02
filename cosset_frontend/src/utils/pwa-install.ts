@@ -13,12 +13,20 @@ type GlobalPwaInstallState = {
   initialized?: boolean;
 };
 
+type InstalledRelatedWebApp = {
+  platform: string;
+  url?: string;
+  id?: string;
+};
+
 const GLOBAL_KEY = '__cossetPwaInstall';
 const CHANGE_EVENT = 'cosset-pwa-install-change';
+const INSTALLED_STORAGE_KEY = 'cosset-pwa-installed';
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let installed = false;
 let listening = false;
+let installedCheckPromise: Promise<boolean> | null = null;
 const listeners = new Set<Listener>();
 
 function getGlobalState(): GlobalPwaInstallState | null {
@@ -26,14 +34,33 @@ function getGlobalState(): GlobalPwaInstallState | null {
   return (window as Window & { [GLOBAL_KEY]?: GlobalPwaInstallState })[GLOBAL_KEY] ?? null;
 }
 
+function markInstalled() {
+  installed = true;
+  deferredPrompt = null;
+
+  const global = getGlobalState();
+  if (global) {
+    global.installed = true;
+    global.deferredPrompt = null;
+  }
+
+  try {
+    localStorage.setItem(INSTALLED_STORAGE_KEY, '1');
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function syncFromGlobal() {
   const global = getGlobalState();
   if (!global) return;
 
-  if (global.deferredPrompt) {
-    deferredPrompt = global.deferredPrompt;
+  const { deferredPrompt: globalDeferredPrompt, installed: globalInstalled } = global;
+
+  if (globalDeferredPrompt) {
+    deferredPrompt = globalDeferredPrompt;
   }
-  if (global.installed) {
+  if (globalInstalled) {
     installed = true;
     deferredPrompt = null;
   }
@@ -43,13 +70,106 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
-function getStandaloneInstalled() {
+function isInstalledLocally() {
   if (typeof window === 'undefined') return false;
-  const media = window.matchMedia?.('(display-mode: standalone)')?.matches;
+
+  try {
+    return localStorage.getItem(INSTALLED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function getStandaloneInstalled() {
+  if (typeof window === 'undefined') return false;
+
+  const displayModes = ['standalone', 'minimal-ui', 'fullscreen'];
+  const displayModeInstalled = displayModes.some(
+    (mode) => window.matchMedia?.(`(display-mode: ${mode})`)?.matches,
+  );
   const iosStandalone = Boolean(
     (window.navigator as Navigator & { standalone?: boolean }).standalone,
   );
-  return Boolean(media || iosStandalone);
+
+  return Boolean(displayModeInstalled || iosStandalone);
+}
+
+function getInstalledRelatedAppsApi() {
+  if (typeof navigator === 'undefined') return undefined;
+
+  const { getInstalledRelatedApps } = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<InstalledRelatedWebApp[]>;
+  };
+
+  return getInstalledRelatedApps;
+}
+
+async function detectInstalledRelatedApp() {
+  if (typeof window === 'undefined') return false;
+
+  const getInstalledRelatedApps = getInstalledRelatedAppsApi();
+
+  if (!getInstalledRelatedApps) {
+    return false;
+  }
+
+  try {
+    const apps = await getInstalledRelatedApps.call(navigator);
+    return apps.some((app) => app.platform === 'webapp');
+  } catch {
+    return false;
+  }
+}
+
+export async function checkPwaAlreadyInstalled() {
+  if (installed || getStandaloneInstalled()) {
+    if (!installed) {
+      markInstalled();
+      notify();
+    }
+    return true;
+  }
+
+  const getInstalledRelatedApps = getInstalledRelatedAppsApi();
+
+  if (getInstalledRelatedApps) {
+    const relatedInstalled = await detectInstalledRelatedApp();
+    if (relatedInstalled) {
+      markInstalled();
+      notify();
+      return true;
+    }
+
+    if (isInstalledLocally()) {
+      try {
+        localStorage.removeItem(INSTALLED_STORAGE_KEY);
+      } catch {
+        // ignore storage errors
+      }
+      installed = false;
+      notify();
+    }
+
+    return false;
+  }
+
+  if (isInstalledLocally()) {
+    markInstalled();
+    notify();
+    return true;
+  }
+
+  return false;
+}
+
+export async function refreshPwaInstallState() {
+  if (!installedCheckPromise) {
+    installedCheckPromise = checkPwaAlreadyInstalled().finally(() => {
+      installedCheckPromise = null;
+    });
+  }
+
+  await installedCheckPromise;
 }
 
 export function ensurePwaInstallListeners() {
@@ -58,7 +178,7 @@ export function ensurePwaInstallListeners() {
   }
 
   listening = true;
-  installed = getStandaloneInstalled();
+  installed = getStandaloneInstalled() || isInstalledLocally();
   syncFromGlobal();
 
   window.addEventListener('beforeinstallprompt', (event) => {
@@ -74,15 +194,7 @@ export function ensurePwaInstallListeners() {
   });
 
   window.addEventListener('appinstalled', () => {
-    installed = true;
-    deferredPrompt = null;
-
-    const global = getGlobalState();
-    if (global) {
-      global.installed = true;
-      global.deferredPrompt = null;
-    }
-
+    markInstalled();
     notify();
   });
 
@@ -90,6 +202,8 @@ export function ensurePwaInstallListeners() {
     syncFromGlobal();
     notify();
   });
+
+  refreshPwaInstallState().catch(() => undefined);
 }
 
 export function subscribePwaInstallState(listener: Listener) {
@@ -106,24 +220,25 @@ export function getPwaInstallState() {
 
   return {
     canInstall: Boolean(deferredPrompt) && !installed,
-    installed: installed || getStandaloneInstalled(),
+    installed: installed || getStandaloneInstalled() || isInstalledLocally(),
     hasPrompt: Boolean(deferredPrompt),
   };
 }
 
-export async function waitForInstallPrompt(options?: { timeoutMs?: number }): Promise<boolean> {
+export async function waitForInstallPrompt(
+  options?: { timeoutMs?: number },
+): Promise<'ready' | 'installed' | 'unavailable'> {
   const timeoutMs = options?.timeoutMs ?? 12000;
 
   ensurePwaInstallListeners();
   syncFromGlobal();
 
-  if (installed || getStandaloneInstalled()) {
-    installed = true;
-    return false;
+  if (await checkPwaAlreadyInstalled()) {
+    return 'installed';
   }
 
   if (deferredPrompt) {
-    return true;
+    return 'ready';
   }
 
   await registerCossetServiceWorker().catch(() => null);
@@ -133,37 +248,53 @@ export async function waitForInstallPrompt(options?: { timeoutMs?: number }): Pr
 
   syncFromGlobal();
   if (deferredPrompt) {
-    return true;
+    return 'ready';
   }
 
   return new Promise((resolve) => {
     let settled = false;
 
-    const finish = (value: boolean) => {
+    const finish = async (value: 'ready' | 'installed' | 'unavailable') => {
       if (settled) return;
       settled = true;
       cleanup();
       resolve(value);
     };
 
-    const check = () => {
+    const check = async () => {
       syncFromGlobal();
-      if (deferredPrompt && !installed) {
-        finish(true);
+
+      if (await checkPwaAlreadyInstalled()) {
+        finish('installed');
+        return;
+      }
+
+      if (deferredPrompt) {
+        finish('ready');
       }
     };
 
-    const onChange = () => check();
+    const onChange = () => {
+      check().catch(() => undefined);
+    };
 
     window.addEventListener(CHANGE_EVENT, onChange);
     const unsubscribe = subscribePwaInstallState(onChange);
 
     const deadline = Date.now() + timeoutMs;
     const timer = window.setInterval(() => {
-      check();
-      if (Date.now() >= deadline) {
-        finish(Boolean(deferredPrompt) && !installed);
-      }
+      (async () => {
+        await check();
+
+        if (Date.now() >= deadline) {
+          if (await checkPwaAlreadyInstalled()) {
+            finish('installed');
+            return;
+          }
+
+          finish(deferredPrompt ? 'ready' : 'unavailable');
+        }
+      })().catch(() => undefined);
     }, 250);
 
     const cleanup = () => {
@@ -172,7 +303,7 @@ export async function waitForInstallPrompt(options?: { timeoutMs?: number }): Pr
       unsubscribe();
     };
 
-    check();
+    check().catch(() => undefined);
   });
 }
 
@@ -180,8 +311,7 @@ export async function promptInstallCossetApp(): Promise<'accepted' | 'dismissed'
   ensurePwaInstallListeners();
   syncFromGlobal();
 
-  if (installed || getStandaloneInstalled()) {
-    installed = true;
+  if (await checkPwaAlreadyInstalled()) {
     return 'accepted';
   }
 
@@ -201,10 +331,7 @@ export async function promptInstallCossetApp(): Promise<'accepted' | 'dismissed'
     }
 
     if (choice.outcome === 'accepted') {
-      installed = true;
-      if (global) {
-        global.installed = true;
-      }
+      markInstalled();
     }
     notify();
     return choice.outcome;
@@ -221,7 +348,7 @@ export async function promptInstallCossetApp(): Promise<'accepted' | 'dismissed'
   }
 }
 
-export function getPwaInstallUnavailableReason(): string {
+export async function getPwaInstallUnavailableReason() {
   if (typeof window === 'undefined') {
     return 'Open Cosset in your browser to install the app.';
   }
@@ -230,7 +357,7 @@ export function getPwaInstallUnavailableReason(): string {
     return 'Install requires HTTPS (or localhost). Open Cosset on a secure connection, then try again.';
   }
 
-  if (getStandaloneInstalled()) {
+  if (await checkPwaAlreadyInstalled()) {
     return 'Cosset is already installed on this device.';
   }
 
