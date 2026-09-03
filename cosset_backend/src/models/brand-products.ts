@@ -5,6 +5,8 @@ import { ensureBrandCategoriesTable } from './brand-categories';
 
 const TABLE_NAME = 'brand_products';
 
+export type BrandProductStatus = 'available' | 'sold_out' | 'wishlist';
+
 export interface BrandProduct {
   id: number;
   storeId: number;
@@ -17,11 +19,33 @@ export interface BrandProduct {
   imageUrl?: string | null;
   /** All product gallery images */
   images: string[];
+  status: BrandProductStatus;
+  /** Derived from status === 'available' for older clients */
   isAvailable: boolean;
   sortOrder: number;
   createdAt?: Date | null;
   updatedAt?: Date | null;
   categoryName?: string | null;
+}
+
+export function normalizeBrandProductStatus(
+  value: unknown,
+  fallbackAvailable = true,
+): BrandProductStatus {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+
+  if (raw === 'available' || raw === 'sold_out' || raw === 'wishlist') {
+    return raw;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'available' : 'sold_out';
+  }
+
+  return fallbackAvailable ? 'available' : 'sold_out';
 }
 
 export function parseBrandProductImages(raw: string | null | undefined): string[] {
@@ -48,7 +72,10 @@ export function parseBrandProductImages(raw: string | null | undefined): string[
   return [trimmed];
 }
 
-export function serializeBrandProductImages(images?: string[] | null, imageUrl?: string | null): string | null {
+export function serializeBrandProductImages(
+  images?: string[] | null,
+  imageUrl?: string | null,
+): string | null {
   const fromList = (images || []).map((item) => String(item || '').trim()).filter(Boolean);
   if (fromList.length) {
     return JSON.stringify(fromList);
@@ -58,12 +85,17 @@ export function serializeBrandProductImages(images?: string[] | null, imageUrl?:
   return single || null;
 }
 
-const mapBrandProductRow = (row: BrandProduct & { imageUrl?: string | null }): BrandProduct => {
+const mapBrandProductRow = (
+  row: BrandProduct & { imageUrl?: string | null; status?: string | null },
+): BrandProduct => {
   const images = parseBrandProductImages(row.imageUrl);
+  const status = normalizeBrandProductStatus(row.status, row.isAvailable !== false);
   return {
     ...row,
     images,
     imageUrl: images[0] || null,
+    status,
+    isAvailable: status === 'available',
   };
 };
 
@@ -86,10 +118,28 @@ export const ensureBrandProductsTable = async (): Promise<void> => {
             currency VARCHAR(12) NULL DEFAULT 'USD',
             image_url TEXT NULL,
             is_available BOOLEAN NOT NULL DEFAULT TRUE,
+            status VARCHAR(20) NOT NULL DEFAULT 'available',
             sort_order INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
+        `,
+      );
+
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'available'`,
+      );
+
+      await executeQuery(
+        `
+          UPDATE ${TABLE_NAME}
+          SET status = CASE
+            WHEN COALESCE(is_available, TRUE) = FALSE THEN 'sold_out'
+            ELSE 'available'
+          END
+          WHERE status IS NULL
+             OR TRIM(status) = ''
+             OR status NOT IN ('available', 'sold_out', 'wishlist')
         `,
       );
 
@@ -117,6 +167,7 @@ const PRODUCT_SELECT = `
   p.price,
   p.currency,
   p.image_url as "imageUrl",
+  COALESCE(NULLIF(TRIM(p.status), ''), CASE WHEN p.is_available THEN 'available' ELSE 'sold_out' END) as "status",
   p.is_available as "isAvailable",
   p.sort_order::int as "sortOrder",
   p.created_at as "createdAt",
@@ -139,8 +190,9 @@ export async function getBrandProductsByStore(
       categoryFilter = `AND p.category_id = $${params.length}`;
     }
 
-    return (await queryMany<BrandProduct>(
-      `
+    return (
+      await queryMany<BrandProduct>(
+        `
         SELECT ${PRODUCT_SELECT}
         FROM ${TABLE_NAME} p
         LEFT JOIN brand_categories c ON c.id = p.category_id
@@ -148,8 +200,9 @@ export async function getBrandProductsByStore(
           ${categoryFilter}
         ORDER BY p.sort_order ASC, p.id ASC
       `,
-      params,
-    )).map(mapBrandProductRow);
+        params,
+      )
+    ).map(mapBrandProductRow);
   } catch (error) {
     if (error instanceof DatabaseError) {
       throw new DatabaseError({
@@ -199,6 +252,7 @@ export async function createBrandProduct(input: {
   currency?: string | null;
   imageUrl?: string | null;
   images?: string[] | null;
+  status?: BrandProductStatus | string | null;
   isAvailable?: boolean;
   sortOrder?: number;
 }): Promise<BrandProduct> {
@@ -206,6 +260,10 @@ export async function createBrandProduct(input: {
     await ensureBrandProductsTable();
 
     const imagePayload = serializeBrandProductImages(input.images, input.imageUrl);
+    const status = normalizeBrandProductStatus(
+      input.status ?? input.isAvailable,
+      input.isAvailable !== false,
+    );
 
     const created = await queryOne<BrandProduct>(
       `
@@ -218,11 +276,12 @@ export async function createBrandProduct(input: {
           currency,
           image_url,
           is_available,
+          status,
           sort_order,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
         RETURNING
           id::int as "id",
           store_id::int as "storeId",
@@ -232,6 +291,7 @@ export async function createBrandProduct(input: {
           price,
           currency,
           image_url as "imageUrl",
+          status,
           is_available as "isAvailable",
           sort_order::int as "sortOrder",
           created_at as "createdAt",
@@ -245,7 +305,8 @@ export async function createBrandProduct(input: {
         input.price?.trim() || null,
         input.currency?.trim() || 'USD',
         imagePayload,
-        input.isAvailable !== false,
+        status === 'available',
+        status,
         input.sortOrder ?? 0,
       ],
     );
@@ -279,6 +340,7 @@ export async function updateBrandProduct(
     currency: string | null;
     imageUrl: string | null;
     images: string[] | null;
+    status: BrandProductStatus | string | null;
     isAvailable: boolean;
     sortOrder: number;
   }>,
@@ -319,9 +381,15 @@ export async function updateBrandProduct(
       fields.push(`image_url = $${nextParam()}`);
       values.push(serializeBrandProductImages(updates.images, updates.imageUrl));
     }
-    if (updates.isAvailable !== undefined) {
+    if (updates.status !== undefined || updates.isAvailable !== undefined) {
+      const status = normalizeBrandProductStatus(
+        updates.status ?? updates.isAvailable,
+        updates.isAvailable !== false,
+      );
+      fields.push(`status = $${nextParam()}`);
+      values.push(status);
       fields.push(`is_available = $${nextParam()}`);
-      values.push(updates.isAvailable);
+      values.push(status === 'available');
     }
     if (updates.sortOrder !== undefined) {
       fields.push(`sort_order = $${nextParam()}`);

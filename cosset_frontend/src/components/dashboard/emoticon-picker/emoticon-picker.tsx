@@ -105,13 +105,13 @@ function EmoticonMenu({
           ? { vertical: 'bottom', horizontal: 'left' }
           : { vertical: 'top', horizontal: 'left' }
       }
-      slotProps={{
-        paper: {
-          sx: {
-            mt: menuPlacement === 'above' ? -0.5 : 0.5,
-            p: 1,
-            maxWidth: 280,
-          },
+      // Keep picker above floating shop chat (snackbar z-index).
+      sx={{ zIndex: (theme) => theme.zIndex.snackbar + 20 }}
+      PaperProps={{
+        sx: {
+          mt: menuPlacement === 'above' ? -0.5 : 0.5,
+          p: 1,
+          maxWidth: 280,
         },
       }}
     >
@@ -130,6 +130,7 @@ type EmoticonPickerButtonProps = {
   tooltip?: string;
   edge?: 'start' | 'end' | false;
   menuPlacement?: 'above' | 'below';
+  sx?: SxProps<Theme>;
 };
 
 /** Icon-button emoticon picker for chat, notes, blog, posts, etc. */
@@ -141,6 +142,7 @@ export function EmoticonPickerButton({
   tooltip = 'Insert emoticon',
   edge,
   menuPlacement = 'above',
+  sx,
 }: EmoticonPickerButtonProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -156,6 +158,7 @@ export function EmoticonPickerButton({
             aria-haspopup="true"
             aria-expanded={anchorEl ? 'true' : undefined}
             onClick={(event) => setAnchorEl(event.currentTarget)}
+            sx={sx}
           >
             <Iconify icon={icon} />
           </IconButton>

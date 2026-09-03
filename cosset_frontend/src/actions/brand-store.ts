@@ -363,3 +363,74 @@ export async function deleteBrandProduct(storeId: string | number, productId: st
   await revalidateStoreCaches(storeId);
   return res.data;
 }
+
+// ---- Favorites & visits ----
+
+export async function fetchBrandStoreFavorites(): Promise<number[]> {
+  try {
+    const res = await axios.get(endpoints.brandStore.favorite);
+    return (res.data?.favoriteIds || []).map(Number).filter((id: number) => Number.isFinite(id));
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleBrandStoreFavorite(brandStoreId: number) {
+  const res = await axios.post(endpoints.brandStore.favorite, { brandStoreId });
+  await revalidateBrandStoreList();
+  return res.data as { isFavorite: boolean; favoriteCount: number };
+}
+
+export async function recordBrandStoreView(brandStoreId: number) {
+  try {
+    const res = await axios.post(endpoints.brandStore.view, { brandStoreId });
+    const totalViews =
+      typeof res.data?.totalViews === 'number' ? res.data.totalViews : undefined;
+
+    if (typeof totalViews === 'number') {
+      await mutate(
+        endpoints.brandStore.details(brandStoreId),
+        (current: StoreData | undefined) =>
+          current?.store
+            ? { ...current, store: { ...current.store, totalViews } }
+            : current,
+        { revalidate: false },
+      );
+      await mutate(
+        STORE_LIST_ENDPOINT,
+        (current: StoresData | undefined) => {
+          if (!current?.stores) return current;
+          return {
+            ...current,
+            stores: current.stores.map((store) =>
+              store.id === brandStoreId ? { ...store, totalViews } : store,
+            ),
+          };
+        },
+        { revalidate: false },
+      );
+      await mutate(
+        STORE_MINE_ENDPOINT,
+        (current: StoresData | undefined) => {
+          if (!current) return current;
+          const patch = (store: IBrandStore | null | undefined) =>
+            store && store.id === brandStoreId ? { ...store, totalViews } : store;
+          return {
+            ...current,
+            store: patch(current.store) ?? current.store,
+            stores: current.stores?.map((store) => patch(store) || store),
+          };
+        },
+        { revalidate: false },
+      );
+    }
+
+    return res.data as {
+      totalViews: number;
+      alreadyViewed: boolean;
+      viewedAt: string | null;
+    };
+  } catch {
+    return null;
+  }
+}

@@ -74,6 +74,8 @@ function BrandStoreOverviewCard({ store, rank }: { store: IBrandStore; rank: num
     store.productCount != null
       ? `${store.productCount} product${store.productCount === 1 ? '' : 's'}`
       : null;
+  const visitLabel = `${(store.totalViews || 0).toLocaleString()} visits`;
+  const likeLabel = `${(store.favoriteCount || 0).toLocaleString()} likes`;
 
   return (
     <Card
@@ -140,11 +142,11 @@ function BrandStoreOverviewCard({ store, rank }: { store: IBrandStore; rank: num
           {(store.tagline || store.description || 'Brand store').trim()}
         </Typography>
 
-        {productLabel ? (
-          <Typography variant="caption" color="text.secondary">
-            {productLabel}
-          </Typography>
-        ) : null}
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <Chip size="small" variant="outlined" label={visitLabel} />
+          <Chip size="small" variant="outlined" label={likeLabel} />
+          {productLabel ? <Chip size="small" variant="outlined" label={productLabel} /> : null}
+        </Stack>
 
         <Button
           component={RouterLink}

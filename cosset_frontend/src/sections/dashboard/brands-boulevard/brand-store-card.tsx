@@ -10,6 +10,8 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import { getS3SignedUrl } from 'src/utils/helper';
@@ -23,6 +25,9 @@ type Props = {
   onEnter: () => void;
   isOwner?: boolean;
   onManage?: () => void;
+  isFavorite?: boolean;
+  favoriteSaving?: boolean;
+  onToggleFavorite?: () => void;
 };
 
 async function resolveMediaUrl(value?: string | null) {
@@ -41,7 +46,20 @@ async function resolveMediaUrl(value?: string | null) {
   return (await getS3SignedUrl(raw.replace(/^public:/, ''))) || '';
 }
 
-export function BrandStoreCard({ store, onEnter, isOwner, onManage }: Props) {
+function formatCount(value?: number | null) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  return n.toLocaleString();
+}
+
+export function BrandStoreCard({
+  store,
+  onEnter,
+  isOwner,
+  onManage,
+  isFavorite,
+  favoriteSaving,
+  onToggleFavorite,
+}: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
@@ -95,6 +113,32 @@ export function BrandStoreCard({ store, onEnter, isOwner, onManage }: Props) {
             : 'linear-gradient(135deg, #4a3426 0%, #c9a66b 100%)',
         }}
       >
+        {onToggleFavorite ? (
+          <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+            <IconButton
+              size="small"
+              disabled={favoriteSaving}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleFavorite();
+              }}
+              sx={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                bgcolor: 'rgba(255,255,255,0.92)',
+                '&:hover': { bgcolor: 'common.white' },
+              }}
+            >
+              <Iconify
+                icon={isFavorite ? 'solar:heart-bold' : 'solar:heart-linear'}
+                width={20}
+                sx={{ color: isFavorite ? 'error.main' : 'text.secondary' }}
+              />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+
         {logoUrl ? (
           <Box
             component="img"
@@ -163,6 +207,18 @@ export function BrandStoreCard({ store, onEnter, isOwner, onManage }: Props) {
         </Stack>
 
         <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Chip
+            size="small"
+            variant="outlined"
+            icon={<Iconify icon="solar:eye-bold" width={14} />}
+            label={`${formatCount(store.totalViews)} visits`}
+          />
+          <Chip
+            size="small"
+            variant="outlined"
+            icon={<Iconify icon="solar:heart-bold" width={14} />}
+            label={`${formatCount(store.favoriteCount)} likes`}
+          />
           <Chip
             size="small"
             variant="outlined"

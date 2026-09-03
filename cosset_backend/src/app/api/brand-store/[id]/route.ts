@@ -95,6 +95,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       description: updates.description,
       coverImage: updates.coverImage,
       logoImage: updates.logoImage,
+      introVideo: updates.introVideo,
       isPublic: updates.isPublic,
     });
 

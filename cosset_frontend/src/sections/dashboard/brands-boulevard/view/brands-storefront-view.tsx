@@ -21,10 +21,12 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
   useGetBrandStore,
   useGetBrandProducts,
-  useGetBrandCategories,
   purchaseBrandProduct,
+  recordBrandStoreView,
+  useGetBrandCategories,
+  fetchBrandStoreFavorites,
+  toggleBrandStoreFavorite,
 } from 'src/actions/brand-store';
-import { addChatContact } from 'src/actions/chat';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -34,8 +36,14 @@ import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { getBrandProductImages } from 'src/types/brand-store';
+import {
+  getBrandProductImages,
+  getBrandProductStatusColor,
+  getBrandProductStatusLabel,
+  normalizeBrandProductStatus,
+} from 'src/types/brand-store';
 
+import { BrandStoreChatBox } from '../brand-store-chat-box';
 import { BrandProductImageGallery } from '../brand-image-field';
 
 // ----------------------------------------------------------------------
@@ -43,6 +51,11 @@ import { BrandProductImageGallery } from '../brand-image-field';
 type Props = {
   storeId: string;
 };
+
+function formatCount(value?: number | null) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  return n.toLocaleString();
+}
 
 async function resolveImageUrl(value?: string | null) {
   const raw = String(value || '').trim();
@@ -69,25 +82,88 @@ export function BrandsStorefrontView({ storeId }: Props) {
   const [activeCategoryId, setActiveCategoryId] = useState<'all' | number>('all');
   const [coverUrl, setCoverUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [introVideoUrl, setIntroVideoUrl] = useState('');
   const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
   const [buyingProductId, setBuyingProductId] = useState<number | null>(null);
-  const [contactingOwner, setContactingOwner] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteSaving, setFavoriteSaving] = useState(false);
+  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [visitCount, setVisitCount] = useState(0);
 
   const isOwner = String(store?.ownerCustomerId || '') === String(user?.id || '');
+
+  useEffect(() => {
+    setFavoriteCount(store?.favoriteCount || 0);
+    setVisitCount(store?.totalViews || 0);
+  }, [store?.favoriteCount, store?.totalViews]);
+
+  useEffect(() => {
+    if (!store?.id || !user?.id || isOwner) return;
+
+    recordBrandStoreView(store.id)
+      .then((result) => {
+        if (typeof result?.totalViews === 'number') {
+          setVisitCount(result.totalViews);
+        }
+      })
+      .catch(() => undefined);
+  }, [store?.id, user?.id, isOwner]);
+
+  useEffect(() => {
+    if (!store?.id || !user?.id) {
+      setIsFavorite(false);
+      return undefined;
+    }
+
+    let mounted = true;
+    fetchBrandStoreFavorites()
+      .then((ids) => {
+        if (mounted) setIsFavorite(ids.includes(Number(store.id)));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      mounted = false;
+    };
+  }, [store?.id, user?.id]);
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (!store?.id) return;
+    if (!user?.id) {
+      toast.error('Sign in to favorite this shop');
+      return;
+    }
+    if (favoriteSaving) return;
+
+    try {
+      setFavoriteSaving(true);
+      const result = await toggleBrandStoreFavorite(store.id);
+      setIsFavorite(result.isFavorite);
+      setFavoriteCount(result.favoriteCount);
+      toast.success(result.isFavorite ? 'Added to favorites' : 'Removed from favorites');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update favorite');
+    } finally {
+      setFavoriteSaving(false);
+    }
+  }, [favoriteSaving, store?.id, user?.id]);
 
   useEffect(() => {
     let mounted = true;
 
     const resolve = async () => {
-      const [nextCover, nextLogo, nextAvatar] = await Promise.all([
+      const [nextCover, nextLogo, nextIntro, nextAvatar] = await Promise.all([
         resolveImageUrl(store?.coverImage),
         resolveImageUrl(store?.logoImage),
+        resolveImageUrl(store?.introVideo),
         resolveImageUrl(store?.ownerPhotoURL),
       ]);
 
       if (!mounted) return;
       setCoverUrl(nextCover);
       setLogoUrl(nextLogo);
+      setIntroVideoUrl(nextIntro);
       setOwnerAvatarUrl(nextAvatar);
     };
 
@@ -96,7 +172,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
     return () => {
       mounted = false;
     };
-  }, [store?.coverImage, store?.logoImage, store?.ownerPhotoURL]);
+  }, [store?.coverImage, store?.logoImage, store?.introVideo, store?.ownerPhotoURL]);
 
   const storeSlides = useMemo(
     () => [coverUrl, logoUrl].filter(Boolean).map((src) => ({ src })),
@@ -105,9 +181,8 @@ export function BrandsStorefrontView({ storeId }: Props) {
   const storeLightbox = useLightBox(storeSlides);
 
   const visibleProducts = useMemo(() => {
-    const available = products.filter((product) => product.isAvailable !== false);
-    if (activeCategoryId === 'all') return available;
-    return available.filter((product) => product.categoryId === activeCategoryId);
+    if (activeCategoryId === 'all') return products;
+    return products.filter((product) => product.categoryId === activeCategoryId);
   }, [products, activeCategoryId]);
 
   const ownerName =
@@ -135,31 +210,20 @@ export function BrandsStorefrontView({ storeId }: Props) {
     }
   };
 
-  const handleContactOwner = useCallback(async () => {
-    if (!store?.ownerCustomerId || contactingOwner || isOwner) return;
+  const handleOpenShopChat = useCallback(() => {
+    if (isOwner) return;
 
     if (!user?.id) {
-      toast.error('Please sign in to contact this shop');
+      toast.error('Please sign in to chat with this shop');
       return;
     }
 
-    try {
-      setContactingOwner(true);
-      const result = await addChatContact(store.ownerCustomerId);
-      const conversationId = String(result?.conversation?.id || '').trim();
+    setChatOpen(true);
+  }, [isOwner, user?.id]);
 
-      if (!conversationId) {
-        toast.error('Unable to start a conversation with this shop');
-        return;
-      }
-
-      router.push(`${paths.dashboard.chat}?id=${conversationId}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to contact this shop');
-    } finally {
-      setContactingOwner(false);
-    }
-  }, [contactingOwner, isOwner, router, store?.ownerCustomerId, user?.id]);
+  const handleCloseShopChat = useCallback(() => {
+    setChatOpen(false);
+  }, []);
 
   if (storeLoading) {
     return (
@@ -204,15 +268,26 @@ export function BrandsStorefrontView({ storeId }: Props) {
         ]}
         action={
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant={isFavorite ? 'contained' : 'outlined'}
+              color={isFavorite ? 'error' : 'inherit'}
+              disabled={favoriteSaving || !user?.id}
+              startIcon={
+                <Iconify icon={isFavorite ? 'solar:heart-bold' : 'solar:heart-linear'} />
+              }
+              onClick={handleToggleFavorite}
+            >
+              {isFavorite ? 'Favorited' : 'Favorite'}
+            </Button>
             {!isOwner ? (
               <Button
                 variant="outlined"
                 color="inherit"
-                disabled={contactingOwner}
+                disabled={!user?.id}
                 startIcon={<Iconify icon="solar:chat-round-dots-bold" />}
-                onClick={handleContactOwner}
+                onClick={handleOpenShopChat}
               >
-                {contactingOwner ? 'Opening chat...' : 'Contact'}
+                Chat
               </Button>
             ) : null}
             {isOwner ? (
@@ -300,27 +375,69 @@ export function BrandsStorefrontView({ storeId }: Props) {
                 {store.tagline}
               </Typography>
             ) : null}
-            {store.description ? (
-              <Typography variant="body1" sx={{ maxWidth: 760 }}>
-                {store.description}
-              </Typography>
+
+            {store.description || introVideoUrl ? (
+              <Grid container spacing={2.5} alignItems="flex-start">
+                <Grid item xs={12} md={introVideoUrl ? 8 : 12}>
+                  {store.description ? (
+                    <Typography variant="body1">{store.description}</Typography>
+                  ) : null}
+                </Grid>
+                {introVideoUrl ? (
+                  <Grid item xs={12} md={4}>
+                    <Box
+                      sx={{
+                        overflow: 'hidden',
+                        borderRadius: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'common.black',
+                      }}
+                    >
+                      <Box
+                        component="video"
+                        src={introVideoUrl}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        sx={{
+                          display: 'block',
+                          width: 1,
+                          aspectRatio: '16 / 9',
+                          objectFit: 'cover',
+                          bgcolor: 'common.black',
+                        }}
+                      />
+
+                    </Box>
+                  </Grid>
+                ) : null}
+              </Grid>
             ) : null}
+
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-              <Chip size="small" label={`${categories.length} categories`} />
               <Chip
                 size="small"
-                label={`${products.filter((p) => p.isAvailable !== false).length} products`}
+                icon={<Iconify icon="solar:eye-bold" width={14} />}
+                label={`${formatCount(visitCount)} visits`}
               />
+              <Chip
+                size="small"
+                icon={<Iconify icon="solar:heart-bold" width={14} />}
+                label={`${formatCount(favoriteCount)} likes`}
+              />
+              <Chip size="small" label={`${categories.length} categories`} />
+              <Chip size="small" label={`${products.length} products`} />
               {!isOwner ? (
                 <Button
                   size="small"
                   variant="soft"
                   color="primary"
-                  disabled={contactingOwner}
+                  disabled={!user?.id}
                   startIcon={<Iconify icon="solar:chat-round-dots-bold" width={16} />}
-                  onClick={handleContactOwner}
+                  onClick={handleOpenShopChat}
                 >
-                  {contactingOwner ? 'Opening chat...' : 'Contact shop'}
+                  Chat with shop
                 </Button>
               ) : null}
             </Stack>
@@ -363,7 +480,14 @@ export function BrandsStorefrontView({ storeId }: Props) {
                   />
                   <CardContent>
                     <Stack spacing={1}>
-                      <Typography variant="h6">{product.name}</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Typography variant="h6">{product.name}</Typography>
+                        <Chip
+                          size="small"
+                          color={getBrandProductStatusColor(normalizeBrandProductStatus(product))}
+                          label={getBrandProductStatusLabel(normalizeBrandProductStatus(product))}
+                        />
+                      </Stack>
                       <Typography variant="caption" color="text.secondary">
                         {product.categoryName || 'Uncategorized'}
                       </Typography>
@@ -381,10 +505,19 @@ export function BrandsStorefrontView({ storeId }: Props) {
                         <Button
                           fullWidth
                           variant="contained"
-                          disabled={buyingProductId === product.id}
+                          disabled={
+                            buyingProductId === product.id ||
+                            normalizeBrandProductStatus(product) !== 'available'
+                          }
                           onClick={() => handleBuy(product.id, product.name)}
                         >
-                          {buyingProductId === product.id ? 'Buying...' : 'Buy'}
+                          {buyingProductId === product.id
+                            ? 'Buying...'
+                            : normalizeBrandProductStatus(product) === 'sold_out'
+                              ? 'Sold out'
+                              : normalizeBrandProductStatus(product) === 'wishlist'
+                                ? 'On wishlist'
+                                : 'Buy'}
                         </Button>
                       ) : null}
                     </Stack>
@@ -412,6 +545,18 @@ export function BrandsStorefrontView({ storeId }: Props) {
         disableSlideshow
         disableThumbnails
       />
+
+      {!isOwner && store.ownerCustomerId ? (
+        <BrandStoreChatBox
+          open={chatOpen}
+          onOpen={handleOpenShopChat}
+          onClose={handleCloseShopChat}
+          ownerCustomerId={String(store.ownerCustomerId)}
+          shopName={store.name}
+          ownerName={ownerName}
+          ownerAvatarUrl={ownerAvatarUrl}
+        />
+      ) : null}
     </DashboardContent>
   );
 }

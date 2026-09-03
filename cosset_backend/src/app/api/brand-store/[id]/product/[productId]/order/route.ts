@@ -62,8 +62,12 @@ export async function POST(
       return response({ message: 'Product not found' }, STATUS.NOT_FOUND);
     }
 
-    if (product.isAvailable === false) {
-      return response({ message: 'This product is not available' }, STATUS.BAD_REQUEST);
+    if (product.status !== 'available') {
+      const message =
+        product.status === 'wishlist'
+          ? 'This product is on the wishlist and cannot be purchased yet'
+          : 'This product is sold out';
+      return response({ message }, STATUS.BAD_REQUEST);
     }
 
     const body = await req.json().catch(() => ({}));

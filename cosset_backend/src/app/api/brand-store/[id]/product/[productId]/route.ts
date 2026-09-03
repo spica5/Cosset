@@ -99,6 +99,7 @@ export async function PUT(
       currency: updates.currency,
       imageUrl: updates.imageUrl,
       images: Array.isArray(updates.images) ? updates.images : undefined,
+      status: updates.status,
       isAvailable: updates.isAvailable,
       sortOrder: updates.sortOrder,
     });

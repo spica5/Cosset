@@ -1,6 +1,6 @@
 'use client';
 
-import type { IBrandProduct, IBrandCategory } from 'src/types/brand-store';
+import type { IBrandProduct, IBrandCategory, IBrandProductStatus } from 'src/types/brand-store';
 
 import { toast } from 'sonner';
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -43,13 +43,19 @@ import {
   useGetBrandCategories,
 } from 'src/actions/brand-store';
 
+import { Iconify } from 'src/components/dashboard/iconify';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
 
-import { getBrandProductImages } from 'src/types/brand-store';
+import {
+  getBrandProductImages,
+  getBrandProductStatusColor,
+  getBrandProductStatusLabel,
+  normalizeBrandProductStatus,
+} from 'src/types/brand-store';
 
 import { BrandImageField, BrandMultiImageField, BrandProductImageGallery } from '../brand-image-field';
 
@@ -67,7 +73,7 @@ type ProductForm = {
   currency: string;
   categoryId: string;
   images: string[];
-  isAvailable: boolean;
+  status: IBrandProductStatus;
 };
 
 const emptyCategoryForm: CategoryForm = { name: '', description: '' };
@@ -78,7 +84,7 @@ const emptyProductForm: ProductForm = {
   currency: 'USD',
   categoryId: '',
   images: [],
-  isAvailable: true,
+  status: 'available',
 };
 
 export function BrandsMyStoreView() {
@@ -97,11 +103,13 @@ export function BrandsMyStoreView() {
     description: '',
     coverImage: '',
     logoImage: '',
+    introVideo: '',
     isPublic: true,
   });
   const [savingStore, setSavingStore] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingIntroVideo, setUploadingIntroVideo] = useState(false);
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
 
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -127,12 +135,13 @@ export function BrandsMyStoreView() {
       description: store.description || '',
       coverImage: store.coverImage || '',
       logoImage: store.logoImage || '',
+      introVideo: store.introVideo || '',
       isPublic: store.isPublic !== false,
     });
   }, [store]);
 
   const uploadBrandImage = useCallback(
-    async (file: File, folder: 'cover' | 'logo' | 'product') => {
+    async (file: File, folder: 'cover' | 'logo' | 'product' | 'intro-video') => {
       const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const ownerSegment = String(user?.id || 'guest');
       const entitySegment = store?.id || 'draft';
@@ -191,6 +200,7 @@ export function BrandsMyStoreView() {
         isPublic: storeForm.isPublic,
         coverImage: storeForm.coverImage.trim() || null,
         logoImage: storeForm.logoImage.trim() || null,
+        introVideo: storeForm.introVideo.trim() || null,
       });
       toast.success('Your store is open on Brands Boulevard');
       router.push(paths.dashboard.community.brandsBoulevard.root);
@@ -213,6 +223,7 @@ export function BrandsMyStoreView() {
         isPublic: storeForm.isPublic,
         coverImage: storeForm.coverImage.trim() || null,
         logoImage: storeForm.logoImage.trim() || null,
+        introVideo: storeForm.introVideo.trim() || null,
       });
       toast.success('Store updated');
     } catch (error) {
@@ -222,17 +233,33 @@ export function BrandsMyStoreView() {
     }
   };
 
-  const handleStoreImageUpload = async (file: File, field: 'coverImage' | 'logoImage') => {
-    const setUploading = field === 'coverImage' ? setUploadingCover : setUploadingLogo;
+  const handleStoreImageUpload = async (
+    file: File,
+    field: 'coverImage' | 'logoImage' | 'introVideo',
+  ) => {
+    const setUploading =
+      field === 'coverImage'
+        ? setUploadingCover
+        : field === 'logoImage'
+          ? setUploadingLogo
+          : setUploadingIntroVideo;
 
     try {
       setUploading(true);
-      const key = await uploadBrandImage(file, field === 'coverImage' ? 'cover' : 'logo');
+      const folder =
+        field === 'coverImage' ? 'cover' : field === 'logoImage' ? 'logo' : 'intro-video';
+      const key = await uploadBrandImage(file, folder);
       setStoreForm((prev) => ({ ...prev, [field]: key }));
-      toast.success(field === 'coverImage' ? 'Cover image uploaded' : 'Logo uploaded');
+      toast.success(
+        field === 'coverImage'
+          ? 'Cover image uploaded'
+          : field === 'logoImage'
+            ? 'Logo uploaded'
+            : 'Intro video uploaded',
+      );
     } catch (error) {
-      console.error('Failed to upload store image', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
+      console.error('Failed to upload store media', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload media');
     } finally {
       setUploading(false);
     }
@@ -309,7 +336,7 @@ export function BrandsMyStoreView() {
       currency: product.currency || 'USD',
       categoryId: String(product.categoryId),
       images: getBrandProductImages(product),
-      isAvailable: product.isAvailable !== false,
+      status: normalizeBrandProductStatus(product),
     });
     setProductDialogOpen(true);
   };
@@ -348,7 +375,8 @@ export function BrandsMyStoreView() {
         categoryId: Number(productForm.categoryId),
         images: productForm.images,
         imageUrl: productForm.images[0] || null,
-        isAvailable: productForm.isAvailable,
+        status: productForm.status,
+        isAvailable: productForm.status === 'available',
       };
 
       if (editingProduct) {
@@ -402,6 +430,23 @@ export function BrandsMyStoreView() {
         }
         sx={{ mb: { xs: 3, md: 5 } }}
       />
+
+      {store ? (
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
+          <Chip
+            icon={<Iconify icon="solar:eye-bold" width={16} />}
+            label={`${(store.totalViews || 0).toLocaleString()} client visits`}
+            color="default"
+            variant="outlined"
+          />
+          <Chip
+            icon={<Iconify icon="solar:heart-bold" width={16} />}
+            label={`${(store.favoriteCount || 0).toLocaleString()} client likes`}
+            color="error"
+            variant="outlined"
+          />
+        </Stack>
+      ) : null}
 
       {storeLoading ? (
         <Typography variant="body2" color="text.secondary">
@@ -459,6 +504,17 @@ export function BrandsMyStoreView() {
                 onUpload={(file) => handleStoreImageUpload(file, 'logoImage')}
                 onRemove={() => setStoreForm((prev) => ({ ...prev, logoImage: '' }))}
               />
+              <BrandImageField
+                label="Intro video clip"
+                value={storeForm.introVideo}
+                uploading={uploadingIntroVideo}
+                disabled={savingStore}
+                acceptMedia="video"
+                previewHeight={180}
+                helperText="Short clip shown on your public storefront"
+                onUpload={(file) => handleStoreImageUpload(file, 'introVideo')}
+                onRemove={() => setStoreForm((prev) => ({ ...prev, introVideo: '' }))}
+              />
               <FormControlLabel
                 control={
                   <Switch
@@ -472,7 +528,13 @@ export function BrandsMyStoreView() {
               />
               <Button
                 variant="contained"
-                disabled={!storeForm.name.trim() || savingStore || uploadingCover || uploadingLogo}
+                disabled={
+                  !storeForm.name.trim() ||
+                  savingStore ||
+                  uploadingCover ||
+                  uploadingLogo ||
+                  uploadingIntroVideo
+                }
                 onClick={handleCreateStore}
                 sx={{ alignSelf: 'flex-start' }}
               >
@@ -543,6 +605,19 @@ export function BrandsMyStoreView() {
                       onRemove={() => setStoreForm((prev) => ({ ...prev, logoImage: '' }))}
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <BrandImageField
+                      label="Intro video clip"
+                      value={storeForm.introVideo}
+                      uploading={uploadingIntroVideo}
+                      disabled={savingStore}
+                      acceptMedia="video"
+                      previewHeight={200}
+                      helperText="Short clip shown on your public storefront (mp4, mov, webm)"
+                      onUpload={(file) => handleStoreImageUpload(file, 'introVideo')}
+                      onRemove={() => setStoreForm((prev) => ({ ...prev, introVideo: '' }))}
+                    />
+                  </Grid>
                 </Grid>
                 <FormControlLabel
                   control={
@@ -557,7 +632,7 @@ export function BrandsMyStoreView() {
                 />
                 <Button
                   variant="contained"
-                  disabled={savingStore || uploadingCover || uploadingLogo}
+                  disabled={savingStore || uploadingCover || uploadingLogo || uploadingIntroVideo}
                   onClick={handleSaveStore}
                   sx={{ alignSelf: 'flex-start' }}
                 >
@@ -701,8 +776,12 @@ export function BrandsMyStoreView() {
                             ) : null}
                             <Chip
                               size="small"
-                              color={product.isAvailable ? 'success' : 'default'}
-                              label={product.isAvailable ? 'Available' : 'Hidden'}
+                              color={getBrandProductStatusColor(
+                                normalizeBrandProductStatus(product),
+                              )}
+                              label={getBrandProductStatusLabel(
+                                normalizeBrandProductStatus(product),
+                              )}
                               sx={{ alignSelf: 'flex-start' }}
                             />
                             <Stack direction="row" spacing={1}>
@@ -850,17 +929,23 @@ export function BrandsMyStoreView() {
                 sx={{ width: 120 }}
               />
             </Stack>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={productForm.isAvailable}
-                  onChange={(event) =>
-                    setProductForm((prev) => ({ ...prev, isAvailable: event.target.checked }))
-                  }
-                />
+            <TextField
+              select
+              label="Status"
+              value={productForm.status}
+              onChange={(event) =>
+                setProductForm((prev) => ({
+                  ...prev,
+                  status: event.target.value as IBrandProductStatus,
+                }))
               }
-              label="Available in storefront"
-            />
+              fullWidth
+              helperText="Available can be purchased. Sold-out and Wishlist are visible but not buyable."
+            >
+              <MenuItem value="available">Available</MenuItem>
+              <MenuItem value="sold_out">Sold-out</MenuItem>
+              <MenuItem value="wishlist">Wishlist</MenuItem>
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>

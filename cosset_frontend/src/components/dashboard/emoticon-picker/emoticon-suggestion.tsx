@@ -604,7 +604,7 @@ export function InputEmoticonSuggestion({
   }, []);
 
   const syncSuggestion = useCallback(() => {
-    const input = inputRef.current;
+    const input = inputRef?.current;
 
     if (disabled || !input) {
       closeSuggestion();
@@ -643,7 +643,7 @@ export function InputEmoticonSuggestion({
   );
 
   const caretAnchor = useMemo(() => {
-    const input = inputRef.current;
+    const input = inputRef?.current;
     if (!input || !state) {
       return null;
     }

@@ -1,8 +1,14 @@
-import Script from 'next/script';
+import { PWA_INSTALL_INIT_SCRIPT } from './pwa-install-init-script';
 
 /**
- * Runs before React so Chrome's beforeinstallprompt is never missed.
+ * Inline script runs immediately (no preload) so Chrome's beforeinstallprompt
+ * is captured before React hydrates, without service-worker preload warnings.
  */
 export function PwaInstallHeadScript() {
-  return <Script src="/pwa-install-init.js" strategy="beforeInteractive" />;
+  return (
+    <script
+      id="cosset-pwa-install-init"
+      dangerouslySetInnerHTML={{ __html: PWA_INSTALL_INIT_SCRIPT }}
+    />
+  );
 }

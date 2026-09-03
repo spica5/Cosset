@@ -1,6 +1,7 @@
 /** Shared helpers for image + video uploads and previews. */
 
 export const IMAGE_VIDEO_ACCEPT = 'image/*,video/*';
+export const VIDEO_ACCEPT = 'video/*,.mp4,.mov,.m4v,.webm';
 
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm'] as const;
 

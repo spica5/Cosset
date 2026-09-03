@@ -1,3 +1,5 @@
+export type IBrandProductStatus = 'available' | 'sold_out' | 'wishlist';
+
 export type IBrandStore = {
   id: number;
   ownerCustomerId: string;
@@ -6,6 +8,7 @@ export type IBrandStore = {
   description?: string | null;
   coverImage?: string | null;
   logoImage?: string | null;
+  introVideo?: string | null;
   isPublic: boolean;
   createdAt?: string | Date | null;
   updatedAt?: string | Date | null;
@@ -15,6 +18,8 @@ export type IBrandStore = {
   ownerPhotoURL?: string | null;
   categoryCount?: number;
   productCount?: number;
+  totalViews?: number;
+  favoriteCount?: number;
 };
 
 export type IBrandCategory = {
@@ -39,6 +44,7 @@ export type IBrandProduct = {
   currency?: string | null;
   imageUrl?: string | null;
   images?: string[];
+  status?: IBrandProductStatus;
   isAvailable: boolean;
   sortOrder: number;
   createdAt?: string | Date | null;
@@ -89,4 +95,35 @@ export function getBrandProductImages(product: Pick<IBrandProduct, 'images' | 'i
   }
 
   return [single];
+}
+
+export function normalizeBrandProductStatus(
+  product: Pick<IBrandProduct, 'status' | 'isAvailable'> | IBrandProductStatus | null | undefined,
+): IBrandProductStatus {
+  if (typeof product === 'string') {
+    const raw = product.trim().toLowerCase().replace(/-/g, '_');
+    if (raw === 'available' || raw === 'sold_out' || raw === 'wishlist') return raw;
+    return 'available';
+  }
+
+  const raw = String(product?.status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+  if (raw === 'available' || raw === 'sold_out' || raw === 'wishlist') return raw;
+  return product?.isAvailable === false ? 'sold_out' : 'available';
+}
+
+export function getBrandProductStatusLabel(status: IBrandProductStatus) {
+  if (status === 'sold_out') return 'Sold-out';
+  if (status === 'wishlist') return 'Wishlist';
+  return 'Available';
+}
+
+export function getBrandProductStatusColor(
+  status: IBrandProductStatus,
+): 'success' | 'warning' | 'info' {
+  if (status === 'sold_out') return 'warning';
+  if (status === 'wishlist') return 'info';
+  return 'success';
 }

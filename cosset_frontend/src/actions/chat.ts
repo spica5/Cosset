@@ -80,16 +80,18 @@ type ConversationData = {
   conversation: IChatConversation;
 };
 
-export function useGetConversation(conversationId: string) {
+export function useGetConversation(
+  conversationId: string,
+  options?: { refreshIntervalMs?: number },
+) {
   const url = conversationId
     ? [CHART_ENDPOINT, { params: { conversationId, endpoint: 'conversation' } }]
     : '';
 
-  const { data, isLoading, error, isValidating } = useSWR<ConversationData>(
-    url,
-    fetcher,
-    swrOptions
-  );
+  const { data, isLoading, error, isValidating } = useSWR<ConversationData>(url, fetcher, {
+    ...swrOptions,
+    refreshInterval: options?.refreshIntervalMs || 0,
+  });
 
   const memoizedValue = useMemo(
     () => ({
@@ -128,34 +130,56 @@ export async function sendMessage(conversationId: string, messageData: IChatMess
   mutate(
     conversationUrl,
     (currentData) => {
+      if (!currentData?.conversation) {
+        return currentData;
+      }
+
       const currentConversation: IChatConversation = currentData.conversation;
+      const alreadyExists = (currentConversation.messages || []).some(
+        (message) => message.id === messageData.id,
+      );
 
       const conversation = {
         ...currentConversation,
-        messages: [...currentConversation.messages, messageData],
+        messages: alreadyExists
+          ? currentConversation.messages
+          : [...currentConversation.messages, messageData],
       };
 
       return { ...currentData, conversation };
     },
-    false
+    false,
   );
 
   mutate(
     conversationsUrl,
     (currentData) => {
+      if (!currentData?.conversations) {
+        return currentData;
+      }
+
       const currentConversations: IChatConversation[] = currentData.conversations;
 
       const conversations: IChatConversation[] = currentConversations.map(
         (conversation: IChatConversation) =>
           conversation.id === conversationId
-            ? { ...conversation, messages: [...conversation.messages, messageData] }
-            : conversation
+            ? {
+                ...conversation,
+                messages: [...(conversation.messages || []), messageData],
+              }
+            : conversation,
       );
 
       return { ...currentData, conversations };
     },
-    false
+    false,
   );
+
+  // Revalidate so the other participant's open chat refreshes promptly.
+  await Promise.all([
+    mutate(conversationUrl),
+    mutate(conversationsUrl),
+  ]);
 }
 
 // ----------------------------------------------------------------------

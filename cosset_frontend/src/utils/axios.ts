@@ -205,6 +205,8 @@ export const endpoints = {
     productOrder: (id: string | number, productId: string | number) =>
       `/api/brand-store/${id}/product/${productId}/order`,
     orders: '/api/brand-store/orders',
+    favorite: '/api/brand-store/favorite',
+    view: '/api/brand-store/view',
   },
   journeyDiary: {
     location: {

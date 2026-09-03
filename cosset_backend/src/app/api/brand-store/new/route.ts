@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       description: store.description ?? null,
       coverImage: store.coverImage ?? null,
       logoImage: store.logoImage ?? null,
+      introVideo: store.introVideo ?? null,
       isPublic: store.isPublic !== false,
     });
 

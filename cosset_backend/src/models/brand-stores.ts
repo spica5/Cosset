@@ -11,7 +11,10 @@ export interface BrandStore {
   description?: string | null;
   coverImage?: string | null;
   logoImage?: string | null;
+  introVideo?: string | null;
   isPublic: boolean;
+  totalViews?: number;
+  favoriteCount?: number;
   createdAt?: Date | null;
   updatedAt?: Date | null;
   ownerFirstName?: string | null;
@@ -51,6 +54,13 @@ export const ensureBrandStoresTable = async (): Promise<void> => {
         `CREATE INDEX IF NOT EXISTS idx_brand_stores_public ON ${TABLE_NAME} (is_public, created_at DESC)`,
       );
 
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS total_views INTEGER NOT NULL DEFAULT 0`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS intro_video TEXT NULL`,
+      );
+
       // Ensure related tables exist before count subqueries run.
       await executeQuery(
         `
@@ -84,6 +94,30 @@ export const ensureBrandStoresTable = async (): Promise<void> => {
           )
         `,
       );
+
+      await executeQuery(
+        `
+          CREATE TABLE IF NOT EXISTS brand_store_favorites (
+            id BIGSERIAL PRIMARY KEY,
+            brand_store_id BIGINT NOT NULL,
+            user_id UUID NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(brand_store_id, user_id)
+          )
+        `,
+      );
+
+      await executeQuery(
+        `
+          CREATE TABLE IF NOT EXISTS brand_store_views (
+            id BIGSERIAL PRIMARY KEY,
+            brand_store_id BIGINT NOT NULL,
+            user_id UUID NOT NULL,
+            viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(brand_store_id, user_id)
+          )
+        `,
+      );
     })().catch((error) => {
       ensureBrandStoresTablePromise = null;
       throw error;
@@ -101,7 +135,9 @@ const STORE_SELECT = `
   s.description,
   s.cover_image as "coverImage",
   s.logo_image as "logoImage",
+  s.intro_video as "introVideo",
   s.is_public as "isPublic",
+  COALESCE(s.total_views, 0)::int as "totalViews",
   s.created_at as "createdAt",
   s.updated_at as "updatedAt",
   u.first_name as "ownerFirstName",
@@ -113,7 +149,10 @@ const STORE_SELECT = `
   ) as "categoryCount",
   (
     SELECT COUNT(*)::int FROM brand_products p WHERE p.store_id = s.id
-  ) as "productCount"
+  ) as "productCount",
+  (
+    SELECT COUNT(*)::int FROM brand_store_favorites f WHERE f.brand_store_id = s.id
+  ) as "favoriteCount"
 `;
 
 const STORE_FROM = `
@@ -211,6 +250,7 @@ export async function createBrandStore(input: {
   description?: string | null;
   coverImage?: string | null;
   logoImage?: string | null;
+  introVideo?: string | null;
   isPublic?: boolean;
 }): Promise<BrandStore> {
   try {
@@ -233,11 +273,12 @@ export async function createBrandStore(input: {
           description,
           cover_image,
           logo_image,
+          intro_video,
           is_public,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
         RETURNING
           id::int as "id",
           owner_customer_id as "ownerCustomerId",
@@ -246,6 +287,7 @@ export async function createBrandStore(input: {
           description,
           cover_image as "coverImage",
           logo_image as "logoImage",
+          intro_video as "introVideo",
           is_public as "isPublic",
           created_at as "createdAt",
           updated_at as "updatedAt"
@@ -257,6 +299,7 @@ export async function createBrandStore(input: {
         input.description?.trim() || null,
         input.coverImage || null,
         input.logoImage || null,
+        input.introVideo || null,
         input.isPublic !== false,
       ],
     );
@@ -288,6 +331,7 @@ export async function updateBrandStore(
     description: string | null;
     coverImage: string | null;
     logoImage: string | null;
+    introVideo: string | null;
     isPublic: boolean;
   }>,
 ): Promise<BrandStore> {
@@ -322,6 +366,10 @@ export async function updateBrandStore(
     if (updates.logoImage !== undefined) {
       fields.push(`logo_image = $${nextParam()}`);
       values.push(updates.logoImage || null);
+    }
+    if (updates.introVideo !== undefined) {
+      fields.push(`intro_video = $${nextParam()}`);
+      values.push(updates.introVideo || null);
     }
     if (updates.isPublic !== undefined) {
       fields.push(`is_public = $${nextParam()}`);
@@ -370,12 +418,45 @@ export async function updateBrandStore(
   }
 }
 
+export async function incrementBrandStoreViews(id: number): Promise<number> {
+  try {
+    await ensureBrandStoresTable();
+
+    const row = await queryOne<{ totalViews: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET total_views = COALESCE(total_views, 0) + 1, updated_at = NOW()
+        WHERE id = $1
+        RETURNING COALESCE(total_views, 0)::int as "totalViews"
+      `,
+      [id],
+    );
+
+    return row?.totalViews ?? 0;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'INCREMENT_BRAND_STORE_VIEWS_ERROR',
+        message: `Failed to increment brand store views: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function deleteBrandStore(id: number): Promise<boolean> {
   try {
     await ensureBrandStoresTable();
 
     await executeQuery(`DELETE FROM brand_products WHERE store_id = $1`, [id]);
     await executeQuery(`DELETE FROM brand_categories WHERE store_id = $1`, [id]);
+    await executeQuery(`DELETE FROM brand_store_favorites WHERE brand_store_id = $1`, [id]).catch(
+      () => undefined,
+    );
+    await executeQuery(`DELETE FROM brand_store_views WHERE brand_store_id = $1`, [id]).catch(
+      () => undefined,
+    );
     await executeQuery(`DELETE FROM ${TABLE_NAME} WHERE id = $1`, [id]);
 
     return true;

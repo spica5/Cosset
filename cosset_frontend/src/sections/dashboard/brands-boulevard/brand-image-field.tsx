@@ -12,10 +12,12 @@ import Typography from '@mui/material/Typography';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 import {
-  IMAGE_VIDEO_ACCEPT,
+  isVideoFile,
+  VIDEO_ACCEPT,
   getVideoMimeType,
-  isImageOrVideoFile,
   isVideoMediaPath,
+  IMAGE_VIDEO_ACCEPT,
+  isImageOrVideoFile,
 } from 'src/utils/media-file';
 
 import { Iconify } from 'src/components/universe/iconify';
@@ -205,6 +207,8 @@ type SingleProps = {
   onUpload: (file: File) => void | Promise<void>;
   onRemove: () => void;
   previewHeight?: number;
+  /** Default allows images and videos. Use "video" for intro clips. */
+  acceptMedia?: 'image-video' | 'video';
 };
 
 export function BrandImageField({
@@ -216,8 +220,18 @@ export function BrandImageField({
   onUpload,
   onRemove,
   previewHeight = 140,
+  acceptMedia = 'image-video',
 }: SingleProps) {
   const [previewUrl, setPreviewUrl] = useState('');
+  const accept = acceptMedia === 'video' ? VIDEO_ACCEPT : IMAGE_VIDEO_ACCEPT;
+  const uploadLabel =
+    acceptMedia === 'video'
+      ? value
+        ? 'Replace video'
+        : 'Upload video clip'
+      : value
+        ? 'Replace media'
+        : 'Upload image or video';
 
   useEffect(() => {
     let mounted = true;
@@ -237,15 +251,17 @@ export function BrandImageField({
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
         <Button variant="outlined" component="label" disabled={disabled || uploading}>
-          {uploading ? 'Uploading…' : value ? 'Replace media' : 'Upload image or video'}
+          {uploading ? 'Uploading…' : uploadLabel}
           <input
             hidden
             type="file"
-            accept={IMAGE_VIDEO_ACCEPT}
+            accept={accept}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                if (!isImageOrVideoFile(file)) {
+                const valid =
+                  acceptMedia === 'video' ? isVideoFile(file) : isImageOrVideoFile(file);
+                if (!valid) {
                   event.target.value = '';
                   return;
                 }
@@ -279,7 +295,7 @@ export function BrandImageField({
         <Box
           sx={{
             width: 1,
-            maxWidth: 280,
+            maxWidth: acceptMedia === 'video' ? 420 : 280,
             height: previewHeight,
             borderRadius: 1.5,
             overflow: 'hidden',

@@ -45,6 +45,9 @@ export const metadata = {
     title: 'Cosset',
     statusBarStyle: 'black-translucent',
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 type Props = {

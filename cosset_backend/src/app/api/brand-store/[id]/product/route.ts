@@ -114,6 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       currency: product.currency ?? 'USD',
       imageUrl: product.imageUrl ?? null,
       images: Array.isArray(product.images) ? product.images : null,
+      status: product.status ?? product.isAvailable,
       isAvailable: product.isAvailable !== false,
       sortOrder: product.sortOrder ?? 0,
     });

@@ -44,7 +44,8 @@ export function ChatView() {
   const { conversations, conversationsLoading } = useGetConversations();
 
   const { conversation, conversationError, conversationLoading } = useGetConversation(
-    `${selectedConversationId}`
+    `${selectedConversationId}`,
+    selectedConversationId ? { refreshIntervalMs: 2500 } : undefined,
   );
 
   const roomNav = useCollapseNav();
