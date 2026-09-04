@@ -1,5 +1,33 @@
 export type IBrandProductStatus = 'available' | 'sold_out' | 'wishlist';
 
+export type IBrandWishlistClientStatus = 'wish' | 'purchased' | 'canceled';
+
+export function normalizeBrandWishlistClientStatus(
+  value?: string | null,
+): IBrandWishlistClientStatus {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+  if (raw === 'purchased') return 'purchased';
+  if (raw === 'canceled' || raw === 'cancelled') return 'canceled';
+  return 'wish';
+}
+
+export function getBrandWishlistClientStatusLabel(status: IBrandWishlistClientStatus) {
+  if (status === 'purchased') return 'Purchased';
+  if (status === 'canceled') return 'Canceled';
+  return 'Wish';
+}
+
+export function getBrandWishlistClientStatusColor(
+  status: IBrandWishlistClientStatus,
+): 'default' | 'info' | 'success' | 'error' | 'warning' {
+  if (status === 'purchased') return 'success';
+  if (status === 'canceled') return 'error';
+  return 'info';
+}
+
 export type IBrandStore = {
   id: number;
   ownerCustomerId: string;
@@ -80,6 +108,8 @@ export type IBrandProductWishlistItem = {
   brandStoreId: number;
   productId: number;
   userId: string;
+  status?: IBrandWishlistClientStatus | null;
+  note?: string | null;
   createdAt?: string | Date | null;
   productName: string;
   productCode?: string | null;
@@ -91,6 +121,13 @@ export type IBrandProductWishlistItem = {
   categoryName?: string | null;
   storeName?: string | null;
   storeLogoImage?: string | null;
+};
+
+export type IBrandStoreWishlistClientItem = IBrandProductWishlistItem & {
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
+  customerEmail?: string | null;
+  customerPhotoURL?: string | null;
 };
 
 export function getBrandProductImages(product: Pick<IBrandProduct, 'images' | 'imageUrl'>): string[] {

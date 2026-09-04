@@ -6,11 +6,26 @@ import { ensureBrandStoresTable } from './brand-stores';
 
 const TABLE_NAME = 'brand_product_wishlists';
 
+export type BrandWishlistClientStatus = 'wish' | 'purchased' | 'canceled';
+
+export function normalizeBrandWishlistClientStatus(
+  value?: string | null,
+): BrandWishlistClientStatus {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+  if (raw === 'purchased') return 'purchased';
+  if (raw === 'canceled' || raw === 'cancelled') return 'canceled';
+  return 'wish';
+}
+
 export interface BrandProductWishlistRow {
   id: number;
   brandStoreId: number;
   productId: number;
   userId: string;
+  status?: BrandWishlistClientStatus | null;
   createdAt?: Date | null;
 }
 
@@ -19,6 +34,8 @@ export interface BrandProductWishlistItem {
   brandStoreId: number;
   productId: number;
   userId: string;
+  status?: BrandWishlistClientStatus | null;
+  note?: string | null;
   createdAt?: Date | string | null;
   productName: string;
   productCode?: string | null;
@@ -30,6 +47,13 @@ export interface BrandProductWishlistItem {
   categoryName?: string | null;
   storeName?: string | null;
   storeLogoImage?: string | null;
+}
+
+export interface BrandStoreWishlistClientItem extends BrandProductWishlistItem {
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
+  customerEmail?: string | null;
+  customerPhotoURL?: string | null;
 }
 
 let ensureTablePromise: Promise<void> | null = null;
@@ -47,10 +71,22 @@ export const ensureBrandProductWishlistsTable = async (): Promise<void> => {
             brand_store_id BIGINT NOT NULL,
             product_id BIGINT NOT NULL,
             user_id UUID NOT NULL,
+            status TEXT NOT NULL DEFAULT 'wish',
+            note TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(product_id, user_id)
           )
         `,
+      );
+
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS note TEXT NULL`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'wish'`,
+      );
+      await executeQuery(
+        `UPDATE ${TABLE_NAME} SET status = 'wish' WHERE status IS NULL OR TRIM(status) = ''`,
       );
 
       await executeQuery(
@@ -80,21 +116,40 @@ export async function toggleBrandProductWishlist(
     await ensureBrandProductWishlistsTable();
 
     const existing = await queryOne<BrandProductWishlistRow>(
-      `SELECT id FROM ${TABLE_NAME} WHERE product_id = $1 AND user_id = $2 LIMIT 1`,
+      `
+        SELECT
+          id::int as "id",
+          brand_store_id::int as "brandStoreId",
+          product_id::int as "productId",
+          user_id::text as "userId",
+          status as "status",
+          created_at as "createdAt"
+        FROM ${TABLE_NAME}
+        WHERE product_id = $1 AND user_id = $2
+        LIMIT 1
+      `,
       [productId, userId],
     );
 
     if (existing) {
-      await executeQuery(`DELETE FROM ${TABLE_NAME} WHERE product_id = $1 AND user_id = $2`, [
-        productId,
-        userId,
-      ]);
+      const existingStatus = normalizeBrandWishlistClientStatus(existing.status);
+      if (existingStatus === 'wish') {
+        await executeQuery(`DELETE FROM ${TABLE_NAME} WHERE product_id = $1 AND user_id = $2`, [
+          productId,
+          userId,
+        ]);
+      } else {
+        await executeQuery(
+          `UPDATE ${TABLE_NAME} SET status = 'wish' WHERE product_id = $1 AND user_id = $2`,
+          [productId, userId],
+        );
+      }
     } else {
       await executeQuery(
         `
-          INSERT INTO ${TABLE_NAME} (brand_store_id, product_id, user_id)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (product_id, user_id) DO NOTHING
+          INSERT INTO ${TABLE_NAME} (brand_store_id, product_id, user_id, status)
+          VALUES ($1, $2, $3, 'wish')
+          ON CONFLICT (product_id, user_id) DO UPDATE SET status = 'wish'
         `,
         [brandStoreId, productId, userId],
       );
@@ -102,17 +157,21 @@ export async function toggleBrandProductWishlist(
 
     const [storeCount, productCount] = await Promise.all([
       queryOne<{ wishlistCount: number }>(
-        `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE brand_store_id = $1`,
+        `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE brand_store_id = $1 AND COALESCE(status, 'wish') = 'wish'`,
         [brandStoreId],
       ),
       queryOne<{ wishlistCount: number }>(
-        `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE product_id = $1`,
+        `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE product_id = $1 AND COALESCE(status, 'wish') = 'wish'`,
         [productId],
       ),
     ]);
 
+    const isWishlisted = existing
+      ? normalizeBrandWishlistClientStatus(existing.status) !== 'wish'
+      : true;
+
     return {
-      isWishlisted: !existing,
+      isWishlisted,
       wishlistCount: storeCount?.wishlistCount ?? 0,
       productWishlistCount: productCount?.wishlistCount ?? 0,
     };
@@ -136,7 +195,7 @@ export async function getUserBrandProductWishlistIds(userId: string): Promise<nu
       `
         SELECT product_id as "productId"
         FROM ${TABLE_NAME}
-        WHERE user_id = $1
+        WHERE user_id = $1 AND COALESCE(status, 'wish') = 'wish'
         ORDER BY created_at DESC
       `,
       [userId],
@@ -168,6 +227,8 @@ export async function getUserBrandProductWishlist(
           w.brand_store_id::int as "brandStoreId",
           w.product_id::int as "productId",
           w.user_id::text as "userId",
+          COALESCE(w.status, 'wish') as "status",
+          w.note as "note",
           w.created_at as "createdAt",
           p.name as "productName",
           p.product_code as "productCode",
@@ -183,7 +244,7 @@ export async function getUserBrandProductWishlist(
         INNER JOIN brand_products p ON p.id = w.product_id
         LEFT JOIN brand_categories c ON c.id = p.category_id
         LEFT JOIN brand_stores s ON s.id = w.brand_store_id
-        WHERE w.user_id = $1
+        WHERE w.user_id = $1 AND COALESCE(w.status, 'wish') = 'wish'
         ORDER BY w.created_at DESC, w.id DESC
       `,
       [userId],
@@ -200,12 +261,131 @@ export async function getUserBrandProductWishlist(
   }
 }
 
+export async function getBrandStoreWishlistEntries(
+  brandStoreId: number,
+): Promise<BrandStoreWishlistClientItem[]> {
+  try {
+    await ensureBrandProductWishlistsTable();
+
+    return await queryMany<BrandStoreWishlistClientItem>(
+      `
+        SELECT
+          w.id::int as "id",
+          w.brand_store_id::int as "brandStoreId",
+          w.product_id::int as "productId",
+          w.user_id::text as "userId",
+          COALESCE(w.status, 'wish') as "status",
+          w.note as "note",
+          w.created_at as "createdAt",
+          p.name as "productName",
+          p.product_code as "productCode",
+          p.description as "productDescription",
+          p.price as "productPrice",
+          p.currency as "productCurrency",
+          p.image_url as "productImage",
+          p.status as "productStatus",
+          c.name as "categoryName",
+          s.name as "storeName",
+          s.logo_image as "storeLogoImage",
+          u.first_name as "customerFirstName",
+          u.last_name as "customerLastName",
+          u.email as "customerEmail",
+          u.photo_url as "customerPhotoURL"
+        FROM ${TABLE_NAME} w
+        INNER JOIN brand_products p ON p.id = w.product_id
+        LEFT JOIN brand_categories c ON c.id = p.category_id
+        LEFT JOIN brand_stores s ON s.id = w.brand_store_id
+        LEFT JOIN cosset_users u ON u.id::text = w.user_id::text
+        WHERE w.brand_store_id = $1
+        ORDER BY w.created_at DESC, w.id DESC
+      `,
+      [brandStoreId],
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'GET_BRAND_STORE_WISHLIST_ENTRIES_ERROR',
+        message: `Failed to get brand store wishlist entries: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function updateBrandStoreWishlistNote(
+  wishlistId: number,
+  brandStoreId: number,
+  note: string | null,
+  purchasedAt?: Date | string | null,
+  status?: BrandWishlistClientStatus | string | null,
+): Promise<BrandStoreWishlistClientItem | null> {
+  try {
+    await ensureBrandProductWishlistsTable();
+
+    const normalizedNote = String(note || '').trim().slice(0, 2000) || null;
+    const normalizedStatus =
+      status === undefined ? undefined : normalizeBrandWishlistClientStatus(status);
+
+    let normalizedPurchasedAt: Date | null | undefined;
+    if (purchasedAt !== undefined) {
+      if (purchasedAt === null || purchasedAt === '') {
+        normalizedPurchasedAt = null;
+      } else {
+        const parsed = new Date(purchasedAt);
+        if (Number.isNaN(parsed.getTime())) {
+          throw new DatabaseError({
+            code: 'INVALID_WISHLIST_PURCHASED_AT',
+            message: 'Invalid purchased date',
+          });
+        }
+        normalizedPurchasedAt = parsed;
+      }
+    }
+
+    const updated = await queryOne<{ id: number }>(
+      `
+        UPDATE ${TABLE_NAME}
+        SET
+          note = $1,
+          created_at = COALESCE($4, created_at),
+          status = COALESCE($5, status, 'wish')
+        WHERE id = $2 AND brand_store_id = $3
+        RETURNING id
+      `,
+      [
+        normalizedNote,
+        wishlistId,
+        brandStoreId,
+        normalizedPurchasedAt === undefined ? null : normalizedPurchasedAt,
+        normalizedStatus === undefined ? null : normalizedStatus,
+      ],
+    );
+
+    if (!updated) {
+      return null;
+    }
+
+    const rows = await getBrandStoreWishlistEntries(brandStoreId);
+    return rows.find((row) => row.id === wishlistId) || null;
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'UPDATE_BRAND_STORE_WISHLIST_NOTE_ERROR',
+        message: `Failed to update wishlist note: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function getBrandStoreWishlistCount(brandStoreId: number): Promise<number> {
   try {
     await ensureBrandProductWishlistsTable();
 
     const row = await queryOne<{ wishlistCount: number }>(
-      `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE brand_store_id = $1`,
+      `SELECT COUNT(*)::int as "wishlistCount" FROM ${TABLE_NAME} WHERE brand_store_id = $1 AND COALESCE(status, 'wish') = 'wish'`,
       [brandStoreId],
     );
 
@@ -233,7 +413,7 @@ export async function getUserWishlistProductIdsForStore(
       `
         SELECT product_id as "productId"
         FROM ${TABLE_NAME}
-        WHERE brand_store_id = $1 AND user_id = $2
+        WHERE brand_store_id = $1 AND user_id = $2 AND COALESCE(status, 'wish') = 'wish'
         ORDER BY created_at DESC
       `,
       [brandStoreId, userId],

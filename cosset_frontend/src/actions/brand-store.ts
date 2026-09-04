@@ -5,6 +5,7 @@ import type {
   IBrandProductOrder,
   IBrandProductOrderStatus,
   IBrandProductWishlistItem,
+  IBrandStoreWishlistClientItem,
 } from 'src/types/brand-store';
 
 import { useMemo } from 'react';
@@ -416,6 +417,50 @@ export async function toggleBrandProductWishlist(brandStoreId: number, productId
     wishlistCount: number;
     productWishlistCount: number;
   };
+}
+
+type StoreWishlistClientsData = {
+  items?: IBrandStoreWishlistClientItem[];
+  clientCount?: number;
+};
+
+export function useGetMyBrandStoreWishlists(enabled = true) {
+  const url = enabled ? `${endpoints.brandStore.wishlist}?forOwner=1` : null;
+
+  const { data, isLoading, error, isValidating, mutate: mutateWishlists } = useSWR<StoreWishlistClientsData>(
+    url,
+    fetcher,
+    swrOptions,
+  );
+
+  return useMemo(
+    () => ({
+      items: data?.items || [],
+      clientCount: data?.clientCount ?? 0,
+      wishlistsLoading: isLoading,
+      wishlistsError: error,
+      wishlistsValidating: isValidating,
+      wishlistsEmpty: !isLoading && !(data?.items || []).length,
+      refreshWishlists: () => mutateWishlists(),
+    }),
+    [data?.clientCount, data?.items, error, isLoading, isValidating, mutateWishlists],
+  );
+}
+
+export async function updateBrandStoreWishlistNote(
+  wishlistId: number,
+  note: string,
+  purchasedAt?: string | null,
+  status?: string | null,
+) {
+  const res = await axios.patch(endpoints.brandStore.wishlist, {
+    wishlistId,
+    note,
+    purchasedAt,
+    status,
+  });
+  await mutate(`${endpoints.brandStore.wishlist}?forOwner=1`);
+  return res.data?.item as IBrandStoreWishlistClientItem;
 }
 
 export async function recordBrandStoreView(brandStoreId: number) {
