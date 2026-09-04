@@ -69,7 +69,11 @@ export async function registerCossetServiceWorker() {
     return null;
   }
 
-  return navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  return navigator.serviceWorker.register('/sw.js', {
+    scope: '/',
+    // Always revalidate sw.js so fetch-handler fixes reach clients quickly.
+    updateViaCache: 'none',
+  });
 }
 
 export async function getPushStatus() {

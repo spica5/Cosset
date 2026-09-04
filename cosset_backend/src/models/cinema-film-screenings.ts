@@ -16,6 +16,8 @@ export interface CinemaFilmScreening {
   showSunday?: boolean | null;
   /** When true, showtimes run any day — for admin preview before Fri–Sun scheduling. */
   showFlexible?: boolean | null;
+  /** Friday (YYYY-MM-DD) of the selected screening weekend. */
+  showWeekStart?: string | null;
   pricingType?: 'free' | 'paid' | null;
   price?: string | null;
   order?: number | null;
@@ -51,6 +53,10 @@ const SELECT_COLUMNS = `
   show_saturday as "showSaturday",
   show_sunday as "showSunday",
   COALESCE(show_flexible, FALSE) as "showFlexible",
+  CASE
+    WHEN show_week_start IS NULL THEN NULL
+    ELSE to_char(show_week_start, 'YYYY-MM-DD')
+  END as "showWeekStart",
   COALESCE(pricing_type, 'free') as "pricingType",
   price,
   "order",
@@ -75,6 +81,10 @@ const SELECT_WITH_FILM_COLUMNS = `
   s.show_saturday as "showSaturday",
   s.show_sunday as "showSunday",
   COALESCE(s.show_flexible, FALSE) as "showFlexible",
+  CASE
+    WHEN s.show_week_start IS NULL THEN NULL
+    ELSE to_char(s.show_week_start, 'YYYY-MM-DD')
+  END as "showWeekStart",
   COALESCE(s.pricing_type, 'free') as "pricingType",
   s.price,
   s."order",
@@ -124,6 +134,35 @@ const normalizePrice = (value: unknown): string | null => {
 
 const normalizePricingType = (value: unknown): 'free' | 'paid' =>
   String(value || '').trim().toLowerCase() === 'paid' ? 'paid' : 'free';
+
+/** Persist weekend Friday as DATE (YYYY-MM-DD). */
+const normalizeWeekStartDate = (value: unknown): string | null => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const trimmed = String(value).trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${match[1]}-${match[2]}-${match[3]}`;
+};
 
 /** Persist UTC clock time into TIMESTAMP WITHOUT TIME ZONE (date is a fixed anchor; weekly days are applied in the app). */
 const normalizeTimestamp = (value: unknown): string | null => {
@@ -332,6 +371,13 @@ export const ensureCinemaFilmScreeningsTable = async (): Promise<void> => {
       await executeQuery(
         `
           ALTER TABLE ${TABLE_NAME}
+          ADD COLUMN IF NOT EXISTS show_week_start DATE
+        `,
+      );
+
+      await executeQuery(
+        `
+          ALTER TABLE ${TABLE_NAME}
           ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) NOT NULL DEFAULT 'free'
         `,
       );
@@ -422,6 +468,7 @@ export async function getCinemaFilmScreeningsByCategory(
           WHERE f.category = $1
             AND s.is_public = 1
             AND f.is_public = 1
+            AND COALESCE(s.show_flexible, FALSE) = FALSE
           ORDER BY s.show_at ASC, COALESCE(s."order", 2147483647) ASC, s.id ASC
         `,
         [normalizedCategory],
@@ -435,7 +482,7 @@ export async function getCinemaFilmScreeningsByCategory(
         INNER JOIN cinema_films f ON f.id = s.film_id
         WHERE s.customer_id = $1
           AND f.category = $2
-          ${publicOnly ? 'AND s.is_public = 1 AND f.is_public = 1' : ''}
+          ${publicOnly ? 'AND s.is_public = 1 AND f.is_public = 1 AND COALESCE(s.show_flexible, FALSE) = FALSE' : ''}
         ORDER BY s.show_at ASC, COALESCE(s."order", 2147483647) ASC, s.id ASC
       `,
       [normalizedCustomerId, normalizedCategory],
@@ -475,7 +522,7 @@ export async function getCinemaFilmScreeningsByFilmIds(
         SELECT ${SELECT_COLUMNS}
         FROM ${TABLE_NAME}
         WHERE film_id = ANY($1::bigint[])
-          ${publicOnly ? 'AND is_public = 1' : ''}
+          ${publicOnly ? 'AND is_public = 1 AND COALESCE(show_flexible, FALSE) = FALSE' : ''}
         ORDER BY show_at ASC, COALESCE("order", 2147483647) ASC, id ASC
       `,
       [normalizedFilmIds],
@@ -587,6 +634,7 @@ export async function createCinemaFilmScreening(
           show_saturday,
           show_sunday,
           show_flexible,
+          show_week_start,
           pricing_type,
           price,
           "order",
@@ -594,7 +642,7 @@ export async function createCinemaFilmScreening(
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
         RETURNING ${SELECT_COLUMNS}
       `,
       [
@@ -606,6 +654,7 @@ export async function createCinemaFilmScreening(
         showSaturday,
         showSunday,
         showFlexible,
+        normalizeWeekStartDate(screening.showWeekStart),
         pricingType,
         price,
         normalizeNullableInteger(screening.order),
@@ -754,6 +803,16 @@ export async function updateCinemaFilmScreening(
     if (updates.showFlexible !== undefined) {
       fields.push(`show_flexible = $${paramIndex}`);
       values.push(Boolean(updates.showFlexible));
+      paramIndex += 1;
+    }
+
+    if (updates.showWeekStart !== undefined || updates.showFlexible !== undefined) {
+      const weekStartValue = normalizeWeekStartDate(
+        updates.showWeekStart !== undefined ? updates.showWeekStart : existing.showWeekStart,
+      );
+
+      fields.push(`show_week_start = $${paramIndex}`);
+      values.push(weekStartValue);
       paramIndex += 1;
     }
 

@@ -1,16 +1,23 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import type { IBrandProduct } from 'src/types/brand-store';
+
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
+import Badge from '@mui/material/Badge';
+import Drawer from '@mui/material/Drawer';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
+import ListItemText from '@mui/material/ListItemText';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -21,11 +28,12 @@ import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
   useGetBrandStore,
   useGetBrandProducts,
-  purchaseBrandProduct,
   recordBrandStoreView,
   useGetBrandCategories,
   fetchBrandStoreFavorites,
   toggleBrandStoreFavorite,
+  fetchBrandProductWishlist,
+  toggleBrandProductWishlist,
 } from 'src/actions/brand-store';
 
 import { toast } from 'src/components/dashboard/snackbar';
@@ -57,6 +65,24 @@ function formatCount(value?: number | null) {
   return n.toLocaleString();
 }
 
+function parseProductPrice(value?: string | null) {
+  const n = Number(String(value || '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatMoney(amount: number, currency?: string | null) {
+  const code = (currency || 'USD').trim() || 'USD';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code.length === 3 ? code : 'USD',
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(2)}`;
+  }
+}
+
 async function resolveImageUrl(value?: string | null) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -73,6 +99,152 @@ async function resolveImageUrl(value?: string | null) {
   return (await getS3SignedUrl(raw.replace(/^public:/, ''))) || '';
 }
 
+function WishlistCheckoutThumb({ product }: { product: IBrandProduct }) {
+  const [src, setSrc] = useState('');
+  const imageKey = getBrandProductImages(product)[0] || '';
+
+  useEffect(() => {
+    let mounted = true;
+    resolveImageUrl(imageKey).then((url) => {
+      if (mounted) setSrc(url);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [imageKey]);
+
+  if (!src) {
+    return (
+      <Box
+        sx={{
+          width: 56,
+          height: 56,
+          borderRadius: 1.25,
+          flexShrink: 0,
+          bgcolor: 'background.neutral',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Iconify icon="solar:box-bold-duotone" width={22} sx={{ color: 'text.disabled' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      component="img"
+      src={src}
+      alt={product.name}
+      sx={{
+        width: 56,
+        height: 56,
+        borderRadius: 1.25,
+        flexShrink: 0,
+        objectFit: 'cover',
+        bgcolor: 'background.neutral',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
+    />
+  );
+}
+
+function WishlistCheckoutList({
+  products,
+  removingProductId,
+  onRemove,
+  dense = false,
+}: {
+  products: IBrandProduct[];
+  removingProductId: number | null;
+  onRemove: (product: IBrandProduct) => void;
+  dense?: boolean;
+}) {
+  const currency = products.find((product) => product.currency)?.currency || 'USD';
+  const total = products.reduce((sum, product) => sum + parseProductPrice(product.price), 0);
+
+  return (
+    <Stack spacing={dense ? 1.5 : 2}>
+      <Stack spacing={1.25} divider={<Divider flexItem sx={{ borderStyle: 'dashed' }} />}>
+        {products.map((product) => (
+          <Stack
+            key={product.id}
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
+            sx={{ py: dense ? 0.25 : 0.5 }}
+          >
+            <WishlistCheckoutThumb product={product} />
+            <ListItemText
+              primary={
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {product.name}
+                  </Typography>
+                  <Chip size="small" color="info" label="Wishlist" sx={{ height: 20 }} />
+                </Stack>
+              }
+              secondary={
+                <Stack spacing={0.15} sx={{ mt: 0.25 }}>
+                  {product.productCode ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Code: {product.productCode}
+                    </Typography>
+                  ) : null}
+                  <Typography variant="caption" color="text.secondary">
+                    {product.categoryName || 'Uncategorized'}
+                  </Typography>
+                </Stack>
+              }
+              primaryTypographyProps={{ component: 'div' }}
+              secondaryTypographyProps={{ component: 'div' }}
+              sx={{ flex: '1 1 auto', minWidth: 0 }}
+            />
+            <Stack alignItems="flex-end" spacing={0.5} sx={{ flexShrink: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                {product.price
+                  ? formatMoney(parseProductPrice(product.price), product.currency || currency)
+                  : '—'}
+              </Typography>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={removingProductId === product.id}
+                onClick={() => onRemove(product)}
+                aria-label={`Remove ${product.name} from wishlist`}
+              >
+                <Iconify
+                  icon={
+                    removingProductId === product.id
+                      ? 'svg-spinners:180-ring'
+                      : 'solar:trash-bin-trash-bold'
+                  }
+                  width={18}
+                />
+              </IconButton>
+            </Stack>
+          </Stack>
+        ))}
+      </Stack>
+
+      <Divider />
+
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="body2" color="text.secondary">
+          {products.length} item{products.length === 1 ? '' : 's'}
+        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+          {formatMoney(total, currency)}
+        </Typography>
+      </Stack>
+    </Stack>
+  );
+}
+
 export function BrandsStorefrontView({ storeId }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
@@ -84,19 +256,35 @@ export function BrandsStorefrontView({ storeId }: Props) {
   const [logoUrl, setLogoUrl] = useState('');
   const [introVideoUrl, setIntroVideoUrl] = useState('');
   const [ownerAvatarUrl, setOwnerAvatarUrl] = useState('');
-  const [buyingProductId, setBuyingProductId] = useState<number | null>(null);
+  const [wishlistingProductId, setWishlistingProductId] = useState<number | null>(null);
+  const [wishlistProductIds, setWishlistProductIds] = useState<number[]>([]);
+  const [wishlistDrawerOpen, setWishlistDrawerOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [visitCount, setVisitCount] = useState(0);
+  const introVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const isOwner = String(store?.ownerCustomerId || '') === String(user?.id || '');
+  const wishlistSet = useMemo(
+    () => new Set(wishlistProductIds.map(Number)),
+    [wishlistProductIds],
+  );
+
+  const wishlistProducts = useMemo(
+    () => products.filter((product) => wishlistSet.has(Number(product.id))),
+    [products, wishlistSet],
+  );
+
+  const myWishlistItemCount = wishlistProducts.length;
 
   useEffect(() => {
     setFavoriteCount(store?.favoriteCount || 0);
+    setWishlistCount(store?.wishlistCount || 0);
     setVisitCount(store?.totalViews || 0);
-  }, [store?.favoriteCount, store?.totalViews]);
+  }, [store?.favoriteCount, store?.wishlistCount, store?.totalViews]);
 
   useEffect(() => {
     if (!store?.id || !user?.id || isOwner) return;
@@ -113,6 +301,7 @@ export function BrandsStorefrontView({ storeId }: Props) {
   useEffect(() => {
     if (!store?.id || !user?.id) {
       setIsFavorite(false);
+      setWishlistProductIds([]);
       return undefined;
     }
 
@@ -120,6 +309,12 @@ export function BrandsStorefrontView({ storeId }: Props) {
     fetchBrandStoreFavorites()
       .then((ids) => {
         if (mounted) setIsFavorite(ids.includes(Number(store.id)));
+      })
+      .catch(() => undefined);
+
+    fetchBrandProductWishlist({ storeId: Number(store.id) })
+      .then(({ productIds }) => {
+        if (mounted) setWishlistProductIds(productIds);
       })
       .catch(() => undefined);
 
@@ -149,6 +344,56 @@ export function BrandsStorefrontView({ storeId }: Props) {
     }
   }, [favoriteSaving, store?.id, user?.id]);
 
+  const handleToggleWishlist = useCallback(
+    async (productId: number, productName: string) => {
+      if (!store?.id) return;
+
+      if (!user?.id) {
+        toast.error('Please sign in to add items to your wishlist');
+        return;
+      }
+
+      if (isOwner) {
+        toast.error('Store owners cannot wishlist their own products');
+        return;
+      }
+
+      if (wishlistingProductId) return;
+
+      try {
+        setWishlistingProductId(productId);
+        const result = await toggleBrandProductWishlist(store.id, productId);
+        setWishlistProductIds((prev) =>
+          result.isWishlisted
+            ? [...prev.filter((id) => id !== productId), productId]
+            : prev.filter((id) => id !== productId),
+        );
+        setWishlistCount(result.wishlistCount);
+        toast.success(
+          result.isWishlisted
+            ? `${productName} added to wishlist`
+            : `${productName} removed from wishlist`,
+        );
+        if (result.isWishlisted) {
+          setWishlistDrawerOpen(true);
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to update wishlist');
+      } finally {
+        setWishlistingProductId(null);
+      }
+    },
+    [isOwner, store?.id, user?.id, wishlistingProductId],
+  );
+
+  const handleOpenWishlistCheckout = useCallback(() => {
+    if (!user?.id) {
+      toast.error('Please sign in to view your wishlist');
+      return;
+    }
+    setWishlistDrawerOpen(true);
+  }, [user?.id]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -174,6 +419,29 @@ export function BrandsStorefrontView({ storeId }: Props) {
     };
   }, [store?.coverImage, store?.logoImage, store?.introVideo, store?.ownerPhotoURL]);
 
+  useEffect(() => {
+    const video = introVideoRef.current;
+    if (!video || !introVideoUrl) return undefined;
+
+    const tryPlay = () => {
+      video.muted = true;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => undefined);
+      }
+    };
+
+    video.addEventListener('loadeddata', tryPlay);
+    video.addEventListener('canplay', tryPlay);
+    tryPlay();
+
+    return () => {
+      video.removeEventListener('loadeddata', tryPlay);
+      video.removeEventListener('canplay', tryPlay);
+      video.pause();
+    };
+  }, [introVideoUrl]);
+
   const storeSlides = useMemo(
     () => [coverUrl, logoUrl].filter(Boolean).map((src) => ({ src })),
     [coverUrl, logoUrl],
@@ -190,25 +458,6 @@ export function BrandsStorefrontView({ storeId }: Props) {
     store?.ownerEmail ||
     'Brand owner';
   const ownerInitial = ownerName.charAt(0).toUpperCase() || 'B';
-
-  const handleBuy = async (productId: number, productName: string) => {
-    if (!store || buyingProductId) return;
-
-    if (!user?.id) {
-      toast.error('Please sign in to buy this product');
-      return;
-    }
-
-    try {
-      setBuyingProductId(productId);
-      await purchaseBrandProduct(store.id, productId, { quantity: 1 });
-      toast.success(`Purchased ${productName}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to purchase product');
-    } finally {
-      setBuyingProductId(null);
-    }
-  };
 
   const handleOpenShopChat = useCallback(() => {
     if (isOwner) return;
@@ -268,6 +517,26 @@ export function BrandsStorefrontView({ storeId }: Props) {
         ]}
         action={
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {!isOwner ? (
+              <Button
+                variant={myWishlistItemCount > 0 ? 'contained' : 'outlined'}
+                color="inherit"
+                disabled={!user?.id}
+                startIcon={
+                  <Badge
+                    color="error"
+                    badgeContent={myWishlistItemCount}
+                    max={99}
+                    invisible={myWishlistItemCount <= 0}
+                  >
+                    <Iconify icon="solar:bag-heart-bold" />
+                  </Badge>
+                }
+                onClick={handleOpenWishlistCheckout}
+              >
+                Wishlist
+              </Button>
+            ) : null}
             <Button
               variant={isFavorite ? 'contained' : 'outlined'}
               color={isFavorite ? 'error' : 'inherit'}
@@ -334,72 +603,57 @@ export function BrandsStorefrontView({ storeId }: Props) {
               sx={{
                 position: 'absolute',
                 left: 20,
-                bottom: -28,
-                width: 72,
-                height: 72,
+                bottom: 20,
+                width: 84,
+                height: 84,
                 borderRadius: 2,
                 objectFit: 'cover',
-                border: '3px solid',
-                borderColor: 'background.paper',
+                border: '3px solid rgba(255,255,255,0.92)',
                 bgcolor: 'background.paper',
                 cursor: 'zoom-in',
               }}
             />
           ) : null}
         </Box>
-        <CardContent sx={{ p: 3, pt: logoUrl ? 5 : 3 }}>
-          <Stack spacing={1.5}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              spacing={2}
-              flexWrap="wrap"
-            >
-              <Typography variant="h4">{store.name}</Typography>
-              <Stack direction="row" alignItems="center" spacing={1.25}>
-                <Avatar
-                  src={ownerAvatarUrl || undefined}
-                  alt={ownerName}
-                  sx={{ width: 32, height: 32, fontSize: 14 }}
-                >
-                  {ownerInitial}
-                </Avatar>
-                <Typography variant="body2" color="text.secondary">
-                  by {ownerName}
-                </Typography>
-              </Stack>
+
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Avatar src={ownerAvatarUrl || undefined} alt={ownerName} sx={{ width: 44, height: 44 }}>
+                {ownerInitial}
+              </Avatar>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h4">{store.name}</Typography>
+                {store.tagline ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {store.tagline}
+                  </Typography>
+                ) : null}
+              </Box>
             </Stack>
-            {store.tagline ? (
-              <Typography variant="subtitle1" color="text.secondary">
-                {store.tagline}
-              </Typography>
-            ) : null}
 
             {store.description || introVideoUrl ? (
-              <Grid container spacing={2.5} alignItems="flex-start">
-                <Grid item xs={12} md={introVideoUrl ? 8 : 12}>
-                  {store.description ? (
-                    <Typography variant="body1">{store.description}</Typography>
-                  ) : null}
-                </Grid>
+              <Grid container spacing={2} alignItems="flex-start">
+                {store.description ? (
+                  <Grid item xs={12} md={introVideoUrl ? 8 : 12}>
+                    <Typography variant="body2" color="text.secondary">
+                      {store.description}
+                    </Typography>
+                  </Grid>
+                ) : null}
                 {introVideoUrl ? (
-                  <Grid item xs={12} md={4}>
-                    <Box
-                      sx={{
-                        overflow: 'hidden',
-                        borderRadius: 1.5,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'common.black',
-                      }}
-                    >
+                  <Grid item xs={12} md={store.description ? 4 : 12}>
+                    <Box sx={{ borderRadius: 2, overflow: 'hidden' }}>
                       <Box
                         component="video"
+                        ref={introVideoRef}
                         src={introVideoUrl}
                         controls
+                        muted
+                        autoPlay
+                        loop
                         playsInline
-                        preload="metadata"
+                        preload="auto"
                         sx={{
                           display: 'block',
                           width: 1,
@@ -408,7 +662,6 @@ export function BrandsStorefrontView({ storeId }: Props) {
                           bgcolor: 'common.black',
                         }}
                       />
-
                     </Box>
                   </Grid>
                 ) : null}
@@ -425,6 +678,11 @@ export function BrandsStorefrontView({ storeId }: Props) {
                 size="small"
                 icon={<Iconify icon="solar:heart-bold" width={14} />}
                 label={`${formatCount(favoriteCount)} likes`}
+              />
+              <Chip
+                size="small"
+                icon={<Iconify icon="solar:bookmark-bold" width={14} />}
+                label={`${formatCount(wishlistCount)} wishlist`}
               />
               <Chip size="small" label={`${categories.length} categories`} />
               <Chip size="small" label={`${products.length} products`} />
@@ -470,61 +728,76 @@ export function BrandsStorefrontView({ storeId }: Props) {
           </Typography>
         ) : visibleProducts.length ? (
           <Grid container spacing={2}>
-            {visibleProducts.map((product) => (
-              <Grid item xs={12} sm={6} md={4} key={product.id}>
-                <Card sx={{ height: 1, overflow: 'hidden' }}>
-                  <BrandProductImageGallery
-                    imageKeys={getBrandProductImages(product)}
-                    alt={product.name}
-                    height={180}
-                  />
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Typography variant="h6">{product.name}</Typography>
-                        <Chip
-                          size="small"
-                          color={getBrandProductStatusColor(normalizeBrandProductStatus(product))}
-                          label={getBrandProductStatusLabel(normalizeBrandProductStatus(product))}
-                        />
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        {product.categoryName || 'Uncategorized'}
-                      </Typography>
-                      {product.description ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {product.description}
+            {visibleProducts.map((product) => {
+              const isWishlisted = wishlistSet.has(Number(product.id));
+              const displayStatus = isWishlisted
+                ? 'wishlist'
+                : normalizeBrandProductStatus(product);
+
+              return (
+                <Grid item xs={12} sm={6} md={4} key={product.id}>
+                  <Card sx={{ height: 1, overflow: 'hidden' }}>
+                    <BrandProductImageGallery
+                      imageKeys={getBrandProductImages(product)}
+                      alt={product.name}
+                      height={180}
+                    />
+                    <CardContent>
+                      <Stack spacing={1}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Typography variant="h6">{product.name}</Typography>
+                          <Chip
+                            size="small"
+                            color={getBrandProductStatusColor(displayStatus)}
+                            label={getBrandProductStatusLabel(displayStatus)}
+                          />
+                        </Stack>
+                        {product.productCode ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Code: {product.productCode}
+                          </Typography>
+                        ) : null}
+                        <Typography variant="caption" color="text.secondary">
+                          {product.categoryName || 'Uncategorized'}
                         </Typography>
-                      ) : null}
-                      {product.price ? (
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                          {product.currency || 'USD'} {product.price}
-                        </Typography>
-                      ) : null}
-                      {!isOwner ? (
-                        <Button
-                          fullWidth
-                          variant="contained"
-                          disabled={
-                            buyingProductId === product.id ||
-                            normalizeBrandProductStatus(product) !== 'available'
-                          }
-                          onClick={() => handleBuy(product.id, product.name)}
-                        >
-                          {buyingProductId === product.id
-                            ? 'Buying...'
-                            : normalizeBrandProductStatus(product) === 'sold_out'
-                              ? 'Sold out'
-                              : normalizeBrandProductStatus(product) === 'wishlist'
+                        {product.description ? (
+                          <Typography variant="body2" color="text.secondary">
+                            {product.description}
+                          </Typography>
+                        ) : null}
+                        {product.price ? (
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            {product.currency || 'USD'} {product.price}
+                          </Typography>
+                        ) : null}
+                        {!isOwner ? (
+                          <Button
+                            fullWidth
+                            variant={isWishlisted ? 'outlined' : 'contained'}
+                            color={isWishlisted ? 'inherit' : 'primary'}
+                            disabled={wishlistingProductId === product.id || !user?.id}
+                            startIcon={
+                              <Iconify
+                                icon={
+                                  isWishlisted ? 'solar:bookmark-bold' : 'solar:bookmark-linear'
+                                }
+                              />
+                            }
+                            onClick={() => handleToggleWishlist(product.id, product.name)}
+                          >
+                            {wishlistingProductId === product.id
+                              ? 'Saving...'
+                              : isWishlisted
                                 ? 'On wishlist'
-                                : 'Buy'}
-                        </Button>
-                      ) : null}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                                : 'Add Wishlist'}
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
           </Grid>
         ) : (
           <EmptyContent
@@ -546,6 +819,68 @@ export function BrandsStorefrontView({ storeId }: Props) {
         disableThumbnails
       />
 
+      <Drawer
+        anchor="right"
+        open={wishlistDrawerOpen}
+        onClose={() => setWishlistDrawerOpen(false)}
+        PaperProps={{ sx: { width: { xs: 1, sm: 420 }, p: 2.5 } }}
+      >
+        <Stack spacing={2} sx={{ height: 1 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack spacing={0.25}>
+              <Typography variant="h6">Wishlist checkout</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Shopping list · {store.name}
+              </Typography>
+            </Stack>
+            <IconButton onClick={() => setWishlistDrawerOpen(false)} aria-label="Close wishlist">
+              <Iconify icon="mingcute:close-line" />
+            </IconButton>
+          </Stack>
+
+          {myWishlistItemCount ? (
+            <>
+              <WishlistCheckoutList
+                dense
+                products={wishlistProducts}
+                removingProductId={wishlistingProductId}
+                onRemove={(product) => handleToggleWishlist(product.id, product.name)}
+              />
+              <Box sx={{ flexGrow: 1 }} />
+              <Stack spacing={1}>
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="contained"
+                  startIcon={<Iconify icon="solar:chat-round-dots-bold" />}
+                  onClick={() => {
+                    setWishlistDrawerOpen(false);
+                    handleOpenShopChat();
+                  }}
+                >
+                  Chat about wishlist
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="inherit"
+                  onClick={() => setWishlistDrawerOpen(false)}
+                >
+                  Continue shopping
+                </Button>
+              </Stack>
+            </>
+          ) : (
+            <EmptyContent
+              filled
+              title="Wishlist is empty"
+              description="Tap Add Wishlist on a product to build your shopping list."
+              sx={{ py: 6 }}
+            />
+          )}
+        </Stack>
+      </Drawer>
+
       {!isOwner && store.ownerCustomerId ? (
         <BrandStoreChatBox
           open={chatOpen}
@@ -555,6 +890,8 @@ export function BrandsStorefrontView({ storeId }: Props) {
           shopName={store.name}
           ownerName={ownerName}
           ownerAvatarUrl={ownerAvatarUrl}
+          wishlistCount={myWishlistItemCount}
+          onOpenWishlist={handleOpenWishlistCheckout}
         />
       ) : null}
     </DashboardContent>

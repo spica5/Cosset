@@ -23,7 +23,10 @@ export const CINEMA_TIME_ANCHOR_DATE = '1970-01-01';
 
 type CinemaWeeklyDayKey = 'showFriday' | 'showSaturday' | 'showSunday';
 
-type CinemaWeeklyScreeningSchedule = Pick<ICinemaFilmScreening, 'showAt' | 'showAt2' | 'showFlexible'> &
+type CinemaWeeklyScreeningSchedule = Pick<
+  ICinemaFilmScreening,
+  'showAt' | 'showAt2' | 'showFlexible' | 'showWeekStart'
+> &
   Partial<Record<CinemaWeeklyDayKey, boolean | null>>;
 
 const CINEMA_WEEKLY_DAY_CONFIG: Array<{
@@ -148,27 +151,88 @@ export const toIsoOrNull = (value: string) => {
 };
 
 const hasExplicitWeeklyDaySelection = (screening: CinemaWeeklyScreeningSchedule) =>
-  screening.showFlexible === true ||
   CINEMA_WEEKLY_DAY_CONFIG.some(({ key }) => screening[key] !== undefined && screening[key] !== null);
 
-export const getScreeningWeeklyDayLabels = (screening: CinemaWeeklyScreeningSchedule) => {
-  if (screening.showFlexible === true) {
-    return ['Any day'];
+const parseWeekStartDate = (value?: string | null) => {
+  const raw = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return null;
   }
 
-  if (!hasExplicitWeeklyDaySelection(screening)) {
+  const parsed = dayjs(raw);
+  return parsed.isValid() ? parsed.startOf('day') : null;
+};
+
+/** Friday of the Fri–Sun block containing `date` (local calendar). */
+const getLocalWeekendFriday = (date: Date) => {
+  const normalized = dayjs(date).startOf('day');
+  const weekday = normalized.day();
+
+  if (weekday === 5) return normalized;
+  if (weekday === 6) return normalized.subtract(1, 'day');
+  if (weekday === 0) return normalized.subtract(2, 'day');
+
+  // Mon–Thu: jump forward to this week's Friday.
+  return normalized.add(5 - weekday, 'day');
+};
+
+/**
+ * Resolve the screening weekend Friday:
+ * 1) saved `showWeekStart` from the calendar
+ * 2) otherwise the upcoming Fri–Sun weekend relative to `now`
+ */
+export const resolveScreeningWeekStart = (
+  screening?: Pick<ICinemaFilmScreening, 'showWeekStart'> | null,
+  now = new Date(),
+) => {
+  const saved = parseWeekStartDate(screening?.showWeekStart);
+  if (saved) {
+    return getLocalWeekendFriday(saved.toDate());
+  }
+
+  return getLocalWeekendFriday(now);
+};
+
+export const getScreeningWeeklyDayLabels = (
+  screening: CinemaWeeklyScreeningSchedule,
+  now = new Date(),
+) => {
+  if (!hasExplicitWeeklyDaySelection(screening) && screening.showFlexible !== true) {
     return CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
   }
 
-  const labels = CINEMA_WEEKLY_DAY_CONFIG.filter(({ key }) => screening[key] !== false).map(
-    ({ label }) => label,
+  const selectedDays = CINEMA_WEEKLY_DAY_CONFIG.filter(({ key }) => screening[key] !== false);
+
+  if (!selectedDays.length) {
+    return CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
+  }
+
+  const weekStart = resolveScreeningWeekStart(screening, now);
+  const dates = selectedDays.map(({ day }) => {
+    const offset = day === 5 ? 0 : day === 6 ? 1 : 2;
+    return weekStart.add(offset, 'day');
+  });
+
+  const sameMonth = dates.every(
+    (date) => date.month() === dates[0].month() && date.year() === dates[0].year(),
   );
 
-  return labels.length ? labels : CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
+  if (sameMonth) {
+    return [`${dates.map((date) => date.format('D')).join(', ')} ${dates[0].format('MMM YYYY')}`];
+  }
+
+  const sameYear = dates.every((date) => date.year() === dates[0].year());
+  if (sameYear) {
+    return [`${dates.map((date) => date.format('D MMM')).join(', ')} ${dates[0].format('YYYY')}`];
+  }
+
+  return [dates.map((date) => date.format('D MMM YYYY')).join(', ')];
 };
 
-export const getScreeningWeeklyDaySummary = (screening: CinemaWeeklyScreeningSchedule) =>
-  getScreeningWeeklyDayLabels(screening).join(', ');
+export const getScreeningWeeklyDaySummary = (
+  screening: CinemaWeeklyScreeningSchedule,
+  now = new Date(),
+) => getScreeningWeeklyDayLabels(screening, now).join(', ');
 
 /** Unique UTC clock times from showAt / showAt2 (date portion ignored). */
 export const getScreeningClockTimes = (
@@ -184,15 +248,13 @@ export const getScreeningClockTimes = (
 };
 
 const isCinemaWeeklyUtcDay = (day: number, screening?: CinemaWeeklyScreeningSchedule | null) => {
-  if (screening?.showFlexible === true) {
-    return true;
-  }
-
   if (!screening || !hasExplicitWeeklyDaySelection(screening)) {
     return (CINEMA_WEEKLY_UTC_DAYS as readonly number[]).includes(day);
   }
 
-  return CINEMA_WEEKLY_DAY_CONFIG.some(({ key, day: selectedDay }) => screening[key] !== false && selectedDay === day);
+  return CINEMA_WEEKLY_DAY_CONFIG.some(
+    ({ key, day: selectedDay }) => screening[key] !== false && selectedDay === day,
+  );
 };
 
 export const isCinemaWeeklyScreeningDay = (
@@ -200,12 +262,40 @@ export const isCinemaWeeklyScreeningDay = (
   screening?: CinemaWeeklyScreeningSchedule | null,
 ) => isCinemaWeeklyUtcDay(now.getUTCDay(), screening);
 
+/**
+ * True when this screening should appear on a specific calendar day.
+ * Always locked to the saved calendar weekend (`showWeekStart`), or the upcoming
+ * weekend relative to real "now" when no week was saved — never every Fri–Sun forever.
+ */
+export const isScreeningScheduledOnDay = (
+  screening: CinemaWeeklyScreeningSchedule,
+  day: Date,
+  now = new Date(),
+) => {
+  if (!isFixedTimeScreening(screening) && screening.showFlexible !== true) {
+    return false;
+  }
+
+  const friday = resolveScreeningWeekStart(screening, now);
+  const dayKey = dayjs(day).format('YYYY-MM-DD');
+
+  return CINEMA_WEEKLY_DAY_CONFIG.some(({ key, day: weekday }) => {
+    if (screening[key] === false) {
+      return false;
+    }
+
+    const offset = weekday === 5 ? 0 : weekday === 6 ? 1 : 2;
+    return friday.add(offset, 'day').format('YYYY-MM-DD') === dayKey;
+  });
+};
+
 const buildOccurrence = (year: number, month: number, day: number, clock: UtcClockTime) =>
   new Date(Date.UTC(year, month, day, clock.hours, clock.minutes, clock.seconds));
 
 /**
- * Expand showAt / showAt2 into concrete UTC starts around `now`
- * (Fri–Sun by default, or any day when Flexible / Preview is enabled).
+ * Expand showAt / showAt2 into concrete starts.
+ * When a calendar weekend (`showWeekStart`) is saved, only that weekend is used.
+ * Otherwise expand around `now` (Fri–Sun / Flexible).
  */
 export const getScreeningStartInstants = (
   screening: CinemaWeeklyScreeningSchedule,
@@ -217,23 +307,34 @@ export const getScreeningStartInstants = (
     return [];
   }
 
-  const lookBehindDays = options?.lookBehindDays ?? 2;
-  const lookAheadDays = options?.lookAheadDays ?? 14;
   const starts: Date[] = [];
+  // Prefer the admin-selected weekend; otherwise only the upcoming weekend from `now`
+  // (do not expand across every future Fri–Sun).
+  const friday = resolveScreeningWeekStart(screening, now);
 
-  for (let offset = -lookBehindDays; offset <= lookAheadDays; offset += 1) {
-    const day = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset),
-    );
-
-    if (isCinemaWeeklyUtcDay(day.getUTCDay(), screening)) {
-      clocks.forEach((clock) => {
-        starts.push(
-          buildOccurrence(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), clock),
-        );
-      });
+  CINEMA_WEEKLY_DAY_CONFIG.forEach(({ key, day }) => {
+    if (screening[key] === false) {
+      return;
     }
-  }
+
+    const offset = day === 5 ? 0 : day === 6 ? 1 : 2;
+    const localDay = friday.add(offset, 'day');
+    clocks.forEach((clock) => {
+      // Calendar day comes from the picker; show clocks remain UTC wall times.
+      starts.push(
+        new Date(
+          Date.UTC(
+            localDay.year(),
+            localDay.month(),
+            localDay.date(),
+            clock.hours,
+            clock.minutes,
+            clock.seconds,
+          ),
+        ),
+      );
+    });
+  });
 
   starts.sort((a, b) => a.getTime() - b.getTime());
   return starts;
@@ -360,11 +461,12 @@ export const getScreeningShowStatus = (
     return 'now';
   }
 
-  // Weekly showtimes always have a next Fri/Sat/Sun occurrence.
   if (getNextScreeningStart(screening, now)) {
     return 'upcoming';
   }
 
+  // Official weekends with a saved calendar week become Screened after the last show.
+  // Recurring weekly rows without a week start keep looking ahead, so they stay upcoming.
   return 'past';
 };
 
@@ -448,7 +550,7 @@ export const formatNearestScreeningTime = (
   return formatStartInstantLabel(nearest);
 };
 
-/** Human schedule lines (time only + weekly days — no one-off calendar date). */
+/** Human schedule lines with concrete calendar dates + showtimes. */
 export const getScreeningScheduleLabels = (
   screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
@@ -456,14 +558,15 @@ export const getScreeningScheduleLabels = (
   getScreeningClockTimes(screening)
     .map((clock) => {
       const timeLabel = formatClockLabel(clock, now);
-      return timeLabel ? `${getScreeningWeeklyDaySummary(screening)} · ${timeLabel}` : null;
+      return timeLabel ? `${getScreeningWeeklyDaySummary(screening, now)} · ${timeLabel}` : null;
     })
     .filter((label): label is string => Boolean(label));
 
 export const formatScreeningSchedule = (
   screening: CinemaWeeklyScreeningSchedule,
+  now = new Date(),
 ) => {
-  const labels = getScreeningScheduleLabels(screening);
+  const labels = getScreeningScheduleLabels(screening, now);
 
   if (!labels.length) {
     return null;
@@ -479,7 +582,7 @@ export const getCinemaFilmShowStatusLabel = (status: CinemaFilmShowStatus) => {
     case 'upcoming':
       return 'Upcoming';
     case 'past':
-      return 'Ended';
+      return 'Screened';
     case 'unscheduled':
       return 'Open screening';
     default:

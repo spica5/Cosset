@@ -281,7 +281,7 @@ export function CinemaScreeningsTable({
                           <Chip
                             size="small"
                             label={statusLabel}
-                            color={isBanner ? 'default' : status === 'now' ? 'success' : status === 'upcoming' ? 'info' : 'default'}
+                            color={isBanner ? 'default' : status === 'now' ? 'success' : status === 'upcoming' ? 'info' : status === 'past' ? 'default' : 'default'}
                             variant={status === 'past' ? 'outlined' : 'filled'}
                             sx={{
                               fontWeight: 700,

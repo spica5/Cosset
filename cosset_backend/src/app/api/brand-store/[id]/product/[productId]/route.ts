@@ -94,6 +94,7 @@ export async function PUT(
     const updated = await updateBrandProduct(productId, {
       categoryId: updates.categoryId,
       name: updates.name,
+      productCode: updates.productCode,
       description: updates.description,
       price: updates.price,
       currency: updates.currency,

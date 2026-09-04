@@ -8,10 +8,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Required for Chromium installability: SW must handle fetch.
-self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
-});
+// Chromium installability requires a fetch handler. Do not intercept requests:
+// calling respondWith(fetch(...)) rejects on aborted navigations (e.g. Next.js
+// route changes) and floods the console with "Failed to fetch" / network errors.
+self.addEventListener('fetch', () => {});
 
 self.addEventListener('push', (event) => {
   let payload = {

@@ -6,13 +6,18 @@ import type { PickersDayProps } from '@mui/x-date-pickers/PickersDay';
 import type { ICinemaFilmScreeningWithFilm } from 'src/types/cinema-film-screening';
 
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import CircularProgress from '@mui/material/CircularProgress';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay } from '@mui/x-date-pickers/PickersDay';
@@ -20,7 +25,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
+import { useRouter } from 'src/routes/hooks';
 
 import { getS3SignedUrl } from 'src/utils/helper';
 
@@ -39,8 +44,8 @@ import {
   getNextScreeningStart,
   getCinemaFilmShowStatusLabel,
   getScreeningShowStatus,
-  isCinemaWeeklyScreeningDay,
-  isFixedTimeScreening,
+  isCinemaPreviewScreening,
+  isScreeningScheduledOnDay,
 } from './cinema-film-schedule';
 import { CINEMA_CREAM, CINEMA_GOLD, CINEMA_SERIF } from './cinema-theater-theme';
 
@@ -114,11 +119,9 @@ function ScreeningPosterThumb({
 }
 
 function screeningPlaysOnDay(screening: ICinemaFilmScreeningWithFilm, day: Dayjs) {
-  if (!isFixedTimeScreening(screening) && screening.showFlexible !== true) {
-    return false;
-  }
-
-  return isCinemaWeeklyScreeningDay(day.toDate(), screening);
+  // Match against the screening's locked weekend (or upcoming weekend from real now),
+  // never reinterpret the weekend from the calendar's selected day.
+  return isScreeningScheduledOnDay(screening, day.toDate(), new Date());
 }
 
 function DayWithDots(props: PickersDayProps<Dayjs> & { highlightedDays?: Set<string> }) {
@@ -164,32 +167,203 @@ function toFilmFromScreening(
   };
 }
 
-function ScreeningCard({
-  screening,
-  selectedDay,
-  variant = 'list',
-  plain = false,
-}: {
-  screening: ICinemaFilmScreeningWithFilm;
-  selectedDay: Dayjs;
-  variant?: 'list' | 'poster';
-  plain?: boolean;
-}) {
+function buildCinemaViewHref(screening: ICinemaFilmScreeningWithFilm) {
   const categoryId = resolveCinemaCategoryId(String(screening.filmCategory || ''));
-  const category = categoryId ? getCinemaCategory(categoryId) : null;
-  const accent = category?.accent || CINEMA_GOLD;
   const params = new URLSearchParams();
   if (screening.customerId) {
     params.set('ownerId', String(screening.customerId));
   }
   params.set('filmId', String(screening.filmId));
-  const href = categoryId
+  params.set('screeningId', String(screening.id));
+
+  return categoryId
     ? `${paths.dashboard.community.cinema.view(categoryId)}?${params.toString()}`
     : paths.dashboard.community.cinema.root;
+}
 
-  const openScreening = () => {
-    window.open(href, '_blank', 'noopener,noreferrer');
-  };
+function ScreeningInfoDialog({
+  open,
+  screening,
+  selectedDay,
+  onClose,
+  onOpenCinema,
+}: {
+  open: boolean;
+  screening: ICinemaFilmScreeningWithFilm | null;
+  selectedDay: Dayjs;
+  onClose: () => void;
+  onOpenCinema: () => void;
+}) {
+  const [posterUrl, setPosterUrl] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    if (!screening?.filmPosterImage) {
+      setPosterUrl('');
+      return undefined;
+    }
+
+    resolvePosterImage(screening.filmPosterImage).then((url) => {
+      if (mounted) setPosterUrl(url);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [screening?.filmPosterImage]);
+
+  if (!screening) {
+    return null;
+  }
+
+  const categoryId = resolveCinemaCategoryId(String(screening.filmCategory || ''));
+  const category = categoryId ? getCinemaCategory(categoryId) : null;
+  const accent = category?.accent || CINEMA_GOLD;
+  const status = getScreeningShowStatus(screening, new Date());
+  const statusLabel = getCinemaFilmShowStatusLabel(status);
+  const schedule = formatScreeningSchedule(screening) || 'Open screening';
+  const meta = [screening.filmDirector, screening.filmYear].filter(Boolean).join(' · ');
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ pr: 6 }}>
+        Cinema info
+        <IconButton
+          aria-label="Close"
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 12, top: 12 }}
+        >
+          <Iconify icon="mingcute:close-line" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+          <Box
+            sx={{
+              width: { xs: 1, sm: 140 },
+              maxWidth: 180,
+              aspectRatio: '2 / 3',
+              borderRadius: 1.5,
+              overflow: 'hidden',
+              bgcolor: 'common.black',
+              border: `1px solid ${accent}55`,
+              flexShrink: 0,
+              alignSelf: { xs: 'center', sm: 'flex-start' },
+            }}
+          >
+            {posterUrl ? (
+              <Box
+                component="img"
+                src={posterUrl}
+                alt={screening.filmTitle || 'Film poster'}
+                sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <Stack alignItems="center" justifyContent="center" sx={{ height: 1, color: 'text.disabled' }}>
+                <Iconify icon="solar:clapperboard-play-bold" width={32} />
+              </Stack>
+            )}
+          </Box>
+
+          <Stack spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
+                {screening.filmTitle || 'Untitled film'}
+              </Typography>
+              {meta ? (
+                <Typography variant="body2" color="text.secondary">
+                  {meta}
+                </Typography>
+              ) : null}
+            </Box>
+
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+              {category ? (
+                <Chip
+                  size="small"
+                  icon={<Iconify icon={category.icon} width={14} />}
+                  label={`${category.shortTitle} · ${category.title}`}
+                  sx={{
+                    fontWeight: 700,
+                    color: accent,
+                    bgcolor: `${accent}18`,
+                    border: `1px solid ${accent}66`,
+                    '& .MuiChip-icon': { color: accent },
+                  }}
+                />
+              ) : null}
+              {statusLabel ? (
+                <Chip
+                  size="small"
+                  label={statusLabel}
+                  color={status === 'now' ? 'success' : status === 'upcoming' ? 'info' : 'default'}
+                  sx={{ fontWeight: 700 }}
+                />
+              ) : null}
+              {isCinemaPreviewScreening(screening) ? (
+                <Chip size="small" label="Preview" color="secondary" sx={{ fontWeight: 700 }} />
+              ) : null}
+            </Stack>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                Show time
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {schedule}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Selected day: {selectedDay.format('dddd, D MMM YYYY')}
+              </Typography>
+            </Box>
+
+            {screening.filmDescription ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                  About
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {screening.filmDescription}
+                </Typography>
+              </Box>
+            ) : null}
+          </Stack>
+        </Stack>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button color="inherit" onClick={onClose}>
+          Close
+        </Button>
+        <Button
+          variant="contained"
+          onClick={onOpenCinema}
+          startIcon={<Iconify icon="solar:clapperboard-play-bold" width={18} />}
+        >
+          Open cinema
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function ScreeningCard({
+  screening,
+  selectedDay,
+  variant = 'list',
+  plain = false,
+  onSelect,
+}: {
+  screening: ICinemaFilmScreeningWithFilm;
+  selectedDay: Dayjs;
+  variant?: 'list' | 'poster';
+  plain?: boolean;
+  onSelect: (screening: ICinemaFilmScreeningWithFilm) => void;
+}) {
+  const categoryId = resolveCinemaCategoryId(String(screening.filmCategory || ''));
+  const category = categoryId ? getCinemaCategory(categoryId) : null;
+  const accent = category?.accent || CINEMA_GOLD;
 
   if (variant === 'poster') {
     return (
@@ -201,13 +375,13 @@ function ScreeningCard({
         compact
         metaLabel={category?.title}
         referenceDate={selectedDay.toDate()}
-        onClick={openScreening}
+        onClick={() => onSelect(screening)}
         actions={
           <IconButton
             size="small"
             onClick={(event) => {
               event.stopPropagation();
-              openScreening();
+              onSelect(screening);
             }}
             sx={{
               width: 28,
@@ -217,16 +391,16 @@ function ScreeningCard({
               border: `1px solid ${accent}66`,
               '&:hover': { bgcolor: 'rgba(30,20,12,0.95)' },
             }}
-            aria-label={`Open ${screening.filmTitle || 'film'} in cinema room`}
+            aria-label={`View ${screening.filmTitle || 'film'} cinema info`}
           >
-            <Iconify icon="solar:ticket-bold" width={16} />
+            <Iconify icon="solar:info-circle-bold" width={16} />
           </IconButton>
         }
       />
     );
   }
 
-  const status = getScreeningShowStatus(screening, selectedDay.toDate());
+  const status = getScreeningShowStatus(screening, new Date());
   const statusLabel = getCinemaFilmShowStatusLabel(status);
   const schedule = formatScreeningSchedule(screening) || 'Open screening';
   const title = screening.filmTitle || 'Untitled film';
@@ -235,18 +409,20 @@ function ScreeningCard({
 
   return (
     <Box
-      component={RouterLink}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      component="button"
+      type="button"
+      onClick={() => onSelect(screening)}
       sx={{
         display: 'flex',
         alignItems: 'center',
         gap: 1.25,
+        width: 1,
         px: 1.1,
         py: 0.75,
         borderRadius: 1.25,
-        textDecoration: 'none',
+        textAlign: 'left',
+        cursor: 'pointer',
+        font: 'inherit',
         color: 'inherit',
         bgcolor: plain ? 'transparent' : 'rgba(255,255,255,0.04)',
         border: plain ? '1px solid' : `1px solid ${accent}40`,
@@ -324,17 +500,25 @@ function ScreeningCard({
             color:
               status === 'now'
                 ? '#1A1208'
-                : plain && status !== 'upcoming'
-                  ? 'text.primary'
-                  : CINEMA_CREAM,
+                : status === 'past'
+                  ? plain
+                    ? 'text.secondary'
+                    : 'rgba(245,230,200,0.75)'
+                  : plain && status !== 'upcoming'
+                    ? 'text.primary'
+                    : CINEMA_CREAM,
             bgcolor:
               status === 'now'
                 ? CINEMA_GOLD
                 : status === 'upcoming'
                   ? 'rgba(25,118,210,0.82)'
-                  : plain
-                    ? 'action.selected'
-                    : 'rgba(0,0,0,0.45)',
+                  : status === 'past'
+                    ? plain
+                      ? 'action.selected'
+                      : 'rgba(120,120,120,0.45)'
+                    : plain
+                      ? 'action.selected'
+                      : 'rgba(0,0,0,0.45)',
           }}
         />
       ) : null}
@@ -348,12 +532,14 @@ function RoomTodaySection({
   selectedDay,
   isToday,
   loading,
+  onSelect,
 }: {
   category: CinemaCategoryMeta;
   screening: ICinemaFilmScreeningWithFilm | null;
   selectedDay: Dayjs;
   isToday: boolean;
   loading?: boolean;
+  onSelect: (screening: ICinemaFilmScreeningWithFilm) => void;
 }) {
   const roomHeading = isToday
     ? `Today ${category.shortTitle}`
@@ -415,7 +601,12 @@ function RoomTodaySection({
             <CircularProgress size={20} sx={{ color: category.accent }} />
           </Stack>
         ) : screening ? (
-          <ScreeningCard screening={screening} selectedDay={selectedDay} variant="poster" />
+          <ScreeningCard
+            screening={screening}
+            selectedDay={selectedDay}
+            variant="poster"
+            onSelect={onSelect}
+          />
         ) : (
           <Stack
             spacing={0.75}
@@ -444,6 +635,10 @@ type Props = {
   /** `rooms` = one now/upcoming film per cinema room; `all` = every screening that day. */
   mode?: 'rooms' | 'all';
   showCalendar?: boolean;
+  /** When false, Flexible/Preview screenings are hidden (audience). Admins keep them. */
+  includePreview?: boolean;
+  /** Called when a scheduled item is opened (e.g. switch admin room tab). */
+  onSelectScreening?: (screening: ICinemaFilmScreeningWithFilm) => void;
 };
 
 export function CinemaTodayDateLabel({ day = dayjs(), plain = false }: { day?: Dayjs; plain?: boolean }) {
@@ -477,10 +672,37 @@ export function CinemaHubTodayPanel({
   loading = false,
   mode = 'rooms',
   showCalendar = true,
+  includePreview = true,
+  onSelectScreening,
 }: Props) {
+  const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<Dayjs>(() => dayjs());
+  const [infoScreening, setInfoScreening] = useState<ICinemaFilmScreeningWithFilm | null>(null);
   const isToday = selectedDay.isSame(dayjs(), 'day');
   const roomsMode = mode === 'rooms';
+
+  const visibleScreenings = useMemo(
+    () =>
+      includePreview
+        ? screenings
+        : screenings.filter((screening) => !isCinemaPreviewScreening(screening)),
+    [includePreview, screenings],
+  );
+
+  const handleSelectScreening = useCallback(
+    (screening: ICinemaFilmScreeningWithFilm) => {
+      setInfoScreening(screening);
+      onSelectScreening?.(screening);
+    },
+    [onSelectScreening],
+  );
+
+  const handleOpenCinema = useCallback(() => {
+    if (!infoScreening) return;
+    const href = buildCinemaViewHref(infoScreening);
+    setInfoScreening(null);
+    router.push(href);
+  }, [infoScreening, router]);
 
   useEffect(() => {
     if (!showCalendar) {
@@ -499,16 +721,16 @@ export function CinemaHubTodayPanel({
       cursor = cursor.add(1, 'day')
     ) {
       const key = cursor.format('YYYY-MM-DD');
-      if (screenings.some((screening) => screeningPlaysOnDay(screening, cursor))) {
+      if (visibleScreenings.some((screening) => screeningPlaysOnDay(screening, cursor))) {
         keys.add(key);
       }
     }
 
     return keys;
-  }, [screenings, selectedDay]);
+  }, [visibleScreenings, selectedDay]);
 
   const dayScreenings = useMemo(() => {
-    const list = screenings.filter((screening) => screeningPlaysOnDay(screening, selectedDay));
+    const list = visibleScreenings.filter((screening) => screeningPlaysOnDay(screening, selectedDay));
     const dayDate = selectedDay.toDate();
 
     const statusRank = (screening: ICinemaFilmScreeningWithFilm) => {
@@ -541,14 +763,14 @@ export function CinemaHubTodayPanel({
     }
 
     return [];
-  }, [roomsMode, screenings, selectedDay]);
+  }, [roomsMode, visibleScreenings, selectedDay]);
 
   const roomFeaturedScreenings = useMemo(() => {
     if (!roomsMode) {
       return [];
     }
 
-    const list = screenings.filter((screening) => screeningPlaysOnDay(screening, selectedDay));
+    const list = visibleScreenings.filter((screening) => screeningPlaysOnDay(screening, selectedDay));
     const dayDate = selectedDay.toDate();
 
     const statusRank = (screening: ICinemaFilmScreeningWithFilm) => {
@@ -591,7 +813,7 @@ export function CinemaHubTodayPanel({
 
       return { category, screening };
     });
-  }, [roomsMode, screenings, selectedDay]);
+  }, [roomsMode, visibleScreenings, selectedDay]);
 
   const splitRoomsLayout = roomsMode && !showCalendar;
   const plainSurface = !roomsMode && showCalendar;
@@ -654,6 +876,7 @@ export function CinemaHubTodayPanel({
                 selectedDay={selectedDay}
                 isToday={isToday}
                 loading={loading}
+                onSelect={handleSelectScreening}
               />
             ) : null}
 
@@ -672,6 +895,7 @@ export function CinemaHubTodayPanel({
                 selectedDay={selectedDay}
                 isToday={isToday}
                 loading={loading}
+                onSelect={handleSelectScreening}
               />
             ) : null}
           </Box>
@@ -833,6 +1057,7 @@ export function CinemaHubTodayPanel({
                       screening={screening}
                       selectedDay={selectedDay}
                       plain={plainSurface}
+                      onSelect={handleSelectScreening}
                     />
                   ))}
                 </Stack>
@@ -861,6 +1086,14 @@ export function CinemaHubTodayPanel({
         </Box>
         )}
       </Box>
+
+      <ScreeningInfoDialog
+        open={Boolean(infoScreening)}
+        screening={infoScreening}
+        selectedDay={selectedDay}
+        onClose={() => setInfoScreening(null)}
+        onOpenCinema={handleOpenCinema}
+      />
     </LocalizationProvider>
   );
 }

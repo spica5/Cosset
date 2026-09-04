@@ -1,16 +1,20 @@
 'use client';
 
+import type { IBrandProductWishlistItem } from 'src/types/brand-store';
+
 import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
 import Tabs from '@mui/material/Tabs';
+import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -22,6 +26,8 @@ import {
   revalidateBrandStoreList,
   fetchBrandStoreFavorites,
   toggleBrandStoreFavorite,
+  fetchBrandProductWishlist,
+  toggleBrandProductWishlist,
 } from 'src/actions/brand-store';
 
 import { toast } from 'src/components/dashboard/snackbar';
@@ -32,7 +38,14 @@ import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
 
+import {
+  getBrandProductImages,
+  getBrandProductStatusColor,
+  getBrandProductStatusLabel,
+} from 'src/types/brand-store';
+
 import { BrandStoreCard } from '../brand-store-card';
+import { BrandProductImageGallery } from '../brand-image-field';
 import {
   BrandsBoulevardIntro,
   BRANDS_BOULEVARD_PAGE_BACKGROUND,
@@ -40,7 +53,7 @@ import {
 
 // ----------------------------------------------------------------------
 
-type StoreTab = 'all' | 'favorites';
+type StoreTab = 'all' | 'favorites' | 'wishlist';
 
 export function BrandsBoulevardListView() {
   const router = useRouter();
@@ -51,12 +64,33 @@ export function BrandsBoulevardListView() {
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [favoriteCounts, setFavoriteCounts] = useState<Record<number, number>>({});
+  const [wishlistItems, setWishlistItems] = useState<IBrandProductWishlistItem[]>([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [savingWishlistProductId, setSavingWishlistProductId] = useState<number | null>(null);
 
   const { stores, storesLoading } = useGetBrandStores();
   const { store: myStore } = useGetMyBrandStore(canOpenStore);
 
   const favoriteSet = useMemo(() => new Set(favoriteIds.map(Number)), [favoriteIds]);
   const favoritesCount = favoriteIds.length;
+  const wishlistCount = wishlistItems.length;
+
+  const loadWishlist = useCallback(async () => {
+    if (!user?.id) {
+      setWishlistItems([]);
+      return;
+    }
+
+    setWishlistLoading(true);
+    try {
+      const { items } = await fetchBrandProductWishlist();
+      setWishlistItems(items);
+    } catch {
+      setWishlistItems([]);
+    } finally {
+      setWishlistLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     revalidateBrandStoreList();
@@ -65,6 +99,7 @@ export function BrandsBoulevardListView() {
   useEffect(() => {
     if (!user?.id) {
       setFavoriteIds([]);
+      setWishlistItems([]);
       return undefined;
     }
 
@@ -72,6 +107,12 @@ export function BrandsBoulevardListView() {
     fetchBrandStoreFavorites()
       .then((ids) => {
         if (mounted) setFavoriteIds(ids);
+      })
+      .catch(() => undefined);
+
+    fetchBrandProductWishlist()
+      .then(({ items }) => {
+        if (mounted) setWishlistItems(items);
       })
       .catch(() => undefined);
 
@@ -110,6 +151,25 @@ export function BrandsBoulevardListView() {
     });
   }, [stores, search, storeTab, favoriteSet]);
 
+  const filteredWishlistItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return wishlistItems;
+
+    return wishlistItems.filter((item) =>
+      [
+        item.productName,
+        item.productCode,
+        item.productDescription,
+        item.categoryName,
+        item.storeName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [wishlistItems, search]);
+
   const handleToggleFavorite = useCallback(
     async (storeId: number) => {
       if (!user?.id) {
@@ -138,12 +198,41 @@ export function BrandsBoulevardListView() {
     [savingFavoriteId, user?.id],
   );
 
+  const handleRemoveWishlistItem = useCallback(
+    async (item: IBrandProductWishlistItem) => {
+      if (!user?.id || savingWishlistProductId) return;
+
+      try {
+        setSavingWishlistProductId(item.productId);
+        const result = await toggleBrandProductWishlist(item.brandStoreId, item.productId);
+        if (!result.isWishlisted) {
+          setWishlistItems((prev) => prev.filter((row) => row.productId !== item.productId));
+          toast.success('Removed from wishlist');
+        } else {
+          await loadWishlist();
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to update wishlist');
+      } finally {
+        setSavingWishlistProductId(null);
+      }
+    },
+    [loadWishlist, savingWishlistProductId, user?.id],
+  );
+
   const handleStoreTabChange = (_event: React.SyntheticEvent, value: StoreTab) => {
-    if (value === 'favorites' && !user?.id) {
-      toast.error('Sign in to view your favorite shops');
+    if ((value === 'favorites' || value === 'wishlist') && !user?.id) {
+      toast.error(
+        value === 'wishlist'
+          ? 'Sign in to view your wishlist'
+          : 'Sign in to view your favorite shops',
+      );
       return;
     }
     setStoreTab(value);
+    if (value === 'wishlist') {
+      loadWishlist();
+    }
   };
 
   return (
@@ -240,6 +329,8 @@ export function BrandsBoulevardListView() {
               <Tabs
                 value={storeTab}
                 onChange={handleStoreTabChange}
+                variant="scrollable"
+                allowScrollButtonsMobile
                 sx={{
                   flexShrink: 0,
                   minHeight: 40,
@@ -258,17 +349,121 @@ export function BrandsBoulevardListView() {
                   icon={<Iconify icon="solar:heart-bold" width={18} />}
                   iconPosition="start"
                 />
+                <Tab
+                  value="wishlist"
+                  label={`Wishlist (${wishlistCount})`}
+                  icon={<Iconify icon="solar:bookmark-bold" width={18} />}
+                  iconPosition="start"
+                />
               </Tabs>
               <TextField
                 size="small"
                 fullWidth
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search stores by name, tagline, or owner"
+                placeholder={
+                  storeTab === 'wishlist'
+                    ? 'Search wishlist by product or shop'
+                    : 'Search stores by name, tagline, or owner'
+                }
               />
             </Stack>
 
-            {storesLoading ? (
+            {storeTab === 'wishlist' ? (
+              wishlistLoading ? (
+                <Typography variant="body2" color="text.secondary">
+                  Loading your wishlist...
+                </Typography>
+              ) : filteredWishlistItems.length ? (
+                <Grid container spacing={2.5}>
+                  {filteredWishlistItems.map((item) => (
+                    <Grid key={`${item.brandStoreId}-${item.productId}`} item xs={12} sm={6} md={4}>
+                      <Card sx={{ height: 1, overflow: 'hidden' }}>
+                        <BrandProductImageGallery
+                          imageKeys={getBrandProductImages({
+                            imageUrl: item.productImage,
+                            images: [],
+                          })}
+                          alt={item.productName}
+                          height={180}
+                        />
+                        <CardContent>
+                          <Stack spacing={1}>
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                              <Typography variant="h6">{item.productName}</Typography>
+                              <Chip
+                                size="small"
+                                color={getBrandProductStatusColor('wishlist')}
+                                label={getBrandProductStatusLabel('wishlist')}
+                              />
+                            </Stack>
+                            {item.storeName ? (
+                              <Typography variant="caption" color="text.secondary">
+                                {item.storeName}
+                                {item.categoryName ? ` · ${item.categoryName}` : ''}
+                              </Typography>
+                            ) : null}
+                            {item.productCode ? (
+                              <Typography variant="caption" color="text.secondary">
+                                Code: {item.productCode}
+                              </Typography>
+                            ) : null}
+                            {item.productDescription ? (
+                              <Typography variant="body2" color="text.secondary">
+                                {item.productDescription}
+                              </Typography>
+                            ) : null}
+                            {item.productPrice ? (
+                              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                {item.productCurrency || 'USD'} {item.productPrice}
+                              </Typography>
+                            ) : null}
+                            <Stack direction="row" spacing={1}>
+                              <Button
+                                fullWidth
+                                variant="contained"
+                                onClick={() =>
+                                  router.push(
+                                    paths.dashboard.community.brandsBoulevard.store(
+                                      item.brandStoreId,
+                                    ),
+                                  )
+                                }
+                              >
+                                Open shop
+                              </Button>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                color="inherit"
+                                disabled={savingWishlistProductId === item.productId}
+                                onClick={() => handleRemoveWishlistItem(item)}
+                              >
+                                {savingWishlistProductId === item.productId
+                                  ? 'Removing...'
+                                  : 'Remove'}
+                              </Button>
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <EmptyContent
+                  filled
+                  title="No wishlist items yet"
+                  description="Open a shop and tap Add Wishlist on a product to save it here."
+                  sx={{ py: 8 }}
+                  action={
+                    <Button variant="outlined" onClick={() => setStoreTab('all')}>
+                      Browse all shops
+                    </Button>
+                  }
+                />
+              )
+            ) : storesLoading ? (
               <Typography variant="body2" color="text.secondary">
                 Loading the boulevard...
               </Typography>

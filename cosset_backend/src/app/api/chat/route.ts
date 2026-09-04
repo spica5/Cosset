@@ -1,24 +1,27 @@
 import type { NextRequest } from 'next/server';
 
 import { verify } from 'src/utils/jwt';
-import { JWT_SECRET } from 'src/config-global';
 import { STATUS, response, handleError } from 'src/utils/response';
-import { getUserById, getUsersBriefByIds, type UserBrief } from 'src/models/users';
+import { notifyChatMessageReceived } from 'src/utils/chat-notifications';
+
+import { JWT_SECRET } from 'src/config-global';
+import { getUserById, type UserBrief, getUsersBriefByIds } from 'src/models/users';
 import {
-  addChatContact,
-  appendMessage,
-  createConversationWithParticipants,
-  deleteConversation,
-  findOneToOneConversation,
-  getConversationById,
-  getUnreadCount,
-  listChatContactIds,
-  listConversationIdsForUser,
   listMessages,
+  appendMessage,
+  addChatContact,
+  getUnreadCount,
   listParticipants,
-  markConversationSeen,
   removeChatContact,
+  deleteConversation,
+  listChatContactIds,
+  getConversationById,
+  getTotalUnreadCount,
+  markConversationSeen,
+  findOneToOneConversation,
+  listConversationIdsForUser,
   userIsConversationParticipant,
+  createConversationWithParticipants,
 } from 'src/models/chat';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +33,7 @@ const ENDPOINTS = {
   CONVERSATION: 'conversation',
   MARK_AS_SEEN: 'mark-as-seen',
   CONTACTS: 'contacts',
+  UNREAD_COUNT: 'unread-count',
 };
 
 const getUserIdFromRequest = async (req: NextRequest): Promise<string | null> => {
@@ -120,6 +124,43 @@ async function getContactUserIds(userId: string): Promise<string[]> {
   return ids.filter((id) => id !== userId);
 }
 
+async function notifyOtherParticipants(params: {
+  conversationId: string;
+  senderId: string;
+  messageId: string;
+  body: string;
+}) {
+  const { conversationId, senderId, messageId, body } = params;
+  const participantRows = await listParticipants(conversationId);
+  const recipientIds = participantRows
+    .map((row) => row.userId.trim().toLowerCase())
+    .filter((id) => id && id !== senderId);
+
+  if (!recipientIds.length) {
+    return;
+  }
+
+  const usersBrief = await getUsersBriefByIds([senderId, ...recipientIds]);
+  const sender = usersBrief.get(senderId);
+  const senderName = displayNameFromUser(sender);
+  const senderAvatarUrl = sender?.photoURL || null;
+
+  await Promise.all(
+    recipientIds.map((recipientId) =>
+      notifyChatMessageReceived({
+        recipientId,
+        conversationId,
+        messageId,
+        senderName,
+        senderAvatarUrl,
+        bodyPreview: body,
+      }).catch((error) => {
+        console.error('[Chat] Failed to notify recipient', recipientId, error);
+      }),
+    ),
+  );
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const endpoint = searchParams.get('endpoint');
@@ -172,6 +213,11 @@ export async function GET(req: NextRequest) {
           await markConversationSeen(conversationId, userId);
         }
         return response({ success: true }, STATUS.OK);
+      }
+
+      case ENDPOINTS.UNREAD_COUNT: {
+        const unreadCount = await getTotalUnreadCount(userId);
+        return response({ unreadCount }, STATUS.OK);
       }
 
       default:
@@ -293,12 +339,21 @@ export async function POST(req: NextRequest) {
       : null;
 
     if (firstMessage?.body && firstMessage?.id) {
+      const messageId = String(firstMessage.id);
+      const messageBody = String(firstMessage.body);
       await appendMessage({
-        id: String(firstMessage.id),
+        id: messageId,
         conversationId: created.id,
         senderId: userId,
-        body: String(firstMessage.body),
+        body: messageBody,
         contentType: String(firstMessage.contentType || 'text'),
+      });
+
+      await notifyOtherParticipants({
+        conversationId: created.id,
+        senderId: userId,
+        messageId,
+        body: messageBody,
       });
     }
 
@@ -385,12 +440,22 @@ export async function PUT(req: NextRequest) {
       return response({ message: 'Conversation not found!' }, STATUS.NOT_FOUND);
     }
 
+    const messageId = String(messageData.id);
+    const messageBody = String(messageData.body);
+
     await appendMessage({
-      id: String(messageData.id),
+      id: messageId,
       conversationId,
       senderId: userId,
-      body: String(messageData.body),
+      body: messageBody,
       contentType: String(messageData.contentType || 'text'),
+    });
+
+    await notifyOtherParticipants({
+      conversationId,
+      senderId: userId,
+      messageId,
+      body: messageBody,
     });
 
     const conversation = await buildConversationPayload(conversationId, userId);

@@ -20,7 +20,7 @@ import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 
-import { CINEMA_CATEGORIES, type CinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
+import { CINEMA_CATEGORIES, resolveCinemaCategoryId, type CinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
 import { CinemaCategoryFilmsPanel } from 'src/sections/dashboard/cinema/cinema-category-films-panel';
 import { CinemaHubTodayPanel } from 'src/sections/dashboard/cinema/cinema-hub-today-panel';
 import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/dashboard/cinema/cinema-theater-theme';
@@ -156,6 +156,12 @@ export function AdminCinemaView() {
             loading={scheduleLoading}
             mode="all"
             showCalendar
+            onSelectScreening={(screening) => {
+              const categoryId = resolveCinemaCategoryId(String(screening.filmCategory || ''));
+              if (categoryId) {
+                setActiveCategoryId(categoryId);
+              }
+            }}
           />
         </Card>
 

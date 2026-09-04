@@ -4,6 +4,7 @@ import type {
   IBrandProduct,
   IBrandProductOrder,
   IBrandProductOrderStatus,
+  IBrandProductWishlistItem,
 } from 'src/types/brand-store';
 
 import { useMemo } from 'react';
@@ -379,6 +380,42 @@ export async function toggleBrandStoreFavorite(brandStoreId: number) {
   const res = await axios.post(endpoints.brandStore.favorite, { brandStoreId });
   await revalidateBrandStoreList();
   return res.data as { isFavorite: boolean; favoriteCount: number };
+}
+
+// ---- Product wishlist ----
+
+export async function fetchBrandProductWishlist(options?: {
+  storeId?: number;
+  idsOnly?: boolean;
+}): Promise<{ items: IBrandProductWishlistItem[]; productIds: number[] }> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.storeId) params.set('storeId', String(options.storeId));
+    if (options?.idsOnly) params.set('idsOnly', '1');
+    const query = params.toString();
+    const res = await axios.get(
+      query ? `${endpoints.brandStore.wishlist}?${query}` : endpoints.brandStore.wishlist,
+    );
+
+    const productIds = (res.data?.productIds || [])
+      .map(Number)
+      .filter((id: number) => Number.isFinite(id));
+    const items = (res.data?.items || []) as IBrandProductWishlistItem[];
+
+    return { items, productIds };
+  } catch {
+    return { items: [], productIds: [] };
+  }
+}
+
+export async function toggleBrandProductWishlist(brandStoreId: number, productId: number) {
+  const res = await axios.post(endpoints.brandStore.wishlist, { brandStoreId, productId });
+  await revalidateBrandStoreList();
+  return res.data as {
+    isWishlisted: boolean;
+    wishlistCount: number;
+    productWishlistCount: number;
+  };
 }
 
 export async function recordBrandStoreView(brandStoreId: number) {

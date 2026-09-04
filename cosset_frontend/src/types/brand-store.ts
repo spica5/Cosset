@@ -20,6 +20,7 @@ export type IBrandStore = {
   productCount?: number;
   totalViews?: number;
   favoriteCount?: number;
+  wishlistCount?: number;
 };
 
 export type IBrandCategory = {
@@ -39,6 +40,7 @@ export type IBrandProduct = {
   storeId: number;
   categoryId: number;
   name: string;
+  productCode?: string | null;
   description?: string | null;
   price?: string | null;
   currency?: string | null;
@@ -71,6 +73,24 @@ export type IBrandProductOrder = {
   note?: string | null;
   createdAt?: string | Date | null;
   updatedAt?: string | Date | null;
+};
+
+export type IBrandProductWishlistItem = {
+  id: number;
+  brandStoreId: number;
+  productId: number;
+  userId: string;
+  createdAt?: string | Date | null;
+  productName: string;
+  productCode?: string | null;
+  productDescription?: string | null;
+  productPrice?: string | null;
+  productCurrency?: string | null;
+  productImage?: string | null;
+  productStatus?: string | null;
+  categoryName?: string | null;
+  storeName?: string | null;
+  storeLogoImage?: string | null;
 };
 
 export function getBrandProductImages(product: Pick<IBrandProduct, 'images' | 'imageUrl'>): string[] {

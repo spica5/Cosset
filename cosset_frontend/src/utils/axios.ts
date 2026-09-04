@@ -206,6 +206,7 @@ export const endpoints = {
       `/api/brand-store/${id}/product/${productId}/order`,
     orders: '/api/brand-store/orders',
     favorite: '/api/brand-store/favorite',
+    wishlist: '/api/brand-store/wishlist',
     view: '/api/brand-store/view',
   },
   journeyDiary: {

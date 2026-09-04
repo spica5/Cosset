@@ -1,14 +1,15 @@
 import type { NextRequest } from 'next/server';
 
 import { verify } from 'src/utils/jwt';
-import { JWT_SECRET } from 'src/config-global';
 import { STATUS, response, handleError } from 'src/utils/response';
+import { sendCinemaNotifyTestToUser } from 'src/utils/cinema-schedule-notify';
+
+import { JWT_SECRET } from 'src/config-global';
+import { hasEnabledPushSubscriptionForOrigin } from 'src/models/push-subscriptions';
 import {
   getCinemaNotificationPref,
   setCinemaNotificationPref,
 } from 'src/models/cinema-notification-prefs';
-import { sendCinemaNotifyTestToUser } from 'src/utils/cinema-schedule-notify';
-import { hasEnabledPushSubscriptionForOrigin } from 'src/models/push-subscriptions';
 
 // ----------------------------------------------------------------------
 

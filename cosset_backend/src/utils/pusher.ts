@@ -52,6 +52,12 @@ export function userMailChannel(userId: string) {
 
 export const USER_MAIL_NEW_EVENT = 'new-mail';
 
+export function userChatChannel(userId: string) {
+  return `user-chat-${userId.trim().toLowerCase()}`;
+}
+
+export const USER_CHAT_NEW_EVENT = 'new-message';
+
 export function userCallChannel(userId: string) {
   return `user-call-${userId.trim().toLowerCase()}`;
 }

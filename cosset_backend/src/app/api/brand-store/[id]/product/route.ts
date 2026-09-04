@@ -109,6 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       storeId,
       categoryId,
       name: product.name,
+      productCode: product.productCode ?? null,
       description: product.description ?? null,
       price: product.price ?? null,
       currency: product.currency ?? 'USD',

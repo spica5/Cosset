@@ -8,47 +8,23 @@ import { endpoints } from 'src/utils/axios';
 import { playChatNotificationSound } from 'src/utils/chat-notification-sound';
 
 import { CONFIG } from 'src/config-global';
-import { refreshMailCaches } from 'src/actions/mail';
+import { revalidateChatUnreadCount, refreshChatCaches } from 'src/actions/chat';
 
 import { toast } from 'src/components/dashboard/snackbar';
 
 // ----------------------------------------------------------------------
 
-const USER_MAIL_NEW_EVENT = 'new-mail';
+const USER_CHAT_NEW_EVENT = 'new-message';
 
-type MailNotificationPayload = {
-  mailId?: string;
-  subject?: string;
+type ChatNotificationPayload = {
+  conversationId?: string;
+  messageId?: string;
+  bodyPreview?: string;
   fromName?: string;
 };
 
-function userMailChannel(userId: string) {
-  return `user-mail-${userId.trim().toLowerCase()}`;
-}
-
-function incrementMailUnreadLabels() {
-  return mutate(
-    endpoints.mail.labels,
-    (current?: { labels: Array<{ id: string; unreadCount?: number }> }) => {
-      if (!current?.labels) {
-        return current;
-      }
-
-      return {
-        labels: current.labels.map((label) => {
-          if (label.id !== 'inbox' && label.id !== 'all') {
-            return label;
-          }
-
-          return {
-            ...label,
-            unreadCount: (label.unreadCount ?? 0) + 1,
-          };
-        }),
-      };
-    },
-    { revalidate: false },
-  );
+function userChatChannel(userId: string) {
+  return `user-chat-${userId.trim().toLowerCase()}`;
 }
 
 async function refreshNotificationList(customerId: string) {
@@ -60,7 +36,7 @@ async function refreshNotificationList(customerId: string) {
   );
 }
 
-export function useMailNotifications(userId?: string) {
+export function useChatNotifications(userId?: string) {
   useEffect(() => {
     if (!userId) {
       return undefined;
@@ -75,25 +51,25 @@ export function useMailNotifications(userId?: string) {
       cluster: CONFIG.pusher.cluster,
     });
 
-    const channel = pusher.subscribe(userMailChannel(userId));
+    const channel = pusher.subscribe(userChatChannel(userId));
 
-    const handleNewMail = (payload: MailNotificationPayload) => {
+    const handleNewMessage = (payload: ChatNotificationPayload) => {
       const fromName = payload?.fromName?.trim() || 'Someone';
-      const subject = payload?.subject?.trim() || '(No subject)';
+      const preview = payload?.bodyPreview?.trim() || 'New message';
 
       playChatNotificationSound();
-      toast.info(`New email from ${fromName}: ${subject}`);
+      toast.info(`${fromName}: ${preview}`);
 
-      incrementMailUnreadLabels();
       refreshNotificationList(userId);
-      refreshMailCaches();
+      revalidateChatUnreadCount();
+      refreshChatCaches(payload?.conversationId);
     };
 
-    channel.bind(USER_MAIL_NEW_EVENT, handleNewMail);
+    channel.bind(USER_CHAT_NEW_EVENT, handleNewMessage);
 
     return () => {
-      channel.unbind(USER_MAIL_NEW_EVENT, handleNewMail);
-      pusher.unsubscribe(userMailChannel(userId));
+      channel.unbind(USER_CHAT_NEW_EVENT, handleNewMessage);
+      pusher.unsubscribe(userChatChannel(userId));
 
       // Avoid "WebSocket is closed before the connection is established" when
       // React Strict Mode remounts during the Pusher handshake.

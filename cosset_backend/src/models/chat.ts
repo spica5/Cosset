@@ -227,6 +227,24 @@ export async function getUnreadCount(conversationId: string, userId: string): Pr
   return row?.unreadCount ?? 0;
 }
 
+export async function getTotalUnreadCount(userId: string): Promise<number> {
+  const uid = userId.trim().toLowerCase();
+  if (!isUuid(uid)) return 0;
+
+  await ensureChatTables();
+
+  const row = await queryOne<{ unreadCount: number | string }>(
+    `
+      SELECT COALESCE(SUM(unread_count), 0) AS "unreadCount"
+      FROM ${PARTICIPANTS_TABLE}
+      WHERE user_id = $1
+    `,
+    [uid],
+  );
+
+  return Math.max(0, Number(row?.unreadCount) || 0);
+}
+
 export async function findOneToOneConversation(
   userIdA: string,
   userIdB: string,

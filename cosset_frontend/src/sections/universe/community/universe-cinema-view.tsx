@@ -614,6 +614,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
             screening.showSaturday ? 1 : 0,
             screening.showSunday ? 1 : 0,
             screening.showFlexible ? 1 : 0,
+            screening.showWeekStart ?? '',
             screening.isPublic ?? 1,
             screening.updatedAt ?? '',
           ].join(':'),

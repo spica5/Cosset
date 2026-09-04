@@ -18,6 +18,15 @@ const swrOptions = {
   revalidateOnReconnect: enableServer,
 };
 
+const chatUnreadPollOptions = {
+  ...swrOptions,
+  refreshInterval: 30_000,
+};
+
+const conversationsUrl = [CHART_ENDPOINT, { params: { endpoint: 'conversations' } }];
+const contactsUrl = [CHART_ENDPOINT, { params: { endpoint: 'contacts' } }];
+const unreadCountUrl = [CHART_ENDPOINT, { params: { endpoint: 'unread-count' } }];
+
 // ----------------------------------------------------------------------
 
 type ContactsData = {
@@ -76,6 +85,38 @@ export function useGetConversations() {
 
 // ----------------------------------------------------------------------
 
+type ChatUnreadData = {
+  unreadCount?: number;
+};
+
+export function useGetChatUnreadCount(enabled = true) {
+  const url = enabled ? unreadCountUrl : null;
+
+  const { data, isLoading } = useSWR<ChatUnreadData>(url, fetcher, chatUnreadPollOptions);
+
+  const unreadCount = useMemo(() => Math.max(0, data?.unreadCount ?? 0), [data?.unreadCount]);
+
+  return { unreadCount, unreadCountLoading: isLoading };
+}
+
+export function revalidateChatUnreadCount() {
+  return mutate(unreadCountUrl);
+}
+
+export function refreshChatCaches(conversationId?: string) {
+  const tasks: Promise<unknown>[] = [mutate(conversationsUrl), mutate(unreadCountUrl)];
+
+  if (conversationId) {
+    tasks.push(
+      mutate([CHART_ENDPOINT, { params: { conversationId, endpoint: 'conversation' } }]),
+    );
+  }
+
+  return Promise.all(tasks);
+}
+
+// ----------------------------------------------------------------------
+
 type ConversationData = {
   conversation: IChatConversation;
 };
@@ -109,8 +150,6 @@ export function useGetConversation(
 // ----------------------------------------------------------------------
 
 export async function sendMessage(conversationId: string, messageData: IChatMessage) {
-  const conversationsUrl = [CHART_ENDPOINT, { params: { endpoint: 'conversations' } }];
-
   const conversationUrl = [
     CHART_ENDPOINT,
     { params: { conversationId, endpoint: 'conversation' } },
@@ -176,10 +215,7 @@ export async function sendMessage(conversationId: string, messageData: IChatMess
   );
 
   // Revalidate so the other participant's open chat refreshes promptly.
-  await Promise.all([
-    mutate(conversationUrl),
-    mutate(conversationsUrl),
-  ]);
+  await Promise.all([mutate(conversationUrl), mutate(conversationsUrl), mutate(unreadCountUrl)]);
 }
 
 // ----------------------------------------------------------------------
@@ -225,7 +261,7 @@ export async function clickConversation(conversationId: string) {
    * Work in local
    */
   mutate(
-    [CHART_ENDPOINT, { params: { endpoint: 'conversations' } }],
+    conversationsUrl,
     (currentData) => {
       const currentConversations: IChatConversation[] = currentData.conversations;
 
@@ -237,12 +273,11 @@ export async function clickConversation(conversationId: string) {
     },
     false
   );
+
+  await revalidateChatUnreadCount();
 }
 
 // ----------------------------------------------------------------------
-
-const contactsUrl = [CHART_ENDPOINT, { params: { endpoint: 'contacts' } }];
-const conversationsUrl = [CHART_ENDPOINT, { params: { endpoint: 'conversations' } }];
 
 export async function addChatContact(contactUserId: string) {
   const res = await axios.post(CHART_ENDPOINT, {
@@ -316,6 +351,7 @@ export async function removeChatContact(contactUserId: string, conversationId?: 
   }
 
   await mutate(conversationsUrl);
+  await revalidateChatUnreadCount();
 
   return res.data;
 }

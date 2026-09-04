@@ -7,6 +7,7 @@ import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Badge from '@mui/material/Badge';
 import Paper from '@mui/material/Paper';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -45,6 +46,8 @@ type Props = {
   shopName: string;
   ownerName: string;
   ownerAvatarUrl?: string;
+  wishlistCount?: number;
+  onOpenWishlist?: () => void;
 };
 
 export function BrandStoreChatBox({
@@ -55,6 +58,8 @@ export function BrandStoreChatBox({
   shopName,
   ownerName,
   ownerAvatarUrl,
+  wishlistCount = 0,
+  onOpenWishlist,
 }: Props) {
   const { user } = useAuthContext();
   const [conversationId, setConversationId] = useState('');
@@ -215,22 +220,85 @@ export function BrandStoreChatBox({
       }}
     >
       {!open ? (
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={onOpen}
-          startIcon={<Iconify icon="solar:chat-round-dots-bold" width={20} />}
-          sx={{
-            borderRadius: 999,
-            px: 2.25,
-            py: 1.25,
-            boxShadow: 8,
-            fontWeight: 700,
-          }}
-        >
-          Chat with shop
-        </Button>
+        <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+          {onOpenWishlist ? (
+            <Button
+              variant="contained"
+              color="inherit"
+              onClick={onOpenWishlist}
+              startIcon={
+                <Badge
+                  color="error"
+                  badgeContent={wishlistCount}
+                  max={99}
+                  invisible={wishlistCount <= 0}
+                >
+                  <Iconify icon="solar:bag-heart-bold" width={20} />
+                </Badge>
+              }
+              sx={{
+                borderRadius: 999,
+                px: 2.25,
+                py: 1.25,
+                boxShadow: 8,
+                fontWeight: 700,
+                bgcolor: 'background.paper',
+                color: 'text.primary',
+                '&:hover': { bgcolor: 'background.neutral' },
+              }}
+            >
+              Wishlist
+            </Button>
+          ) : null}
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onOpen}
+            startIcon={<Iconify icon="solar:chat-round-dots-bold" width={20} />}
+            sx={{
+              borderRadius: 999,
+              px: 2.25,
+              py: 1.25,
+              boxShadow: 8,
+              fontWeight: 700,
+            }}
+          >
+            Chat with shop
+          </Button>
+        </Stack>
       ) : (
+        <Stack spacing={1} alignItems="stretch">
+          {onOpenWishlist ? (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                color="inherit"
+                size="small"
+                onClick={onOpenWishlist}
+                startIcon={
+                  <Badge
+                    color="error"
+                    badgeContent={wishlistCount}
+                    max={99}
+                    invisible={wishlistCount <= 0}
+                  >
+                    <Iconify icon="solar:bag-heart-bold" width={18} />
+                  </Badge>
+                }
+                sx={{
+                  borderRadius: 999,
+                  px: 1.75,
+                  boxShadow: 6,
+                  fontWeight: 700,
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  '&:hover': { bgcolor: 'background.neutral' },
+                }}
+              >
+                Wishlist
+              </Button>
+            </Box>
+          ) : null}
         <Paper
           elevation={12}
           sx={{
@@ -459,6 +527,7 @@ export function BrandStoreChatBox({
             />
           </Box>
         </Paper>
+        </Stack>
       )}
     </Box>
   );

@@ -15,6 +15,7 @@ export interface BrandStore {
   isPublic: boolean;
   totalViews?: number;
   favoriteCount?: number;
+  wishlistCount?: number;
   createdAt?: Date | null;
   updatedAt?: Date | null;
   ownerFirstName?: string | null;
@@ -83,6 +84,7 @@ export const ensureBrandStoresTable = async (): Promise<void> => {
             store_id BIGINT NOT NULL,
             category_id BIGINT NOT NULL,
             name VARCHAR(160) NOT NULL,
+            product_code VARCHAR(80) NULL,
             description TEXT NULL,
             price VARCHAR(40) NULL,
             currency VARCHAR(12) NULL DEFAULT 'USD',
@@ -103,6 +105,19 @@ export const ensureBrandStoresTable = async (): Promise<void> => {
             user_id UUID NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(brand_store_id, user_id)
+          )
+        `,
+      );
+
+      await executeQuery(
+        `
+          CREATE TABLE IF NOT EXISTS brand_product_wishlists (
+            id BIGSERIAL PRIMARY KEY,
+            brand_store_id BIGINT NOT NULL,
+            product_id BIGINT NOT NULL,
+            user_id UUID NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(product_id, user_id)
           )
         `,
       );
@@ -152,7 +167,10 @@ const STORE_SELECT = `
   ) as "productCount",
   (
     SELECT COUNT(*)::int FROM brand_store_favorites f WHERE f.brand_store_id = s.id
-  ) as "favoriteCount"
+  ) as "favoriteCount",
+  (
+    SELECT COUNT(*)::int FROM brand_product_wishlists w WHERE w.brand_store_id = s.id
+  ) as "wishlistCount"
 `;
 
 const STORE_FROM = `

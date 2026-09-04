@@ -15,9 +15,11 @@ import { useRouter, usePathname } from 'src/routes/hooks';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 import { useMailNotifications } from 'src/hooks/use-mail-notifications';
+import { useChatNotifications } from 'src/hooks/use-chat-notifications';
 
 import { useGetMailUnreadCount } from 'src/actions/mail';
 import { useGetPostUnreadCount } from 'src/actions/post';
+import { useGetChatUnreadCount } from 'src/actions/chat';
 import { useGetCollections } from 'src/actions/collection';
 import { useGetMyBrandStore } from 'src/actions/brand-store';
 import { useGetNotifications } from 'src/actions/notification';
@@ -103,7 +105,9 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const userId = user?.id ? String(user.id) : undefined;
   const { unreadCount: mailUnreadCount } = useGetMailUnreadCount(Boolean(userId));
   const { unreadCount: postUnreadCount } = useGetPostUnreadCount(Boolean(userId));
+  const { unreadCount: chatUnreadCount } = useGetChatUnreadCount(Boolean(userId));
   useMailNotifications(userId);
+  useChatNotifications(userId);
 
   const settings = useSettingsContext();
 
@@ -187,6 +191,18 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
             };
           }
 
+          if (item.title === 'Chat') {
+            return {
+              ...item,
+              info:
+                chatUnreadCount > 0 ? (
+                  <Label color="error" variant="inverted">
+                    {chatUnreadCount}
+                  </Label>
+                ) : undefined,
+            };
+          }
+
           return item;
         }),
       }));
@@ -248,11 +264,24 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
           };
         }
 
+        if (item.title === 'Chat') {
+          return {
+            ...item,
+            info:
+              chatUnreadCount > 0 ? (
+                <Label color="error" variant="inverted">
+                  {chatUnreadCount}
+                </Label>
+              ) : undefined,
+          };
+        }
+
         return item;
       }),
     }));
   }, [
     collectionSubitems,
+    chatUnreadCount,
     data?.nav,
     isBusinessAccount,
     mailUnreadCount,

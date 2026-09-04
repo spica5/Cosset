@@ -68,6 +68,7 @@ type CategoryForm = {
 
 type ProductForm = {
   name: string;
+  productCode: string;
   description: string;
   price: string;
   currency: string;
@@ -79,6 +80,7 @@ type ProductForm = {
 const emptyCategoryForm: CategoryForm = { name: '', description: '' };
 const emptyProductForm: ProductForm = {
   name: '',
+  productCode: '',
   description: '',
   price: '',
   currency: 'USD',
@@ -331,6 +333,7 @@ export function BrandsMyStoreView() {
     setEditingProduct(product);
     setProductForm({
       name: product.name,
+      productCode: product.productCode || '',
       description: product.description || '',
       price: product.price || '',
       currency: product.currency || 'USD',
@@ -369,6 +372,7 @@ export function BrandsMyStoreView() {
       setSavingProduct(true);
       const payload = {
         name: productForm.name.trim(),
+        productCode: productForm.productCode.trim() || null,
         description: productForm.description.trim() || null,
         price: productForm.price.trim() || null,
         currency: productForm.currency.trim() || 'USD',
@@ -443,6 +447,12 @@ export function BrandsMyStoreView() {
             icon={<Iconify icon="solar:heart-bold" width={16} />}
             label={`${(store.favoriteCount || 0).toLocaleString()} client likes`}
             color="error"
+            variant="outlined"
+          />
+          <Chip
+            icon={<Iconify icon="solar:bookmark-bold" width={16} />}
+            label={`${(store.wishlistCount || 0).toLocaleString()} wishlist saves`}
+            color="info"
             variant="outlined"
           />
         </Stack>
@@ -766,6 +776,11 @@ export function BrandsMyStoreView() {
                               height={120}
                             />
                             <Typography variant="subtitle1">{product.name}</Typography>
+                            {product.productCode ? (
+                              <Typography variant="caption" color="text.secondary">
+                                Code: {product.productCode}
+                              </Typography>
+                            ) : null}
                             <Typography variant="caption" color="text.secondary">
                               {product.categoryName || 'Uncategorized'}
                             </Typography>
@@ -871,6 +886,16 @@ export function BrandsMyStoreView() {
                 setProductForm((prev) => ({ ...prev, name: event.target.value }))
               }
               fullWidth
+            />
+            <TextField
+              label="Product code"
+              value={productForm.productCode}
+              onChange={(event) =>
+                setProductForm((prev) => ({ ...prev, productCode: event.target.value }))
+              }
+              fullWidth
+              placeholder="e.g. SKU-1001"
+              helperText="Optional unique code shown on the storefront."
             />
             <TextField
               select

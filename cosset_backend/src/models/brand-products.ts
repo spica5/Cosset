@@ -12,6 +12,7 @@ export interface BrandProduct {
   storeId: number;
   categoryId: number;
   name: string;
+  productCode?: string | null;
   description?: string | null;
   price?: string | null;
   currency?: string | null;
@@ -131,6 +132,10 @@ export const ensureBrandProductsTable = async (): Promise<void> => {
       );
 
       await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS product_code VARCHAR(80) NULL`,
+      );
+
+      await executeQuery(
         `
           UPDATE ${TABLE_NAME}
           SET status = CASE
@@ -163,6 +168,7 @@ const PRODUCT_SELECT = `
   p.store_id::int as "storeId",
   p.category_id::int as "categoryId",
   p.name,
+  p.product_code as "productCode",
   p.description,
   p.price,
   p.currency,
@@ -247,6 +253,7 @@ export async function createBrandProduct(input: {
   storeId: number;
   categoryId: number;
   name: string;
+  productCode?: string | null;
   description?: string | null;
   price?: string | null;
   currency?: string | null;
@@ -264,6 +271,7 @@ export async function createBrandProduct(input: {
       input.status ?? input.isAvailable,
       input.isAvailable !== false,
     );
+    const productCode = String(input.productCode || '').trim() || null;
 
     const created = await queryOne<BrandProduct>(
       `
@@ -271,6 +279,7 @@ export async function createBrandProduct(input: {
           store_id,
           category_id,
           name,
+          product_code,
           description,
           price,
           currency,
@@ -281,12 +290,13 @@ export async function createBrandProduct(input: {
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
         RETURNING
           id::int as "id",
           store_id::int as "storeId",
           category_id::int as "categoryId",
           name,
+          product_code as "productCode",
           description,
           price,
           currency,
@@ -301,6 +311,7 @@ export async function createBrandProduct(input: {
         input.storeId,
         input.categoryId,
         input.name.trim(),
+        productCode,
         input.description?.trim() || null,
         input.price?.trim() || null,
         input.currency?.trim() || 'USD',
@@ -335,6 +346,7 @@ export async function updateBrandProduct(
   updates: Partial<{
     categoryId: number;
     name: string;
+    productCode: string | null;
     description: string | null;
     price: string | null;
     currency: string | null;
@@ -364,6 +376,10 @@ export async function updateBrandProduct(
     if (updates.name !== undefined) {
       fields.push(`name = $${nextParam()}`);
       values.push(updates.name.trim());
+    }
+    if (updates.productCode !== undefined) {
+      fields.push(`product_code = $${nextParam()}`);
+      values.push(String(updates.productCode || '').trim() || null);
     }
     if (updates.description !== undefined) {
       fields.push(`description = $${nextParam()}`);

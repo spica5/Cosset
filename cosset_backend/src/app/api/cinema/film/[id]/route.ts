@@ -3,9 +3,9 @@ import type { NextRequest } from 'next/server';
 import { STATUS, response, handleError } from 'src/utils/response';
 
 import {
-  getCinemaFilmById,
   updateCinemaFilm,
   deleteCinemaFilm,
+  getCinemaFilmById,
   normalizeCinemaCategory,
 } from 'src/models/cinema-films';
 

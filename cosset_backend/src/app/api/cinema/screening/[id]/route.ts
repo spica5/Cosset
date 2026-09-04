@@ -101,6 +101,7 @@ export async function PUT(
       showSaturday: updates.showSaturday,
       showSunday: updates.showSunday,
       showFlexible: updates.showFlexible,
+      showWeekStart: updates.showWeekStart,
       pricingType: updates.pricingType,
       price: updates.price,
       order: updates.order,
@@ -117,6 +118,7 @@ export async function PUT(
           updates.showSaturday !== undefined ||
           updates.showSunday !== undefined ||
           updates.showFlexible !== undefined ||
+          updates.showWeekStart !== undefined ||
           updates.isPublic !== undefined ||
           updates.filmId !== undefined;
 
