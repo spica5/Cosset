@@ -34,6 +34,21 @@ function getGlobalState(): GlobalPwaInstallState | null {
   return (window as Window & { [GLOBAL_KEY]?: GlobalPwaInstallState })[GLOBAL_KEY] ?? null;
 }
 
+function clearInstalledFlag() {
+  installed = false;
+
+  const global = getGlobalState();
+  if (global) {
+    global.installed = false;
+  }
+
+  try {
+    localStorage.removeItem(INSTALLED_STORAGE_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function markInstalled() {
   installed = true;
   deferredPrompt = null;
@@ -59,8 +74,9 @@ function syncFromGlobal() {
 
   if (globalDeferredPrompt) {
     deferredPrompt = globalDeferredPrompt;
-  }
-  if (globalInstalled) {
+    // A live install prompt means the app is not installed in this browser profile.
+    installed = false;
+  } else if (globalInstalled) {
     installed = true;
     deferredPrompt = null;
   }
@@ -94,17 +110,6 @@ export function getStandaloneInstalled() {
   return Boolean(displayModeInstalled || iosStandalone);
 }
 
-function isChromiumBrowser() {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  return /Chrome|Edg\//.test(ua) && !/OPR|Opera|Brave/i.test(ua);
-}
-
-function isBrowserTabContext() {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia?.('(display-mode: browser)')?.matches ?? true;
-}
-
 function getInstalledRelatedAppsApi() {
   if (typeof navigator === 'undefined') return undefined;
 
@@ -119,10 +124,10 @@ function isSameOriginWebApp(app: InstalledRelatedWebApp) {
   if (app.platform !== 'webapp') return false;
 
   const origin = window.location.origin;
-  const { url, id } = app;
-  const candidate = url || id || '';
+  const candidate = app.url || app.id || '';
 
-  if (!candidate) return true;
+  // Require an explicit url/id — empty candidates are not proof of install.
+  if (!candidate) return false;
 
   try {
     return new URL(candidate, origin).origin === origin;
@@ -147,34 +152,20 @@ async function detectInstalledRelatedApp() {
   }
 }
 
-async function hasActiveServiceWorker() {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+/**
+ * Only trust definite install signals. Do not infer from service worker presence —
+ * Cosset registers a SW for push, which is required for installability, not proof of install.
+ */
+export async function checkPwaAlreadyInstalled() {
+  if (deferredPrompt) {
+    if (installed || isInstalledLocally()) {
+      clearInstalledFlag();
+      notify();
+    }
     return false;
   }
 
-  const registration = await navigator.serviceWorker.ready.catch(() => null);
-  return Boolean(registration?.active);
-}
-
-/**
- * Chrome suppresses beforeinstallprompt when the PWA is already installed and
- * shows "Open in app" in the address bar instead. Legacy installs may not be
- * reported by getInstalledRelatedApps when manifest ids differ.
- */
-async function inferInstalledWithoutPrompt() {
-  if (typeof window === 'undefined') return false;
-  if (deferredPrompt || !window.isSecureContext) return false;
-  // Never infer on iOS — install is Add to Home Screen only.
-  if (isIosDevice()) return false;
-  if (!isChromiumBrowser() || !isBrowserTabContext()) return false;
-
-  return hasActiveServiceWorker();
-}
-
-export async function checkPwaAlreadyInstalled(options?: { allowInference?: boolean }) {
-  const allowInference = options?.allowInference ?? false;
-
-  if (installed || getStandaloneInstalled()) {
+  if (getStandaloneInstalled()) {
     if (!installed) {
       markInstalled();
       notify();
@@ -182,23 +173,19 @@ export async function checkPwaAlreadyInstalled(options?: { allowInference?: bool
     return true;
   }
 
-  if (isInstalledLocally()) {
-    markInstalled();
-    notify();
-    return true;
-  }
-
   const relatedInstalled = await detectInstalledRelatedApp();
   if (relatedInstalled) {
-    markInstalled();
-    notify();
+    if (!installed) {
+      markInstalled();
+      notify();
+    }
     return true;
   }
 
-  if (allowInference && (await inferInstalledWithoutPrompt())) {
-    markInstalled();
+  // Stale localStorage from earlier false positives must not keep the UI locked.
+  if (installed || isInstalledLocally()) {
+    clearInstalledFlag();
     notify();
-    return true;
   }
 
   return false;
@@ -214,32 +201,31 @@ export async function refreshPwaInstallState() {
   await installedCheckPromise;
 }
 
-function scheduleInstalledInference() {
-  if (typeof window === 'undefined') return;
-
-  window.setTimeout(() => {
-    if (deferredPrompt || installed) return;
-
-    checkPwaAlreadyInstalled({ allowInference: true })
-      .then((isInstalled) => {
-        if (isInstalled) notify();
-      })
-      .catch(() => undefined);
-  }, 4000);
-}
-
 export function ensurePwaInstallListeners() {
   if (typeof window === 'undefined' || listening) {
     return;
   }
 
   listening = true;
-  installed = getStandaloneInstalled() || isInstalledLocally();
+  // Start from live display-mode only. localStorage is verified asynchronously.
+  installed = getStandaloneInstalled();
+  if (installed) {
+    try {
+      localStorage.setItem(INSTALLED_STORAGE_KEY, '1');
+    } catch {
+      // ignore
+    }
+  }
   syncFromGlobal();
+
+  // If early init wrongly marked installed, but we have a prompt, prefer the prompt.
+  if (deferredPrompt) {
+    clearInstalledFlag();
+  }
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
-    installed = false;
+    clearInstalledFlag();
     deferredPrompt = event as BeforeInstallPromptEvent;
 
     const global = getGlobalState();
@@ -262,7 +248,6 @@ export function ensurePwaInstallListeners() {
   });
 
   refreshPwaInstallState().catch(() => undefined);
-  scheduleInstalledInference();
 }
 
 export function subscribePwaInstallState(listener: Listener) {
@@ -277,10 +262,19 @@ export function getPwaInstallState() {
   ensurePwaInstallListeners();
   syncFromGlobal();
 
+  // Prefer a live install prompt over any cached installed flag.
+  if (deferredPrompt) {
+    return {
+      canInstall: true,
+      installed: false,
+      hasPrompt: true,
+    };
+  }
+
   return {
-    canInstall: Boolean(deferredPrompt) && !installed,
-    installed: installed || getStandaloneInstalled() || isInstalledLocally(),
-    hasPrompt: Boolean(deferredPrompt),
+    canInstall: false,
+    installed: installed || getStandaloneInstalled(),
+    hasPrompt: false,
   };
 }
 
@@ -350,7 +344,7 @@ export async function waitForInstallPrompt(
         await check();
 
         if (Date.now() >= deadline) {
-          if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+          if (await checkPwaAlreadyInstalled()) {
             finish('installed');
             return;
           }
@@ -374,7 +368,7 @@ export async function promptInstallCossetApp(): Promise<'accepted' | 'dismissed'
   ensurePwaInstallListeners();
   syncFromGlobal();
 
-  if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+  if (await checkPwaAlreadyInstalled()) {
     return 'accepted';
   }
 
@@ -420,7 +414,7 @@ export async function getPwaInstallUnavailableReason() {
     return 'Install requires HTTPS (or localhost). Open Cosset on a secure connection, then try again.';
   }
 
-  if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+  if (await checkPwaAlreadyInstalled()) {
     return getPwaInstalledMessage();
   }
 

@@ -80,7 +80,7 @@ export function InstallCossetAppButton({
       return;
     }
 
-    if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+    if (await checkPwaAlreadyInstalled()) {
       setInstalled(true);
       setCanInstall(false);
       toast.success(getPwaInstalledMessage());
@@ -99,7 +99,7 @@ export function InstallCossetAppButton({
       }
 
       if (status !== 'ready') {
-        if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+        if (await checkPwaAlreadyInstalled()) {
           setInstalled(true);
           setCanInstall(false);
           toast.success(getPwaInstalledMessage());
@@ -124,7 +124,7 @@ export function InstallCossetAppButton({
         return;
       }
 
-      if (await checkPwaAlreadyInstalled({ allowInference: true })) {
+      if (await checkPwaAlreadyInstalled()) {
         setInstalled(true);
         setCanInstall(false);
         toast.success(getPwaInstalledMessage());
