@@ -169,6 +169,7 @@ export const paths = {
       appearance: `${ROOTS.DASHBOARD}/settings/appearance`,
       account: `${ROOTS.DASHBOARD}/settings/account`,
       passwordRecovery: `${ROOTS.DASHBOARD}/settings/password-recovery`,
+      testingDisclosure: `${ROOTS.DASHBOARD}/settings/testing-disclosure`,
     },
     auth: {
       signIn: `${ROOTS.DASHBOARD}/sign-in`,

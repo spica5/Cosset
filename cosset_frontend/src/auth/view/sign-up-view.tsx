@@ -22,6 +22,9 @@ import { useBoolean } from 'src/hooks/use-boolean';
 import { Iconify } from 'src/components/dashboard/iconify';
 import { AnimateLogo2 } from 'src/components/dashboard/animate';
 import { Form, Field } from 'src/components/dashboard/hook-form';
+import { WebsiteTestingDisclosureDialog } from 'src/components/website-testing-disclosure/website-testing-disclosure-dialog';
+
+import { useGetWebsiteTestingDisclosure } from 'src/actions/website-testing-disclosure';
 
 import { signUp } from '../context/jwt';
 import { FormHead } from '../components/form-head';
@@ -74,7 +77,9 @@ function getSignUpErrorMessage(error: unknown) {
 export function SignUpView() {
   const router = useRouter();
   const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
+  const { disclosure } = useGetWebsiteTestingDisclosure();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [disclosureOpen, setDisclosureOpen] = useState(true);
 
   const password = useBoolean();
 
@@ -168,6 +173,7 @@ export function SignUpView() {
         variant="contained"
         loading={isSubmitting}
         loadingIndicator="Create account..."
+        disabled={disclosureOpen}
       >
         Create account
       </LoadingButton>
@@ -206,7 +212,13 @@ export function SignUpView() {
 
       <FormSocials
         onGoogleCredential={handleGoogleCredential}
-        googleSignInLoading={googleSignInLoading || isSubmitting}
+        googleSignInLoading={googleSignInLoading || isSubmitting || disclosureOpen}
+      />
+
+      <WebsiteTestingDisclosureDialog
+        open={disclosureOpen}
+        content={disclosure}
+        onAccepted={() => setDisclosureOpen(false)}
       />
     </>
   );

@@ -664,7 +664,7 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
         <Button
           type="button"
           onClick={handleLeaveCoffeeShop}
-          aria-label="Leave coffee shop"
+          aria-label="Exit coffee shop"
           startIcon={<Iconify icon="solar:logout-2-outline" width={20} />}
           sx={{
             color: 'common.white',
@@ -688,7 +688,6 @@ export function UniverseCoffeeShopView({ coffeeShopId }: Props) {
             },
             '&:hover': { bgcolor: 'rgba(0,0,0,0.62)' },
           }}
-          disabled={!isPresent}
         >
           <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
             Out

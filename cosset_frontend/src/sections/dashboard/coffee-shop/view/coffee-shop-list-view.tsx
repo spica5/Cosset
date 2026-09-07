@@ -185,12 +185,23 @@ export function CoffeeShopListView() {
         sx={{
           position: 'fixed',
           inset: 0,
-          backgroundImage: `url(${COFFEE_SHOP_PAGE_BACKGROUND})`,
-          backgroundSize: '100% auto',
-          backgroundPosition: 'center top',
-          backgroundRepeat: 'no-repeat',
+          bgcolor: '#1a120e',
+          overflow: 'hidden',
         }}
-      />
+      >
+        <Box
+          component="img"
+          src={COFFEE_SHOP_PAGE_BACKGROUND}
+          alt=""
+          sx={{
+            width: '100%',
+            height: { xs: '100%', md: 'auto' },
+            objectFit: { xs: 'cover', md: 'unset' },
+            objectPosition: 'center top',
+            display: 'block',
+          }}
+        />
+      </Box>
 
       <Box
         sx={{

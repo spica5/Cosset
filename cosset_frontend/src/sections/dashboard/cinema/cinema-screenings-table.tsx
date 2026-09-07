@@ -281,22 +281,54 @@ export function CinemaScreeningsTable({
                           <Chip
                             size="small"
                             label={statusLabel}
-                            color={isBanner ? 'default' : status === 'now' ? 'success' : status === 'upcoming' ? 'info' : status === 'past' ? 'default' : 'default'}
-                            variant={status === 'past' ? 'outlined' : 'filled'}
+                            color={
+                              isBanner
+                                ? 'default'
+                                : status === 'now'
+                                  ? 'success'
+                                  : status === 'upcoming'
+                                    ? 'info'
+                                    : status === 'past'
+                                      ? 'warning'
+                                      : 'default'
+                            }
+                            variant={status === 'past' && !isBanner ? 'filled' : status === 'past' ? 'outlined' : 'filled'}
                             sx={{
                               fontWeight: 700,
                               ...(isBanner
                                 ? {
-                                    color: 'common.white',
+                                    color:
+                                      status === 'now'
+                                        ? '#C8F7C5'
+                                        : status === 'upcoming'
+                                          ? '#B3E5FC'
+                                          : status === 'past'
+                                            ? category.accent
+                                            : 'common.white',
                                     bgcolor:
                                       status === 'now'
-                                        ? 'rgba(76, 175, 80, 0.24)'
+                                        ? 'rgba(76, 175, 80, 0.28)'
                                         : status === 'upcoming'
-                                          ? 'rgba(33, 150, 243, 0.24)'
-                                          : 'rgba(255,255,255,0.08)',
-                                    borderColor: 'rgba(255,255,255,0.2)',
+                                          ? 'rgba(33, 150, 243, 0.28)'
+                                          : status === 'past'
+                                            ? `${category.accent}28`
+                                            : 'rgba(255,255,255,0.12)',
+                                    border: '1px solid',
+                                    borderColor:
+                                      status === 'now'
+                                        ? 'rgba(129, 199, 132, 0.7)'
+                                        : status === 'upcoming'
+                                          ? 'rgba(100, 181, 246, 0.7)'
+                                          : status === 'past'
+                                            ? `${category.accent}AA`
+                                            : 'rgba(255,255,255,0.35)',
                                   }
-                                : {}),
+                                : status === 'past'
+                                  ? {
+                                      color: 'warning.contrastText',
+                                      bgcolor: 'warning.main',
+                                    }
+                                  : {}),
                             }}
                           />
                         ) : null}

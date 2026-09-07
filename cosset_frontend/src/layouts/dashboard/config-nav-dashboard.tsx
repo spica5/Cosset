@@ -214,7 +214,7 @@ export const navData = [
           { title: 'Appearance', path: paths.dashboard.settings.appearance },
           { title: 'Account', path: paths.dashboard.settings.account },
           { title: 'Password & Recovery', path: paths.dashboard.settings.passwordRecovery },
-          
+          { title: 'Testing Disclosure', path: paths.dashboard.settings.testingDisclosure },
         ],
       }
     ],
@@ -267,6 +267,7 @@ export const businessNavData = [
           { title: 'Appearance', path: paths.dashboard.settings.appearance },
           { title: 'Account', path: paths.dashboard.settings.account },
           { title: 'Password & Recovery', path: paths.dashboard.settings.passwordRecovery },
+          { title: 'Testing Disclosure', path: paths.dashboard.settings.testingDisclosure },
         ],
       },
     ],

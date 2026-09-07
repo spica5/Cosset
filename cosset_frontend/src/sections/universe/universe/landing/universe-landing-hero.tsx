@@ -460,6 +460,34 @@ export function UniverseLandingHero({
           },
         }}
       >
+        {!onToggleFullScreen ? (
+          <IconButton
+            component={RouterLink}
+            href={
+              friendshipState === 'friend'
+                ? paths.dashboard.community.friend
+                : paths.dashboard.community.neighbor.root
+            }
+            aria-label="Exit"
+            sx={{
+              position: 'fixed',
+              right: 16,
+              bottom: 16,
+              zIndex: 12,
+              color: 'common.white',
+              bgcolor: varAlpha(commonVars.blackChannel, 0.5),
+              border: `1px solid ${varAlpha(commonVars.whiteChannel, 0.28)}`,
+              backdropFilter: 'blur(4px)',
+              '&:hover': {
+                bgcolor: varAlpha(commonVars.blackChannel, 0.7),
+                borderColor: 'common.white',
+              },
+            }}
+          >
+            <Iconify icon="solar:logout-3-outline" width={22} />
+          </IconButton>
+        ) : null}
+
         {hasVisibleBackground && (fadeLayers.a || fadeLayers.b) ? (
           <Box
             sx={{
@@ -869,7 +897,7 @@ export function UniverseLandingHero({
           aria-label="view design space gallery"
           onClick={() => setOpenGallery(true)}
           sx={{
-            right: 16,
+            right: onToggleFullScreen ? 16 : 72,
             bottom: 16,
             zIndex: 10,
             position: 'absolute',

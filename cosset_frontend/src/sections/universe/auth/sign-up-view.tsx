@@ -12,6 +12,9 @@ import { paths } from 'src/routes/paths';
 
 import { Logo } from 'src/components/universe/logo';
 import { Form } from 'src/components/universe/hook-form';
+import { WebsiteTestingDisclosureDialog } from 'src/components/website-testing-disclosure/website-testing-disclosure-dialog';
+
+import { useGetWebsiteTestingDisclosure } from 'src/actions/website-testing-disclosure';
 
 import { signUp } from 'src/auth/context/jwt/action';
 import { useGoogleSignIn } from 'src/auth/hooks/use-google-sign-in';
@@ -50,8 +53,10 @@ export function SignUpView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { handleGoogleCredential, googleSignInLoading } = useGoogleSignIn();
+  const { disclosure } = useGetWebsiteTestingDisclosure();
   const prefilledEmail = String(searchParams.get('inviteEmail') || '').trim().toLowerCase();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [disclosureOpen, setDisclosureOpen] = useState(true);
 
   const defaultValues = {
     firstName: '',
@@ -129,7 +134,7 @@ export function SignUpView() {
 
       <FormSocials
         onGoogleCredential={handleGoogleCredential}
-        googleSignInLoading={googleSignInLoading}
+        googleSignInLoading={googleSignInLoading || disclosureOpen}
       />
 
       <FormDivider label="OR" />
@@ -139,6 +144,12 @@ export function SignUpView() {
       </Form>
 
       <SignUpTerms />
+
+      <WebsiteTestingDisclosureDialog
+        open={disclosureOpen}
+        content={disclosure}
+        onAccepted={() => setDisclosureOpen(false)}
+      />
     </>
   );
 }

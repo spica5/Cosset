@@ -1866,6 +1866,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                 type="button"
                 onClick={handleLeaveCinema}
                 startIcon={<Iconify icon="solar:logout-2-outline" width={18} />}
+                aria-label="Exit"
                 sx={{
                   color: '#FFF8E7',
                   bgcolor: 'rgba(0,0,0,0.45)',
@@ -1876,6 +1877,7 @@ export function UniverseCinemaView({ categoryId, ownerId, initialFilmId }: Props
                   minWidth: { xs: 0, sm: 88 },
                   px: { xs: 1.1, sm: 1.5 },
                   fontSize: { xs: '0.72rem', sm: '0.8rem' },
+                  whiteSpace: 'nowrap',
                   '& .MuiButton-startIcon': {
                     mr: { xs: 0.5, sm: 0.75 },
                   },

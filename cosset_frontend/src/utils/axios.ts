@@ -90,6 +90,7 @@ export const endpoints = {
   },
   siteSettings: {
     introVideo: '/api/site-settings/intro-video',
+    testingDisclosure: '/api/site-settings/testing-disclosure',
   },
   friend: {
     list: '/api/friend/list',

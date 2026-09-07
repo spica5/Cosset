@@ -1,11 +1,11 @@
 'use client';
 
 import type {
-  IBrandStoreWishlistClientItem,
   IBrandWishlistClientStatus,
+  IBrandStoreWishlistClientItem,
 } from 'src/types/brand-store';
 
-import { useMemo, useState, useEffect, Fragment } from 'react';
+import { useMemo, useState,  Fragment, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -52,9 +52,9 @@ import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
 
 import {
   getBrandProductImages,
-  normalizeBrandWishlistClientStatus,
   getBrandWishlistClientStatusLabel,
   getBrandWishlistClientStatusColor,
+  normalizeBrandWishlistClientStatus,
 } from 'src/types/brand-store';
 
 import { BrandProductImageGallery } from '../brand-image-field';
