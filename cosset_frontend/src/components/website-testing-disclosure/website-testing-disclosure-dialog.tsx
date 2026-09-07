@@ -11,9 +11,9 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
-import { WebsiteTestingDisclosureContent } from './website-testing-disclosure-content';
-
 import type { WebsiteTestingDisclosureContentData } from 'src/content/website-testing-disclosure';
+
+import { WebsiteTestingDisclosureContent } from './website-testing-disclosure-content';
 
 // ----------------------------------------------------------------------
 
