@@ -197,7 +197,15 @@ export const getScreeningWeeklyDayLabels = (
   screening: CinemaWeeklyScreeningSchedule,
   now = new Date(),
 ) => {
-  if (!hasExplicitWeeklyDaySelection(screening) && screening.showFlexible !== true) {
+  if (screening.showFlexible === true) {
+    const saved = parseWeekStartDate(screening.showWeekStart);
+    if (saved) {
+      return [saved.format('ddd, D MMM YYYY')];
+    }
+    return ['Any day (flexible)'];
+  }
+
+  if (!hasExplicitWeeklyDaySelection(screening)) {
     return CINEMA_WEEKLY_DAY_CONFIG.map(({ label }) => label);
   }
 
@@ -264,8 +272,8 @@ export const isCinemaWeeklyScreeningDay = (
 
 /**
  * True when this screening should appear on a specific calendar day.
- * Always locked to the saved calendar weekend (`showWeekStart`), or the upcoming
- * weekend relative to real "now" when no week was saved — never every Fri–Sun forever.
+ * Flexible preview uses the exact saved `showWeekStart` date (any day).
+ * Official rows stay locked to the Fri–Sun weekend.
  */
 export const isScreeningScheduledOnDay = (
   screening: CinemaWeeklyScreeningSchedule,
@@ -276,8 +284,17 @@ export const isScreeningScheduledOnDay = (
     return false;
   }
 
-  const friday = resolveScreeningWeekStart(screening, now);
   const dayKey = dayjs(day).format('YYYY-MM-DD');
+
+  if (screening.showFlexible === true) {
+    const saved = parseWeekStartDate(screening.showWeekStart);
+    if (saved) {
+      return saved.format('YYYY-MM-DD') === dayKey;
+    }
+    return dayjs(day).isSame(now, 'day');
+  }
+
+  const friday = resolveScreeningWeekStart(screening, now);
 
   return CINEMA_WEEKLY_DAY_CONFIG.some(({ key, day: weekday }) => {
     if (screening[key] === false) {
@@ -294,8 +311,8 @@ const buildOccurrence = (year: number, month: number, day: number, clock: UtcClo
 
 /**
  * Expand showAt / showAt2 into concrete starts.
- * When a calendar weekend (`showWeekStart`) is saved, only that weekend is used.
- * Otherwise expand around `now` (Fri–Sun / Flexible).
+ * Flexible preview uses the exact saved calendar day (`showWeekStart`).
+ * Official rows use the saved Fri–Sun weekend (or the upcoming weekend from `now`).
  */
 export const getScreeningStartInstants = (
   screening: CinemaWeeklyScreeningSchedule,
@@ -305,6 +322,26 @@ export const getScreeningStartInstants = (
   const clocks = getScreeningClockTimes(screening);
   if (!clocks.length) {
     return [];
+  }
+
+  if (screening.showFlexible === true) {
+    const saved = parseWeekStartDate(screening.showWeekStart);
+    const localDay = saved || dayjs(now).startOf('day');
+    const starts = clocks.map(
+      (clock) =>
+        new Date(
+          Date.UTC(
+            localDay.year(),
+            localDay.month(),
+            localDay.date(),
+            clock.hours,
+            clock.minutes,
+            clock.seconds,
+          ),
+        ),
+    );
+    starts.sort((a, b) => a.getTime() - b.getTime());
+    return starts;
   }
 
   const starts: Date[] = [];

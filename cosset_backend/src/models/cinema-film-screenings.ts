@@ -500,6 +500,36 @@ export async function getCinemaFilmScreeningsByCategory(
   }
 }
 
+/** Public, official (non-flexible) Cosset Cinema screenings with film metadata. */
+export async function listPublicOfficialScreeningsWithFilm(): Promise<CinemaFilmScreeningWithFilm[]> {
+  try {
+    await ensureCinemaFilmScreeningsTable();
+
+    return await queryMany<CinemaFilmScreeningWithFilm>(
+      `
+        SELECT ${SELECT_WITH_FILM_COLUMNS}
+        FROM ${TABLE_NAME} s
+        INNER JOIN cinema_films f ON f.id = s.film_id
+        WHERE s.is_public = 1
+          AND f.is_public = 1
+          AND COALESCE(s.show_flexible, FALSE) = FALSE
+          AND (s.show_at IS NOT NULL OR s.show_at2 IS NOT NULL)
+        ORDER BY s.show_at ASC, COALESCE(s."order", 2147483647) ASC, s.id ASC
+      `,
+    );
+  } catch (error) {
+    if (error instanceof DatabaseError) {
+      throw new DatabaseError({
+        code: 'LIST_PUBLIC_OFFICIAL_SCREENINGS_ERROR',
+        message: `Failed to list public cinema screenings: ${error.message}`,
+        detail: error.detail,
+      });
+    }
+
+    throw error;
+  }
+}
+
 export async function getCinemaFilmScreeningsByFilmIds(
   filmIds: number[],
   options?: { publicOnly?: boolean },

@@ -147,6 +147,8 @@ export async function POST(
           avatarUrl: user?.photoURL || null,
           title: `<p><strong>${userName}</strong> is at the coffee shop</p>`,
           content: `${userName} is at ${shopName}`,
+          pushTitle: `☕ ${userName} is at a coffee shop`,
+          pushBody: `${userName} is at ${shopName}. Tap to join them.`,
           url: '/dashboard/community/coffee-shop',
           tag: `friend-coffee-${userId}`,
         });

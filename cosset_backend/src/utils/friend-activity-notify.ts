@@ -14,8 +14,12 @@ export const FRIEND_ACTIVITY_NOTIFICATION_TYPE = {
 type NotifyFriendActivityInput = {
   actorUserId: string;
   type: number;
+  /** HTML title for the in-app bell inbox */
   title: string;
   content: string;
+  /** Plain title for mobile lock-screen / OS notifications */
+  pushTitle?: string;
+  pushBody?: string;
   avatarUrl?: string | null;
   category?: number;
   url?: string;
@@ -47,10 +51,11 @@ export async function notifyFriendActivitySubscribers(
         });
 
         await sendWebPushToUser(subscriberId, {
-          title: input.title,
-          body: input.content,
+          title: input.pushTitle || input.title,
+          body: input.pushBody || input.content,
           url: input.url,
           tag: input.tag || `friend-activity-${input.actorUserId}`,
+          image: input.avatarUrl,
         });
       } catch (error) {
         console.error(

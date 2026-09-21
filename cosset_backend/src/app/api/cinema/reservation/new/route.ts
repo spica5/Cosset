@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
         avatarUrl: user?.photoURL || null,
         title: `<p><strong>${userName}</strong> reserved an upcoming movie</p>`,
         content: `${userName} reserved seats for "${filmTitle}"`,
+        pushTitle: `🎬 ${userName} reserved cinema seats`,
+        pushBody: `${userName} reserved seats for "${filmTitle}". Tap to see Cosset Cinema.`,
         url: '/dashboard/community/cinema',
         tag: `friend-cinema-${customerId}`,
       });

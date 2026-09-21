@@ -104,8 +104,9 @@ export function FriendNotifySetupBanner() {
             Friend activity on your phone
           </Typography>
           <Typography variant="body2" sx={{ mb: 1.25, color: 'text.secondary' }}>
-            Install Cosset as a home-screen shortcut, enable notifications, then turn on the toggle on
-            each friend card. By default you get no friend activity alerts.
+            Install Cosset, enable phone notifications, then turn on “Notify me about activity” on
+            each friend card. You’ll get lock-screen alerts when they post, visit a coffee shop, or
+            reserve cinema seats. Off by default for every friend.
           </Typography>
 
           {supportReason ? (

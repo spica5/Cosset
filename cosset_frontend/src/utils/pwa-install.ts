@@ -66,6 +66,16 @@ function markInstalled() {
   }
 }
 
+function rememberInstalledFromStorage() {
+  installed = true;
+
+  const global = getGlobalState();
+  if (global) {
+    global.installed = true;
+    global.deferredPrompt = null;
+  }
+}
+
 function syncFromGlobal() {
   const global = getGlobalState();
   if (!global) return;
@@ -120,22 +130,6 @@ function getInstalledRelatedAppsApi() {
   return getInstalledRelatedApps;
 }
 
-function isSameOriginWebApp(app: InstalledRelatedWebApp) {
-  if (app.platform !== 'webapp') return false;
-
-  const origin = window.location.origin;
-  const candidate = app.url || app.id || '';
-
-  // Require an explicit url/id — empty candidates are not proof of install.
-  if (!candidate) return false;
-
-  try {
-    return new URL(candidate, origin).origin === origin;
-  } catch {
-    return candidate.includes(origin.replace(/^https?:\/\//, ''));
-  }
-}
-
 async function detectInstalledRelatedApp() {
   if (typeof window === 'undefined') return false;
 
@@ -146,15 +140,21 @@ async function detectInstalledRelatedApp() {
 
   try {
     const apps = await getInstalledRelatedApps.call(navigator);
-    return apps.some(isSameOriginWebApp);
+    // Chrome only returns apps declared in our manifest's related_applications,
+    // so any webapp entry means Cosset is installed.
+    return Array.isArray(apps) && apps.some((app) => app.platform === 'webapp');
   } catch {
     return false;
   }
 }
 
 /**
- * Only trust definite install signals. Do not infer from service worker presence —
- * Cosset registers a SW for push, which is required for installability, not proof of install.
+ * Definite signals only:
+ * - standalone / iOS home-screen display mode
+ * - Chrome getInstalledRelatedApps (requires related_applications + id in manifest)
+ * - remembered install from this browser (cleared only when beforeinstallprompt fires)
+ *
+ * Never infer from service-worker presence alone.
  */
 export async function checkPwaAlreadyInstalled() {
   if (deferredPrompt) {
@@ -182,10 +182,14 @@ export async function checkPwaAlreadyInstalled() {
     return true;
   }
 
-  // Stale localStorage from earlier false positives must not keep the UI locked.
-  if (installed || isInstalledLocally()) {
-    clearInstalledFlag();
-    notify();
+  // Keep remembered installs across reloads in a normal browser tab.
+  // Chrome shows "Open in app" and suppresses beforeinstallprompt when installed.
+  if (isInstalledLocally()) {
+    if (!installed) {
+      rememberInstalledFromStorage();
+      notify();
+    }
+    return true;
   }
 
   return false;
@@ -207,9 +211,8 @@ export function ensurePwaInstallListeners() {
   }
 
   listening = true;
-  // Start from live display-mode only. localStorage is verified asynchronously.
-  installed = getStandaloneInstalled();
-  if (installed) {
+  installed = getStandaloneInstalled() || isInstalledLocally();
+  if (installed && getStandaloneInstalled()) {
     try {
       localStorage.setItem(INSTALLED_STORAGE_KEY, '1');
     } catch {
@@ -273,7 +276,7 @@ export function getPwaInstallState() {
 
   return {
     canInstall: false,
-    installed: installed || getStandaloneInstalled(),
+    installed: installed || getStandaloneInstalled() || isInstalledLocally(),
     hasPrompt: false,
   };
 }
@@ -344,6 +347,8 @@ export async function waitForInstallPrompt(
         await check();
 
         if (Date.now() >= deadline) {
+          // After waiting for beforeinstallprompt, re-check related apps / memory.
+          // Do not treat "no prompt" alone as installed (engagement heuristics can delay it).
           if (await checkPwaAlreadyInstalled()) {
             finish('installed');
             return;

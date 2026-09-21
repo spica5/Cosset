@@ -13,12 +13,20 @@ self.addEventListener('activate', (event) => {
 // route changes) and floods the console with "Failed to fetch" / network errors.
 self.addEventListener('fetch', () => {});
 
+function stripHtml(value) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'Cosset',
     body: 'Something new is happening on Cosset.',
     url: '/dashboard/community/cinema',
     tag: 'cosset',
+    image: '',
   };
 
   try {
@@ -36,16 +44,20 @@ self.addEventListener('push', (event) => {
 
   const origin = self.location.origin;
   const icon = `${origin}/icons/cosset-192.png`;
+  const title = stripHtml(payload.title) || 'Cosset';
+  const body = stripHtml(payload.body) || 'Something new is happening on Cosset.';
+  const image = typeof payload.image === 'string' && payload.image.trim() ? payload.image.trim() : undefined;
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'Cosset', {
-      body: payload.body,
+    self.registration.showNotification(title, {
+      body,
       icon,
       badge: icon,
+      image,
       tag: payload.tag || 'cosset',
       renotify: true,
       vibrate: [120, 60, 120],
-      requireInteraction: true,
+      requireInteraction: false,
       data: { url: payload.url || '/dashboard/community/cinema' },
     }),
   );

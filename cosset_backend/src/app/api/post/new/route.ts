@@ -92,6 +92,8 @@ export async function POST(req: NextRequest) {
           avatarUrl: author?.photoURL || null,
           title: `<p><strong>${authorName}</strong> shared a new community post</p>`,
           content: `${authorName} shared "${postTitle}"`,
+          pushTitle: `👋 ${authorName} posted`,
+          pushBody: `${authorName} shared "${postTitle}" on Cosset. Tap to see it.`,
           url: '/dashboard/community/posts',
           tag: `friend-post-${authorId}`,
         });

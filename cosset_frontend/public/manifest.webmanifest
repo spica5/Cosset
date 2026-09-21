@@ -38,7 +38,8 @@
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "/manifest.webmanifest"
+      "url": "/manifest.webmanifest",
+      "id": "/home/"
     }
   ],
   "prefer_related_applications": false

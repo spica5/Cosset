@@ -8,7 +8,7 @@ const TABLE_NAME = 'cinema_notification_prefs';
 export type CinemaNotificationPref = {
   id: number;
   customerId: string;
-  /** New schedule posts + upcoming movies at Cosset Cinema */
+  /** New schedule posts + screenings starting within 24 hours at Cosset Cinema */
   notifySchedule: boolean;
   createdAt: Date;
   updatedAt: Date;

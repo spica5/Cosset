@@ -59,8 +59,10 @@ type FormState = {
   showFriday: boolean;
   showSaturday: boolean;
   showSunday: boolean;
-  /** Friday (UTC) of the selected Fri–Sun weekend. UI-only anchor for the calendar week. */
+  /** Friday of the selected Fri–Sun weekend (Official mode). */
   weekAnchorFriday: string;
+  /** Exact calendar day for Flexible preview (any date). */
+  flexibleDate: string;
   screeningMode: ScreeningMode;
   price: string;
   order: string;
@@ -73,6 +75,8 @@ const isCinemaWeekendDay = (day: number) =>
 
 const formatLocalDate = (date: Date) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const todayLocalDate = () => formatLocalDate(new Date());
 
 /** Friday of the Fri–Sun block containing `date` (calendar local time). */
 const getWeekendFriday = (date: Date) => {
@@ -120,6 +124,7 @@ const buildEmptyForm = (): FormState => {
     showSaturday: true,
     showSunday: true,
     weekAnchorFriday: formatLocalDate(friday),
+    flexibleDate: todayLocalDate(),
     screeningMode: 'official',
     price: '',
     order: '',
@@ -130,7 +135,8 @@ const buildFormFromScreening = (screening: ICinemaFilmScreening): FormState => {
   const showFlexible = screening.showFlexible === true;
   const screeningMode: ScreeningMode = showFlexible ? 'flexible' : 'official';
   const weekStartRaw = String(screening.showWeekStart || '').trim();
-  const friday = /^\d{4}-\d{2}-\d{2}$/.test(weekStartRaw)
+  const hasSavedDate = /^\d{4}-\d{2}-\d{2}$/.test(weekStartRaw);
+  const friday = hasSavedDate
     ? getWeekendFriday(dayjs(weekStartRaw).toDate())
     : getUpcomingWeekendFriday();
 
@@ -142,6 +148,8 @@ const buildFormFromScreening = (screening: ICinemaFilmScreening): FormState => {
     showSaturday: screening.showSaturday !== false,
     showSunday: screening.showSunday !== false,
     weekAnchorFriday: formatLocalDate(friday),
+    // Flexible keeps the exact saved date (do not snap to Friday).
+    flexibleDate: showFlexible && hasSavedDate ? weekStartRaw : todayLocalDate(),
     screeningMode,
     price: screening.price != null ? String(screening.price) : '',
     order: screening.order != null ? String(screening.order) : '',
@@ -282,11 +290,18 @@ export function CinemaScreeningFormDialog({
         screeningMode: 'flexible',
         showAt: prev.showAt || '',
         showAt2: '',
+        flexibleDate: prev.flexibleDate || todayLocalDate(),
       };
     });
   }, []);
 
-  const selectedWeekDates = useMemo(() => {
+  const isFlexibleMode = form.screeningMode === 'flexible';
+
+  const selectedCalendarDates = useMemo(() => {
+    if (isFlexibleMode) {
+      return new Set(form.flexibleDate ? [form.flexibleDate] : []);
+    }
+
     const friday = dayjs(form.weekAnchorFriday);
     const weekend = getWeekendDates(friday.toDate());
     const selected = new Set<string>();
@@ -296,50 +311,71 @@ export function CinemaScreeningFormDialog({
     if (form.showSunday) selected.add(weekend.sunday);
 
     return selected;
-  }, [form.showFriday, form.showSaturday, form.showSunday, form.weekAnchorFriday]);
+  }, [
+    form.flexibleDate,
+    form.showFriday,
+    form.showSaturday,
+    form.showSunday,
+    form.weekAnchorFriday,
+    isFlexibleMode,
+  ]);
 
   const calendarReferenceDate = useMemo(
-    () => dayjs(form.weekAnchorFriday),
-    [form.weekAnchorFriday],
+    () => dayjs(isFlexibleMode ? form.flexibleDate || todayLocalDate() : form.weekAnchorFriday),
+    [form.flexibleDate, form.weekAnchorFriday, isFlexibleMode],
   );
 
-  const shouldDisableWeekDate = useCallback((date: Dayjs) => !isCinemaWeekendDay(date.day()), []);
+  const shouldDisableWeekDate = useCallback(
+    (date: Dayjs) => (isFlexibleMode ? false : !isCinemaWeekendDay(date.day())),
+    [isFlexibleMode],
+  );
 
-  const handleToggleWeekDay = useCallback((day: Dayjs) => {
-    const field = getDayFieldFromWeekday(day.day());
-    if (!field) return;
+  const handleToggleCalendarDay = useCallback(
+    (day: Dayjs) => {
+      if (form.screeningMode === 'flexible') {
+        setForm((prev) => ({
+          ...prev,
+          flexibleDate: day.format('YYYY-MM-DD'),
+        }));
+        return;
+      }
 
-    const clickedFriday = formatLocalDate(getWeekendFriday(day.toDate()));
+      const field = getDayFieldFromWeekday(day.day());
+      if (!field) return;
 
-    setForm((prev) => {
-      const isDifferentWeek = prev.weekAnchorFriday !== clickedFriday;
+      const clickedFriday = formatLocalDate(getWeekendFriday(day.toDate()));
 
-      if (isDifferentWeek) {
+      setForm((prev) => {
+        const isDifferentWeek = prev.weekAnchorFriday !== clickedFriday;
+
+        if (isDifferentWeek) {
+          return {
+            ...prev,
+            weekAnchorFriday: clickedFriday,
+            showFriday: true,
+            showSaturday: true,
+            showSunday: true,
+          };
+        }
+
+        const nextValue = !prev[field];
+        const nextFriday = field === 'showFriday' ? nextValue : prev.showFriday;
+        const nextSaturday = field === 'showSaturday' ? nextValue : prev.showSaturday;
+        const nextSunday = field === 'showSunday' ? nextValue : prev.showSunday;
+
+        if (!nextFriday && !nextSaturday && !nextSunday) {
+          toast.error('Select at least one day in this weekend.');
+          return prev;
+        }
+
         return {
           ...prev,
-          weekAnchorFriday: clickedFriday,
-          showFriday: true,
-          showSaturday: true,
-          showSunday: true,
+          [field]: nextValue,
         };
-      }
-
-      const nextValue = !prev[field];
-      const nextFriday = field === 'showFriday' ? nextValue : prev.showFriday;
-      const nextSaturday = field === 'showSaturday' ? nextValue : prev.showSaturday;
-      const nextSunday = field === 'showSunday' ? nextValue : prev.showSunday;
-
-      if (!nextFriday && !nextSaturday && !nextSunday) {
-        toast.error('Select at least one day in this weekend.');
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [field]: nextValue,
-      };
-    });
-  }, []);
+      });
+    },
+    [form.screeningMode],
+  );
 
   const handleSubmit = useCallback(async () => {
     const filmId = Number.parseInt(form.filmId, 10);
@@ -369,7 +405,12 @@ export function CinemaScreeningFormDialog({
       return;
     }
 
-    if (!form.showFriday && !form.showSaturday && !form.showSunday) {
+    if (showFlexible && !/^\d{4}-\d{2}-\d{2}$/.test(form.flexibleDate)) {
+      toast.error('Please select a screening date.');
+      return;
+    }
+
+    if (!showFlexible && !form.showFriday && !form.showSaturday && !form.showSunday) {
       toast.error('Please select at least one screening day.');
       return;
     }
@@ -392,11 +433,11 @@ export function CinemaScreeningFormDialog({
         filmId,
         showAt,
         showAt2,
-        showFriday: form.showFriday,
-        showSaturday: form.showSaturday,
-        showSunday: form.showSunday,
+        showFriday: showFlexible ? true : form.showFriday,
+        showSaturday: showFlexible ? true : form.showSaturday,
+        showSunday: showFlexible ? true : form.showSunday,
         showFlexible,
-        showWeekStart: form.weekAnchorFriday,
+        showWeekStart: showFlexible ? form.flexibleDate : form.weekAnchorFriday,
         pricingType: price ? ('paid' as const) : ('free' as const),
         price: price || null,
         order: parseNullableInteger(form.order),
@@ -496,7 +537,7 @@ export function CinemaScreeningFormDialog({
 
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Screening weekend (Fri–Sun)
+              {isFlexibleMode ? 'Screening date' : 'Screening weekend (Fri–Sun)'}
             </Typography>
             <LocalizationProvider>
               <Box
@@ -528,16 +569,17 @@ export function CinemaScreeningFormDialog({
                   slots={{ day: ScreeningWeekDay }}
                   slotProps={{
                     day: {
-                      selectedDates: selectedWeekDates,
-                      onToggleDay: handleToggleWeekDay,
+                      selectedDates: selectedCalendarDates,
+                      onToggleDay: handleToggleCalendarDay,
                     } as ScreeningWeekDayProps,
                   }}
                 />
               </Box>
             </LocalizationProvider>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Select Friday, Saturday, and/or Sunday in the same weekend. Monday–Thursday are disabled.
-              Tapping a day in another weekend switches to that week.
+              {isFlexibleMode
+                ? 'Flexible preview: pick any calendar day for admin playback testing.'
+                : 'Select Friday, Saturday, and/or Sunday in the same weekend. Monday–Thursday are disabled. Tapping a day in another weekend switches to that week.'}
             </Typography>
           </Box>
 
@@ -617,17 +659,28 @@ export function CinemaScreeningFormDialog({
           />
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Selected days:{" "}
-            {getScreeningWeeklyDaySummary({
-              showAt: form.showAt,
-              showAt2: form.showAt2,
-              showFlexible: form.screeningMode === 'flexible',
-              showWeekStart: form.weekAnchorFriday,
-              showFriday: form.showFriday,
-              showSaturday: form.showSaturday,
-              showSunday: form.showSunday,
-            })}
-            {form.screeningMode === 'flexible' ? ' — Flexible preview.' : ''}
+            {isFlexibleMode ? (
+              <>
+                Selected date:{' '}
+                {dayjs(form.flexibleDate).isValid()
+                  ? dayjs(form.flexibleDate).format('ddd, D MMM YYYY')
+                  : '—'}
+                {' — Flexible preview.'}
+              </>
+            ) : (
+              <>
+                Selected days:{' '}
+                {getScreeningWeeklyDaySummary({
+                  showAt: form.showAt,
+                  showAt2: form.showAt2,
+                  showFlexible: false,
+                  showWeekStart: form.weekAnchorFriday,
+                  showFriday: form.showFriday,
+                  showSaturday: form.showSaturday,
+                  showSunday: form.showSunday,
+                })}
+              </>
+            )}
           </Typography>
         </Stack>
       </DialogContent>

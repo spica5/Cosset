@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/cinema-screening-reminders",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

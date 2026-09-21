@@ -74,7 +74,7 @@ export function CinemaNotificationSettings({ enabled = true }: Props) {
       } else {
         toast.success(
           checked
-            ? 'You will be notified about new cinema schedules and upcoming movies'
+            ? 'You will be notified about new schedules and screenings within 24 hours'
             : 'Cinema schedule notifications are off',
         );
       }
@@ -117,14 +117,14 @@ export function CinemaNotificationSettings({ enabled = true }: Props) {
                 lineHeight: 1.3,
               }}
             >
-              Cinema schedule alerts
+              Cinema phone alerts
             </Typography>
             <Typography
               variant="caption"
               sx={{ color: 'rgba(245,230,200,0.68)', display: 'block', lineHeight: 1.4 }}
             >
-              Get notified when a new cinema schedule is posted and when upcoming movies are added.
-              Off by default. Use Chrome/Edge (or installed Cosset app) on the phone.
+              Get notified when a new schedule is posted, and when a screening starts within 24
+              hours. Off by default. Use Chrome/Edge (or the installed Cosset app) on your phone.
             </Typography>
             {notifySchedule ? (
               <Typography

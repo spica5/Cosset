@@ -54,6 +54,8 @@ export async function sendWebPushToUser(
     body?: string;
     url?: string;
     tag?: string;
+    /** Optional large image / poster for richer mobile notifications */
+    image?: string | null;
   },
 ): Promise<void> {
   const config = ensureVapid();
@@ -67,6 +69,7 @@ export async function sendWebPushToUser(
     body: stripHtml(payload.body || '') || 'Something new is happening on Cosset.',
     url: payload.url || '/dashboard/preview',
     tag: payload.tag || 'cosset-activity',
+    image: payload.image || undefined,
   });
 
   await Promise.all(
