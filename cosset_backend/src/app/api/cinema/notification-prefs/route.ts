@@ -50,7 +50,8 @@ export async function GET(req: NextRequest) {
       {
         pref: {
           customerId: userId,
-          notifySchedule: Boolean(pref?.notifySchedule),
+          // Default ON for everyone until they explicitly turn alerts off.
+          notifySchedule: pref ? Boolean(pref.notifySchedule) : true,
           pushReady,
         },
       },

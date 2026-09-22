@@ -8,7 +8,7 @@ const TABLE_NAME = 'cinema_notification_prefs';
 export type CinemaNotificationPref = {
   id: number;
   customerId: string;
-  /** New schedule posts + screenings starting within 24 hours at Cosset Cinema */
+  /** Official schedule posts + screenings within 24h. Default ON (opt-out). */
   notifySchedule: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -24,7 +24,7 @@ const ensureCinemaNotificationPrefsTable = async (): Promise<void> => {
           CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
             id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             customer_id UUID NOT NULL,
-            notify_schedule BOOLEAN NOT NULL DEFAULT FALSE,
+            notify_schedule BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT uq_cinema_notification_prefs_customer UNIQUE (customer_id),
@@ -38,6 +38,12 @@ const ensureCinemaNotificationPrefsTable = async (): Promise<void> => {
         `CREATE INDEX IF NOT EXISTS idx_cinema_notification_prefs_schedule
           ON ${TABLE_NAME} (notify_schedule)
           WHERE notify_schedule = TRUE`,
+      );
+
+      // Existing installs may still have DEFAULT FALSE from the first migration.
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME}
+          ALTER COLUMN notify_schedule SET DEFAULT TRUE`,
       );
     })().catch((error) => {
       ensureTablePromise = null;
@@ -120,16 +126,17 @@ export async function setCinemaNotificationPref(
   }
 }
 
-/** Users who opted in to Cosset Cinema schedule / upcoming-movie alerts. */
+/** Users who should receive Cosset Cinema schedule / screening alerts (opt-out). */
 export async function listCinemaScheduleNotifyCustomerIds(): Promise<string[]> {
   try {
     await ensureCinemaNotificationPrefsTable();
 
     const rows = await queryMany<{ customerId: string }>(
       `
-        SELECT customer_id as "customerId"
-        FROM ${TABLE_NAME}
-        WHERE notify_schedule = TRUE
+        SELECT u.id as "customerId"
+        FROM cosset_users u
+        LEFT JOIN ${TABLE_NAME} p ON p.customer_id = u.id
+        WHERE COALESCE(p.notify_schedule, TRUE) = TRUE
       `,
     );
 

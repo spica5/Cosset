@@ -37,13 +37,14 @@ export function useGetCinemaNotificationPrefs(enabled: boolean = true) {
 
   return useMemo(
     () => ({
-      notifySchedule: Boolean(data?.pref?.notifySchedule),
+      // Default ON until the user explicitly turns cinema alerts off.
+      notifySchedule: data?.pref ? Boolean(data.pref.notifySchedule) : true,
       pushReady: Boolean(data?.pref?.pushReady),
       prefsLoading: isLoading,
       prefsError: error,
       prefsValidating: isValidating,
     }),
-    [data?.pref?.notifySchedule, data?.pref?.pushReady, error, isLoading, isValidating],
+    [data?.pref, data?.pref?.notifySchedule, data?.pref?.pushReady, error, isLoading, isValidating],
   );
 }
 

@@ -22,6 +22,7 @@ type CinemaScheduleNotifyInput = {
   filmTitle?: string | null;
   filmPosterImage?: string | null;
   screeningId?: number | null;
+  showFlexible?: boolean | null;
   /** Optional: skip notifying this user (e.g. the admin who saved the schedule). */
   excludeCustomerId?: string | null;
 };
@@ -34,6 +35,11 @@ type ScreeningShowPair = {
 export async function notifyCinemaScheduleSubscribers(
   input: CinemaScheduleNotifyInput,
 ): Promise<number> {
+  // Flexible screenings are admin preview only — never fan out to the community.
+  if (input.showFlexible === true) {
+    return 0;
+  }
+
   const filmTitle = (input.filmTitle || 'a new film').trim() || 'a new film';
   const title = '<p><strong>Upcoming movie</strong> on Cosset Cinema</p>';
   const content = `"${filmTitle}" is now scheduled at Cosset Cinema`;

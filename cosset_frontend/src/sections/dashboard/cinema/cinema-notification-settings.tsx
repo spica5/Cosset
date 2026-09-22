@@ -124,7 +124,8 @@ export function CinemaNotificationSettings({ enabled = true }: Props) {
               sx={{ color: 'rgba(245,230,200,0.68)', display: 'block', lineHeight: 1.4 }}
             >
               Get notified when a new schedule is posted, and when a screening starts within 24
-              hours. Off by default. Use Chrome/Edge (or the installed Cosset app) on your phone.
+              hours. On by default for everyone — turn off anytime. Use Chrome/Edge (or the installed
+              Cosset app) on your phone.
             </Typography>
             {notifySchedule ? (
               <Typography

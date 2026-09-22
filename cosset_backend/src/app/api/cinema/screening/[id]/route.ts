@@ -108,8 +108,8 @@ export async function PUT(
       isPublic: updates.isPublic,
     });
 
-    // Notify when a public schedule is saved/updated (most admin edits use PUT).
-    if (Number(screening.isPublic ?? 1) === 1) {
+    // Notify when a public official schedule is saved/updated (skip Flexible admin previews).
+    if (Number(screening.isPublic ?? 1) === 1 && screening.showFlexible !== true) {
       try {
         const scheduleTouched =
           updates.showAt !== undefined ||
@@ -131,6 +131,7 @@ export async function PUT(
             filmTitle: film?.title,
             filmPosterImage: film?.posterImage,
             screeningId: screening.id,
+            showFlexible: screening.showFlexible,
           });
         }
       } catch (notificationError) {

@@ -53,12 +53,13 @@ export async function POST(req: NextRequest) {
       isPublic: screening.isPublic ?? 1,
     });
 
-    if (Number(created.isPublic ?? 1) === 1) {
+    if (Number(created.isPublic ?? 1) === 1 && created.showFlexible !== true) {
       try {
         await notifyCinemaScheduleSubscribers({
           filmTitle: film.title,
           filmPosterImage: film.posterImage,
           screeningId: created.id,
+          showFlexible: created.showFlexible,
         });
       } catch (notificationError) {
         console.error('[Cinema Screening] failed upcoming-movie notifications', notificationError);
