@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -313,7 +314,7 @@ export function PostListView() {
       spacing={2}
       direction={{ xs: 'column', md: 'row' }}
       alignItems={{ xs: 'stretch', md: 'center' }}
-      sx={{ mb: { xs: 3, md: 4 } }}
+      sx={{ mb: { xs: 3, md: 4 }, maxWidth: 1, minWidth: 0, width: 1 }}
     >
       {effectiveViewMode !== 'mine' && (
         <TextField
@@ -363,7 +364,7 @@ export function PostListView() {
   const totalCount = postsToFilter.length;
 
   const renderList = (
-    <Stack spacing={2.5}>
+    <Stack spacing={2.5} sx={{ maxWidth: 1, minWidth: 0, width: 1 }}>
       {filteredPosts.map((post) => (
         <PostItemForm
           key={post.id}
@@ -377,7 +378,14 @@ export function PostListView() {
   );
 
   return (
-    <DashboardContent>
+    <DashboardContent
+      sx={{
+        maxWidth: 1,
+        minWidth: 0,
+        overflowX: 'hidden',
+        px: { xs: 1.5, sm: 2, md: undefined },
+      }}
+    >
       <CustomBreadcrumbs
         heading={heading}
         links={
@@ -394,43 +402,94 @@ export function PostListView() {
               ]
         }
         action={
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ maxWidth: 1, minWidth: 0 }}
+          >
             <ToggleButtonGroup
               exclusive
               size="small"
               value={effectiveViewMode}
               onChange={handleViewModeChange}
               color="primary"
+              sx={{
+                flexWrap: 'nowrap',
+                maxWidth: 1,
+                '& .MuiToggleButton-root': {
+                  px: { xs: 0.85, sm: 1.25 },
+                  minWidth: { xs: 36, sm: 'auto' },
+                  fontSize: { xs: '0.7rem', sm: '0.8125rem' },
+                  whiteSpace: 'nowrap',
+                },
+              }}
             >
-              <ToggleButton value="all">Community Posts</ToggleButton>
-              <ToggleButton value="advertise">Advertise Posts</ToggleButton>
-              <ToggleButton value="mine" disabled={!user}>
-                My Posts
-              </ToggleButton>
-              <ToggleButton value="favorite" disabled={!user}>
-                <Iconify
-                  icon={
-                    effectiveViewMode === 'favorite'
-                      ? 'solar:bookmark-bold'
-                      : 'solar:bookmark-linear'
-                  }
-                  width={16}
-                  sx={{ mr: 0.75 }}
-                />
-                Favorite
-              </ToggleButton>
+              <Tooltip title="Community Posts">
+                <ToggleButton value="all" aria-label="Community Posts">
+                  <Iconify icon="solar:users-group-rounded-bold" width={18} sx={{ display: { sm: 'none' } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Community
+                  </Box>
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title="Advertise Posts">
+                <ToggleButton value="advertise" aria-label="Advertise Posts">
+                  <Iconify icon="solar:shop-bold" width={18} sx={{ display: { sm: 'none' } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Advertise
+                  </Box>
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title="My Posts">
+                <span>
+                  <ToggleButton value="mine" disabled={!user} aria-label="My Posts">
+                    <Iconify icon="solar:user-bold" width={18} sx={{ display: { sm: 'none' } }} />
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                      My Posts
+                    </Box>
+                  </ToggleButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Favorite">
+                <span>
+                  <ToggleButton value="favorite" disabled={!user} aria-label="Favorite">
+                    <Iconify
+                      icon={
+                        effectiveViewMode === 'favorite'
+                          ? 'solar:bookmark-bold'
+                          : 'solar:bookmark-linear'
+                      }
+                      width={18}
+                    />
+                  </ToggleButton>
+                </span>
+              </Tooltip>
             </ToggleButtonGroup>
             <Button
               component={RouterLink}
               href={paths.dashboard.community.post.new}
               variant="contained"
+              size="small"
               startIcon={<Iconify icon="mingcute:add-line" />}
+              sx={{
+                minWidth: { xs: 36, sm: 'auto' },
+                px: { xs: 1, sm: 1.5 },
+                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
+              }}
             >
-              New Post
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                New Post
+              </Box>
             </Button>
           </Stack>
         }
-        sx={{ mb: { xs: 3, md: 5 } }}
+        slotProps={{
+          action: { width: { xs: 1, md: 'auto' }, maxWidth: 1, mt: { xs: 1.5, md: 0 } },
+        }}
+        sx={{ mb: { xs: 3, md: 5 }, maxWidth: 1, minWidth: 0 }}
       />
 
       {!postsLoading && totalCount > 0 && renderFilters}
@@ -441,7 +500,9 @@ export function PostListView() {
         </Typography>
       )}
 
-      {postsLoading ? renderLoading : filteredPosts.length ? renderList : renderEmpty}
+      <Box sx={{ maxWidth: 1, minWidth: 0, width: 1 }}>
+        {postsLoading ? renderLoading : filteredPosts.length ? renderList : renderEmpty}
+      </Box>
     </DashboardContent>
   );
 }

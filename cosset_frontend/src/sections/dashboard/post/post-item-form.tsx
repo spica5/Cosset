@@ -341,13 +341,18 @@ export function PostItemForm({
 
   return (
     <>
-      <Card sx={{ p: 2.5 }}>
-        <Stack spacing={1.5}>
-          <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+      <Card sx={{ p: { xs: 1.5, sm: 2.5 }, maxWidth: 1, width: 1, overflow: 'hidden' }}>
+        <Stack spacing={1.5} sx={{ minWidth: 0, maxWidth: 1 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+            spacing={1.25}
+            sx={{ minWidth: 0 }}
+          >
             <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              alignItems={{ xs: 'flex-start', sm: 'center' }}
-              spacing={2}
+              direction="row"
+              alignItems="center"
+              spacing={1.5}
               sx={{ minWidth: 0, flex: 1 }}
             >
               <PostAuthorInfo
@@ -362,30 +367,56 @@ export function PostItemForm({
                 shopHref={shopHref}
               />
 
-              <Typography variant="h6" sx={{ minWidth: 0, flex: 1 }} noWrap>
+              <Typography
+                variant="h6"
+                sx={{
+                  minWidth: 0,
+                  flex: 1,
+                  fontSize: { xs: '1rem', sm: undefined },
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {post.title || `Untitled Post #${post.id}`}
               </Typography>
             </Stack>
 
-            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ ml: 'auto', flexShrink: 0 }}>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              sx={{ minWidth: 0, maxWidth: 1 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={0.5} title="Views">
                 <Iconify width={16} icon="eva:eye-fill" sx={{ color: 'info.main' }} />
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Views: {localTotalViews}
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Views:{' '}
+                  </Box>
+                  {localTotalViews}
                 </Typography>
               </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" alignItems="center" spacing={0.5} title="Reactions">
                 <Iconify width={16} icon="mdi:heart" sx={{ color: 'error.main' }} />
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Reactions: {totalReactions}
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Reactions:{' '}
+                  </Box>
+                  {totalReactions}
                 </Typography>
               </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" alignItems="center" spacing={0.5} title="Comments">
                 <Iconify width={16} icon="solar:chat-round-dots-bold" sx={{ color: 'warning.main' }} />
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Comments: {comments.length}
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Comments:{' '}
+                  </Box>
+                  {comments.length}
                 </Typography>
               </Stack>
 
@@ -431,64 +462,129 @@ export function PostItemForm({
 
           <Divider />
 
+          {/* Mobile: text above image. Desktop: text | image (60% / 40%). */}
           <Box
-            role={hasMoreThanPreview ? 'button' : undefined}
-            tabIndex={hasMoreThanPreview ? 0 : -1}
-            onClick={toggleExpanded}
-            onKeyDown={handleArticleKeyDown}
             sx={{
-              p: 1,
-              borderRadius: 1.5,
-              cursor: hasMoreThanPreview ? 'pointer' : 'default',
-              '&:hover': hasMoreThanPreview ? { bgcolor: 'action.hover' } : undefined,
-              '&:focus-visible': hasMoreThanPreview
-                ? {
-                    outline: '2px solid',
-                    outlineColor: 'primary.main',
-                  }
-                : undefined,
+              display: 'grid',
+              gridTemplateColumns: post.files
+                ? { xs: '1fr', sm: 'minmax(0, 60%) 40%' }
+                : '1fr',
+              gap: { xs: 1, sm: 1.5 },
+              alignItems: 'stretch',
+              minWidth: 0,
+              maxWidth: 1,
+              width: 1,
             }}
           >
-            <Typography
-              variant="body2"
+            <Box
+              role={hasMoreThanPreview ? 'button' : undefined}
+              tabIndex={hasMoreThanPreview ? 0 : -1}
+              onClick={toggleExpanded}
+              onKeyDown={handleArticleKeyDown}
               sx={{
-                color: 'text.secondary',
-                whiteSpace: expanded ? 'pre-wrap' : 'normal',
-                ...(expanded
-                  ? null
-                  : {
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                    }),
+                p: 1,
+                minWidth: 0,
+                minHeight: 0,
+                height: { xs: 'auto', sm: 1 },
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                cursor: hasMoreThanPreview ? 'pointer' : 'default',
+                '&:hover': hasMoreThanPreview ? { bgcolor: 'action.hover' } : undefined,
+                '&:focus-visible': hasMoreThanPreview
+                  ? {
+                      outline: '2px solid',
+                      outlineColor: 'primary.main',
+                    }
+                  : undefined,
               }}
             >
-              {content}
-            </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.disabled', display: 'block', mb: 0.75, fontWeight: 600, flexShrink: 0 }}
+              >
+                Text
+              </Typography>
 
-            {hasMoreThanPreview ? (
-              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.75 }}>
-                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                  {expanded ? 'Click article to collapse' : 'Click article to expand'}
-                </Typography>
-                <Iconify
-                  width={14}
-                  icon={expanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-                  sx={{ color: 'primary.main' }}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  whiteSpace: expanded ? 'pre-wrap' : 'normal',
+                  wordBreak: 'break-word',
+                  flex: { xs: 'none', sm: 1 },
+                  minHeight: 0,
+                  ...(expanded
+                    ? { overflow: 'auto' }
+                    : {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 3,
+                        // Desktop: fill image-section height and clip instead of a short clamp.
+                        '@media (min-width: 600px)': {
+                          display: 'block',
+                          WebkitLineClamp: 'unset',
+                          textOverflow: 'clip',
+                        },
+                      }),
+                }}
+              >
+                {content}
+              </Typography>
+
+              {hasMoreThanPreview ? (
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={0.5}
+                  sx={{ mt: 'auto', pt: 0.75, flexShrink: 0 }}
+                >
+                  <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                    {expanded ? 'Click to collapse' : 'Click to expand'}
+                  </Typography>
+                  <Iconify
+                    width={14}
+                    icon={expanded ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
+                    sx={{ color: 'primary.main' }}
+                  />
+                </Stack>
+              ) : null}
+            </Box>
+
+            {post.files ? (
+              <Box
+                sx={{
+                  p: { xs: 0.75, sm: 1 },
+                  borderRadius: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.neutral',
+                  minWidth: 0,
+                  maxWidth: 1,
+                  width: 1,
+                  height: { xs: 'auto', sm: 1 },
+                  overflow: 'hidden',
+                  alignSelf: 'stretch',
+                }}
+              >
+                <PostAttachmentsGallery
+                  files={post.files}
+                  heading="Image"
+                  stopPropagation
+                  onPreview={recordView}
+                  arrangeType="grid"
+                  imageWidth={160}
+                  imageHeight={160}
+                  minItemWidth={88}
+                  videoWidth={140}
                 />
-              </Stack>
+              </Box>
             ) : null}
-
-            <PostAttachmentsGallery
-              files={post.files}
-              heading="Attached files"
-              stopPropagation
-              onPreview={recordView}
-              imageWidth={200}
-              imageHeight={120}
-            />
           </Box>
 
           <Divider />

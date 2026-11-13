@@ -215,69 +215,79 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
 
     return visibleNavData.map((group) => ({
       ...group,
-      items: group.items.map((item) => {
-        if (item.title === 'Collections' && item.children) {
-          return {
-            ...item,
-            children: [...item.children, ...collectionSubitems],
-          };
-        }
+      items: group.items
+        .filter((item) =>
+          isUserAdmin(user?.role) ? true : item.title !== 'Brands Boulevard',
+        )
+        .map((item) => {
+          if (item.title === 'Collections' && item.children) {
+            return {
+              ...item,
+              children: [...item.children, ...collectionSubitems],
+            };
+          }
 
-        if (item.title === 'Community' && item.children) {
-          const postBadge =
-            postUnreadCount > 0 ? (
-              <Label color="error" variant="inverted">
-                {postUnreadCount}
-              </Label>
-            ) : undefined;
-
-          return {
-            ...item,
-            info: postBadge,
-            children: item.children.map((child: NavItemBaseProps) => {
-              if (child.title !== 'Posts') {
-                return child;
-              }
-
-              return {
-                ...child,
-                info: postBadge,
-                children: child.children?.map((subChild: NavItemBaseProps) =>
-                  subChild.title === 'Community Posts' || subChild.title === 'Advertise Posts'
-                    ? { ...subChild, info: postBadge }
-                    : subChild,
-                ),
-              };
-            }),
-          };
-        }
-
-        if (item.title === 'Mail') {
-          return {
-            ...item,
-            info:
-              mailUnreadCount > 0 ? (
+          if (item.title === 'Community' && item.children) {
+            const postBadge =
+              postUnreadCount > 0 ? (
                 <Label color="error" variant="inverted">
-                  {mailUnreadCount}
+                  {postUnreadCount}
                 </Label>
-              ) : undefined,
-          };
-        }
+              ) : undefined;
 
-        if (item.title === 'Chat') {
-          return {
-            ...item,
-            info:
-              chatUnreadCount > 0 ? (
-                <Label color="error" variant="inverted">
-                  {chatUnreadCount}
-                </Label>
-              ) : undefined,
-          };
-        }
+            const communityChildren = item.children
+              .filter((child: NavItemBaseProps) =>
+                isUserAdmin(user?.role) ? true : child.title !== 'Cinema',
+              )
+              .map((child: NavItemBaseProps) => {
+                if (child.title !== 'Posts') {
+                  return child;
+                }
 
-        return item;
-      }),
+                return {
+                  ...child,
+                  info: postBadge,
+                  children: child.children?.map((subChild: NavItemBaseProps) =>
+                    subChild.title === 'Community Posts' || subChild.title === 'Advertise Posts'
+                      ? { ...subChild, info: postBadge }
+                      : subChild,
+                  ),
+                };
+              });
+
+            return {
+              ...item,
+              info: postBadge,
+              children: communityChildren,
+            };
+          }
+
+          if (item.title === 'Mail') {
+            return {
+              ...item,
+              info:
+                mailUnreadCount > 0 ? (
+                  <Label color="error" variant="inverted">
+                    {mailUnreadCount}
+                  </Label>
+                ) : undefined,
+            };
+          }
+
+          if (item.title === 'Chat') {
+            return {
+              ...item,
+              info:
+                chatUnreadCount > 0 ? (
+                  <Label color="error" variant="inverted">
+                    {chatUnreadCount}
+                  </Label>
+                ) : undefined,
+            };
+          }
+
+          return item;
+        }),
     }));
   }, [
     collectionSubitems,

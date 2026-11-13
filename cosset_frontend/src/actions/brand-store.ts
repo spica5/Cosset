@@ -57,9 +57,9 @@ type CategoriesData = { categories?: IBrandCategory[] };
 type ProductsData = { products?: IBrandProduct[] };
 type OrdersData = { orders?: IBrandProductOrder[]; store?: IBrandStore | null };
 
-export function useGetBrandStores() {
+export function useGetBrandStores(enabled: boolean = true) {
   const { data, isLoading, error, isValidating } = useSWR<StoresData>(
-    STORE_LIST_ENDPOINT,
+    enabled ? STORE_LIST_ENDPOINT : null,
     fetcher,
     swrOptions,
   );

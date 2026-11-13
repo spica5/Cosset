@@ -492,120 +492,144 @@ export function PostCreateEditView({ postId }: Props) {
             disabled={isReadOnly}
           />
 
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Insert emoticons
-              </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 60%) 40%' },
+              gap: 2,
+              alignItems: 'stretch',
+              minWidth: 0,
+            }}
+          >
+            <Stack
+              spacing={1}
+              sx={{
+                p: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                minWidth: 0,
+              }}
+            >
+              <Typography variant="subtitle2">Text</Typography>
 
-              <EmoticonPickerButton
+              <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Insert emoticons
+                </Typography>
+
+                <EmoticonPickerButton
+                  disabled={isReadOnly}
+                  onSelect={handleInsertEmoticon}
+                  menuPlacement="below"
+                  icon="solar:smile-circle-bold"
+                  tooltip="Insert emoticon"
+                />
+              </Stack>
+
+              <TextField
+                label="Content"
+                placeholder="Write your post content"
+                multiline
+                minRows={8}
+                InputLabelProps={{ shrink: true }}
+                name={contentField.name}
+                onBlur={contentField.onBlur}
+                onChange={contentField.onChange}
+                inputRef={(element) => {
+                  contentField.ref(element);
+                  contentInputRef.current = element;
+                }}
                 disabled={isReadOnly}
-                onSelect={handleInsertEmoticon}
-                menuPlacement="below"
-                icon="solar:smile-circle-bold"
-                tooltip="Insert emoticon"
+              />
+
+              <InputEmoticonSuggestion
+                inputRef={contentInputRef}
+                value={contentValue || ''}
+                disabled={isReadOnly}
+                onChange={handleSuggestionChange}
               />
             </Stack>
 
-            <TextField
-              label="Content"
-              placeholder="Write your post content"
-              multiline
-              minRows={12}
-              InputLabelProps={{ shrink: true }}
-              name={contentField.name}
-              onBlur={contentField.onBlur}
-              onChange={contentField.onChange}
-              inputRef={(element) => {
-                contentField.ref(element);
-                contentInputRef.current = element;
-              }}
-              disabled={isReadOnly}
-            />
-
-            <InputEmoticonSuggestion
-              inputRef={contentInputRef}
-              value={contentValue || ''}
-              disabled={isReadOnly}
-              onChange={handleSuggestionChange}
-            />
-          </Stack>
-
-          <Stack
-            spacing={1.5}
-            sx={{
-              p: 2,
-              border: '1px dashed',
-              borderColor: 'divider',
-              borderRadius: 1.5,
-            }}
-          >
-            <Typography variant="subtitle2">Upload Attachment</Typography>
-
-            <Box
+            <Stack
+              spacing={1.5}
               sx={{
-                display: 'grid',
-                gap: 1.5,
-                gridTemplateColumns: { xs: '1fr', md: '180px auto auto' },
-                alignItems: 'center',
+                p: 2,
+                border: '1px dashed',
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                minWidth: 0,
+                maxWidth: 1,
+                overflow: 'hidden',
               }}
             >
-              <TextField
-                select
-                label="File Type"
-                value={uploadType}
-                onChange={handleUploadTypeChange}
-                disabled={isReadOnly || uploadingFile}
+              <Typography variant="subtitle2">Image</Typography>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 1.5,
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr' },
+                  alignItems: 'center',
+                }}
               >
-                <MenuItem value="image">Image</MenuItem>
-                <MenuItem value="video">Video</MenuItem>
-                <MenuItem value="pdf">PDF</MenuItem>
-              </TextField>
+                <TextField
+                  select
+                  label="File Type"
+                  value={uploadType}
+                  onChange={handleUploadTypeChange}
+                  disabled={isReadOnly || uploadingFile}
+                >
+                  <MenuItem value="image">Image</MenuItem>
+                  <MenuItem value="video">Video</MenuItem>
+                  <MenuItem value="pdf">PDF</MenuItem>
+                </TextField>
 
-              <Button component="label" variant="outlined" disabled={isReadOnly || uploadingFile}>
-                Choose File(s)
-                <input
-                  hidden
-                  type="file"
-                  multiple
-                  accept={uploadAcceptMap[uploadType]}
-                  onChange={handleSelectFile}
-                />
-              </Button>
+                <Button component="label" variant="outlined" disabled={isReadOnly || uploadingFile}>
+                  Choose File(s)
+                  <input
+                    hidden
+                    type="file"
+                    multiple
+                    accept={uploadAcceptMap[uploadType]}
+                    onChange={handleSelectFile}
+                  />
+                </Button>
 
-              <Button
-                variant="contained"
-                onClick={handleUploadFile}
-                disabled={isReadOnly || !selectedFiles.length || uploadingFile}
-              >
-                {uploadingFile ? 'Uploading...' : 'Upload'}
-              </Button>
-            </Box>
+                <Button
+                  variant="contained"
+                  onClick={handleUploadFile}
+                  disabled={isReadOnly || !selectedFiles.length || uploadingFile}
+                >
+                  {uploadingFile ? 'Uploading...' : 'Upload'}
+                </Button>
+              </Box>
 
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {selectedFiles.length
-                ? `Selected ${selectedFiles.length} file(s): ${selectedFiles
-                    .slice(0, 3)
-                    .map((file) => file.name)
-                    .join(', ')}${selectedFiles.length > 3 ? ', ...' : ''}`
-                : `Accepted format: ${uploadAcceptMap[uploadType]}`}
-            </Typography>
-          </Stack>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {selectedFiles.length
+                  ? `Selected ${selectedFiles.length} file(s): ${selectedFiles
+                      .slice(0, 3)
+                      .map((file) => file.name)
+                      .join(', ')}${selectedFiles.length > 3 ? ', ...' : ''}`
+                  : `Accepted format: ${uploadAcceptMap[uploadType]}`}
+              </Typography>
 
-          <input type="hidden" {...register('files')} />
+              <input type="hidden" {...register('files')} />
 
-          <PostAttachmentsGallery
-            files={filesValue}
-            heading="Attachment Preview"
-            arrangeType="grid"
-            itemSpacing={1.25}
-            minItemWidth={120}
-            imageWidth={125}
-            imageHeight={100}
-            videoWidth={280}
-            allowRemove={!isReadOnly}
-            onRemoveAttachment={!isReadOnly ? handleRemoveAttachment : undefined}
-          />
+              <PostAttachmentsGallery
+                files={filesValue}
+                heading="Preview"
+                arrangeType="grid"
+                itemSpacing={1}
+                minItemWidth={88}
+                imageWidth={120}
+                imageHeight={90}
+                videoWidth={160}
+                allowRemove={!isReadOnly}
+                onRemoveAttachment={!isReadOnly ? handleRemoveAttachment : undefined}
+              />
+            </Stack>
+          </Box>
 
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             <Button

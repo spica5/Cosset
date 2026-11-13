@@ -11,16 +11,16 @@ export type BreadcrumbsLinkProps = {
 };
 
 export type CustomBreadcrumbsProps = BoxProps &
-  BreadcrumbsProps & {
+  Omit<BreadcrumbsProps, 'slotProps'> & {
     heading?: string;
     moreLink?: string[];
     activeLast?: boolean;
     action?: React.ReactNode;
     links: BreadcrumbsLinkProps[];
     slotProps?: {
-      action: SxProps<Theme>;
-      heading: SxProps<Theme>;
-      moreLink: SxProps<Theme>;
-      breadcrumbs: SxProps<Theme>;
+      action?: SxProps<Theme>;
+      heading?: SxProps<Theme>;
+      moreLink?: SxProps<Theme>;
+      breadcrumbs?: SxProps<Theme>;
     };
   };

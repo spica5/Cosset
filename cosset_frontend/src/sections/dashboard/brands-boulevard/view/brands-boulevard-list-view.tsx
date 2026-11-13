@@ -10,6 +10,7 @@ import Card from '@mui/material/Card';
 import Tabs from '@mui/material/Tabs';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -18,6 +19,7 @@ import CardContent from '@mui/material/CardContent';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
@@ -57,8 +59,9 @@ type StoreTab = 'all' | 'favorites' | 'wishlist';
 
 export function BrandsBoulevardListView() {
   const router = useRouter();
-  const { user } = useAuthContext();
-  const canOpenStore = isUserBusiness(user?.role) || isUserAdmin(user?.role);
+  const { user, loading: authLoading } = useAuthContext();
+  const isAdmin = isUserAdmin(user?.role);
+  const canOpenStore = isUserBusiness(user?.role) || isAdmin;
   const [search, setSearch] = useState('');
   const [storeTab, setStoreTab] = useState<StoreTab>('all');
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
@@ -68,8 +71,14 @@ export function BrandsBoulevardListView() {
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [savingWishlistProductId, setSavingWishlistProductId] = useState<number | null>(null);
 
-  const { stores, storesLoading } = useGetBrandStores();
-  const { store: myStore } = useGetMyBrandStore(canOpenStore);
+  const { stores, storesLoading } = useGetBrandStores(isAdmin);
+  const { store: myStore } = useGetMyBrandStore(canOpenStore && isAdmin);
+
+  useEffect(() => {
+    if (!authLoading && user && !isAdmin) {
+      router.replace(paths.dashboard.root);
+    }
+  }, [authLoading, isAdmin, router, user]);
 
   const favoriteSet = useMemo(() => new Set(favoriteIds.map(Number)), [favoriteIds]);
   const favoritesCount = favoriteIds.length;
@@ -93,11 +102,12 @@ export function BrandsBoulevardListView() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!isAdmin) return;
     revalidateBrandStoreList();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!isAdmin || !user?.id) {
       setFavoriteIds([]);
       setWishlistItems([]);
       return undefined;
@@ -119,7 +129,7 @@ export function BrandsBoulevardListView() {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     setFavoriteCounts((prev) => {
@@ -234,6 +244,36 @@ export function BrandsBoulevardListView() {
       loadWishlist();
     }
   };
+
+  if (authLoading) {
+    return null;
+  }
+
+  if (!isAdmin) {
+    return (
+      <DashboardContent>
+        <CustomBreadcrumbs
+          heading="Brands Boulevard"
+          links={[
+            { name: 'Dashboard', href: paths.dashboard.root },
+            { name: 'Brands Boulevard' },
+          ]}
+          sx={{ mb: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}
+        />
+
+        <Alert
+          severity="warning"
+          action={
+            <Button component={RouterLink} href={paths.dashboard.root} color="inherit" size="small">
+              Go back
+            </Button>
+          }
+        >
+          Brands Boulevard is available to admin accounts only.
+        </Alert>
+      </DashboardContent>
+    );
+  }
 
   return (
     <DashboardContent disablePadding sx={{ position: 'relative', overflow: 'hidden' }}>

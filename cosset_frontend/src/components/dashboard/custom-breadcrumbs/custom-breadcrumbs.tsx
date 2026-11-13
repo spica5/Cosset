@@ -55,9 +55,15 @@ export function CustomBreadcrumbs({
   );
 
   return (
-    <Box gap={2} display="flex" flexDirection="column" sx={sx} {...other}>
-      <Box display="flex" alignItems="center">
-        <Box sx={{ flexGrow: 1 }}>
+    <Box gap={2} display="flex" flexDirection="column" sx={{ minWidth: 0, maxWidth: 1, ...sx }} {...other}>
+      <Box
+        display="flex"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        flexDirection={{ xs: 'column', md: 'row' }}
+        gap={{ xs: 1.5, md: 2 }}
+        sx={{ minWidth: 0, maxWidth: 1, width: 1 }}
+      >
+        <Box sx={{ flexGrow: 1, minWidth: 0, maxWidth: 1 }}>
           {heading && renderHeading}
 
           {!!links.length && renderLinks}

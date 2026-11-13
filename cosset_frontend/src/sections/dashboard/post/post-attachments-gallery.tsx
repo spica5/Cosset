@@ -381,7 +381,7 @@ export function PostAttachmentsGallery({
               key={`${type}-${key}-${index}`}
               spacing={0.5}
               sx={{
-                width: arrangeType === 'grid' ? '100%' : 'auto',
+                width: arrangeType === 'grid' ? '100%' : imageWidth,
                 maxWidth: '100%',
                 position: 'relative',
                 flexShrink: 0,
@@ -400,10 +400,11 @@ export function PostAttachmentsGallery({
                   handleOpenLightbox(mediaSlides, index);
                 }}
                 sx={{
-                  height: imageHeight,
-                  width: arrangeType === 'grid' ? '100%' : 'auto',
+                  width: '100%',
                   maxWidth: '100%',
-                  minWidth: arrangeType === 'grid' ? undefined : minItemWidth,
+                  minWidth: 0,
+                  height: { xs: 'auto', sm: imageHeight },
+                  maxHeight: { xs: '70vh', sm: imageHeight },
                   borderRadius: 1,
                   objectFit: 'contain',
                   objectPosition: 'center',
@@ -414,21 +415,6 @@ export function PostAttachmentsGallery({
                   borderColor: 'divider',
                 }}
               />
-              <Button
-                size="small"
-                variant="text"
-                disabled={!mediaSlides.length}
-                onClick={(event) => {
-                  if (stopPropagation) {
-                    event.stopPropagation();
-                  }
-                  onPreview?.();
-                  handleOpenLightbox(mediaSlides, index);
-                }}
-                sx={{ minWidth: 0, alignSelf: 'flex-start' }}
-              >
-                Preview
-              </Button>
             </Stack>
           );
         }
@@ -454,21 +440,6 @@ export function PostAttachmentsGallery({
                   borderColor: 'divider',
                 }}
               />
-              <Button
-                size="small"
-                variant="text"
-                disabled={!mediaSlides.length}
-                onClick={(event) => {
-                  if (stopPropagation) {
-                    event.stopPropagation();
-                  }
-                  onPreview?.();
-                  handleOpenLightbox(mediaSlides, index);
-                }}
-                sx={{ alignSelf: 'flex-start', minWidth: 0 }}
-              >
-                Preview Video
-              </Button>
             </Stack>
           );
         }
@@ -513,11 +484,11 @@ export function PostAttachmentsGallery({
 
       return (
         <Stack
-          direction="row"
+          direction="column"
           spacing={itemSpacing}
           useFlexGap
-          flexWrap="wrap"
-          alignItems="flex-start"
+          alignItems="stretch"
+          sx={{ width: 1, maxWidth: 1 }}
         >
           {items}
         </Stack>
@@ -529,6 +500,7 @@ export function PostAttachmentsGallery({
       buildLightboxSlides,
       handleOpenLightbox,
       imageHeight,
+      imageWidth,
       itemSpacing,
       minItemWidth,
       onPreview,

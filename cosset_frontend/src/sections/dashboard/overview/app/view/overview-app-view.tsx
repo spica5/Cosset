@@ -5,6 +5,7 @@ import Grid from '@mui/material/Unstable_Grid2';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { isUserAdmin } from 'src/auth/utils/role';
 
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 
@@ -21,6 +22,7 @@ import { OverviewFriends } from '../overview-friends';
 
 export function OverviewAppView() {
   const { user } = useAuthContext();
+  const isAdmin = isUserAdmin(user?.role);
 
   return (
     <DashboardContent maxWidth="xl">
@@ -43,9 +45,11 @@ export function OverviewAppView() {
           <OverviewContentStats />
         </Grid>
 
-        <Grid xs={12}>
-          <OverviewUpcomingCinema />
-        </Grid>
+        {isAdmin ? (
+          <Grid xs={12}>
+            <OverviewUpcomingCinema />
+          </Grid>
+        ) : null}
 
         <Grid xs={12} md={6}>
           <OverviewRecentPosts />
@@ -55,9 +59,11 @@ export function OverviewAppView() {
           <OverviewTopShops />
         </Grid>
 
-        <Grid xs={12}>
-          <OverviewBrandsBoulevard />
-        </Grid>
+        {isAdmin ? (
+          <Grid xs={12}>
+            <OverviewBrandsBoulevard />
+          </Grid>
+        ) : null}
 
         <Grid xs={12} md={6}>
           <OverviewNeighbors />
