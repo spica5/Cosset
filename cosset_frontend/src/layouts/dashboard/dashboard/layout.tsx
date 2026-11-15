@@ -213,81 +213,83 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
       ? baseNavData
       : baseNavData.filter((group) => group.subheader !== 'Admin');
 
+    const isAdmin = isUserAdmin(user?.role);
+
     return visibleNavData.map((group) => ({
       ...group,
-      items: group.items
-        .filter((item) =>
-          isUserAdmin(user?.role) ? true : item.title !== 'Brands Boulevard',
-        )
-        .map((item) => {
-          if (item.title === 'Collections' && item.children) {
-            return {
-              ...item,
-              children: [...item.children, ...collectionSubitems],
-            };
-          }
+      items: group.items.map((item) => {
+        if (item.title === 'Collections' && item.children) {
+          return {
+            ...item,
+            children: [...item.children, ...collectionSubitems],
+          };
+        }
 
-          if (item.title === 'Community' && item.children) {
-            const postBadge =
-              postUnreadCount > 0 ? (
-                <Label color="error" variant="inverted">
-                  {postUnreadCount}
-                </Label>
-              ) : undefined;
+        if (item.title === 'Community' && item.children) {
+          const postBadge =
+            postUnreadCount > 0 ? (
+              <Label color="error" variant="inverted">
+                {postUnreadCount}
+              </Label>
+            ) : undefined;
 
-            const communityChildren = item.children
-              .filter((child: NavItemBaseProps) =>
-                isUserAdmin(user?.role) ? true : child.title !== 'Cinema',
-              )
-              .map((child: NavItemBaseProps) => {
-                if (child.title !== 'Posts') {
-                  return child;
-                }
+          const communityChildren = item.children.map((child: NavItemBaseProps) => {
+            if (child.title === 'Cinema') {
+              return { ...child, disabled: !isAdmin };
+            }
 
-                return {
-                  ...child,
-                  info: postBadge,
-                  children: child.children?.map((subChild: NavItemBaseProps) =>
-                    subChild.title === 'Community Posts' || subChild.title === 'Advertise Posts'
-                      ? { ...subChild, info: postBadge }
-                      : subChild,
-                  ),
-                };
-              });
+            if (child.title !== 'Posts') {
+              return child;
+            }
 
             return {
-              ...item,
+              ...child,
               info: postBadge,
-              children: communityChildren,
+              children: child.children?.map((subChild: NavItemBaseProps) =>
+                subChild.title === 'Community Posts' || subChild.title === 'Advertise Posts'
+                  ? { ...subChild, info: postBadge }
+                  : subChild,
+              ),
             };
-          }
+          });
 
-          if (item.title === 'Mail') {
-            return {
-              ...item,
-              info:
-                mailUnreadCount > 0 ? (
-                  <Label color="error" variant="inverted">
-                    {mailUnreadCount}
-                  </Label>
-                ) : undefined,
-            };
-          }
+          return {
+            ...item,
+            info: postBadge,
+            children: communityChildren,
+          };
+        }
 
-          if (item.title === 'Chat') {
-            return {
-              ...item,
-              info:
-                chatUnreadCount > 0 ? (
-                  <Label color="error" variant="inverted">
-                    {chatUnreadCount}
-                  </Label>
-                ) : undefined,
-            };
-          }
+        if (item.title === 'Brands Boulevard') {
+          return { ...item, disabled: !isAdmin };
+        }
 
-          return item;
-        }),
+        if (item.title === 'Mail') {
+          return {
+            ...item,
+            info:
+              mailUnreadCount > 0 ? (
+                <Label color="error" variant="inverted">
+                  {mailUnreadCount}
+                </Label>
+              ) : undefined,
+          };
+        }
+
+        if (item.title === 'Chat') {
+          return {
+            ...item,
+            info:
+              chatUnreadCount > 0 ? (
+                <Label color="error" variant="inverted">
+                  {chatUnreadCount}
+                </Label>
+              ) : undefined,
+          };
+        }
+
+        return item;
+      }),
     }));
   }, [
     collectionSubitems,
