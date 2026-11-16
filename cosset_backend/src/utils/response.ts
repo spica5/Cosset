@@ -9,8 +9,27 @@ export const STATUS = {
   FORBIDDEN: 403,
 };
 
+function serializeResponseData(data: string | Record<string, unknown>) {
+  if (typeof data === 'string') {
+    // Always return valid JSON so clients can read `.message` consistently.
+    try {
+      JSON.parse(data);
+      return data;
+    } catch {
+      return JSON.stringify({ message: data });
+    }
+  }
+
+  return JSON.stringify(data, (_key, value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  });
+}
+
 export function response(data: string | Record<string, unknown>, status: number): Response {
-  const value = typeof data === 'string' ? data : JSON.stringify(data);
+  const value = serializeResponseData(data);
 
   return new Response(value, {
     status,

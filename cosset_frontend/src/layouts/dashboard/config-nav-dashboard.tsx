@@ -60,30 +60,8 @@ const ICONS = {
 
 export const navData = [
   /**
-   * Admin
-   */
-  {
-    subheader: 'Admin',
-    items: [
-      {
-        title: 'Customers',
-        path: paths.dashboard.customers,
-        icon: ICONS.user,
-      },
-      {
-        title: 'Media',
-        path: paths.dashboard.admin.media.root,
-        icon: ICONS.video,
-        children: [
-          { title: 'Cinema', path: paths.dashboard.admin.media.cinema },
-          { title: 'Intro video', path: paths.dashboard.admin.media.introVideo },
-          { title: 'Files', path: paths.dashboard.admin.media.files },
-        ],
-      },
-    ],
-  },
-  /**
    * Overview
+   * (Admin Customers / Media moved to Cosset CRM)
    */
   {
     subheader: 'Overview',

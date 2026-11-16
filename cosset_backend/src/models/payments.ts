@@ -1,7 +1,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-import { getUserById, updateUserPlan, type UserPlanType } from './users';
+import { getAllUsers, getUserById, updateUserPlan, type UserPlanType } from './users';
+import { ensureWalletTables } from './wallet';
 import {
   getCustomerBillingAccount,
   upsertCustomerBillingAccount,
@@ -474,6 +475,152 @@ function normalizeBillingPlan(value: unknown): UserPlanType {
   }
 
   return 'FREE';
+}
+
+export type CustomerPaymentOverview = {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  photoURL?: string | null;
+  role?: string | null;
+  state?: string | null;
+  plan: UserPlanType;
+  walletBalanceCents: number;
+  walletCurrency: string;
+  billingProvider: PaymentProvider | null;
+  billingStatus: PaymentStatus | null;
+  billingPlan: UserPlanType | null;
+  billingAmountCents: number | null;
+  currentPeriodEnd: Date | string | null;
+  createdAt?: Date | string | null;
+};
+
+/**
+ * Admin list: customers with wallet balance and active billing snapshot.
+ */
+export async function listCustomerPaymentOverviews(
+  limit: number = 100,
+  offset: number = 0,
+): Promise<CustomerPaymentOverview[]> {
+  await Promise.all([ensureCustomerPaymentsTable(), ensureWalletTables()]);
+
+  const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit) || 100));
+  const safeOffset = Math.max(0, Math.trunc(offset) || 0);
+
+  try {
+    const rows = await queryMany<{
+      id: string;
+      email: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      photoURL?: string | null;
+      role?: string | null;
+      state?: string | null;
+      plan?: string | null;
+      walletBalanceCents?: number | null;
+      walletCurrency?: string | null;
+      billingProvider?: PaymentProvider | null;
+      billingStatus?: PaymentStatus | null;
+      billingPlan?: string | null;
+      billingAmountCents?: number | null;
+      currentPeriodEnd?: Date | string | null;
+      createdAt?: Date | string | null;
+    }>(
+      `
+        SELECT
+          u.id::text as "id",
+          u.email,
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.photo_url as "photoURL",
+          u.role::text as "role",
+          u.state as "state",
+          COALESCE(u.plan::text, 'FREE') as "plan",
+          COALESCE(w.balance_cents, 0) as "walletBalanceCents",
+          COALESCE(w.currency, 'usd') as "walletCurrency",
+          p.provider as "billingProvider",
+          p.status as "billingStatus",
+          p.plan as "billingPlan",
+          p.amount_cents as "billingAmountCents",
+          p.current_period_end as "currentPeriodEnd",
+          u.created_at as "createdAt"
+        FROM cosset_users u
+        LEFT JOIN user_wallets w
+          ON w.customer_id = u.id::text
+        LEFT JOIN LATERAL (
+          SELECT
+            provider,
+            status,
+            plan,
+            amount_cents,
+            current_period_end
+          FROM ${TABLE_NAME}
+          WHERE customer_id = u.id::text
+            AND status IN ('active', 'completed')
+            AND COALESCE(plan, 'FREE') <> 'FREE'
+            AND external_subscription_id IS NOT NULL
+          ORDER BY
+            CASE WHEN status = 'active' THEN 0 ELSE 1 END,
+            created_at DESC,
+            id DESC
+          LIMIT 1
+        ) p ON TRUE
+        ORDER BY u.created_at DESC
+        LIMIT $1 OFFSET $2
+      `,
+      [safeLimit, safeOffset],
+    );
+
+    return rows.map((row) => ({
+      id: String(row.id),
+      email: row.email,
+      firstName: row.firstName || null,
+      lastName: row.lastName || null,
+      photoURL: row.photoURL || null,
+      role: row.role || null,
+      state: row.state || null,
+      plan: normalizeBillingPlan(row.plan),
+      walletBalanceCents: Number(row.walletBalanceCents || 0),
+      walletCurrency: row.walletCurrency || 'usd',
+      billingProvider: row.billingProvider || null,
+      billingStatus: row.billingStatus || null,
+      billingPlan: row.billingPlan ? normalizeBillingPlan(row.billingPlan) : null,
+      billingAmountCents:
+        row.billingAmountCents == null ? null : Number(row.billingAmountCents),
+      currentPeriodEnd: row.currentPeriodEnd || null,
+      createdAt: row.createdAt || null,
+    }));
+  } catch (joinError) {
+    console.warn(
+      '[listCustomerPaymentOverviews] join query failed, falling back:',
+      joinError instanceof Error ? joinError.message : joinError,
+    );
+
+    const users = await getAllUsers(safeLimit, safeOffset);
+    if (!users.length) {
+      return [];
+    }
+
+    return users.map((user) => ({
+      id: String(user.id),
+      email: user.email,
+      firstName: user.firstName || null,
+      lastName: user.lastName || null,
+      photoURL: user.photoURL || null,
+      role: user.role || null,
+      state: user.state || null,
+      plan: normalizeBillingPlan(user.plan),
+      walletBalanceCents: 0,
+      walletCurrency: 'usd',
+      billingProvider: null,
+      billingStatus: null,
+      billingPlan: null,
+      billingAmountCents: null,
+      currentPeriodEnd: null,
+      createdAt: user.createdAt || null,
+    }));
+  }
 }
 
 export async function getCustomerBillingSummary(

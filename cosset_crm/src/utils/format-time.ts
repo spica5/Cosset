@@ -1,0 +1,365 @@
+import type { Dayjs, OpUnitType } from 'dayjs';
+
+import timezone from 'dayjs/plugin/timezone';
+
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import duration from 'dayjs/plugin/duration';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+// ----------------------------------------------------------------------
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(duration);
+dayjs.extend(relativeTime);
+
+// ----------------------------------------------------------------------
+
+export type DatePickerFormat = Dayjs | Date | string | number | null | undefined;
+
+/**
+ * Docs: https://day.js.org/docs/en/display/format
+ */
+export const formatStr = {
+  dateTime: 'DD MMM YYYY h:mm a', // 17 Apr 2022 12:00 am
+  date: 'DD MMM YYYY', // 17 Apr 2022
+  time: 'h:mm a', // 12:00 am
+  split: {
+    dateTime: 'DD/MM/YYYY h:mm a', // 17/04/2022 12:00 am
+    date: 'DD/MM/YYYY', // 17/04/2022
+  },
+  paramCase: {
+    dateTime: 'DD-MM-YYYY h:mm a', // 17-04-2022 12:00 am
+    date: 'DD-MM-YYYY', // 17-04-2022
+  },
+};
+
+export function today(format?: string) {
+  return dayjs(new Date()).startOf('day').format(format);
+}
+
+// ----------------------------------------------------------------------
+
+function parseToLocal(date: DatePickerFormat) {
+  if (!date) {
+    return null;
+  }
+
+  const value = String(date);
+  const hasTimezone = value.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(value);
+
+  const parsed = hasTimezone ? dayjs.utc(value).local() : dayjs(value);
+
+  return parsed.isValid() ? parsed : null;
+}
+
+// ----------------------------------------------------------------------
+
+/** Values without an explicit offset are treated as UTC (database timestamps). */
+export function normalizeUtcTimestamp(date: DatePickerFormat): string | null {
+  if (!date) {
+    return null;
+  }
+
+  if (date instanceof Date) {
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  if (typeof date === 'number') {
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  const raw = String(date).trim();
+  if (!raw) {
+    return null;
+  }
+
+  let normalized = raw.replace(' ', 'T').replace(/(\.\d{3})\d+$/, '$1');
+
+  // Normalize uncommon Postgres/Neon offsets: +00, +0000 → +00:00
+  normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+  normalized = normalized.replace(/([+-]\d{2})$/, '$1:00');
+
+  const hasTimezone = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized);
+
+  return hasTimezone ? normalized : `${normalized}Z`;
+}
+
+/** output: 17 Apr 2022 12:00 am
+ */
+export function fDateTime(date: DatePickerFormat, format?: string) {
+  const parsed = parseToLocal(date);
+
+  return parsed
+    ? parsed.format(format ?? `${formatStr.dateTime}`)
+    : date
+      ? 'Invalid time value'
+      : null;
+}
+
+/** Format a UTC database timestamp as UTC wall-clock (matches cinema admin entry). */
+export function fDateTimeFromUtc(date: DatePickerFormat, format?: string) {
+  const utcValue = normalizeUtcTimestamp(date);
+  if (!utcValue) {
+    return null;
+  }
+
+  const instant = dayjs.utc(utcValue);
+  if (!instant.isValid()) {
+    return 'Invalid time value';
+  }
+
+  return instant.format(format ?? `${formatStr.dateTime}`);
+}
+
+/** Coffee-shop chat: UTC DB value -> viewer local time (e.g. "09 Jun 11:53 am PDT"). */
+export function formatCoffeeShopChatSentAt(date: DatePickerFormat): string {
+  const utcValue = normalizeUtcTimestamp(date);
+  if (!utcValue) {
+    return '';
+  }
+
+  const instant = new Date(utcValue);
+  if (Number.isNaN(instant.getTime())) {
+    return '';
+  }
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).formatToParts(instant);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  const day = get('day');
+  const month = get('month');
+  const hour = get('hour');
+  const minute = get('minute');
+  const dayPeriod = get('dayPeriod').toLowerCase();
+  const timeZone = get('timeZoneName');
+
+  return `${day} ${month} ${hour}:${minute} ${dayPeriod} ${timeZone}`.trim();
+}
+
+// ----------------------------------------------------------------------
+
+/** output: 17 Apr 2022
+ */
+export function fDate(date: DatePickerFormat, format?: string) {
+  if (!date) {
+    return null;
+  }
+
+  const isValid = dayjs(date).isValid();
+
+  return isValid ? dayjs(date).format(format ?? formatStr.date) : 'Invalid time value';
+}
+
+// ----------------------------------------------------------------------
+
+/** output: 12:00 am
+ */
+export function fTime(date: DatePickerFormat, format?: string) {
+  if (!date) {
+    return null;
+  }
+
+  const isValid = dayjs(date).isValid();
+
+  return isValid ? dayjs(date).format(format ?? formatStr.time) : 'Invalid time value';
+}
+
+// ----------------------------------------------------------------------
+
+/** output: 1713250100
+ */
+export function fTimestamp(date: DatePickerFormat) {
+  if (!date) {
+    return null;
+  }
+
+  const isValid = dayjs(date).isValid();
+
+  return isValid ? dayjs(date).valueOf() : 'Invalid time value';
+}
+
+// ----------------------------------------------------------------------
+
+/** output: a few seconds, 2 years
+ */
+export function fToNow(date: DatePickerFormat) {
+  const parsed = parseToLocal(date);
+
+  return parsed ? parsed.toNow(true) : date ? 'Invalid time value' : null;
+}
+
+// ----------------------------------------------------------------------
+
+/** output: boolean
+ */
+export function fIsBetween(
+  inputDate: DatePickerFormat,
+  startDate: DatePickerFormat,
+  endDate: DatePickerFormat
+) {
+  if (!inputDate || !startDate || !endDate) {
+    return false;
+  }
+
+  const formattedInputDate = fTimestamp(inputDate);
+  const formattedStartDate = fTimestamp(startDate);
+  const formattedEndDate = fTimestamp(endDate);
+
+  if (formattedInputDate && formattedStartDate && formattedEndDate) {
+    return formattedInputDate >= formattedStartDate && formattedInputDate <= formattedEndDate;
+  }
+
+  return false;
+}
+
+// ----------------------------------------------------------------------
+
+/** output: boolean
+ */
+export function fIsAfter(startDate: DatePickerFormat, endDate: DatePickerFormat) {
+  return dayjs(startDate).isAfter(endDate);
+}
+
+// ----------------------------------------------------------------------
+
+/** output: boolean
+ */
+export function fIsSame(
+  startDate: DatePickerFormat,
+  endDate: DatePickerFormat,
+  units?: OpUnitType
+) {
+  if (!startDate || !endDate) {
+    return false;
+  }
+
+  const isValid = dayjs(startDate).isValid() && dayjs(endDate).isValid();
+
+  if (!isValid) {
+    return 'Invalid time value';
+  }
+
+  return dayjs(startDate).isSame(endDate, units ?? 'year');
+}
+
+// ----------------------------------------------------------------------
+
+/** output:
+ * Same day: 26 Apr 2024
+ * Same month: 25 - 26 Apr 2024
+ * Same month: 25 - 26 Apr 2024
+ * Same year: 25 Apr - 26 May 2024
+ */
+export function fDateRangeShortLabel(
+  startDate: DatePickerFormat,
+  endDate: DatePickerFormat,
+  initial?: boolean
+) {
+  const isValid = dayjs(startDate).isValid() && dayjs(endDate).isValid();
+
+  const isAfter = fIsAfter(startDate, endDate);
+
+  if (!isValid || isAfter) {
+    return 'Invalid time value';
+  }
+
+  let label = `${fDate(startDate)} - ${fDate(endDate)}`;
+
+  if (initial) {
+    return label;
+  }
+
+  const isSameYear = fIsSame(startDate, endDate, 'year');
+  const isSameMonth = fIsSame(startDate, endDate, 'month');
+  const isSameDay = fIsSame(startDate, endDate, 'day');
+
+  if (isSameYear && !isSameMonth) {
+    label = `${fDate(startDate, 'DD MMM')} - ${fDate(endDate)}`;
+  } else if (isSameYear && isSameMonth && !isSameDay) {
+    label = `${fDate(startDate, 'DD')} - ${fDate(endDate)}`;
+  } else if (isSameYear && isSameMonth && isSameDay) {
+    label = `${fDate(endDate)}`;
+  }
+
+  return label;
+}
+
+// ----------------------------------------------------------------------
+
+export type DurationProps = {
+  years?: number;
+  months?: number;
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+  milliseconds?: number;
+};
+
+/** output: '2024-05-28T05:55:31+00:00'
+ */
+export function fAdd({
+  years = 0,
+  months = 0,
+  days = 0,
+  hours = 0,
+  minutes = 0,
+  seconds = 0,
+  milliseconds = 0,
+}: DurationProps) {
+  const result = dayjs()
+    .add(
+      dayjs.duration({
+        years,
+        months,
+        days,
+        hours,
+        minutes,
+        seconds,
+        milliseconds,
+      })
+    )
+    .format();
+
+  return result;
+}
+
+/** output: '2024-05-28T05:55:31+00:00'
+ */
+export function fSub({
+  years = 0,
+  months = 0,
+  days = 0,
+  hours = 0,
+  minutes = 0,
+  seconds = 0,
+  milliseconds = 0,
+}: DurationProps) {
+  const result = dayjs()
+    .subtract(
+      dayjs.duration({
+        years,
+        months,
+        days,
+        hours,
+        minutes,
+        seconds,
+        milliseconds,
+      })
+    )
+    .format();
+
+  return result;
+}
