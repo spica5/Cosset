@@ -3,7 +3,7 @@
 import type { IPostItem } from 'src/types/post';
 import type { ReactionType } from 'src/actions/reaction';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -17,21 +17,23 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
+import { recordActivityNotification } from 'src/actions/notification';
 import { deletePost, recordPostView, useGetPostComments, updatePostCommentVisibility } from 'src/actions/post';
 import {
+  useGetReactionSummary,
   reactToCommunityPostForLoggedInCustomer,
   unreactToCommunityPostForLoggedInCustomer,
-  useGetReactionSummary,
 } from 'src/actions/reaction';
-import { useAuthContext } from 'src/auth/hooks';
-import { recordActivityNotification } from 'src/actions/notification';
-import { Iconify } from 'src/components/dashboard/iconify';
-import { toast } from 'src/components/dashboard/snackbar';
-import { CustomPopover, usePopover } from 'src/components/dashboard/custom-popover';
-import { CommentsSection } from 'src/components/universe/comment-section';
 
-import { PostAttachmentsGallery } from './post-attachments-gallery';
+import { toast } from 'src/components/dashboard/snackbar';
+import { Iconify } from 'src/components/dashboard/iconify';
+import { CommentsSection } from 'src/components/universe/comment-section';
+import { usePopover, CustomPopover } from 'src/components/dashboard/custom-popover';
+
+import { useAuthContext } from 'src/auth/hooks';
+
 import { PostAuthorInfo } from './post-author-info';
+import { PostAttachmentsGallery } from './post-attachments-gallery';
 
 // ----------------------------------------------------------------------
 

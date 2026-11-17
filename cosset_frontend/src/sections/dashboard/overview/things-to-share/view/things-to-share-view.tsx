@@ -2,18 +2,18 @@
 
 import Stack from '@mui/material/Stack';
 
+import { paths } from 'src/routes/paths';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
 
-import { paths } from 'src/routes/paths';
-
 import { BlogShareForm } from '../blog-share-form';
 import { AlbumShareForm } from '../album-share-form';
-import { CollectionItemsShareForm } from '../collection-items-share-form';
 import { DrawerShareForm } from '../drawer-share-form';
 import { BookshelfShareForm } from '../bookshelf-share-form';
 import { JourneyDiaryShareForm } from '../journey-diary-share-form';
+import { CollectionItemsShareForm } from '../collection-items-share-form';
 
 // ---------------------------------------------------------------
 

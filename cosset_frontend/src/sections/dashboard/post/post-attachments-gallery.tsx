@@ -1,7 +1,7 @@
 'use client';
 
 import type { Slide } from 'yet-another-react-lightbox';
-import type { SxProps, Theme } from '@mui/material/styles';
+import type { Theme, SxProps } from '@mui/material/styles';
 
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -42,6 +42,94 @@ type PostAttachmentVideoProps = {
   stopPropagation?: boolean;
   sx?: SxProps<Theme>;
 };
+
+function renderImageTile({
+  attachmentKey,
+  index,
+  url,
+  mediaSlides,
+  aspectRatio,
+  objectFit = 'cover',
+  allowRemove,
+  stopPropagation,
+  onRemoveAttachment,
+  onPreview,
+  onOpenLightbox,
+}: {
+  attachmentKey: string;
+  index: number;
+  url: string;
+  mediaSlides: Slide[];
+  aspectRatio: string | number;
+  objectFit?: 'cover' | 'contain';
+  allowRemove?: boolean;
+  stopPropagation?: boolean;
+  onRemoveAttachment?: (key: string) => void;
+  onPreview?: () => void;
+  onOpenLightbox: (slides: Slide[], index: number) => void;
+}) {
+  const displayName = `IMAGE ${index + 1}`;
+  const removeButton =
+    allowRemove && onRemoveAttachment ? (
+      <IconButton
+        size="small"
+        color="error"
+        onClick={(event) => {
+          if (stopPropagation) {
+            event.stopPropagation();
+          }
+          onRemoveAttachment(attachmentKey);
+        }}
+        sx={{
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          zIndex: 1,
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Iconify icon="solar:trash-bin-trash-bold" width={16} />
+      </IconButton>
+    ) : null;
+
+  return (
+    <Box
+      key={`image-${attachmentKey}-${index}`}
+      sx={{
+        width: 1,
+        maxWidth: 1,
+        position: 'relative',
+        minWidth: 0,
+      }}
+    >
+      {removeButton}
+      <Box
+        component="img"
+        src={url}
+        alt={displayName}
+        onClick={(event) => {
+          if (stopPropagation) {
+            event.stopPropagation();
+          }
+          onPreview?.();
+          onOpenLightbox(mediaSlides, index);
+        }}
+        sx={{
+          width: '100%',
+          aspectRatio,
+          borderRadius: 1,
+          objectFit,
+          objectPosition: 'center',
+          display: 'block',
+          bgcolor: 'grey.100',
+          cursor: mediaSlides.length ? 'pointer' : 'default',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      />
+    </Box>
+  );
+}
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
 const videoExtensions = ['mp4', 'mov', 'webm'];
@@ -332,93 +420,6 @@ export function PostAttachmentsGallery({
     [stopPropagation],
   );
 
-  const renderImageTile = useCallback(
-    ({
-      key,
-      index,
-      url,
-      mediaSlides,
-      aspectRatio,
-      objectFit = 'cover',
-    }: {
-      key: string;
-      index: number;
-      url: string;
-      mediaSlides: Slide[];
-      aspectRatio: string | number;
-      objectFit?: 'cover' | 'contain';
-    }) => {
-      const displayName = `IMAGE ${index + 1}`;
-      const removeButton =
-        allowRemove && onRemoveAttachment ? (
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(event) => {
-              if (stopPropagation) {
-                event.stopPropagation();
-              }
-              onRemoveAttachment(key);
-            }}
-            sx={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              zIndex: 1,
-              bgcolor: 'background.paper',
-            }}
-          >
-            <Iconify icon="solar:trash-bin-trash-bold" width={16} />
-          </IconButton>
-        ) : null;
-
-      return (
-        <Box
-          key={`image-${key}-${index}`}
-          sx={{
-            width: 1,
-            maxWidth: 1,
-            position: 'relative',
-            minWidth: 0,
-          }}
-        >
-          {removeButton}
-          <Box
-            component="img"
-            src={url}
-            alt={displayName}
-            onClick={(event) => {
-              if (stopPropagation) {
-                event.stopPropagation();
-              }
-              onPreview?.();
-              handleOpenLightbox(mediaSlides, index);
-            }}
-            sx={{
-              width: '100%',
-              aspectRatio,
-              borderRadius: 1,
-              objectFit,
-              objectPosition: 'center',
-              display: 'block',
-              bgcolor: 'grey.100',
-              cursor: mediaSlides.length ? 'pointer' : 'default',
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          />
-        </Box>
-      );
-    },
-    [
-      allowRemove,
-      handleOpenLightbox,
-      onPreview,
-      onRemoveAttachment,
-      stopPropagation,
-    ],
-  );
-
   const renderFeaturedImages = useCallback(
     (keys: string[]) => {
       const mediaSlides = buildLightboxSlides(keys, []);
@@ -439,12 +440,17 @@ export function PostAttachmentsGallery({
         }
 
         return renderImageTile({
-          key,
+          attachmentKey: key,
           index,
           url,
           mediaSlides,
           aspectRatio: size === 'large' ? (hasMany ? '4 / 3' : '1 / 1') : '1 / 1',
           objectFit: 'contain',
+          allowRemove,
+          stopPropagation,
+          onRemoveAttachment,
+          onPreview,
+          onOpenLightbox: handleOpenLightbox,
         });
       };
 
@@ -477,7 +483,16 @@ export function PostAttachmentsGallery({
         </Stack>
       );
     },
-    [buildLightboxSlides, itemSpacing, renderImageTile, signedUrlMap],
+    [
+      allowRemove,
+      buildLightboxSlides,
+      handleOpenLightbox,
+      itemSpacing,
+      onPreview,
+      onRemoveAttachment,
+      signedUrlMap,
+      stopPropagation,
+    ],
   );
 
   const renderAttachmentPreview = useCallback(

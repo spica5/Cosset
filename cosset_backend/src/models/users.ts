@@ -815,10 +815,17 @@ export async function updateUserPassword(id: string, hashedPassword: string): Pr
   }
 }
 
-export async function updateUser(
-  id: string,
-  updates: Partial<Omit<User, 'id' | 'email' | 'password' | 'plan' | 'role' | 'createdAt' | 'updatedAt'>>,
-): Promise<User> {
+type UserUpdatableFields = Omit<
+  User,
+  'id' | 'email' | 'password' | 'plan' | 'role' | 'createdAt' | 'updatedAt'
+>;
+
+/** Allow null to clear nullable string columns (DB stores NULL). */
+type UserUpdateInput = {
+  [K in keyof UserUpdatableFields]?: UserUpdatableFields[K] | null;
+};
+
+export async function updateUser(id: string, updates: UserUpdateInput): Promise<User> {
   try {
     const fields: string[] = [];
     const values: (string | boolean | null | Date)[] = [];
