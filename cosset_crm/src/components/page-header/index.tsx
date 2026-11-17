@@ -19,43 +19,65 @@ export type PageHeaderLink = {
 export type CustomBreadcrumbsProps = BoxProps & {
   heading?: string;
   links?: PageHeaderLink[];
+  action?: React.ReactNode;
 };
 
-export function CustomBreadcrumbs({ heading, links = [], sx, ...other }: CustomBreadcrumbsProps) {
+export function CustomBreadcrumbs({
+  heading,
+  links = [],
+  action,
+  sx,
+  ...other
+}: CustomBreadcrumbsProps) {
   return (
     <Box sx={[{ mb: { xs: 2, md: 3 } }, ...(Array.isArray(sx) ? sx : [sx])]} {...other}>
-      {heading ? (
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          {heading}
-        </Typography>
-      ) : null}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          justifyContent: 'space-between',
+          gap: 2,
+          flexWrap: 'wrap',
+          mb: heading || links.length ? 1 : 0,
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          {heading ? (
+            <Typography variant="h4" sx={{ mb: links.length ? 1 : 0 }}>
+              {heading}
+            </Typography>
+          ) : null}
 
-      {links.length ? (
-        <Breadcrumbs>
-          {links.map((link, index) => {
-            const isLast = index === links.length - 1;
-            if (!link.href || isLast) {
-              return (
-                <Typography key={`${link.name}-${index}`} color="text.primary">
-                  {link.name}
-                </Typography>
-              );
-            }
+          {links.length ? (
+            <Breadcrumbs>
+              {links.map((link, index) => {
+                const isLast = index === links.length - 1;
+                if (!link.href || isLast) {
+                  return (
+                    <Typography key={`${link.name}-${index}`} color="text.primary">
+                      {link.name}
+                    </Typography>
+                  );
+                }
 
-            return (
-              <Link
-                key={`${link.name}-${index}`}
-                component={RouterLink}
-                href={link.href}
-                color="inherit"
-                underline="hover"
-              >
-                {link.name}
-              </Link>
-            );
-          })}
-        </Breadcrumbs>
-      ) : null}
+                return (
+                  <Link
+                    key={`${link.name}-${index}`}
+                    component={RouterLink}
+                    href={link.href}
+                    color="inherit"
+                    underline="hover"
+                  >
+                    {link.name}
+                  </Link>
+                );
+              })}
+            </Breadcrumbs>
+          ) : null}
+        </Box>
+
+        {action ? <Box sx={{ flexShrink: 0 }}>{action}</Box> : null}
+      </Box>
     </Box>
   );
 }

@@ -71,7 +71,7 @@ export const navData: NavSectionProps['data'] = [
         path: paths.management.media.root,
         icon: ICONS.folder,
         children: [
-          { title: 'Cinema', path: paths.management.media.cinema },
+          { title: 'Cinema', path: paths.management.media.cinema.root },
           { title: 'Intro video', path: paths.management.media.introVideo },
           { title: 'Files', path: paths.management.media.files },
         ],

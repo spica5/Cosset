@@ -157,7 +157,7 @@ const buildFormFromScreening = (screening: ICinemaFilmScreening): FormState => {
   };
 };
 
-type ScreeningWeekDayProps = PickersDayProps<Dayjs> & {
+type ScreeningWeekDayProps = PickersDayProps & {
   selectedDates?: Set<string>;
   onToggleDay?: (day: Dayjs) => void;
 };

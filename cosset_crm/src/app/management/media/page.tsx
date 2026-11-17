@@ -5,5 +5,5 @@ import { paths } from 'src/routes/paths';
 // ----------------------------------------------------------------------
 
 export default function Page() {
-  redirect(paths.management.media.cinema);
+  redirect(paths.management.media.cinema.root);
 }

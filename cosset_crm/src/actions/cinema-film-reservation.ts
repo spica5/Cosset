@@ -1,5 +1,6 @@
-import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
+
 import type { CinemaCategory } from 'src/sections/cinema/cinema-categories';
+import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';

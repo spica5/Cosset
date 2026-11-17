@@ -1,6 +1,8 @@
-import axiosInstance, { endpoints } from 'src/lib/axios';
 
 import { CONFIG } from 'src/global-config';
+
+import axiosInstance, { endpoints } from 'src/lib/axios';
+
 
 export type UploadFileToS3Input = {
   file: File;

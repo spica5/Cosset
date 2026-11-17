@@ -20,7 +20,7 @@ import { Lightbox } from 'src/components/dashboard/lightbox';
 // ----------------------------------------------------------------------
 
 type AttachmentType = 'image' | 'video' | 'pdf';
-type ArrangeType = 'row' | 'grid';
+type ArrangeType = 'row' | 'grid' | 'featured';
 
 type Props = {
   files?: string | null;
@@ -332,10 +332,162 @@ export function PostAttachmentsGallery({
     [stopPropagation],
   );
 
+  const renderImageTile = useCallback(
+    ({
+      key,
+      index,
+      url,
+      mediaSlides,
+      aspectRatio,
+      objectFit = 'cover',
+    }: {
+      key: string;
+      index: number;
+      url: string;
+      mediaSlides: Slide[];
+      aspectRatio: string | number;
+      objectFit?: 'cover' | 'contain';
+    }) => {
+      const displayName = `IMAGE ${index + 1}`;
+      const removeButton =
+        allowRemove && onRemoveAttachment ? (
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(event) => {
+              if (stopPropagation) {
+                event.stopPropagation();
+              }
+              onRemoveAttachment(key);
+            }}
+            sx={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              zIndex: 1,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Iconify icon="solar:trash-bin-trash-bold" width={16} />
+          </IconButton>
+        ) : null;
+
+      return (
+        <Box
+          key={`image-${key}-${index}`}
+          sx={{
+            width: 1,
+            maxWidth: 1,
+            position: 'relative',
+            minWidth: 0,
+          }}
+        >
+          {removeButton}
+          <Box
+            component="img"
+            src={url}
+            alt={displayName}
+            onClick={(event) => {
+              if (stopPropagation) {
+                event.stopPropagation();
+              }
+              onPreview?.();
+              handleOpenLightbox(mediaSlides, index);
+            }}
+            sx={{
+              width: '100%',
+              aspectRatio,
+              borderRadius: 1,
+              objectFit,
+              objectPosition: 'center',
+              display: 'block',
+              bgcolor: 'grey.100',
+              cursor: mediaSlides.length ? 'pointer' : 'default',
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          />
+        </Box>
+      );
+    },
+    [
+      allowRemove,
+      handleOpenLightbox,
+      onPreview,
+      onRemoveAttachment,
+      stopPropagation,
+    ],
+  );
+
+  const renderFeaturedImages = useCallback(
+    (keys: string[]) => {
+      const mediaSlides = buildLightboxSlides(keys, []);
+      const hasMany = keys.length > 2;
+      const featuredKeys = keys.slice(0, Math.min(2, keys.length));
+      const remainingKeys = keys.slice(2);
+
+      const renderTile = (key: string, index: number, size: 'large' | 'small') => {
+        const url = signedUrlMap[key];
+        if (!url) {
+          return (
+            <Chip
+              key={`image-loading-${key}-${index}`}
+              size="small"
+              label={`IMAGE ${index + 1} loading`}
+            />
+          );
+        }
+
+        return renderImageTile({
+          key,
+          index,
+          url,
+          mediaSlides,
+          aspectRatio: size === 'large' ? (hasMany ? '4 / 3' : '1 / 1') : '1 / 1',
+          objectFit: 'contain',
+        });
+      };
+
+      return (
+        <Stack spacing={itemSpacing} sx={{ width: 1, maxWidth: 1 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gap: itemSpacing,
+              gridTemplateColumns:
+                featuredKeys.length === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+              alignItems: 'stretch',
+            }}
+          >
+            {featuredKeys.map((key, index) => renderTile(key, index, 'large'))}
+          </Box>
+
+          {remainingKeys.length ? (
+            <Box
+              sx={{
+                display: 'grid',
+                gap: itemSpacing,
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                alignItems: 'stretch',
+              }}
+            >
+              {remainingKeys.map((key, index) => renderTile(key, index + 2, 'small'))}
+            </Box>
+          ) : null}
+        </Stack>
+      );
+    },
+    [buildLightboxSlides, itemSpacing, renderImageTile, signedUrlMap],
+  );
+
   const renderAttachmentPreview = useCallback(
     (keys: string[], type: AttachmentType) => {
       if (!keys.length) {
         return null;
+      }
+
+      if (type === 'image' && arrangeType === 'featured') {
+        return renderFeaturedImages(keys);
       }
 
       const mediaSlides =
@@ -425,7 +577,7 @@ export function PostAttachmentsGallery({
               key={`${type}-${key}-${index}`}
               spacing={0.5}
               sx={{
-                width: arrangeType === 'grid' ? '100%' : { xs: '100%', sm: videoWidth },
+                width: arrangeType === 'grid' || arrangeType === 'featured' ? '100%' : { xs: '100%', sm: videoWidth },
                 position: 'relative',
               }}
             >
@@ -467,7 +619,7 @@ export function PostAttachmentsGallery({
         );
       });
 
-      if (arrangeType === 'grid') {
+      if (arrangeType === 'grid' || arrangeType === 'featured') {
         return (
           <Box
             sx={{
@@ -505,6 +657,7 @@ export function PostAttachmentsGallery({
       minItemWidth,
       onPreview,
       onRemoveAttachment,
+      renderFeaturedImages,
       signedUrlMap,
       stopPropagation,
       videoWidth,
@@ -523,9 +676,11 @@ export function PostAttachmentsGallery({
         onClick={handleBlockClick}
         onKeyDown={handleBlockKeyDown}
       >
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {heading}
-        </Typography>
+        {heading ? (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {heading}
+          </Typography>
+        ) : null}
 
         {imageKeys.length > 0 ? renderAttachmentPreview(imageKeys, 'image') : null}
         {videoKeys.length > 0 ? renderAttachmentPreview(videoKeys, 'video') : null}

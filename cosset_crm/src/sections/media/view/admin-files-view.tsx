@@ -436,41 +436,43 @@ export function AdminFilesView() {
     setPrefix(folderPrefix);
   };
 
-  const handleExpandedItemsChange = async (
-    _: React.SyntheticEvent,
+  const handleExpandedItemsChange = (
+    _: React.SyntheticEvent | null,
     itemIds: string[],
   ) => {
     setExpandedFolders(itemIds);
 
-    const newlyExpanded = itemIds.find(
-      (itemId) =>
-        itemId &&
-        !itemId.endsWith('__loading') &&
-        !expandedFolders.includes(itemId),
-    );
+    void (async () => {
+      const newlyExpanded = itemIds.find(
+        (itemId) =>
+          itemId &&
+          !itemId.endsWith('__loading') &&
+          !expandedFolders.includes(itemId),
+      );
 
-    if (!newlyExpanded) {
-      return;
-    }
-
-    const findNode = (nodes: FolderNode[]): FolderNode | null => {
-      const direct = nodes.find((node) => node.prefix === newlyExpanded);
-      if (direct) {
-        return direct;
+      if (!newlyExpanded) {
+        return;
       }
 
-      return nodes.reduce<FolderNode | null>((found, node) => {
-        if (found) {
-          return found;
+      const findNode = (nodes: FolderNode[]): FolderNode | null => {
+        const direct = nodes.find((node) => node.prefix === newlyExpanded);
+        if (direct) {
+          return direct;
         }
-        return findNode(node.children);
-      }, null);
-    };
 
-    const node = findNode(folderTree);
-    if (node && !node.childrenLoaded) {
-      await loadFolderChildren(newlyExpanded);
-    }
+        return nodes.reduce<FolderNode | null>((found, node) => {
+          if (found) {
+            return found;
+          }
+          return findNode(node.children);
+        }, null);
+      };
+
+      const node = findNode(folderTree);
+      if (node && !node.childrenLoaded) {
+        await loadFolderChildren(newlyExpanded);
+      }
+    })();
   };
 
   const handleNextPage = async () => {

@@ -65,6 +65,7 @@ export type CustomerPaymentOverview = {
   billingAmountCents?: number | null;
   currentPeriodEnd?: string | null;
   createdAt?: string | null;
+  businessAccountRequestedAt?: string | null;
 };
 
 const swrOptions = {

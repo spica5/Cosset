@@ -120,7 +120,7 @@ export function resolveCinemaCategoryId(id: string): CinemaCategory | null {
 }
 
 export function getCinemaCategoryDashboardPath(_category: CinemaCategory) {
-  return paths.management.media.cinema;
+  return paths.management.media.cinema.root;
 }
 
 export function cinemaShellSx(category: CinemaCategoryMeta) {

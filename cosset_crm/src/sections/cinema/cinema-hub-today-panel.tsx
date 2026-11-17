@@ -124,7 +124,7 @@ function screeningPlaysOnDay(screening: ICinemaFilmScreeningWithFilm, day: Dayjs
   return isScreeningScheduledOnDay(screening, day.toDate(), new Date());
 }
 
-function DayWithDots(props: PickersDayProps<Dayjs> & { highlightedDays?: Set<string> }) {
+function DayWithDots(props: PickersDayProps & { highlightedDays?: Set<string> }) {
   const { day, outsideCurrentMonth, highlightedDays, ...other } = props;
   const key = day.format('YYYY-MM-DD');
   const hasScreening = Boolean(highlightedDays?.has(key));

@@ -64,7 +64,10 @@ export const paths = {
     root: ROOTS.MANAGEMENT,
     media: {
       root: `${ROOTS.MANAGEMENT}/media`,
-      cinema: `${ROOTS.MANAGEMENT}/media/cinema`,
+      cinema: {
+        root: `${ROOTS.MANAGEMENT}/media/cinema`,
+        view: (categoryId: string) => `${ROOTS.MANAGEMENT}/media/cinema/${categoryId}`,
+      },
       introVideo: `${ROOTS.MANAGEMENT}/media/intro-video`,
       files: `${ROOTS.MANAGEMENT}/media/files`,
     },

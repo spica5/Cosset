@@ -503,13 +503,6 @@ export function PostItemForm({
               }}
             >
               <Typography
-                variant="caption"
-                sx={{ color: 'text.disabled', display: 'block', mb: 0.75, fontWeight: 600, flexShrink: 0 }}
-              >
-                Text
-              </Typography>
-
-              <Typography
                 variant="body2"
                 sx={{
                   color: 'text.secondary',
@@ -574,13 +567,11 @@ export function PostItemForm({
               >
                 <PostAttachmentsGallery
                   files={post.files}
-                  heading="Image"
+                  heading=""
                   stopPropagation
                   onPreview={recordView}
-                  arrangeType="grid"
-                  imageWidth={160}
-                  imageHeight={160}
-                  minItemWidth={88}
+                  arrangeType="featured"
+                  itemSpacing={0.75}
                   videoWidth={140}
                 />
               </Box>

@@ -1,4 +1,4 @@
-import type { CinemaCategory } from 'src/sections/dashboard/cinema/cinema-categories';
+import type { CinemaCategory } from 'src/sections/cinema/cinema-categories';
 import type { ICinemaFilmScreening } from 'src/types/cinema-film-screening';
 
 export type ICinemaFilm = {

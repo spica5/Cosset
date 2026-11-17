@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -17,9 +17,9 @@ import {
 } from 'src/actions/cinema-notification-prefs';
 
 import {
-  enablePhoneNotifications,
-  getBrowserPushSupport,
   getPushStatus,
+  getBrowserPushSupport,
+  enablePhoneNotifications,
 } from 'src/utils/web-push-client';
 
 import { CINEMA_CREAM, CINEMA_GOLD } from './cinema-theater-theme';

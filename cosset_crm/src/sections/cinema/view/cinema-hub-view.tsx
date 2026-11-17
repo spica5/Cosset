@@ -3,7 +3,7 @@
 import type { ICinemaFilm } from 'src/types/cinema-film';
 import type { ICinemaFilmReservationWithScreening } from 'src/types/cinema-film-reservation';
 
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -13,13 +13,14 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { toast } from 'sonner';
+
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { CONFIG } from 'src/global-config';
 import { DashboardContent } from 'src/layouts/dashboard';
 
-import { toast } from 'sonner';
 import { Iconify } from 'src/components/iconify';
 import { CustomBreadcrumbs } from 'src/components/page-header';
 
@@ -35,22 +36,22 @@ import {
 
 import { CinemaFilmPosterCarousel } from '../cinema-film-poster-carousel';
 import {
-  CINEMA_CATEGORIES,
   cinemaShellSx,
+  CINEMA_CATEGORIES,
   type CinemaCategory,
   type CinemaCategoryMeta,
 } from '../cinema-categories';
 import { CinemaNotificationSettings } from '../cinema-notification-settings';
 import { CinemaReservationsTable, ReservationPosterThumb } from '../cinema-reservations-table';
 import {
-  formatScreeningSchedule,
   getNextFilmScreening,
   getNextScreeningStart,
-  formatNearestScreeningTime,
-  getScreeningShowStatus,
-  getCinemaFilmShowStatusLabel,
   isFilmOnActiveSchedule,
+  getScreeningShowStatus,
+  formatScreeningSchedule,
   filterScreeningsForViewer,
+  formatNearestScreeningTime,
+  getCinemaFilmShowStatusLabel,
 } from '../cinema-film-schedule';
 import { CinemaSeatMapDialog } from '../cinema-seat-map-dialog';
 import { CinemaTheaterIntro } from '../cinema-theater-intro';
@@ -617,7 +618,7 @@ export function CinemaHubView() {
             <CinemaTheaterIntro
               category={classicCategory}
               height={{ xs: 340, md: 420 }}
-              bannerImage={`${CONFIG.dashboard.assetsDir}/assets/images/cinema/banner/intro.png`}
+              bannerImage={`${CONFIG.assetsDir}/assets/images/cinema/banner/intro.png`}
               showEyebrow={false}
               showQuote={false}
               headline="Movies That Stay With You."

@@ -2,6 +2,7 @@ export function getBrowserPushSupport() {
   return {
     supported: false,
     permission: 'denied' as NotificationPermission | 'unsupported',
+    reason: 'Phone push is not available in Cosset CRM.',
   };
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -20,10 +20,10 @@ import { CustomBreadcrumbs } from 'src/components/page-header';
 
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 
-import { CINEMA_CATEGORIES, resolveCinemaCategoryId, type CinemaCategory } from 'src/sections/cinema/cinema-categories';
-import { CinemaCategoryFilmsPanel } from 'src/sections/cinema/cinema-category-films-panel';
 import { CinemaHubTodayPanel } from 'src/sections/cinema/cinema-hub-today-panel';
 import { CINEMA_GOLD, CINEMA_SERIF } from 'src/sections/cinema/cinema-theater-theme';
+import { CinemaCategoryFilmsPanel } from 'src/sections/cinema/cinema-category-films-panel';
+import { CINEMA_CATEGORIES, resolveCinemaCategoryId, type CinemaCategory } from 'src/sections/cinema/cinema-categories';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
