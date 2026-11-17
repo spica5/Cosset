@@ -9,6 +9,7 @@ import {
 
 import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import { STATUS, response, handleError } from 'src/utils/response';
+import { notifyCrmAdminsOfPayment } from 'src/utils/crm-admin-notify';
 import {
   getStripe,
   STRIPE_PLANS,
@@ -17,6 +18,41 @@ import {
   planFromStripePriceId,
   type PaidPlanType,
 } from 'src/utils/stripe';
+
+function customerDisplayName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+}) {
+  return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'A customer';
+}
+
+async function notifyAdminsOfBillingEvent(input: {
+  userId: string;
+  amountCents?: number | null;
+  planLabel?: string | null;
+}) {
+  try {
+    const user = await getUserById(input.userId);
+    if (!user) {
+      return;
+    }
+
+    const amountLabel =
+      typeof input.amountCents === 'number' && input.amountCents > 0
+        ? `a payment of $${(input.amountCents / 100).toFixed(2)}`
+        : null;
+
+    await notifyCrmAdminsOfPayment({
+      customerName: customerDisplayName(user),
+      amountLabel,
+      planLabel: input.planLabel,
+      avatarUrl: user.photoURL || null,
+    });
+  } catch (error) {
+    console.error('[Billing - Webhook] Failed to notify CRM admins', error);
+  }
+}
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -128,6 +164,16 @@ export async function POST(req: NextRequest) {
         if (session.mode === 'payment') {
           try {
             await creditWalletFromStripeSession(session);
+            const topUpUserId = String(
+              session.metadata?.userId || session.client_reference_id || '',
+            ).trim();
+            if (topUpUserId) {
+              await notifyAdminsOfBillingEvent({
+                userId: topUpUserId,
+                amountCents: Math.trunc(Number(session.amount_total)) || null,
+                planLabel: 'wallet top-up',
+              });
+            }
           } catch (error) {
             console.error('[Billing - Webhook] Wallet top-up failed', error);
           }
@@ -171,6 +217,11 @@ export async function POST(req: NextRequest) {
                   : session.payment_intent?.id || null,
               externalSubscriptionId: subscriptionId,
               metadata: { source: 'checkout.session.completed' },
+            });
+            await notifyAdminsOfBillingEvent({
+              userId: session.metadata.userId,
+              amountCents: STRIPE_PLANS[plan].unitAmount,
+              planLabel: plan,
             });
           }
         }

@@ -12,7 +12,7 @@ import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
-import { _notifications } from 'src/_mock';
+import { useGetCrmNotifications } from 'src/actions/notification';
 
 import { Logo } from 'src/components/logo';
 import { useSettingsContext } from 'src/components/settings';
@@ -59,6 +59,8 @@ export function DashboardLayout({
   const theme = useTheme();
 
   const { user } = useAuthContext();
+  const adminId = user?.id ? String(user.id) : undefined;
+  const { notifications } = useGetCrmNotifications(adminId);
 
   const settings = useSettingsContext();
 
@@ -151,8 +153,8 @@ export function DashboardLayout({
             ]}
           />
 
-          {/** @slot Notifications popover */}
-          <NotificationsDrawer data={_notifications} />
+          {/** @slot Notifications popover — customer & payment only */}
+          <NotificationsDrawer data={notifications} customerId={adminId} />
 
           {/** @slot Settings button */}
           <SettingsButton />

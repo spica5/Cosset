@@ -1,10 +1,10 @@
 import type { NextRequest } from 'next/server';
 
-import { createNotification } from '@/models/notifications';
-import { getUserById, requestBusinessAccount, getAdminUsers } from '@/models/users';
+import { getUserById, requestBusinessAccount } from '@/models/users';
 
 import { verify } from 'src/utils/jwt';
 import { STATUS, handleError, response } from 'src/utils/response';
+import { notifyCrmAdmins, CRM_NOTIFICATION_TYPE, CRM_NOTIFICATION_CATEGORY } from 'src/utils/crm-admin-notify';
 
 import { JWT_SECRET } from 'src/config-global';
 
@@ -39,22 +39,13 @@ export async function POST(req: NextRequest) {
     const requesterName =
       `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.email || 'A user';
 
-    const admins = await getAdminUsers();
-
-    await Promise.all(
-      admins.map((admin) =>
-        createNotification({
-          customerId: admin.id,
-          avatarUrl: actor.photoURL || null,
-          type: 10,
-          category: 5,
-          isUnRead: true,
-          isArchived: false,
-          title: 'Business account request',
-          content: `${requesterName} requested a business account upgrade.`,
-        }),
-      ),
-    );
+    await notifyCrmAdmins({
+      type: CRM_NOTIFICATION_TYPE.businessRequest,
+      category: CRM_NOTIFICATION_CATEGORY.customer,
+      title: 'Business account request',
+      content: `${requesterName} requested a business account upgrade.`,
+      avatarUrl: actor.photoURL || null,
+    });
 
     const safeUser = { ...updatedUser };
     delete (safeUser as { password?: string }).password;

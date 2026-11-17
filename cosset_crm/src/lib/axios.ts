@@ -133,6 +133,11 @@ export const endpoints = {
     },
     notificationPrefs: '/api/cinema/notification-prefs',
   },
+  notification: {
+    list: '/api/notification/list',
+    new: '/api/notification/new',
+    details: (id: string | number) => `/api/notification/${id}`,
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',

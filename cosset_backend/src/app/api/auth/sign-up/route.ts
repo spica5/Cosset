@@ -12,6 +12,7 @@ import {
 
 import { STATUS, response } from 'src/utils/response';
 import { sendEmailVerificationEmail } from 'src/utils/email';
+import { notifyCrmAdminsOfNewCustomer } from 'src/utils/crm-admin-notify';
 
 // ----------------------------------------------------------------------
 
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
       requestedRole === 'business' ? ('business' as const) : ('user' as const);
 
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    let createdNewCustomer = false;
+    const displayName =
+      `${String(firstName || '').trim()} ${String(lastName || '').trim()}`.trim() || normalizedEmail;
 
     if (existingUser) {
       const accountState = getAccountState(existingUser);
@@ -84,6 +88,7 @@ export async function POST(req: NextRequest) {
         about: undefined,
         isPublic: false,
       });
+      createdNewCustomer = true;
     }
 
     const code = generateVerificationCode();
@@ -91,6 +96,17 @@ export async function POST(req: NextRequest) {
 
     const emailResult = await sendEmailVerificationEmail(normalizedEmail, code);
     const devCode = emailResult.devMode ? code : undefined;
+
+    if (createdNewCustomer) {
+      try {
+        await notifyCrmAdminsOfNewCustomer({
+          name: displayName,
+          email: normalizedEmail,
+        });
+      } catch (notifyError) {
+        console.error('[Auth - Sign up] Failed to notify CRM admins', notifyError);
+      }
+    }
 
     return response(
       {

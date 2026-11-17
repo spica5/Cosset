@@ -5,6 +5,7 @@ import { syncCustomerBilling } from '@/models/payments';
 import { STATUS, response, handleError } from 'src/utils/response';
 import { getAuthenticatedUser } from 'src/utils/request-auth';
 import { normalizePaidPlan, STRIPE_PLANS } from 'src/utils/stripe';
+import { notifyCrmAdminsOfPayment } from 'src/utils/crm-admin-notify';
 import {
   getPayPalSubscription,
   isPayPalConfigured,
@@ -71,6 +72,21 @@ export async function POST(req: NextRequest) {
         planId: subscription.plan_id,
       },
     });
+
+    if (isActive) {
+      try {
+        const customerName =
+          `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'A customer';
+        await notifyCrmAdminsOfPayment({
+          customerName,
+          amountLabel: `a payment of $${(amountCents / 100).toFixed(2)}`,
+          planLabel: plan,
+          avatarUrl: user.photoURL || null,
+        });
+      } catch (notifyError) {
+        console.error('[Billing - PayPal Capture] Failed to notify CRM admins', notifyError);
+      }
+    }
 
     return response(
       {

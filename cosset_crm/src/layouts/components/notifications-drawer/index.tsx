@@ -1,21 +1,30 @@
 'use client';
 
 import type { IconButtonProps } from '@mui/material/IconButton';
-import type { NotificationItemProps } from './notification-item';
+import type { CrmNotificationItem } from 'src/actions/notification';
 
 import { m } from 'framer-motion';
-import { useState, useCallback } from 'react';
 import { useBoolean } from 'minimal-shared/hooks';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
+import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
 import Drawer from '@mui/material/Drawer';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+
+import {
+  deleteNotification,
+  archiveNotification,
+  deleteAllNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from 'src/actions/notification';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -27,33 +36,160 @@ import { NotificationItem } from './notification-item';
 // ----------------------------------------------------------------------
 
 const TABS = [
-  { value: 'all', label: 'All', count: 22 },
-  { value: 'unread', label: 'Unread', count: 12 },
-  { value: 'archived', label: 'Archived', count: 10 },
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'archived', label: 'Archived' },
 ];
 
 // ----------------------------------------------------------------------
 
 export type NotificationsDrawerProps = IconButtonProps & {
-  data?: NotificationItemProps['notification'][];
+  data?: CrmNotificationItem[];
+  customerId?: string;
 };
 
-export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDrawerProps) {
+export function NotificationsDrawer({
+  data = [],
+  customerId,
+  sx,
+  ...other
+}: NotificationsDrawerProps) {
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
 
   const [currentTab, setCurrentTab] = useState('all');
+  const [notifications, setNotifications] = useState(data);
+
+  useEffect(() => {
+    setNotifications(data);
+  }, [data]);
 
   const handleChangeTab = useCallback((event: React.SyntheticEvent, newValue: string) => {
     setCurrentTab(newValue);
   }, []);
 
-  const [notifications, setNotifications] = useState(data);
+  const totalUnRead = notifications.filter((item) => item.isUnRead && !item.archived).length;
+  const allCount = notifications.filter((item) => !item.archived).length;
+  const unreadCount = totalUnRead;
+  const archivedCount = notifications.filter((item) => item.archived).length;
 
-  const totalUnRead = notifications.filter((item) => item.isUnRead === true).length;
+  const filteredNotifications = useMemo(() => {
+    if (currentTab === 'unread') {
+      return notifications.filter((item) => item.isUnRead && !item.archived);
+    }
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map((notification) => ({ ...notification, isUnRead: false })));
-  };
+    if (currentTab === 'archived') {
+      return notifications.filter((item) => item.archived);
+    }
+
+    return notifications.filter((item) => !item.archived);
+  }, [currentTab, notifications]);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    const unreadIds = notifications
+      .filter((notification) => notification.isUnRead)
+      .map((notification) => notification.id);
+
+    if (!unreadIds.length) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+    setNotifications((prev) => prev.map((item) => ({ ...item, isUnRead: false })));
+
+    try {
+      await markAllNotificationsAsRead(unreadIds, customerId);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
+
+  const handleReadOne = useCallback(
+    async (id: string) => {
+      const target = notifications.find((notification) => notification.id === id);
+      if (!target || !target.isUnRead) {
+        return;
+      }
+
+      const previousNotifications = notifications;
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id ? { ...notification, isUnRead: false } : notification,
+        ),
+      );
+
+      try {
+        await markNotificationAsRead(id, customerId);
+      } catch (error) {
+        console.error('Failed to mark notification as read', error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [customerId, notifications],
+  );
+
+  const handleArchiveOne = useCallback(
+    async (id: string) => {
+      const target = notifications.find((notification) => notification.id === id);
+      if (!target || target.archived) {
+        return;
+      }
+
+      const previousNotifications = notifications;
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, isUnRead: false, archived: true }
+            : notification,
+        ),
+      );
+
+      try {
+        await archiveNotification(id, customerId);
+      } catch (error) {
+        console.error('Failed to archive notification', error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [customerId, notifications],
+  );
+
+  const handleDeleteOne = useCallback(
+    async (id: string) => {
+      const target = notifications.find((notification) => notification.id === id);
+      if (!target) {
+        return;
+      }
+
+      const previousNotifications = notifications;
+      setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+
+      try {
+        await deleteNotification(id, customerId);
+      } catch (error) {
+        console.error('Failed to delete notification', error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [customerId, notifications],
+  );
+
+  const handleClearAll = useCallback(async () => {
+    if (!notifications.length) {
+      return;
+    }
+
+    const previousNotifications = notifications;
+    const notificationIds = notifications.map((notification) => notification.id);
+    setNotifications([]);
+
+    try {
+      await deleteAllNotifications(notificationIds, customerId);
+    } catch (error) {
+      console.error('Failed to clear notifications', error);
+      setNotifications(previousNotifications);
+    }
+  }, [customerId, notifications]);
 
   const renderHead = () => (
     <Box
@@ -82,9 +218,11 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
         <Iconify icon="mingcute:close-line" />
       </IconButton>
 
-      <IconButton>
-        <Iconify icon="solar:settings-bold-duotone" />
-      </IconButton>
+      <Tooltip title="Customer & payment alerts">
+        <IconButton>
+          <Iconify icon="solar:settings-bold-duotone" />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 
@@ -105,7 +243,10 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
                 'default'
               }
             >
-              {tab.count}
+              {(tab.value === 'all' && allCount) ||
+                (tab.value === 'unread' && unreadCount) ||
+                (tab.value === 'archived' && archivedCount) ||
+                0}
             </Label>
           }
         />
@@ -116,11 +257,24 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
   const renderList = () => (
     <Scrollbar>
       <Box component="ul">
-        {notifications?.map((notification) => (
-          <Box component="li" key={notification.id} sx={{ display: 'flex' }}>
-            <NotificationItem notification={notification} />
+        {filteredNotifications.length ? (
+          filteredNotifications.map((notification) => (
+            <Box component="li" key={notification.id} sx={{ display: 'flex' }}>
+              <NotificationItem
+                notification={notification}
+                onRead={handleReadOne}
+                onArchive={handleArchiveOne}
+                onDelete={handleDeleteOne}
+              />
+            </Box>
+          ))
+        ) : (
+          <Box sx={{ px: 2.5, py: 8, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              No customer or payment notifications yet.
+            </Typography>
           </Box>
-        ))}
+        )}
       </Box>
     </Scrollbar>
   );
@@ -156,9 +310,21 @@ export function NotificationsDrawer({ data = [], sx, ...other }: NotificationsDr
         {renderList()}
 
         <Box sx={{ p: 1 }}>
-          <Button fullWidth size="large">
-            View all
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button fullWidth size="large" onClick={handleMarkAllAsRead}>
+              View all
+            </Button>
+            <Button
+              fullWidth
+              size="large"
+              color="error"
+              variant="outlined"
+              onClick={handleClearAll}
+              disabled={!notifications.length}
+            >
+              Clear all
+            </Button>
+          </Stack>
         </Box>
       </Drawer>
     </>
