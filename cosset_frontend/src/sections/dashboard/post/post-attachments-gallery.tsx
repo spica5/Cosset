@@ -97,9 +97,16 @@ function renderImageTile({
       key={`image-${attachmentKey}-${index}`}
       sx={{
         width: 1,
+        height: 1,
         maxWidth: 1,
         position: 'relative',
         minWidth: 0,
+        overflow: 'hidden',
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'grey.100',
+        aspectRatio,
       }}
     >
       {removeButton}
@@ -116,19 +123,37 @@ function renderImageTile({
         }}
         sx={{
           width: '100%',
-          aspectRatio,
-          borderRadius: 1,
+          height: '100%',
+          display: 'block',
           objectFit,
           objectPosition: 'center',
-          display: 'block',
-          bgcolor: 'grey.100',
           cursor: mediaSlides.length ? 'pointer' : 'default',
-          border: '1px solid',
-          borderColor: 'divider',
         }}
       />
     </Box>
   );
+}
+
+/**
+ * Shelf layout:
+ * 1 | 2 | 2+1 | 2+2 | 2+3
+ * For more than 5, keep stacking additional shelves like the second shelf (up to 3 each).
+ */
+function getFeaturedShelves(keys: string[]): string[][] {
+  if (keys.length <= 2) {
+    return [keys];
+  }
+
+  const shelves: string[][] = [keys.slice(0, 2)];
+  let remaining = keys.slice(2);
+
+  while (remaining.length) {
+    const take = Math.min(3, remaining.length);
+    shelves.push(remaining.slice(0, take));
+    remaining = remaining.slice(take);
+  }
+
+  return shelves;
 }
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
@@ -303,8 +328,13 @@ export function PostAttachmentsGallery({
   const [signedUrlMap, setSignedUrlMap] = useState<Record<string, string>>({});
   const [lightboxSlides, setLightboxSlides] = useState<Slide[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [featuredExpanded, setFeaturedExpanded] = useState(false);
 
   const attachmentKeys = useMemo(() => parseStorageKeys(files), [files]);
+
+  useEffect(() => {
+    setFeaturedExpanded(false);
+  }, [files]);
 
   const imageKeys = useMemo(
     () => attachmentKeys.filter((key) => getAttachmentTypeFromKey(key) === 'image'),
@@ -423,62 +453,145 @@ export function PostAttachmentsGallery({
   const renderFeaturedImages = useCallback(
     (keys: string[]) => {
       const mediaSlides = buildLightboxSlides(keys, []);
-      const hasMany = keys.length > 2;
-      const featuredKeys = keys.slice(0, Math.min(2, keys.length));
-      const remainingKeys = keys.slice(2);
+      const shelves = getFeaturedShelves(keys);
+      const hasMoreShelves = shelves.length > 2;
+      const visibleShelves =
+        featuredExpanded || !hasMoreShelves ? shelves : shelves.slice(0, 2);
+      const hiddenCount = hasMoreShelves
+        ? shelves.slice(2).reduce((total, shelf) => total + shelf.length, 0)
+        : 0;
+      let imageIndex = 0;
 
-      const renderTile = (key: string, index: number, size: 'large' | 'small') => {
-        const url = signedUrlMap[key];
-        if (!url) {
-          return (
-            <Chip
-              key={`image-loading-${key}-${index}`}
-              size="small"
-              label={`IMAGE ${index + 1} loading`}
-            />
-          );
+      const handleExpandSection = (event: React.MouseEvent | React.KeyboardEvent) => {
+        if (!hasMoreShelves || featuredExpanded) {
+          return;
         }
-
-        return renderImageTile({
-          attachmentKey: key,
-          index,
-          url,
-          mediaSlides,
-          aspectRatio: size === 'large' ? (hasMany ? '4 / 3' : '1 / 1') : '1 / 1',
-          objectFit: 'contain',
-          allowRemove,
-          stopPropagation,
-          onRemoveAttachment,
-          onPreview,
-          onOpenLightbox: handleOpenLightbox,
-        });
+        event.stopPropagation();
+        setFeaturedExpanded(true);
+        onPreview?.();
       };
 
       return (
         <Stack spacing={itemSpacing} sx={{ width: 1, maxWidth: 1 }}>
           <Box
+            role={hasMoreShelves && !featuredExpanded ? 'button' : undefined}
+            tabIndex={hasMoreShelves && !featuredExpanded ? 0 : undefined}
+            onClick={hasMoreShelves && !featuredExpanded ? handleExpandSection : undefined}
+            onKeyDown={
+              hasMoreShelves && !featuredExpanded
+                ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleExpandSection(event);
+                    }
+                  }
+                : undefined
+            }
             sx={{
-              display: 'grid',
-              gap: itemSpacing,
-              gridTemplateColumns:
-                featuredKeys.length === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-              alignItems: 'stretch',
+              width: 1,
+              cursor: hasMoreShelves && !featuredExpanded ? 'pointer' : 'default',
             }}
           >
-            {featuredKeys.map((key, index) => renderTile(key, index, 'large'))}
+            <Stack spacing={itemSpacing} sx={{ width: 1, maxWidth: 1 }}>
+              {visibleShelves.map((shelfKeys, shelfIndex) => {
+                const columns = shelfKeys.length;
+                const isSingleFull = keys.length === 1 || columns === 1;
+                const aspectRatio = isSingleFull
+                  ? keys.length === 1
+                    ? '16 / 10'
+                    : '2 / 1'
+                  : columns === 2
+                    ? '4 / 3'
+                    : '1 / 1';
+                const isLastVisibleShelf =
+                  !featuredExpanded && hasMoreShelves && shelfIndex === visibleShelves.length - 1;
+
+                return (
+                  <Box
+                    key={`shelf-${shelfIndex}`}
+                    sx={{
+                      display: 'grid',
+                      gap: itemSpacing,
+                      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                      alignItems: 'stretch',
+                      width: 1,
+                    }}
+                  >
+                    {shelfKeys.map((key, shelfItemIndex) => {
+                      const index = imageIndex;
+                      imageIndex += 1;
+                      const url = signedUrlMap[key];
+                      const isLastVisibleTile =
+                        isLastVisibleShelf && shelfItemIndex === shelfKeys.length - 1;
+
+                      if (!url) {
+                        return (
+                          <Chip
+                            key={`image-loading-${key}-${index}`}
+                            size="small"
+                            label={`IMAGE ${index + 1} loading`}
+                          />
+                        );
+                      }
+
+                      return (
+                        <Box key={`image-wrap-${key}-${index}`} sx={{ position: 'relative', minWidth: 0 }}>
+                          {renderImageTile({
+                            attachmentKey: key,
+                            index,
+                            url,
+                            mediaSlides,
+                            aspectRatio,
+                            objectFit: 'cover',
+                            allowRemove,
+                            stopPropagation,
+                            onRemoveAttachment,
+                            onPreview,
+                            onOpenLightbox: featuredExpanded || !hasMoreShelves
+                              ? handleOpenLightbox
+                              : () => setFeaturedExpanded(true),
+                          })}
+                          {isLastVisibleTile && hiddenCount > 0 ? (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 1,
+                                bgcolor: 'rgba(0,0,0,0.45)',
+                                color: 'common.white',
+                                pointerEvents: 'none',
+                              }}
+                            >
+                              <Typography variant="subtitle1" fontWeight={700}>
+                                +{hiddenCount}
+                              </Typography>
+                            </Box>
+                          ) : null}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                );
+              })}
+            </Stack>
           </Box>
 
-          {remainingKeys.length ? (
-            <Box
-              sx={{
-                display: 'grid',
-                gap: itemSpacing,
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                alignItems: 'stretch',
+          {hasMoreShelves && featuredExpanded ? (
+            <Button
+              size="small"
+              color="inherit"
+              onClick={(event) => {
+                event.stopPropagation();
+                setFeaturedExpanded(false);
               }}
+              startIcon={<Iconify icon="eva:arrow-ios-upward-fill" width={16} />}
+              sx={{ alignSelf: 'flex-start' }}
             >
-              {remainingKeys.map((key, index) => renderTile(key, index + 2, 'small'))}
-            </Box>
+              Show less
+            </Button>
           ) : null}
         </Stack>
       );
@@ -486,6 +599,7 @@ export function PostAttachmentsGallery({
     [
       allowRemove,
       buildLightboxSlides,
+      featuredExpanded,
       handleOpenLightbox,
       itemSpacing,
       onPreview,

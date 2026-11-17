@@ -562,9 +562,9 @@ export function PostItemForm({
                   minWidth: 0,
                   maxWidth: 1,
                   width: 1,
-                  height: { xs: 'auto', sm: 1 },
-                  overflow: 'hidden',
-                  alignSelf: 'stretch',
+                  height: 'auto',
+                  overflow: 'visible',
+                  alignSelf: 'start',
                 }}
               >
                 <PostAttachmentsGallery
