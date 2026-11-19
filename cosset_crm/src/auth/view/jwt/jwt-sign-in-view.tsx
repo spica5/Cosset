@@ -1,8 +1,8 @@
 'use client';
 
 import * as z from 'zod';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
 import { useBoolean } from 'minimal-shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -21,6 +21,7 @@ import { useAuthContext } from '../../hooks';
 import { getErrorMessage } from '../../utils';
 import { FormHead } from '../../components/form-head';
 import { signInWithPassword } from '../../context/jwt';
+import { CRM_SAVED_CREDENTIALS_KEY } from '../../context/jwt/constant';
 
 // ----------------------------------------------------------------------
 
@@ -32,7 +33,49 @@ export const SignInSchema = z.object({
     .string()
     .min(1, { message: 'Password is required!' })
     .min(6, { message: 'Password must be at least 6 characters!' }),
+  remember: z.boolean(),
 });
+
+type SavedCredentials = {
+  email: string;
+  password: string;
+};
+
+function readSavedCredentials(): SavedCredentials | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CRM_SAVED_CREDENTIALS_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<SavedCredentials>;
+    const email = String(parsed.email || '').trim();
+    const password = String(parsed.password || '');
+
+    if (!email || !password) {
+      return null;
+    }
+
+    return { email, password };
+  } catch {
+    return null;
+  }
+}
+
+function persistCredentials(email: string, password: string) {
+  window.localStorage.setItem(
+    CRM_SAVED_CREDENTIALS_KEY,
+    JSON.stringify({ email: email.trim(), password }),
+  );
+}
+
+function clearPersistedCredentials() {
+  window.localStorage.removeItem(CRM_SAVED_CREDENTIALS_KEY);
+}
 
 // ----------------------------------------------------------------------
 
@@ -48,6 +91,7 @@ export function JwtSignInView() {
   const defaultValues: SignInSchemaType = {
     email: '',
     password: '',
+    remember: false,
   };
 
   const methods = useForm({
@@ -56,14 +100,35 @@ export function JwtSignInView() {
   });
 
   const {
+    reset,
     handleSubmit,
     formState: { isSubmitting },
   } = methods;
+
+  useEffect(() => {
+    const saved = readSavedCredentials();
+    if (!saved) {
+      return;
+    }
+
+    reset({
+      email: saved.email,
+      password: saved.password,
+      remember: true,
+    });
+  }, [reset]);
 
   const onSubmit = handleSubmit(async (data) => {
     try {
       setErrorMessage(null);
       await signInWithPassword({ email: data.email, password: data.password });
+
+      if (data.remember) {
+        persistCredentials(data.email, data.password);
+      } else {
+        clearPersistedCredentials();
+      }
+
       await checkUserSession?.();
 
       router.refresh();
@@ -96,6 +161,8 @@ export function JwtSignInView() {
           },
         }}
       />
+
+      <Field.Checkbox name="remember" label="Save login info" />
 
       <Button
         fullWidth

@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
@@ -27,17 +29,26 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useGetUsers, updateCustomer, getS3SignedUrl } from 'src/actions/user';
 
+import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
-
-import { useGetUsers, updateCustomer, getS3SignedUrl } from 'src/actions/user';
 
 // ----------------------------------------------------------------------
 
 const CUSTOMER_STATE_OPTIONS = ['active', 'blocked', 'deleted', 'pending', 'inactive'];
 const CUSTOMER_ROLE_OPTIONS = ['user', 'business', 'admin'] as const;
+
+type CustomerTab = 'all' | 'free' | 'paid' | 'business';
+
+const CUSTOMER_TABS: Array<{ value: CustomerTab; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'free', label: 'Free' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'business', label: 'Business' },
+];
 
 function isUserAdmin(role?: string | null) {
   return String(role || '')
@@ -60,6 +71,15 @@ function getCustomerState(customer: Record<string, any>) {
 
 function getCustomerRole(customer: Record<string, any>) {
   return String(customer.role || 'user').toLowerCase();
+}
+
+function getCustomerPlan(customer: Record<string, any>) {
+  return String(customer.plan || 'FREE').trim().toUpperCase() || 'FREE';
+}
+
+function isPaidPlan(plan?: string | null) {
+  const normalized = String(plan || 'FREE').trim().toUpperCase();
+  return normalized !== '' && normalized !== 'FREE';
 }
 
 function getBusinessRequestAt(customer: Record<string, any>) {
@@ -161,6 +181,7 @@ export function CustomersView() {
   const [savedRoleByCustomerId, setSavedRoleByCustomerId] = useState<Record<string, string>>({});
   const [savingCustomerId, setSavingCustomerId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [customerTab, setCustomerTab] = useState<CustomerTab>('all');
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(
     null
   );
@@ -175,36 +196,89 @@ export function CustomersView() {
     [users, savedRoleByCustomerId]
   );
 
+  const tabCounts = useMemo(() => {
+    let free = 0;
+    let paid = 0;
+    let business = 0;
+
+    users.forEach((customer) => {
+      const customerId = String(customer.id || customer.email || '');
+      const role =
+        roleByCustomerId[customerId] ??
+        savedRoleByCustomerId[customerId] ??
+        getCustomerRole(customer);
+
+      if (role === 'business') {
+        business += 1;
+      }
+
+      if (isPaidPlan(getCustomerPlan(customer))) {
+        paid += 1;
+      } else {
+        free += 1;
+      }
+    });
+
+    return {
+      all: users.length,
+      free,
+      paid,
+      business,
+    };
+  }, [users, roleByCustomerId, savedRoleByCustomerId]);
+
+  const handleChangeCustomerTab = useCallback((_: React.SyntheticEvent, newValue: CustomerTab) => {
+    setCustomerTab(newValue);
+  }, []);
+
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return users;
 
     return users.filter((customer) => {
       const customerId = String(customer.id || customer.email || '');
-      const name = getCustomerName(customer).toLowerCase();
-      const email = String(customer.email || '').toLowerCase();
+      const plan = getCustomerPlan(customer);
+      const paid = isPaidPlan(plan);
       const role = (
         roleByCustomerId[customerId] ??
         savedRoleByCustomerId[customerId] ??
         getCustomerRole(customer)
       ).toLowerCase();
+
+      if (customerTab === 'free' && paid) {
+        return false;
+      }
+
+      if (customerTab === 'paid' && !paid) {
+        return false;
+      }
+
+      if (customerTab === 'business' && role !== 'business') {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const name = getCustomerName(customer).toLowerCase();
+      const email = String(customer.email || '').toLowerCase();
       const state = (
         stateByCustomerId[customerId] ??
         savedStateByCustomerId[customerId] ??
         getCustomerState(customer)
       ).toLowerCase();
-      const plan = String(customer.plan || 'FREE').toLowerCase();
 
       return (
         name.includes(query) ||
         email.includes(query) ||
         role.includes(query) ||
         state.includes(query) ||
-        plan.includes(query)
+        plan.toLowerCase().includes(query)
       );
     });
   }, [
     users,
+    customerTab,
     searchQuery,
     roleByCustomerId,
     savedRoleByCustomerId,
@@ -354,6 +428,39 @@ export function CustomersView() {
         </Typography>
       ) : users.length ? (
         <Stack spacing={3}>
+          <Tabs
+            value={customerTab}
+            onChange={handleChangeCustomerTab}
+            sx={{
+              px: 0,
+              boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}`,
+            }}
+          >
+            {CUSTOMER_TABS.map((tab) => (
+              <Tab
+                key={tab.value}
+                value={tab.value}
+                label={tab.label}
+                iconPosition="end"
+                icon={
+                  <Label
+                    variant={
+                      ((tab.value === 'all' || tab.value === customerTab) && 'filled') || 'soft'
+                    }
+                    color={
+                      (tab.value === 'free' && 'default') ||
+                      (tab.value === 'paid' && 'success') ||
+                      (tab.value === 'business' && 'info') ||
+                      'default'
+                    }
+                  >
+                    {tabCounts[tab.value]}
+                  </Label>
+                }
+              />
+            ))}
+          </Tabs>
+
           <TextField
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -586,7 +693,11 @@ export function CustomersView() {
           ) : (
             <EmptyState
               title="No matching customers"
-              description="Try a different search for name, email, role, plan, or state."
+              description={
+                customerTab === 'all'
+                  ? 'Try a different search for name, email, role, plan, or state.'
+                  : `No ${customerTab} customers match your search.`
+              }
             />
           )}
         </Stack>
