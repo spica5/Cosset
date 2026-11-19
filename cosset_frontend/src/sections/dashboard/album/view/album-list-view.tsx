@@ -13,10 +13,12 @@ import { RouterLink } from 'src/routes/components';
 import { Iconify } from 'src/components/dashboard/iconify';
 
 import { useSetState } from 'src/hooks/use-set-state';
+import { usePageVisit } from 'src/hooks/use-page-visit';
 
 import { orderBy } from 'src/utils/helper';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { useGetAlbums } from 'src/actions/album';
 import { ALBUM_SORT_OPTIONS } from 'src/_mock/universe';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
@@ -31,6 +33,8 @@ import { AlbumSearch } from '../album-search';
 // ----------------------------------------------------------------------
 
 export function AlbumListView() {
+  usePageVisit(PAGE_VISIT_KEYS.albums, 'Albums');
+
   const [sortBy, setSortBy] = useState('latest');
   const { user } = useAuthContext();
 

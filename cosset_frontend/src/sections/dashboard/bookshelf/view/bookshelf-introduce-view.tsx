@@ -18,11 +18,14 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
   useGetBookshelfIntroduce,
   deleteBookshelfIntroduce,
 } from 'src/actions/bookshelf-introduce';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -38,6 +41,8 @@ import { FREE_EBOOK_SOURCES, filterFreeEbookSources } from '../bookshelf-free-eb
 // ----------------------------------------------------------------------
 
 export function BookshelfIntroduceView() {
+  usePageVisit(PAGE_VISIT_KEYS.bookshelf, 'Bookshelf');
+
   const { user } = useAuthContext();
   const canManage = isUserAdmin(user?.role);
 

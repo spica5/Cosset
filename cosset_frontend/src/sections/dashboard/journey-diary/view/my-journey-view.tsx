@@ -16,10 +16,13 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { getS3SignedUrl } from 'src/utils/helper';
 import { IMAGE_VIDEO_ACCEPT, isVideoFile, isImageOrVideoFile } from 'src/utils/media-file';
 
 import { uploadFileToS3 } from 'src/actions/upload';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import { useGetJourneyDiaryLocations } from 'src/actions/journey-diary-location';
 import {
@@ -160,6 +163,8 @@ function getEntryCompanionIds(entry: JourneyTimelineEntry) {
 }
 
 export function MyJourneyView() {
+  usePageVisit(PAGE_VISIT_KEYS.journey, 'Journey');
+
   const { user } = useAuthContext();
   const userId = user?.id ? String(user.id) : undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);

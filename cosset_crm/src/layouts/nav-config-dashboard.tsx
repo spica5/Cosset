@@ -58,6 +58,7 @@ export const navData: NavSectionProps['data'] = [
       },
       { title: 'Customer', path: paths.customer.root, icon: ICONS.user },
       { title: 'Payment', path: paths.payment.root, icon: ICONS.banking },
+      { title: 'Advertisement', path: paths.advertisement.root, icon: ICONS.label },
     ],
   },
   /**

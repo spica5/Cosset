@@ -4,6 +4,9 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
+
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/custom-breadcrumbs';
@@ -11,6 +14,8 @@ import { CustomBreadcrumbs } from 'src/components/universe/custom-breadcrumbs/cu
 // ----------------------------------------------------------------------
 
 export function JourneyDiaryView() {
+  usePageVisit(PAGE_VISIT_KEYS.journey, 'Journey');
+
   return (
     <DashboardContent>
       <CustomBreadcrumbs

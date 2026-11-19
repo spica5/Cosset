@@ -17,7 +17,8 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = sessionStorage.getItem(JWT_STORAGE_KEY);
+    const token =
+      sessionStorage.getItem(JWT_STORAGE_KEY) || localStorage.getItem(JWT_STORAGE_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -106,6 +107,11 @@ export const endpoints = {
       wallet: (id: string | number) => `/api/admin/customers/${id}/wallet`,
       billing: (id: string | number) => `/api/admin/customers/${id}/billing`,
     },
+    advertisements: {
+      list: '/api/admin/advertisements/list',
+      add: '/api/admin/advertisements/new',
+      details: (id: string | number) => `/api/admin/advertisements/${id}`,
+    },
   },
   siteSettings: {
     introVideo: '/api/site-settings/intro-video',
@@ -137,6 +143,12 @@ export const endpoints = {
     list: '/api/notification/list',
     new: '/api/notification/new',
     details: (id: string | number) => `/api/notification/${id}`,
+  },
+  pageVisit: {
+    root: '/api/page-visit',
+    stats: '/api/page-visit/stats',
+    customer: (customerId: string | number) =>
+      `/api/page-visit/stats?customerId=${encodeURIComponent(String(customerId))}`,
   },
   mail: {
     list: '/api/mail/list',

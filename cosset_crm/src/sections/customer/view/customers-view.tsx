@@ -13,6 +13,8 @@ import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
 import MenuItem from '@mui/material/MenuItem';
 import TableRow from '@mui/material/TableRow';
@@ -20,10 +22,15 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import TableContainer from '@mui/material/TableContainer';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -35,6 +42,8 @@ import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+import { CustomerVisitsDialog } from '../customer-visits-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -182,6 +191,12 @@ export function CustomersView() {
   const [savingCustomerId, setSavingCustomerId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTab, setCustomerTab] = useState<CustomerTab>('all');
+  const [visitsCustomer, setVisitsCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [deleteCustomerTarget, setDeleteCustomerTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deletingCustomerId, setDeletingCustomerId] = useState('');
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(
     null
   );
@@ -342,6 +357,36 @@ export function CustomersView() {
       return next;
     });
   }, [users]);
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteCustomerTarget?.id || deletingCustomerId) return;
+
+    try {
+      setDeletingCustomerId(deleteCustomerTarget.id);
+      await updateCustomer(deleteCustomerTarget.id, { state: 'deleted' });
+      setSavedStateByCustomerId((prev) => ({
+        ...prev,
+        [deleteCustomerTarget.id]: 'deleted',
+      }));
+      setStateByCustomerId((prev) => ({
+        ...prev,
+        [deleteCustomerTarget.id]: 'deleted',
+      }));
+      setToast({
+        message: `${deleteCustomerTarget.name} marked as deleted`,
+        severity: 'success',
+      });
+      setDeleteCustomerTarget(null);
+    } catch (error) {
+      console.error('Failed to delete customer', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to delete customer',
+        severity: 'error',
+      });
+    } finally {
+      setDeletingCustomerId('');
+    }
+  };
 
   const handleSaveCustomer = async (customer: Record<string, any>) => {
     const customerId = String(customer.id || '');
@@ -665,23 +710,65 @@ export function CustomersView() {
                         </TableCell>
                         <TableCell>{formatDate(customer.createdAt)}</TableCell>
                         <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              component={RouterLink}
-                              href={paths.customer.edit(customerId)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              disabled={!hasChanges || savingCustomerId === customerId}
-                              onClick={() => handleSaveCustomer(customer)}
-                            >
-                              {savingCustomerId === customerId ? 'Saving...' : 'Save'}
-                            </Button>
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            <Tooltip title="View page visits">
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={() =>
+                                  setVisitsCustomer({ id: customerId, name: customerName })
+                                }
+                              >
+                                <Iconify icon="solar:chart-2-bold" width={18} />
+                              </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                component={RouterLink}
+                                href={paths.customer.edit(customerId)}
+                              >
+                                <Iconify icon="solar:pen-bold" width={18} />
+                              </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title={hasChanges ? 'Save changes' : 'No changes'}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  disabled={!hasChanges || savingCustomerId === customerId}
+                                  onClick={() => handleSaveCustomer(customer)}
+                                >
+                                  {savingCustomerId === customerId ? (
+                                    <CircularProgress size={16} color="inherit" />
+                                  ) : (
+                                    <Iconify icon="solar:diskette-bold" width={18} />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+
+                            <Tooltip title="Delete customer">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  disabled={
+                                    draftState === 'deleted' ||
+                                    deletingCustomerId === customerId ||
+                                    savingCustomerId === customerId
+                                  }
+                                  onClick={() =>
+                                    setDeleteCustomerTarget({ id: customerId, name: customerName })
+                                  }
+                                >
+                                  <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           </Stack>
                         </TableCell>
                       </TableRow>
@@ -707,6 +794,52 @@ export function CustomersView() {
           description="Create a customer to get started."
         />
       )}
+
+      <CustomerVisitsDialog
+        open={Boolean(visitsCustomer)}
+        customerId={visitsCustomer?.id || ''}
+        customerName={visitsCustomer?.name || 'Customer'}
+        onClose={() => setVisitsCustomer(null)}
+      />
+
+      <Dialog
+        open={Boolean(deleteCustomerTarget)}
+        onClose={() => {
+          if (!deletingCustomerId) setDeleteCustomerTarget(null);
+        }}
+      >
+        <DialogTitle>Delete customer?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Mark <strong>{deleteCustomerTarget?.name}</strong> as deleted? They will no longer appear
+            as an active customer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            color="inherit"
+            disabled={Boolean(deletingCustomerId)}
+            onClick={() => setDeleteCustomerTarget(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={Boolean(deletingCustomerId)}
+            onClick={handleDeleteCustomer}
+            startIcon={
+              deletingCustomerId ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Iconify icon="solar:trash-bin-trash-bold" width={16} />
+              )
+            }
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={Boolean(toast)}

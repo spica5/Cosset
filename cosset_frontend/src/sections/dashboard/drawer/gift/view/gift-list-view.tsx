@@ -12,8 +12,10 @@ import { paths } from 'src/routes/paths';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useSetState } from 'src/hooks/use-set-state';
+import { usePageVisit } from 'src/hooks/use-page-visit';
 
 import { useGetGifts } from 'src/actions/gift';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
 import { Iconify } from 'src/components/dashboard/iconify';
@@ -30,6 +32,8 @@ import { GiftSort } from '../gift-sort';
 import { GiftSearch } from '../gift-search';
 
 export function GiftListView() {
+  usePageVisit(PAGE_VISIT_KEYS.drawers, 'Drawers');
+
   const [sortBy, setSortBy] = useState('latest');
   const router = useRouter();
 

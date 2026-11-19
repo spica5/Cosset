@@ -16,6 +16,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { CONFIG } from 'src/config-global';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 
@@ -26,6 +28,7 @@ import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
 
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { useGetCinemaFilms } from 'src/actions/cinema-film';
 import { useGetCinemaScreenings } from 'src/actions/cinema-film-screening';
 import {
@@ -572,6 +575,8 @@ function CinemaCategoryRoom({
 }
 
 export function CinemaHubView() {
+  usePageVisit(PAGE_VISIT_KEYS.cinema, 'Cinema');
+
   const { user } = useAuthContext();
   const viewerId = String(user?.id || '');
   const isAdmin = isUserAdmin(user?.role);

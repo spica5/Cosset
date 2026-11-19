@@ -8,6 +8,19 @@ import { CONFIG } from 'src/config-global';
 
 const axiosInstance = axios.create({ baseURL: CONFIG.serverUrl });
 
+axiosInstance.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined' && !config.headers?.Authorization) {
+    const token =
+      window.sessionStorage.getItem('jwt_access_token') ||
+      window.localStorage.getItem('jwt_access_token');
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => Promise.reject((error.response && error.response.data) || 'Something went wrong!')
@@ -333,5 +346,9 @@ export const endpoints = {
     favorite: '/api/post/favorite',
     update: (id: string | number) => `/api/post/${id}`,
     delete: (id: string | number) => `/api/post/${id}`,
+  },
+  pageVisit: {
+    root: '/api/page-visit',
+    stats: '/api/page-visit/stats',
   },
 };

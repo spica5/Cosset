@@ -16,7 +16,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { useAuthContext } from 'src/auth/hooks';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { deleteBlog, useGetBlogs } from 'src/actions/blog';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
 import {
@@ -48,6 +51,8 @@ const getContent = (blog: IBlogItem) => {
 const getContentLineCount = (content: string) => content.split(/\r?\n/).length;
 
 export function BlogListView() {
+  usePageVisit(PAGE_VISIT_KEYS.blogs, 'Blogs');
+
   const router = useRouter();
   const { user } = useAuthContext();
   const { blogs, blogsLoading, refreshBlogs } = useGetBlogs(user?.id);

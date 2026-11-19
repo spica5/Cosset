@@ -5,6 +5,7 @@ const ROOTS = {
   DASHBOARD: '/dashboard',
   CUSTOMER: '/customer',
   PAYMENT: '/payment',
+  ADVERTISEMENT: '/advertisement',
   MANAGEMENT: '/management',
 };
 
@@ -59,6 +60,9 @@ export const paths = {
   },
   payment: {
     root: ROOTS.PAYMENT,
+  },
+  advertisement: {
+    root: ROOTS.ADVERTISEMENT,
   },
   management: {
     root: ROOTS.MANAGEMENT,

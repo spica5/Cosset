@@ -16,6 +16,8 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import {
   useGetCoffeeShops,
   deleteCoffeeShop,
@@ -23,6 +25,7 @@ import {
   fetchCoffeeShopFavorites,
   toggleCoffeeShopFavorite,
 } from 'src/actions/coffee-shop';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin } from 'src/auth/utils/role';
@@ -54,6 +57,8 @@ const COFFEE_SHOP_SORT_OPTIONS = [
 // ----------------------------------------------------------------------
 
 export function CoffeeShopListView() {
+  usePageVisit(PAGE_VISIT_KEYS.coffeeShops, 'Coffee Shops');
+
   const router = useRouter();
   const { user } = useAuthContext();
   const [search, setSearch] = useState('');

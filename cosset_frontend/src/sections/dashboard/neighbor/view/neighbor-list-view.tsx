@@ -9,10 +9,13 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { useGetCommunityUsers } from 'src/actions/user';
 import { useGetFriends } from 'src/actions/friend';
 import { useGetGuestAreas } from 'src/actions/guestarea';
 import { useGetDesignSpaces } from 'src/actions/design-space';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -27,6 +30,8 @@ import { NeighborSearch } from '../neighbor-search';
 // ----------------------------------------------------------------------
 
 export function NeighborListView() {
+  usePageVisit(PAGE_VISIT_KEYS.neighbors, 'Neighbors');
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const { user: currentUser } = useAuthContext();

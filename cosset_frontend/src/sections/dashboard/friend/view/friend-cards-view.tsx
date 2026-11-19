@@ -6,6 +6,8 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { useGetCommunityUsers } from 'src/actions/user';
 import {
   useGetFriends,
@@ -19,6 +21,7 @@ import {
   useGetFriendActivityNotifyPrefs,
 } from 'src/actions/friend-activity-notify';
 import { useGetGuestAreas } from 'src/actions/guestarea';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -34,6 +37,8 @@ import { FriendNotifySetupBanner } from '../friend-notify-setup-banner';
 // ----------------------------------------------------------------------
 
 export function FriendCardsView() {
+  usePageVisit(PAGE_VISIT_KEYS.friends, 'Friends');
+
   const [processingRelationId, setProcessingRelationId] = useState<number | null>(null);
   const [processingNotifyFriendId, setProcessingNotifyFriendId] = useState<string | null>(null);
 

@@ -22,10 +22,13 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { fDate } from 'src/utils/format-time';
 import { getS3SignedUrl } from 'src/utils/helper';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import { recordGiftView, useGetDrawerComments, useGetViewedGiftIds } from 'src/actions/gift';
 import { recordActivityNotification } from 'src/actions/notification';
 import { reactToDrawer, unreactToDrawer, useGetReactionSummary } from 'src/actions/reaction';
@@ -270,6 +273,8 @@ function GiftReactionInfo({ giftId, totalViews, authenticated, viewerId }: GiftR
 }
 
 export function UniverseDrawerView({ customerId, categoryKey }: Props) {
+  usePageVisit(PAGE_VISIT_KEYS.drawers, 'Drawers');
+
   const router = useRouter();
   const { isAccessLoading, isVisitorHomeSpaceOnly } = useUniverseHomeSpaceAccess(customerId);
   const { user, authenticated } = useAuthContext();

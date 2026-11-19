@@ -19,6 +19,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { useSearchParams } from 'src/routes/hooks';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { getS3SignedUrl } from 'src/utils/helper';
 
 import {
@@ -27,6 +29,7 @@ import {
   useGetDocumentationDocuments,
   useGetDocumentationUsage,
 } from 'src/actions/documentation';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -61,6 +64,8 @@ type Props = {
 };
 
 export function DocumentationView({ initialCategory = 'all' }: Props) {
+  usePageVisit(PAGE_VISIT_KEYS.documentation, 'Documentation');
+
   const { user } = useAuthContext();
   const searchParams = useSearchParams();
   const canManage = !!user?.id;

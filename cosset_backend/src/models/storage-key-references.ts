@@ -36,6 +36,9 @@ const SCALAR_SOURCES: Array<{ table: string; column: string }> = [
   { table: 'blogs', column: 'file' },
   { table: 'notification', column: 'avatar_url' },
   { table: 'design_space', column: 'background' },
+  { table: 'advertisements', column: 'image_key' },
+  { table: 'advertisements', column: 'video_key' },
+  { table: 'advertisements', column: 'company_logo_key' },
 ];
 
 const TEXT_SEARCH_SOURCES: Array<{ table: string; columns: string[]; castJson?: boolean }> = [

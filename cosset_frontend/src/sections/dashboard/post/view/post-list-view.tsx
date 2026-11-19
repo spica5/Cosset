@@ -20,8 +20,11 @@ import { paths } from 'src/routes/paths';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { usePageVisit } from 'src/hooks/use-page-visit';
+
 import { useAuthContext } from 'src/auth/hooks';
 import { isUserAdmin, isUserBusiness } from 'src/auth/utils/role';
+import { PAGE_VISIT_KEYS } from 'src/actions/page-visit';
 import {
   markPostsAsViewed,
   useGetPosts,
@@ -88,6 +91,8 @@ const viewPathForMode = (value: ViewMode) => {
 // ----------------------------------------------------------------------
 
 export function PostListView() {
+  usePageVisit(PAGE_VISIT_KEYS.communityPosts, 'Community Posts');
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
