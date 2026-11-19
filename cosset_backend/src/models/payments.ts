@@ -1,8 +1,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-import { getAllUsers, getUserById, updateUserPlan, type UserPlanType } from './users';
 import { ensureWalletTables } from './wallet';
+import { getAllUsers, getUserById, updateUserPlan, type UserPlanType } from './users';
 import {
   getCustomerBillingAccount,
   upsertCustomerBillingAccount,

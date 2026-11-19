@@ -111,17 +111,19 @@ export async function ensurePageVisitTables(): Promise<void> {
         `CREATE INDEX IF NOT EXISTS idx_page_visit_daily_date ON ${DAILY_TABLE} (visit_date)`,
       );
 
-      for (const item of PAGE_VISIT_CATALOG) {
-        await executeQuery(
-          `
-            INSERT INTO ${COUNTS_TABLE} (page_key, label, total_visits, unique_visitors, updated_at)
-            VALUES ($1, $2, 0, 0, NOW())
-            ON CONFLICT (page_key) DO UPDATE
-              SET label = EXCLUDED.label
-          `,
-          [item.pageKey, item.label],
-        );
-      }
+      await Promise.all(
+        PAGE_VISIT_CATALOG.map((item) =>
+          executeQuery(
+            `
+              INSERT INTO ${COUNTS_TABLE} (page_key, label, total_visits, unique_visitors, updated_at)
+              VALUES ($1, $2, 0, 0, NOW())
+              ON CONFLICT (page_key) DO UPDATE
+                SET label = EXCLUDED.label
+            `,
+            [item.pageKey, item.label],
+          ),
+        ),
+      );
     })().catch((error) => {
       ensureTablesPromise = null;
       throw error;

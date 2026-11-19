@@ -1,8 +1,8 @@
 import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
-import { ensureBrandProductsTable } from './brand-products';
 import { ensureBrandStoresTable } from './brand-stores';
+import { ensureBrandProductsTable } from './brand-products';
 
 const TABLE_NAME = 'brand_product_wishlists';
 
