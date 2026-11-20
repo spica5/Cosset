@@ -43,6 +43,51 @@ type PostAttachmentVideoProps = {
   sx?: SxProps<Theme>;
 };
 
+type VideoElementWithWebkit = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void;
+  webkitExitFullscreen?: () => void;
+  webkitDisplayingFullscreen?: boolean;
+};
+
+const VIDEO_CONTROLS_HIT_HEIGHT = 56;
+
+function isClickOnVideoControls(event: React.MouseEvent<HTMLVideoElement>) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.height <= 0) {
+    return false;
+  }
+
+  const relativeY = event.clientY - rect.top;
+  return relativeY >= rect.height - VIDEO_CONTROLS_HIT_HEIGHT;
+}
+
+async function toggleVideoFullscreen(video: HTMLVideoElement) {
+  const webkitVideo = video as VideoElementWithWebkit;
+
+  try {
+    if (typeof document !== 'undefined' && document.fullscreenElement === video) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (webkitVideo.webkitDisplayingFullscreen && webkitVideo.webkitExitFullscreen) {
+      webkitVideo.webkitExitFullscreen();
+      return;
+    }
+
+    if (typeof video.requestFullscreen === 'function') {
+      await video.requestFullscreen();
+      return;
+    }
+
+    if (typeof webkitVideo.webkitEnterFullscreen === 'function') {
+      webkitVideo.webkitEnterFullscreen();
+    }
+  } catch {
+    // Fullscreen may be blocked by the browser.
+  }
+}
+
 function renderImageTile({
   attachmentKey,
   index,
@@ -286,6 +331,39 @@ function PostAttachmentVideo({ src, stopPropagation = false, sx }: PostAttachmen
     };
   }, [src]);
 
+  const handleVideoClick = useCallback(
+    (event: React.MouseEvent<HTMLVideoElement>) => {
+      if (stopPropagation) {
+        event.stopPropagation();
+      }
+
+      // Keep native control-bar interactions (play/pause/seek/volume).
+      if (isClickOnVideoControls(event)) {
+        return;
+      }
+
+      const video = videoRef.current;
+      if (!video) {
+        return;
+      }
+
+      void toggleVideoFullscreen(video);
+    },
+    [stopPropagation],
+  );
+
+  const handleVideoDoubleClick = useCallback(
+    (event: React.MouseEvent<HTMLVideoElement>) => {
+      if (stopPropagation) {
+        event.stopPropagation();
+      }
+
+      // Prefer single-click fullscreen; ignore native double-click fullscreen.
+      event.preventDefault();
+    },
+    [stopPropagation],
+  );
+
   return (
     <Box ref={containerRef} sx={{ width: 1 }}>
       <Box
@@ -298,12 +376,9 @@ function PostAttachmentVideo({ src, stopPropagation = false, sx }: PostAttachmen
         playsInline
         controls
         preload="metadata"
-        onClick={(event) => {
-          if (stopPropagation) {
-            event.stopPropagation();
-          }
-        }}
-        sx={sx}
+        onClick={handleVideoClick}
+        onDoubleClick={handleVideoDoubleClick}
+        sx={[{ cursor: 'pointer' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
       />
     </Box>
   );

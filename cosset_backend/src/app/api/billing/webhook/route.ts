@@ -1,22 +1,22 @@
-import type { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
+import type { NextRequest } from 'next/server';
 
 import { getUserById } from '@/models/users';
 import {
-  getCustomerPaymentByProviderCustomerId,
   syncCustomerBilling,
+  getCustomerPaymentByProviderCustomerId,
 } from '@/models/payments';
 
-import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import { STATUS, response, handleError } from 'src/utils/response';
 import { notifyCrmAdminsOfPayment } from 'src/utils/crm-admin-notify';
+import { creditWalletFromStripeSession } from 'src/utils/wallet-topup';
 import {
   getStripe,
   STRIPE_PLANS,
-  isStripeConfigured,
   normalizePaidPlan,
-  planFromStripePriceId,
   type PaidPlanType,
+  isStripeConfigured,
+  planFromStripePriceId,
 } from 'src/utils/stripe';
 
 function customerDisplayName(user: {
@@ -102,12 +102,18 @@ async function applySubscription(subscription: Stripe.Subscription) {
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
 
   const priceId = subscription.items.data[0]?.price?.id || null;
+  const subscriptionWithPeriod = subscription as Stripe.Subscription & {
+    current_period_end?: number;
+    current_period_start?: number;
+  };
   const periodEndSeconds =
-    subscription.items.data[0]?.current_period_end ||
-    (subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end;
+    subscription.items.data[0]?.current_period_end || subscriptionWithPeriod.current_period_end;
+  const periodStartSeconds =
+    subscription.items.data[0]?.current_period_start || subscriptionWithPeriod.current_period_start;
   const periodEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000) : null;
+  const periodStart = periodStartSeconds ? new Date(periodStartSeconds * 1000) : null;
 
-  const status = subscription.status;
+  const {status} = subscription;
   const isActive = status === 'active' || status === 'trialing' || status === 'past_due';
   const plan = isActive ? resolvePlanFromSubscription(subscription) : 'FREE';
   const paidPlan = (plan === 'FREE' ? 'PAID' : plan) as PaidPlanType;
@@ -122,6 +128,7 @@ async function applySubscription(subscription: Stripe.Subscription) {
     priceId: isActive ? priceId : null,
     externalCheckoutId: subscription.id,
     externalSubscriptionId: isActive ? subscription.id : subscription.id,
+    currentPeriodStart: isActive ? periodStart : null,
     currentPeriodEnd: isActive ? periodEnd : null,
     metadata: {
       stripeStatus: status,

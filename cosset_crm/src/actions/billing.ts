@@ -22,6 +22,7 @@ export type CustomerPayment = {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -33,7 +34,12 @@ export type CustomerBillingSummary = {
   providerCustomerId: string | null;
   externalSubscriptionId: string | null;
   priceId: string | null;
+  paidAmountCents?: number | null;
+  paidCurrency?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd: string | null;
+  paidAt?: string | null;
+  isPaidPeriodExpired?: boolean;
   status: string | null;
   payment?: CustomerPayment | null;
 };
@@ -46,6 +52,7 @@ export type BillingCustomer = {
   plan?: string | null;
   role?: string | null;
   businessAccountRequestedAt?: string | null;
+  paidAt?: string | null;
 };
 
 export type CustomerPaymentOverview = {
@@ -63,7 +70,11 @@ export type CustomerPaymentOverview = {
   billingStatus?: string | null;
   billingPlan?: string | null;
   billingAmountCents?: number | null;
+  totalPaidAmountCents?: number | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+  paidAt?: string | null;
+  isPaidPeriodExpired?: boolean;
   createdAt?: string | null;
   businessAccountRequestedAt?: string | null;
 };

@@ -77,6 +77,8 @@ export interface User {
   isPublic: boolean;
   /** When the user requested a business account upgrade */
   businessAccountRequestedAt?: Date | null;
+  /** When the customer plan became paid */
+  paidAt?: Date | null;
   /** Record creation timestamp */
   createdAt: Date;
   /** Last update timestamp */
@@ -102,13 +104,14 @@ const USER_SELECT_FIELDS = `
   about,
   is_public as "isPublic",
   business_account_requested_at as "businessAccountRequestedAt",
+  paid_at as "paidAt",
   created_at as "createdAt",
   updated_at as "updatedAt"
 `;
 
 let ensureUserBusinessColumnsPromise: Promise<void> | null = null;
 
-const ensureUserBusinessColumns = async (): Promise<void> => {
+export const ensureUserBusinessColumns = async (): Promise<void> => {
   if (!ensureUserBusinessColumnsPromise) {
     ensureUserBusinessColumnsPromise = (async () => {
       await executeQuery(
@@ -116,6 +119,9 @@ const ensureUserBusinessColumns = async (): Promise<void> => {
       );
       await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP NULL`,
+      );
+      await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP NULL`,
       );
 
       // Move legacy billing provider fields out of cosset_users and into the dedicated
@@ -948,6 +954,8 @@ export async function updateUser(id: string, updates: UserUpdateInput): Promise<
 
 export async function updateUserPlan(id: string, plan: UserPlanType): Promise<User> {
   try {
+    await ensureUserBusinessColumns();
+
     const normalizedPlan = String(plan || 'FREE').trim().toUpperCase() as UserPlanType;
     if (normalizedPlan !== 'FREE' && normalizedPlan !== 'PAID' && normalizedPlan !== 'EXTRA-PAID') {
       throw new DatabaseError({
@@ -959,7 +967,14 @@ export async function updateUserPlan(id: string, plan: UserPlanType): Promise<Us
     const updatedUser = await queryOne<User>(
       `
         UPDATE ${TABLE_NAME}
-        SET plan = $2, updated_at = NOW()
+        SET
+          plan = $2,
+          paid_at = CASE
+            WHEN $2 = 'FREE' THEN NULL
+            WHEN COALESCE(plan::text, 'FREE') = 'FREE' OR paid_at IS NULL THEN NOW()
+            ELSE paid_at
+          END,
+          updated_at = NOW()
         WHERE id = $1::uuid
         RETURNING
           ${USER_SELECT_FIELDS}

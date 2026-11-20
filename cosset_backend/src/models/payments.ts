@@ -2,7 +2,13 @@ import { DatabaseError } from '@/db/errors';
 import { queryOne, queryMany, executeQuery } from '@/db/neon';
 
 import { ensureWalletTables } from './wallet';
-import { getAllUsers, getUserById, updateUserPlan, type UserPlanType } from './users';
+import {
+  getAllUsers,
+  getUserById,
+  updateUserPlan,
+  type UserPlanType,
+  ensureUserBusinessColumns,
+} from './users';
 import {
   getCustomerBillingAccount,
   upsertCustomerBillingAccount,
@@ -36,6 +42,7 @@ export interface CustomerPayment {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: Date | string | null;
   currentPeriodEnd?: Date | string | null;
   metadata?: Record<string, unknown> | null;
   createdAt?: Date | string | null;
@@ -48,7 +55,12 @@ export type CustomerBillingSummary = {
   providerCustomerId: string | null;
   externalSubscriptionId: string | null;
   priceId: string | null;
+  paidAmountCents: number | null;
+  paidCurrency: string | null;
+  currentPeriodStart: Date | string | null;
   currentPeriodEnd: Date | string | null;
+  paidAt: Date | string | null;
+  isPaidPeriodExpired: boolean;
   status: PaymentStatus | null;
   payment: CustomerPayment | null;
 };
@@ -65,6 +77,7 @@ export type CustomerPaymentInsert = {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: Date | string | null;
   currentPeriodEnd?: Date | string | null;
   metadata?: Record<string, unknown> | null;
 };
@@ -86,6 +99,7 @@ const SELECT_COLUMNS = `
   external_checkout_id as "externalCheckoutId",
   external_payment_id as "externalPaymentId",
   external_subscription_id as "externalSubscriptionId",
+  current_period_start as "currentPeriodStart",
   current_period_end as "currentPeriodEnd",
   metadata,
   created_at as "createdAt",
@@ -124,6 +138,9 @@ export const ensureCustomerPaymentsTable = async (): Promise<void> => {
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS price_id VARCHAR(255) NULL`,
       );
       await executeQuery(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMP NULL`,
+      );
+      await executeQuery(
         `ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMP NULL`,
       );
 
@@ -156,7 +173,7 @@ export const ensureCustomerPaymentsTable = async (): Promise<void> => {
   await ensureTablePromise;
 };
 
-const toPeriodEndValue = (value?: Date | string | null) => {
+const toPeriodDateValue = (value?: Date | string | null) => {
   if (!value) {
     return null;
   }
@@ -187,10 +204,11 @@ export async function createCustomerPayment(
           external_checkout_id,
           external_payment_id,
           external_subscription_id,
+          current_period_start,
           current_period_end,
           metadata
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
         RETURNING ${SELECT_COLUMNS}
       `,
       [
@@ -205,7 +223,8 @@ export async function createCustomerPayment(
         row.externalCheckoutId || null,
         row.externalPaymentId || null,
         row.externalSubscriptionId || null,
-        toPeriodEndValue(row.currentPeriodEnd),
+        toPeriodDateValue(row.currentPeriodStart),
+        toPeriodDateValue(row.currentPeriodEnd),
         row.metadata ? JSON.stringify(row.metadata) : null,
       ],
     );
@@ -281,9 +300,13 @@ export async function updateCustomerPayment(
       fields.push(`external_subscription_id = $${next()}`);
       values.push(updates.externalSubscriptionId);
     }
+    if (updates.currentPeriodStart !== undefined) {
+      fields.push(`current_period_start = $${next()}`);
+      values.push(toPeriodDateValue(updates.currentPeriodStart));
+    }
     if (updates.currentPeriodEnd !== undefined) {
       fields.push(`current_period_end = $${next()}`);
-      values.push(toPeriodEndValue(updates.currentPeriodEnd));
+      values.push(toPeriodDateValue(updates.currentPeriodEnd));
     }
     if (updates.metadata !== undefined) {
       fields.push(`metadata = $${next()}::jsonb`);
@@ -420,7 +443,6 @@ export async function getActiveCustomerPayment(
       WHERE customer_id = $1
         AND status IN ('active', 'completed')
         AND COALESCE(plan, 'FREE') <> 'FREE'
-        AND external_subscription_id IS NOT NULL
       ORDER BY
         CASE WHEN status = 'active' THEN 0 ELSE 1 END,
         created_at DESC,
@@ -477,6 +499,23 @@ function normalizeBillingPlan(value: unknown): UserPlanType {
   return 'FREE';
 }
 
+export function isPaidPeriodExpired(
+  plan: UserPlanType | string | null | undefined,
+  currentPeriodEnd?: Date | string | null,
+): boolean {
+  const normalized = normalizeBillingPlan(plan);
+  if (normalized === 'FREE' || !currentPeriodEnd) {
+    return false;
+  }
+
+  const end = currentPeriodEnd instanceof Date ? currentPeriodEnd : new Date(currentPeriodEnd);
+  if (Number.isNaN(end.getTime())) {
+    return false;
+  }
+
+  return end.getTime() < Date.now();
+}
+
 export type CustomerPaymentOverview = {
   id: string;
   email: string;
@@ -492,7 +531,11 @@ export type CustomerPaymentOverview = {
   billingStatus: PaymentStatus | null;
   billingPlan: UserPlanType | null;
   billingAmountCents: number | null;
+  totalPaidAmountCents: number;
+  currentPeriodStart: Date | string | null;
   currentPeriodEnd: Date | string | null;
+  paidAt?: Date | string | null;
+  isPaidPeriodExpired: boolean;
   createdAt?: Date | string | null;
 };
 
@@ -503,7 +546,11 @@ export async function listCustomerPaymentOverviews(
   limit: number = 100,
   offset: number = 0,
 ): Promise<CustomerPaymentOverview[]> {
-  await Promise.all([ensureCustomerPaymentsTable(), ensureWalletTables()]);
+  await Promise.all([
+    ensureUserBusinessColumns(),
+    ensureCustomerPaymentsTable(),
+    ensureWalletTables(),
+  ]);
 
   const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit) || 100));
   const safeOffset = Math.max(0, Math.trunc(offset) || 0);
@@ -524,7 +571,10 @@ export async function listCustomerPaymentOverviews(
       billingStatus?: PaymentStatus | null;
       billingPlan?: string | null;
       billingAmountCents?: number | null;
+      totalPaidAmountCents?: number | null;
+      currentPeriodStart?: Date | string | null;
       currentPeriodEnd?: Date | string | null;
+      paidAt?: Date | string | null;
       createdAt?: Date | string | null;
     }>(
       `
@@ -543,7 +593,10 @@ export async function listCustomerPaymentOverviews(
           p.status as "billingStatus",
           p.plan as "billingPlan",
           p.amount_cents as "billingAmountCents",
+          COALESCE(totals.total_paid_amount_cents, 0) as "totalPaidAmountCents",
+          p.current_period_start as "currentPeriodStart",
           p.current_period_end as "currentPeriodEnd",
+          COALESCE(u.paid_at, p.created_at) as "paidAt",
           u.created_at as "createdAt"
         FROM cosset_users u
         LEFT JOIN user_wallets w
@@ -554,43 +607,60 @@ export async function listCustomerPaymentOverviews(
             status,
             plan,
             amount_cents,
-            current_period_end
+            current_period_start,
+            current_period_end,
+            created_at
           FROM ${TABLE_NAME}
           WHERE customer_id = u.id::text
             AND status IN ('active', 'completed')
             AND COALESCE(plan, 'FREE') <> 'FREE'
-            AND external_subscription_id IS NOT NULL
           ORDER BY
             CASE WHEN status = 'active' THEN 0 ELSE 1 END,
             created_at DESC,
             id DESC
           LIMIT 1
         ) p ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(amount_cents), 0) as total_paid_amount_cents
+          FROM ${TABLE_NAME}
+          WHERE customer_id = u.id::text
+            AND status IN ('active', 'completed')
+            AND COALESCE(plan, 'FREE') <> 'FREE'
+            AND COALESCE(amount_cents, 0) > 0
+        ) totals ON TRUE
         ORDER BY u.created_at DESC
         LIMIT $1 OFFSET $2
       `,
       [safeLimit, safeOffset],
     );
 
-    return rows.map((row) => ({
-      id: String(row.id),
-      email: row.email,
-      firstName: row.firstName || null,
-      lastName: row.lastName || null,
-      photoURL: row.photoURL || null,
-      role: row.role || null,
-      state: row.state || null,
-      plan: normalizeBillingPlan(row.plan),
-      walletBalanceCents: Number(row.walletBalanceCents || 0),
-      walletCurrency: row.walletCurrency || 'usd',
-      billingProvider: row.billingProvider || null,
-      billingStatus: row.billingStatus || null,
-      billingPlan: row.billingPlan ? normalizeBillingPlan(row.billingPlan) : null,
-      billingAmountCents:
-        row.billingAmountCents == null ? null : Number(row.billingAmountCents),
-      currentPeriodEnd: row.currentPeriodEnd || null,
-      createdAt: row.createdAt || null,
-    }));
+    return rows.map((row) => {
+      const plan = normalizeBillingPlan(row.plan);
+      const currentPeriodEnd = row.currentPeriodEnd || null;
+      return {
+        id: String(row.id),
+        email: row.email,
+        firstName: row.firstName || null,
+        lastName: row.lastName || null,
+        photoURL: row.photoURL || null,
+        role: row.role || null,
+        state: row.state || null,
+        plan,
+        walletBalanceCents: Number(row.walletBalanceCents || 0),
+        walletCurrency: row.walletCurrency || 'usd',
+        billingProvider: row.billingProvider || null,
+        billingStatus: row.billingStatus || null,
+        billingPlan: row.billingPlan ? normalizeBillingPlan(row.billingPlan) : null,
+        billingAmountCents:
+          row.billingAmountCents == null ? null : Number(row.billingAmountCents),
+        totalPaidAmountCents: Number(row.totalPaidAmountCents || 0),
+        currentPeriodStart: row.currentPeriodStart || null,
+        currentPeriodEnd,
+        paidAt: row.paidAt || null,
+        isPaidPeriodExpired: isPaidPeriodExpired(plan, currentPeriodEnd),
+        createdAt: row.createdAt || null,
+      };
+    });
   } catch (joinError) {
     console.warn(
       '[listCustomerPaymentOverviews] join query failed, falling back:',
@@ -617,7 +687,11 @@ export async function listCustomerPaymentOverviews(
       billingStatus: null,
       billingPlan: null,
       billingAmountCents: null,
+      totalPaidAmountCents: 0,
+      currentPeriodStart: null,
       currentPeriodEnd: null,
+      paidAt: user.paidAt || null,
+      isPaidPeriodExpired: false,
       createdAt: user.createdAt || null,
     }));
   }
@@ -626,15 +700,14 @@ export async function listCustomerPaymentOverviews(
 export async function getCustomerBillingSummary(
   customerId: string,
 ): Promise<CustomerBillingSummary> {
-  const payment = await getActiveCustomerPayment(customerId);
+  const [payment, user] = await Promise.all([
+    getActiveCustomerPayment(customerId),
+    getUserById(customerId),
+  ]);
 
-  let normalizedPlan: UserPlanType;
-  if (payment) {
-    normalizedPlan = normalizeBillingPlan(payment.plan);
-  } else {
-    const user = await getUserById(customerId);
-    normalizedPlan = normalizeBillingPlan(user?.plan);
-  }
+  const normalizedPlan = payment
+    ? normalizeBillingPlan(payment.plan)
+    : normalizeBillingPlan(user?.plan);
 
   const provider = payment?.provider || null;
   const billingAccount = provider ? await getCustomerBillingAccount(customerId, provider) : null;
@@ -647,13 +720,20 @@ export async function getCustomerBillingSummary(
       : null) ||
     (provider ? await getLatestProviderCustomerId(customerId, provider) : null);
 
+  const currentPeriodEnd = payment?.currentPeriodEnd || null;
+
   return {
     plan: normalizedPlan,
     provider,
     providerCustomerId,
     externalSubscriptionId: payment?.externalSubscriptionId || null,
     priceId: payment?.priceId || null,
-    currentPeriodEnd: payment?.currentPeriodEnd || null,
+    paidAmountCents: payment ? Number(payment.amountCents || 0) : null,
+    paidCurrency: payment?.currency || null,
+    currentPeriodStart: payment?.currentPeriodStart || null,
+    currentPeriodEnd,
+    paidAt: user?.paidAt || payment?.createdAt || null,
+    isPaidPeriodExpired: isPaidPeriodExpired(normalizedPlan, currentPeriodEnd),
     status: payment?.status || null,
     payment,
   };
@@ -694,6 +774,7 @@ export async function upsertCustomerPaymentByCheckout(params: {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: Date | string | null;
   currentPeriodEnd?: Date | string | null;
   metadata?: Record<string, unknown> | null;
 }): Promise<CustomerPayment> {
@@ -721,6 +802,7 @@ export async function upsertCustomerPaymentByCheckout(params: {
       externalCheckoutId: params.externalCheckoutId ?? existing.externalCheckoutId,
       externalPaymentId: params.externalPaymentId,
       externalSubscriptionId: params.externalSubscriptionId,
+      currentPeriodStart: params.currentPeriodStart,
       currentPeriodEnd: params.currentPeriodEnd,
       metadata: params.metadata,
     });
@@ -743,6 +825,7 @@ export async function syncCustomerBilling(params: {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: Date | string | null;
   currentPeriodEnd?: Date | string | null;
   metadata?: Record<string, unknown> | null;
 }): Promise<CustomerPayment> {

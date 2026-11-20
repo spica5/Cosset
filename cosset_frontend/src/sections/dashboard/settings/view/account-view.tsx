@@ -124,6 +124,14 @@ function formatBillingDate(value: unknown) {
   return date.toLocaleDateString();
 }
 
+function formatPaidPeriod(start?: unknown, end?: unknown) {
+  if (!start && !end) {
+    return '—';
+  }
+
+  return `${formatBillingDate(start)} → ${formatBillingDate(end)}`;
+}
+
 function formatMoney(amountCents: number, currency = 'usd') {
   try {
     return new Intl.NumberFormat(undefined, {
@@ -133,6 +141,31 @@ function formatMoney(amountCents: number, currency = 'usd') {
   } catch {
     return `$${((amountCents || 0) / 100).toFixed(2)}`;
   }
+}
+
+function isPaidPeriodExpired(
+  plan: string | null | undefined,
+  periodEnd?: unknown,
+  flag?: boolean | null
+) {
+  if (typeof flag === 'boolean') {
+    return flag;
+  }
+
+  const normalized = String(plan || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '-');
+  if (!normalized || normalized === 'FREE' || !periodEnd) {
+    return false;
+  }
+
+  const end = new Date(String(periodEnd));
+  if (Number.isNaN(end.getTime())) {
+    return false;
+  }
+
+  return end.getTime() < Date.now();
 }
 
 export function AccountView() {
@@ -152,7 +185,26 @@ export function AccountView() {
   const accountType = PLAN_LABELS[plan];
   const billingEmail = user?.email || '';
   const billingCycle = plan === 'FREE' ? '—' : 'Monthly';
+  const paidDate = formatBillingDate(billingSummary?.paidAt || billingSummary?.payment?.createdAt);
+  const paidAmountLabel =
+    billingSummary?.paidAmountCents != null
+      ? formatMoney(billingSummary.paidAmountCents, billingSummary.paidCurrency || 'usd')
+      : billingSummary?.payment?.amountCents != null
+        ? formatMoney(
+            billingSummary.payment.amountCents,
+            billingSummary.payment.currency || 'usd'
+          )
+        : '—';
+  const paidPeriodLabel = formatPaidPeriod(
+    billingSummary?.currentPeriodStart || billingSummary?.payment?.currentPeriodStart,
+    billingSummary?.currentPeriodEnd || billingSummary?.payment?.currentPeriodEnd
+  );
   const nextBillingDate = formatBillingDate(billingSummary?.currentPeriodEnd);
+  const paidPeriodExpired = isPaidPeriodExpired(
+    plan,
+    billingSummary?.currentPeriodEnd,
+    billingSummary?.isPaidPeriodExpired
+  );
   const hasBusinessAccount = isUserBusiness(user?.role);
   const requestedAt = getBusinessRequestAt(user);
   const hasPendingBusinessRequest = Boolean(requestedAt) && !hasBusinessAccount;
@@ -680,6 +732,25 @@ export function AccountView() {
                   </Typography>
                 </Box>
 
+                {paidPeriodExpired ? (
+                  <Alert
+                    severity="warning"
+                    action={
+                      <LoadingButton
+                        color="inherit"
+                        size="small"
+                        variant="outlined"
+                        loading={checkoutLoading === plan}
+                        onClick={() => handleCheckout(plan === 'EXTRA-PAID' ? 'EXTRA-PAID' : 'PAID')}
+                      >
+                        Pay now
+                      </LoadingButton>
+                    }
+                  >
+                    Your paid period has expired. Please renew payment to keep your plan active.
+                  </Alert>
+                ) : null}
+
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
                     <Box>
@@ -710,6 +781,30 @@ export function AccountView() {
                   <Grid item xs={12} sm={6}>
                     <Box>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Paid Date
+                      </Typography>
+                      <Typography variant="body1">{paidDate}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Paid Amount
+                      </Typography>
+                      <Typography variant="body1">{paidAmountLabel}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Paid Period
+                      </Typography>
+                      <Typography variant="body1">{paidPeriodLabel}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         Next Billing Date
                       </Typography>
                       <Typography variant="body1">{nextBillingDate}</Typography>
@@ -720,7 +815,12 @@ export function AccountView() {
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         Status
                       </Typography>
-                      <Chip label="Active" color="success" size="small" variant="filled" />
+                      <Chip
+                        label={paidPeriodExpired ? 'Expired' : 'Active'}
+                        color={paidPeriodExpired ? 'warning' : 'success'}
+                        size="small"
+                        variant="filled"
+                      />
                     </Box>
                   </Grid>
                 </Grid>
@@ -790,7 +890,8 @@ export function AccountView() {
                         <TableCell>Date</TableCell>
                         <TableCell>Provider</TableCell>
                         <TableCell>Plan</TableCell>
-                        <TableCell>Amount</TableCell>
+                        <TableCell>Paid amount</TableCell>
+                        <TableCell>Paid period</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Reference</TableCell>
                       </TableRow>
@@ -805,6 +906,12 @@ export function AccountView() {
                           <TableCell>{payment.plan}</TableCell>
                           <TableCell>
                             {formatMoney(payment.amountCents, payment.currency)}
+                          </TableCell>
+                          <TableCell>
+                            {formatPaidPeriod(
+                              payment.currentPeriodStart,
+                              payment.currentPeriodEnd
+                            )}
                           </TableCell>
                           <TableCell>
                             <Chip

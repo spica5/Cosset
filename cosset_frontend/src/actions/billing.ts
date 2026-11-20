@@ -21,6 +21,7 @@ export type CustomerPayment = {
   externalCheckoutId?: string | null;
   externalPaymentId?: string | null;
   externalSubscriptionId?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -32,7 +33,12 @@ export type CustomerBillingSummary = {
   providerCustomerId: string | null;
   externalSubscriptionId: string | null;
   priceId: string | null;
+  paidAmountCents?: number | null;
+  paidCurrency?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd: string | null;
+  paidAt?: string | null;
+  isPaidPeriodExpired?: boolean;
   status: string | null;
   payment?: CustomerPayment | null;
 };

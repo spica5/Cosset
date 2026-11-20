@@ -16,8 +16,10 @@ import Paper from '@mui/material/Paper';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import TableRow from '@mui/material/TableRow';
+import IconButton from '@mui/material/IconButton';
 import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import TableBody from '@mui/material/TableBody';
@@ -55,9 +57,31 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { CustomerPaymentHistoryDialog } from '../customer-payment-history-dialog';
+
 // ----------------------------------------------------------------------
 
 const TOPUP_PRESETS = [500, 1000, 2500, 5000];
+
+// Temporarily hidden — restore Paid/All tabs when needed.
+// type PaymentTab = 'paid' | 'all';
+// const PAYMENT_TABS: Array<{ value: PaymentTab; label: string }> = [
+//   { value: 'paid', label: 'Paid' },
+//   { value: 'all', label: 'All' },
+// ];
+
+type PeriodPreset = '1d' | '1w' | '1m' | '3m' | 'all' | 'custom';
+
+const PERIOD_PRESETS: Array<{ value: PeriodPreset; label: string }> = [
+  { value: 'all', label: 'All time' },
+  { value: '1d', label: '1 day' },
+  { value: '1w', label: '1 week' },
+  { value: '1m', label: '1 month' },
+  { value: '3m', label: '3 months' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const DEFAULT_PERIOD_PRESET: PeriodPreset = 'all';
 
 type PlanKey = AccountPlanType;
 
@@ -122,6 +146,23 @@ function formatBillingDate(value: unknown) {
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString();
+}
+
+function formatPaidPeriod(start?: unknown, end?: unknown) {
+  if (!start && !end) return '—';
+  return `${formatBillingDate(start)} → ${formatBillingDate(end)}`;
+}
+
+function isPaidPeriodExpired(
+  plan: PlanKey | string | null | undefined,
+  periodEnd?: unknown,
+  flag?: boolean | null
+) {
+  if (typeof flag === 'boolean') return flag;
+  if (normalizePlan(plan) === 'FREE' || !periodEnd) return false;
+  const end = new Date(String(periodEnd));
+  if (Number.isNaN(end.getTime())) return false;
+  return end.getTime() < Date.now();
 }
 
 function formatMoney(amountCents: number, currency = 'usd') {
@@ -206,6 +247,98 @@ function resolveOverviewPlan(customer: CustomerPaymentOverview): PlanKey {
   );
 }
 
+function isPaidOverviewPlan(customer: CustomerPaymentOverview) {
+  return resolveOverviewPlan(customer) !== 'FREE';
+}
+
+function hasWalletBalance(customer: CustomerPaymentOverview) {
+  return Number(customer.walletBalanceCents || 0) > 0;
+}
+
+function isPaymentListCustomer(customer: CustomerPaymentOverview) {
+  return isPaidOverviewPlan(customer) || hasWalletBalance(customer);
+}
+
+function startOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function endOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+function toDateInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function parseDateInputValue(value: string, endOfDay = false): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const date = new Date(`${trimmed}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return endOfDay ? endOfLocalDay(date) : startOfLocalDay(date);
+}
+
+function getPeriodRange(
+  preset: PeriodPreset,
+  customFrom: string,
+  customTo: string,
+  now = new Date()
+): { from: Date | null; to: Date | null } {
+  if (preset === 'all') {
+    return { from: null, to: null };
+  }
+
+  if (preset === 'custom') {
+    return {
+      from: parseDateInputValue(customFrom, false),
+      to: parseDateInputValue(customTo, true),
+    };
+  }
+
+  const to = endOfLocalDay(now);
+  const from = startOfLocalDay(now);
+
+  if (preset === '1d') {
+    return { from, to };
+  }
+
+  if (preset === '1w') {
+    from.setDate(from.getDate() - 6);
+    return { from, to };
+  }
+
+  if (preset === '1m') {
+    from.setMonth(from.getMonth() - 1);
+    return { from, to };
+  }
+
+  // 3m
+  from.setMonth(from.getMonth() - 3);
+  return { from, to };
+}
+
+function isCustomerInPeriod(
+  customer: CustomerPaymentOverview,
+  from: Date | null,
+  to: Date | null
+) {
+  if (!from && !to) return true;
+
+  if (!customer.paidAt) return false;
+  const paidAt = new Date(customer.paidAt);
+  if (Number.isNaN(paidAt.getTime())) return false;
+
+  if (from && paidAt < from) return false;
+  if (to && paidAt > to) return false;
+  return true;
+}
+
 // ----------------------------------------------------------------------
 
 export function PaymentView() {
@@ -223,7 +356,16 @@ export function PaymentView() {
 
   const initialCustomerId = searchParams.get('customerId') || '';
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialCustomerId);
+  const [historyCustomer, setHistoryCustomer] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>(DEFAULT_PERIOD_PRESET);
+  const [customFrom, setCustomFrom] = useState(() =>
+    toDateInputValue(startOfLocalDay(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)))
+  );
+  const [customTo, setCustomTo] = useState(() => toDateInputValue(new Date()));
   const [amountCents, setAmountCents] = useState(1000);
   const [customAmount, setCustomAmount] = useState('10');
   const [walletDirection, setWalletDirection] = useState<'credit' | 'debit'>('credit');
@@ -247,11 +389,27 @@ export function PaymentView() {
     [customers, selectedCustomerId]
   );
 
+  const periodRange = useMemo(
+    () => getPeriodRange(periodPreset, customFrom, customTo),
+    [customFrom, customTo, periodPreset]
+  );
+
+  const visibleCustomers = useMemo(
+    () =>
+      customers.filter(
+        (customer) =>
+          isPaymentListCustomer(customer) &&
+          isCustomerInPeriod(customer, periodRange.from, periodRange.to)
+      ),
+    [customers, periodRange.from, periodRange.to]
+  );
+
   const filteredCustomers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return customers;
 
-    return customers.filter((customer) => {
+    return visibleCustomers.filter((customer) => {
+      if (!query) return true;
+
       const name = getCustomerLabel(customer).toLowerCase();
       const email = String(customer.email || '').toLowerCase();
       const plan = resolveOverviewPlan(customer).toLowerCase();
@@ -266,7 +424,17 @@ export function PaymentView() {
         status.includes(query)
       );
     });
-  }, [customers, searchQuery]);
+  }, [searchQuery, visibleCustomers]);
+
+  const handlePeriodPresetChange = useCallback((value: PeriodPreset) => {
+    setPeriodPreset(value);
+
+    if (value === 'custom') {
+      const range = getPeriodRange('1w', '', '');
+      if (range.from) setCustomFrom(toDateInputValue(range.from));
+      if (range.to) setCustomTo(toDateInputValue(range.to));
+    }
+  }, []);
 
   const {
     wallet,
@@ -288,7 +456,32 @@ export function PaymentView() {
   const accountType = PLAN_LABELS[plan];
   const billingEmail = customerProfile?.email || '';
   const billingCycle = plan === 'FREE' ? '—' : 'Monthly';
+  const paidDate = formatBillingDate(
+    billing?.paidAt ||
+      (selectedCustomer as CustomerPaymentOverview | null)?.paidAt ||
+      billing?.payment?.createdAt
+  );
+  const paidAmountLabel =
+    billing?.paidAmountCents != null
+      ? formatMoney(billing.paidAmountCents, billing.paidCurrency || 'usd')
+      : billing?.payment?.amountCents != null
+        ? formatMoney(billing.payment.amountCents, billing.payment.currency || 'usd')
+        : selectedCustomer?.billingAmountCents != null
+          ? formatMoney(
+              selectedCustomer.billingAmountCents,
+              selectedCustomer.walletCurrency || 'usd'
+            )
+          : '—';
+  const paidPeriodLabel = formatPaidPeriod(
+    billing?.currentPeriodStart || billing?.payment?.currentPeriodStart || selectedCustomer?.currentPeriodStart,
+    billing?.currentPeriodEnd || billing?.payment?.currentPeriodEnd || selectedCustomer?.currentPeriodEnd
+  );
   const nextBillingDate = formatBillingDate(billing?.currentPeriodEnd);
+  const paidPeriodExpired = isPaidPeriodExpired(
+    plan,
+    billing?.currentPeriodEnd || selectedCustomer?.currentPeriodEnd,
+    billing?.isPaidPeriodExpired ?? selectedCustomer?.isPaidPeriodExpired
+  );
   const billingProvider = billing?.provider || null;
   const isFreeAccount = plan === 'FREE';
   const hasBusinessAccount = String(customerProfile?.role || '').toLowerCase() === 'business';
@@ -428,22 +621,67 @@ export function PaymentView() {
       <Stack spacing={4}>
         {!selectedCustomerId ? (
           <Stack spacing={3}>
-            <TextField
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by name, email, plan, provider, or status..."
-              fullWidth
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Iconify icon="eva:search-fill" width={20} sx={{ color: 'text.disabled' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ maxWidth: { sm: 420 } }}
-            />
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              alignItems={{ md: 'center' }}
+              flexWrap="wrap"
+              useFlexGap
+            >
+              <TextField
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search by name, email, plan, provider, or status..."
+                fullWidth
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="eva:search-fill" width={20} sx={{ color: 'text.disabled' }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{ maxWidth: { sm: 420 }, flex: 1 }}
+              />
+
+              <TextField
+                select
+                label="Period"
+                value={periodPreset}
+                onChange={(event) =>
+                  handlePeriodPresetChange(event.target.value as PeriodPreset)
+                }
+                sx={{ minWidth: 160 }}
+              >
+                {PERIOD_PRESETS.map((preset) => (
+                  <MenuItem key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {periodPreset === 'custom' ? (
+                <>
+                  <TextField
+                    label="From"
+                    type="date"
+                    value={customFrom}
+                    onChange={(event) => setCustomFrom(event.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 160 }}
+                  />
+                  <TextField
+                    label="To"
+                    type="date"
+                    value={customTo}
+                    onChange={(event) => setCustomTo(event.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 160 }}
+                  />
+                </>
+              ) : null}
+            </Stack>
 
             {customersError ? (
               <Alert
@@ -470,12 +708,18 @@ export function PaymentView() {
                 sx={{ py: 8, px: 3, textAlign: 'center', borderStyle: 'dashed' }}
               >
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {customers.length ? 'No matching customers' : 'No customers found'}
+                  {visibleCustomers.length
+                    ? 'No matching customers'
+                    : customers.length
+                      ? 'No customers in this period'
+                      : 'No customers found'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {customers.length
+                  {visibleCustomers.length
                     ? 'Try a different search.'
-                    : 'Customers will appear here once accounts exist.'}
+                    : customers.length
+                      ? 'Try another period, or choose All time. Only paid customers or customers with a wallet balance are listed.'
+                      : 'Customers will appear here once accounts exist.'}
                 </Typography>
               </Paper>
             ) : (
@@ -488,8 +732,11 @@ export function PaymentView() {
                       <TableCell>Wallet</TableCell>
                       <TableCell>Plan</TableCell>
                       <TableCell>Payment</TableCell>
+                      <TableCell>Paid amount</TableCell>
+                      <TableCell>Total amount</TableCell>
+                      <TableCell>Paid period</TableCell>
+                      <TableCell>Paid date</TableCell>
                       <TableCell>Next billing</TableCell>
-                      <TableCell>Joined</TableCell>
                       <TableCell align="right">Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -499,6 +746,11 @@ export function PaymentView() {
                       const customerName = getCustomerLabel(customer);
                       const overviewPlan = resolveOverviewPlan(customer);
                       const hasBilling = Boolean(customer.billingProvider);
+                      const expired = isPaidPeriodExpired(
+                        overviewPlan,
+                        customer.currentPeriodEnd,
+                        customer.isPaidPeriodExpired
+                      );
 
                       return (
                         <TableRow key={customerId} hover>
@@ -577,17 +829,64 @@ export function PaymentView() {
                                 No subscription
                               </Typography>
                             )}
+                            {expired ? (
+                              <Chip
+                                size="small"
+                                color="error"
+                                label="Period expired — pay to renew"
+                                sx={{ mt: 0.75 }}
+                              />
+                            ) : null}
                           </TableCell>
+                          <TableCell>
+                            {customer.billingAmountCents != null
+                              ? formatMoney(
+                                  customer.billingAmountCents,
+                                  customer.walletCurrency || 'usd'
+                                )
+                              : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {formatMoney(
+                                customer.totalPaidAmountCents || 0,
+                                customer.walletCurrency || 'usd'
+                              )}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {formatPaidPeriod(
+                              customer.currentPeriodStart,
+                              customer.currentPeriodEnd
+                            )}
+                          </TableCell>
+                          <TableCell>{formatBillingDate(customer.paidAt)}</TableCell>
                           <TableCell>{formatBillingDate(customer.currentPeriodEnd)}</TableCell>
-                          <TableCell>{formatBillingDate(customer.createdAt)}</TableCell>
                           <TableCell align="right">
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleSelectCustomer(customerId)}
-                            >
-                              Manage
-                            </Button>
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <Tooltip title="Paid history chart">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() =>
+                                    setHistoryCustomer({
+                                      id: customerId,
+                                      name: customerName,
+                                    })
+                                  }
+                                  aria-label="Paid history chart"
+                                >
+                                  <Iconify icon="solar:chart-square-outline" width={18} />
+                                </IconButton>
+                              </Tooltip>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => handleSelectCustomer(customerId)}
+                              >
+                                Manage
+                              </Button>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
@@ -964,6 +1263,12 @@ export function PaymentView() {
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                       Billing Information
                     </Typography>
+                    {paidPeriodExpired ? (
+                      <Alert severity="warning">
+                        Paid period expired. Ask the customer to renew payment, or set a new paid
+                        plan/period from this page.
+                      </Alert>
+                    ) : null}
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -987,6 +1292,24 @@ export function PaymentView() {
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          Paid Date
+                        </Typography>
+                        <Typography variant="body1">{paidDate}</Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          Paid Amount
+                        </Typography>
+                        <Typography variant="body1">{paidAmountLabel}</Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          Paid Period
+                        </Typography>
+                        <Typography variant="body1">{paidPeriodLabel}</Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                           Next Billing Date
                         </Typography>
                         <Typography variant="body1">{nextBillingDate}</Typography>
@@ -996,8 +1319,12 @@ export function PaymentView() {
                           Status
                         </Typography>
                         <Chip
-                          label={billing?.status || 'Active'}
-                          color="success"
+                          label={
+                            paidPeriodExpired
+                              ? 'Expired'
+                              : billing?.status || 'Active'
+                          }
+                          color={paidPeriodExpired ? 'warning' : 'success'}
                           size="small"
                           variant="filled"
                         />
@@ -1046,7 +1373,8 @@ export function PaymentView() {
                             <TableCell>Date</TableCell>
                             <TableCell>Provider</TableCell>
                             <TableCell>Plan</TableCell>
-                            <TableCell>Amount</TableCell>
+                            <TableCell>Paid amount</TableCell>
+                            <TableCell>Paid period</TableCell>
                             <TableCell>Status</TableCell>
                             <TableCell>Reference</TableCell>
                           </TableRow>
@@ -1061,6 +1389,12 @@ export function PaymentView() {
                               <TableCell>{payment.plan}</TableCell>
                               <TableCell>
                                 {formatMoney(payment.amountCents, payment.currency)}
+                              </TableCell>
+                              <TableCell>
+                                {formatPaidPeriod(
+                                  payment.currentPeriodStart,
+                                  payment.currentPeriodEnd
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Chip
@@ -1096,6 +1430,13 @@ export function PaymentView() {
           </>
         )}
       </Stack>
+
+      <CustomerPaymentHistoryDialog
+        open={Boolean(historyCustomer)}
+        customerId={historyCustomer?.id || ''}
+        customerName={historyCustomer?.name || 'Customer'}
+        onClose={() => setHistoryCustomer(null)}
+      />
     </DashboardContent>
   );
 }
