@@ -2,8 +2,8 @@
 
 import type { IPostItem } from 'src/types/post';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,19 +22,18 @@ import { useRouter } from 'src/routes/hooks';
 import { uuidv4 } from 'src/utils/uuidv4';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
-import { useAuthContext } from 'src/auth/hooks';
-import { createPost, updatePost, useGetPost } from 'src/actions/post';
-
-import {
-  EmoticonPickerButton,
-  InputEmoticonSuggestion,
-} from 'src/components/dashboard/emoticon-picker';
 import { DashboardContent } from 'src/layouts/dashboard/dashboard';
-import { BLOG_CATEGORY_OPTIONS } from 'src/sections/dashboard/blog/blog-categories';
+import { createPost, updatePost, useGetPost } from 'src/actions/post';
 
 import { toast } from 'src/components/dashboard/snackbar';
 import { EmptyContent } from 'src/components/dashboard/empty-content';
 import { CustomBreadcrumbs } from 'src/components/dashboard/custom-breadcrumbs';
+import {
+  EmoticonPickerButton,
+  InputEmoticonSuggestion,
+} from 'src/components/dashboard/emoticon-picker';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { PostAuthorInfo } from '../post-author-info';
 import { PostAttachmentsGallery } from '../post-attachments-gallery';

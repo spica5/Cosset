@@ -347,7 +347,7 @@ function PostAttachmentVideo({ src, stopPropagation = false, sx }: PostAttachmen
         return;
       }
 
-      void toggleVideoFullscreen(video);
+      toggleVideoFullscreen(video).catch(() => undefined);
     },
     [stopPropagation],
   );
