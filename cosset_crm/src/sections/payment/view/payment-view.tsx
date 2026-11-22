@@ -426,6 +426,15 @@ export function PaymentView() {
     });
   }, [searchQuery, visibleCustomers]);
 
+  const filteredTotalPaidAmountCents = useMemo(
+    () =>
+      filteredCustomers.reduce(
+        (sum, customer) => sum + Number(customer.totalPaidAmountCents || 0),
+        0
+      ),
+    [filteredCustomers]
+  );
+
   const handlePeriodPresetChange = useCallback((value: PeriodPreset) => {
     setPeriodPreset(value);
 
@@ -681,6 +690,23 @@ export function PaymentView() {
                   />
                 </>
               ) : null}
+
+              <Paper
+                variant="outlined"
+                sx={{
+                  px: 2,
+                  py: 1.25,
+                  minWidth: { sm: 200 },
+                  ml: { md: 'auto' },
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Total amount ({filteredCustomers.length} customers)
+                </Typography>
+                <Typography variant="h6">
+                  {formatMoney(filteredTotalPaidAmountCents, 'usd')}
+                </Typography>
+              </Paper>
             </Stack>
 
             {customersError ? (

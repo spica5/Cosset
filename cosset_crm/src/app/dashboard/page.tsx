@@ -1,11 +1,11 @@
 import { CONFIG } from 'src/global-config';
 
-import { OverviewPageVisitsView } from 'src/sections/overview/view/overview-page-visits-view';
+import { OverviewDashboardView } from 'src/sections/overview/view/overview-dashboard-view';
 
 // ----------------------------------------------------------------------
 
 export const metadata = { title: `Dashboard - ${CONFIG.appName}` };
 
 export default function Page() {
-  return <OverviewPageVisitsView />;
+  return <OverviewDashboardView />;
 }

@@ -80,7 +80,12 @@ function buildLastNDates(days: number): string[] {
 
 // ----------------------------------------------------------------------
 
-export function OverviewPageVisitsView() {
+type Props = {
+  /** When true, render charts only (parent provides page chrome / tabs). */
+  embedded?: boolean;
+};
+
+export function OverviewPageVisitsView({ embedded = false }: Props) {
   const theme = useTheme();
   const { user } = useAuthContext();
   const canView = isUserAdmin(user?.role);
@@ -159,38 +164,7 @@ export function OverviewPageVisitsView() {
     tooltip: { theme: theme.palette.mode },
   };
 
-  return (
-    <DashboardContent maxWidth="xl">
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        justifyContent="space-between"
-        spacing={2}
-        sx={{ mb: { xs: 3, md: 5 } }}
-      >
-        <Stack spacing={1}>
-          <Typography variant="h4">Dashboard</Typography>
-          <Breadcrumbs>
-            <Link component={RouterLink} href={paths.dashboard.root} color="inherit" underline="hover">
-              Dashboard
-            </Link>
-            <Typography color="text.primary">Page visits</Typography>
-          </Breadcrumbs>
-        </Stack>
-
-        {canView ? (
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<Iconify icon="solar:restart-bold" />}
-            onClick={() => refreshStats()}
-          >
-            Refresh
-          </Button>
-        ) : null}
-      </Stack>
-
-      {!canView ? (
+  const body = !canView ? (
         <Typography variant="body2" color="text.secondary">
           Admin access is required to view page visit analytics.
         </Typography>
@@ -450,7 +424,44 @@ export function OverviewPageVisitsView() {
               ))}
           </Grid>
         </Stack>
-      )}
+      );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <DashboardContent maxWidth="xl">
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: { xs: 3, md: 5 } }}
+      >
+        <Stack spacing={1}>
+          <Typography variant="h4">Dashboard</Typography>
+          <Breadcrumbs>
+            <Link component={RouterLink} href={paths.dashboard.root} color="inherit" underline="hover">
+              Dashboard
+            </Link>
+            <Typography color="text.primary">Page visits</Typography>
+          </Breadcrumbs>
+        </Stack>
+
+        {canView ? (
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<Iconify icon="solar:restart-bold" />}
+            onClick={() => refreshStats()}
+          >
+            Refresh
+          </Button>
+        ) : null}
+      </Stack>
+
+      {body}
     </DashboardContent>
   );
 }
